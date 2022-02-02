@@ -1,3 +1,4 @@
-// the configured options and settings for Tutorial
+#pragma once
+
 constexpr int VRT_VERSION_MAJOR { @raytracing_VERSION_MAJOR@ };
 constexpr int VRT_VERSION_MINOR { @raytracomg_VERSION_MINOR@ };

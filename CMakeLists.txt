@@ -6,17 +6,13 @@ project ("raytracing" VERSION 1.0)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_executable (raytracing
-    "src/vulkan_ray_tracing.cpp"
-    "include/vulkan_ray_tracing.h"
-    "include/project_config.h"
-)
+add_subdirectory(src)
 
-target_include_directories(raytracing PUBLIC "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(raytracing PUBLIC "${PROJECT_SOURCE_DIR}/src")
 
 configure_file(
-    "${PROJECT_SOURCE_DIR}/include/project_config.h.in"
-    "${PROJECT_SOURCE_DIR}/include/project_config.h"
+    "${PROJECT_SOURCE_DIR}/src/project_config.h.in"
+    "${PROJECT_SOURCE_DIR}/src/project_config.h"
 )
 
 # Set rayracing as startup project.
