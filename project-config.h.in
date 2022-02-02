@@ -1,0 +1,3 @@
+// the configured options and settings for Tutorial
+constexpr int VRT_VERSION_MAJOR { @VRT_VERSION_MAJOR@ };
+constexpr int VRT_VERSION_MINOR { @VRT_VERSION_MINOR@ };
