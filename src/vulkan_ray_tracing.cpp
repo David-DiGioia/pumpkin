@@ -1,7 +1,10 @@
 ﻿#include "vulkan_ray_tracing.h"
 #include "project_config.h"
 
-#define GLFW_INCLUDE_VULKAN
+#define VOLK_IMPLEMENTATION
+#include "volk.h"
+
+//#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
@@ -12,6 +15,11 @@
 #include <iostream>
 
 int main() {
+    VkResult result{ volkInitialize() };
+    if (result != VK_SUCCESS) {
+        std::cout << "Ruh roh!\n";
+    }
+
     std::cout << "Vulkan Ray Tracing Version " << VRT_VERSION_MAJOR << "." << VRT_VERSION_MINOR << '\n';
 
     glfwInit();
