@@ -1,6 +1,9 @@
 ﻿cmake_minimum_required (VERSION 3.8)
 
-project ("raytracing" VERSION 1.0)
+project ("VRT" VERSION 1.0)
+
+# So we can use raytacing symbol even though it wasn't defined in this file.
+cmake_policy(SET CMP0079 NEW)
 
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 11)
@@ -17,3 +20,5 @@ configure_file(
 
 # Set rayracing as startup project.
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT raytracing)
+
+add_subdirectory(lib)
