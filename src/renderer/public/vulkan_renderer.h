@@ -1,9 +1,13 @@
 #pragma once
 
+#include "GLFW/glfw3.h"
+
 class VulkanRenderer
 {
 public:
-	void TestFunction();
+	VulkanRenderer();
+
+	~VulkanRenderer();
 
 private:
 };
