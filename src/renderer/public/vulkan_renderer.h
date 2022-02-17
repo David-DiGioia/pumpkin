@@ -1,13 +1,17 @@
 #pragma once
 
+#include "volk.h"
 #include "GLFW/glfw3.h"
+#include "init.h"
 
-class VulkanRenderer
+namespace renderer
 {
-public:
-	VulkanRenderer();
+	class VulkanRenderer
+	{
+	public:
+		void Initialize();
 
-	~VulkanRenderer();
-
-private:
-};
+	private:
+		Context context_{};
+	};
+}

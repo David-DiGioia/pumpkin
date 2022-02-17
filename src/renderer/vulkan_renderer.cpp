@@ -10,18 +10,18 @@
 
 #include "vulkan_util.h"
 #include "logger.h"
+#include "init.h"
 
-VulkanRenderer::VulkanRenderer()
+namespace renderer
 {
-    Check(volkInitialize());
+    void VulkanRenderer::Initialize()
+    {
+        Check(volkInitialize());
 
-    uint32_t extensionCount{ 0 };
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-    logger::Print("%d extensions supported\n", extensionCount);
+        context_.Initialize();
 
-}
-
-VulkanRenderer::~VulkanRenderer()
-{
-
+        uint32_t extensionCount{ 0 };
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+        logger::Print("%d extensions supported\n", extensionCount);
+    }
 }
