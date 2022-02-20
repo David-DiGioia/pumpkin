@@ -11,6 +11,8 @@ namespace renderer
 	public:
 		void Initialize();
 
+		void CleanUp();
+
 	private:
 		Context context_{};
 	};

@@ -3,11 +3,15 @@
 #include <cstdio>
 #include <string>
 
+#include "project_config.h"
+
 namespace logger
 {
 	template<typename... Args>
 	void Print(const std::string& f, Args... args) {
-		printf(f.c_str(), args...);
+		if (config::optimization_level != config::OptimizationLevel::AGGRESSIVE) {
+			printf(f.c_str(), args...);
+		}
 	}
 
 	template<typename... Args>

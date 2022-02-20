@@ -15,7 +15,7 @@ public:
 
 	void PushBack(const std::string& s);
 
-	void PushBack(const char** arr, int length);
+	void PushBack(const char* const* arr, uint32_t length);
 
 	std::vector<std::string>::const_iterator begin() const;
 

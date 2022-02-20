@@ -8,12 +8,24 @@
 
 namespace renderer
 {
-	const std::vector<std::string> required_extensions{};
+	const std::vector<const char*> required_extensions{};
+
+	const std::vector<const char*> required_layers = {
+		"VK_LAYER_KHRONOS_validation"
+	};
 
 	class Context
 	{
 	public:
 		void Initialize();
+
+		void InitializeInstance();
+
+		void InitializePhysicalDevice();
+
+		void InitializeDevice();
+
+		void CleanUp();
 
 	private:
 		VkInstance instance_{};

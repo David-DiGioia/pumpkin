@@ -1,0 +1,7 @@
+#pragma once
+
+namespace config
+{
+	constexpr int PUMPKIN_VERSION_MAJOR { @Pumpkin_VERSION_MAJOR@ };
+	constexpr int PUMPKIN_VERSION_MINOR { @Pumpkin_VERSION_MINOR@ };
+}

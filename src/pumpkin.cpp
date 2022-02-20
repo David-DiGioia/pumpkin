@@ -1,6 +1,6 @@
 #include "pumpkin.h"
 
-#include "project_config.h"
+#include "cmake_config.h"
 #include "logger.h"
 
 void Pumpkin::Initialize()
@@ -17,7 +17,7 @@ void Pumpkin::Initialize()
 
 void Pumpkin::Start()
 {
-	logger::Print("Pumpkin Engine Version %d.%d\n", PUMPKIN_VERSION_MAJOR, PUMPKIN_VERSION_MINOR);
+	logger::Print("Pumpkin Engine Version %d.%d\n", config::PUMPKIN_VERSION_MAJOR, config::PUMPKIN_VERSION_MINOR);
 
     Initialize();
     MainLoop();
@@ -33,6 +33,7 @@ void Pumpkin::MainLoop()
 
 void Pumpkin::CleanUp()
 {
+    renderer_.CleanUp();
     glfwDestroyWindow(window_);
     glfwTerminate();
 }

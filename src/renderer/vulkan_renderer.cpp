@@ -21,4 +21,9 @@ namespace renderer
 
         context_.Initialize();
     }
+
+    void VulkanRenderer::CleanUp()
+    {
+        context_.CleanUp();
+    }
 }

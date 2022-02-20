@@ -17,9 +17,9 @@ void StringArray::PushBack(const std::string& s)
 	strings_.push_back(s);
 }
 
-void StringArray::PushBack(const char** arr, int length)
+void StringArray::PushBack(const char* const* arr, uint32_t length)
 {
-	for (int i{ 0 }; i < length; ++i) {
+	for (uint32_t i{ 0 }; i < length; ++i) {
 		strings_.push_back(arr[i]);
 	}
 }
