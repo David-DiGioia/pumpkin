@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include "volk.h"
 
-void Check(VkResult result);
+void CheckResult(VkResult result, const std::string& msg);

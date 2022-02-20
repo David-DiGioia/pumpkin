@@ -16,7 +16,8 @@ namespace renderer
 {
     void VulkanRenderer::Initialize()
     {
-        Check(volkInitialize());
+        VkResult result{ volkInitialize() };
+        CheckResult(result, "Failed to initialize volk.");
 
         context_.Initialize();
 

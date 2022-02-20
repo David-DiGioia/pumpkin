@@ -2,9 +2,9 @@
 
 #include "logger.h"
 
-void Check(VkResult result)
+void CheckResult(VkResult result, const std::string& msg)
 {
 	if (result != VK_SUCCESS) {
-		logger::Error("Vulkan function returned the VkResult: %d", result);
+		logger::Error("Vulkan function returned the VkResult: %d\nMessage: %s\n", result, msg.c_str());
 	}
 }
