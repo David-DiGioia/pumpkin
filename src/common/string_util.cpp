@@ -23,3 +23,13 @@ void StringArray::PushBack(const char** arr, int length)
 		strings_.push_back(arr[i]);
 	}
 }
+
+std::vector<std::string>::const_iterator StringArray::begin() const
+{
+	return strings_.cbegin();
+}
+
+std::vector<std::string>::const_iterator StringArray::end() const
+{
+	return strings_.cend();
+}

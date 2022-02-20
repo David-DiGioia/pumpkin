@@ -20,9 +20,5 @@ namespace renderer
         CheckResult(result, "Failed to initialize volk.");
 
         context_.Initialize();
-
-        uint32_t extensionCount{ 0 };
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-        logger::Print("%d extensions supported\n", extensionCount);
     }
 }

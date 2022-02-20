@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 
+// Acts as a wrapper around a const char**, allowing you to return a StringArray from a function
+// without dangling pointers / ownership problems.
 class StringArray
 {
 public:
@@ -14,6 +16,10 @@ public:
 	void PushBack(const std::string& s);
 
 	void PushBack(const char** arr, int length);
+
+	std::vector<std::string>::const_iterator begin() const;
+
+	std::vector<std::string>::const_iterator end() const;
 
 private:
 	std::vector<std::string> strings_{};

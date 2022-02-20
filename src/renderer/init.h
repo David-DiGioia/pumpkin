@@ -10,8 +10,6 @@ namespace renderer
 {
 	const std::vector<std::string> required_extensions{};
 
-	StringArray GetRequiredExtensions();
-
 	class Context
 	{
 	public:
