@@ -5,7 +5,8 @@ namespace config
 	enum class OptimizationLevel
 	{
 		NONE,
-		AGGRESSIVE, // Disable log output and validation layers.
+		STRONG,     // Disable validation layers.
+		AGGRESSIVE, // Suppress log output.
 	};
 
 	// Set optimization level here.
@@ -13,5 +14,5 @@ namespace config
 
 	// Set effects of optimization level here.
 	constexpr bool suppress_logger{ optimization_level >= OptimizationLevel::AGGRESSIVE };
-	constexpr bool disable_validation{ optimization_level >= OptimizationLevel::AGGRESSIVE };
+	constexpr bool disable_validation{ optimization_level >= OptimizationLevel::STRONG };
 }

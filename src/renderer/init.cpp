@@ -10,6 +10,19 @@
 
 namespace renderer
 {
+	// Debug callback ------------------------------------------------------------------------------------------
+
+	VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+		VkDebugUtilsMessageTypeFlagsEXT messageType,
+		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+		void* pUserData) {
+
+		logger::TaggedError("DebugCallback", "%s\n", pCallbackData->pMessage);
+
+		return VK_FALSE;
+	}
+
 	// Helper functions ----------------------------------------------------------------------------------------
 
 	void CheckExtensionsSupported(const pmkutil::StringArray& requested_extensions)
@@ -57,11 +70,19 @@ namespace renderer
 			logger::Print("\t[None]\n");
 		}
 		for (const char* s : required_extensions) {
+
+			// If validation is disabled we don't enable debug utils extension.
+			if (config::disable_validation) {
+				if (std::string{ s } == VK_EXT_DEBUG_UTILS_EXTENSION_NAME) {
+					logger::Print("\t[Ignored] %s\n", s);
+					continue;
+				}
+			}
+
 			logger::Print("\t%s\n", s);
+			string_array.PushBack(s);
 		}
 		logger::Print("\n");
-
-		string_array.PushBack(required_extensions.data(), (uint32_t)required_extensions.size());
 
 		return string_array;
 	}
@@ -87,11 +108,16 @@ namespace renderer
 		}
 	}
 
-	// Main functions ----------------------------------------------------------------------------------------
+	// Main functions ------------------------------------------------------------------------------------------
 
 	void Context::Initialize()
 	{
 		InitializeInstance();
+
+		if (!config::disable_validation) {
+			InitializeDebugMessenger();
+		}
+
 		InitializePhysicalDevice();
 		InitializeDevice();
 	}
@@ -134,6 +160,19 @@ namespace renderer
 		volkLoadInstance(instance_);
 	}
 
+	void Context::InitializeDebugMessenger()
+	{
+		VkDebugUtilsMessengerCreateInfoEXT messenger_info{};
+		messenger_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		messenger_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		messenger_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		messenger_info.pfnUserCallback = DebugCallback;
+		messenger_info.pUserData = nullptr;
+
+		VkResult result{ vkCreateDebugUtilsMessengerEXT(instance_, &messenger_info, nullptr, &debug_messenger_) };
+		CheckResult(result, "Failed to create debug messenger.");
+	}
+
 	void Context::InitializePhysicalDevice()
 	{
 
@@ -146,6 +185,10 @@ namespace renderer
 
 	void Context::CleanUp()
 	{
+		if (!config::disable_validation) {
+			vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
+		}
+
 		vkDestroyInstance(instance_, nullptr);
 	}
 }

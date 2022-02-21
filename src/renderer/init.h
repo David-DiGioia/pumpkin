@@ -8,11 +8,13 @@
 
 namespace renderer
 {
-	const std::vector<const char*> required_extensions{};
+	const std::vector<const char*> required_extensions{
+		// Debug util extension can be ignored in GetRequiredExtensions depending on optimization level.
+		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+	};
 
 	const std::vector<const char*> required_layers = {
 		"VK_LAYER_KHRONOS_validation",
-		"VK_LAYER_KHRONOS_tetris",
 		//"VK_LAYER_KHRONOS_synchronization2",
 	};
 
@@ -23,6 +25,8 @@ namespace renderer
 
 		void InitializeInstance();
 
+		void InitializeDebugMessenger();
+
 		void InitializePhysicalDevice();
 
 		void InitializeDevice();
@@ -31,5 +35,6 @@ namespace renderer
 
 	private:
 		VkInstance instance_{};
+		VkDebugUtilsMessengerEXT debug_messenger_{};
 	};
 }
