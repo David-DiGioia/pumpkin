@@ -15,3 +15,10 @@ target_link_libraries(Pumpkin
     Renderer
     Common
 )
+
+# Disable unscoped enum warning.
+if (MSVC)
+    set_target_properties(Pumpkin PROPERTIES COMPILE_FLAGS "/wd26812")
+    set_target_properties(Renderer PROPERTIES COMPILE_FLAGS "/wd26812")
+    set_target_properties(Common PROPERTIES COMPILE_FLAGS "/wd26812")
+endif()

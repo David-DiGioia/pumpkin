@@ -1,35 +1,48 @@
 #include "string_util.h"
 
-const char** StringArray::GetStringArray(uint32_t* count_out)
+namespace pmkutil
 {
-	c_strings_.clear();
-	
-	for (const std::string& s : strings_) {
-		c_strings_.push_back(s.c_str());
+	std::string StringReplace(std::string str, const std::string& from, const std::string& to)
+	{
+		size_t start_pos{ 0 };
+		while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
+			str.replace(start_pos, from.length(), to);
+			start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
+		}
+		return str;
 	}
 
-	*count_out = c_strings_.size();
-	return c_strings_.data();
-}
+	const char** StringArray::GetStringArray(uint32_t* count_out)
+	{
+		c_strings_.clear();
 
-void StringArray::PushBack(const std::string& s)
-{
-	strings_.push_back(s);
-}
+		for (const std::string& s : strings_) {
+			c_strings_.push_back(s.c_str());
+		}
 
-void StringArray::PushBack(const char* const* arr, uint32_t length)
-{
-	for (uint32_t i{ 0 }; i < length; ++i) {
-		strings_.push_back(arr[i]);
+		*count_out = (uint32_t)c_strings_.size();
+		return c_strings_.data();
 	}
-}
 
-std::vector<std::string>::const_iterator StringArray::begin() const
-{
-	return strings_.cbegin();
-}
+	void StringArray::PushBack(const std::string& s)
+	{
+		strings_.push_back(s);
+	}
 
-std::vector<std::string>::const_iterator StringArray::end() const
-{
-	return strings_.cend();
+	void StringArray::PushBack(const char* const* arr, uint32_t length)
+	{
+		for (uint32_t i{ 0 }; i < length; ++i) {
+			strings_.push_back(arr[i]);
+		}
+	}
+
+	std::vector<std::string>::const_iterator StringArray::begin() const
+	{
+		return strings_.cbegin();
+	}
+
+	std::vector<std::string>::const_iterator StringArray::end() const
+	{
+		return strings_.cend();
+	}
 }

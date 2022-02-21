@@ -10,8 +10,9 @@
 
 namespace renderer
 {
-	
-	void CheckExtensionsSupported(const StringArray& requested_extensions)
+	// Helper functions ----------------------------------------------------------------------------------------
+
+	void CheckExtensionsSupported(const pmkutil::StringArray& requested_extensions)
 	{
 		// Get supported extension properties.
 		uint32_t extension_properties_count{ 0 };
@@ -34,9 +35,9 @@ namespace renderer
 		}
 	}
 
-	StringArray GetRequiredExtensions()
+	pmkutil::StringArray GetRequiredExtensions()
 	{
-		StringArray string_array{};
+		pmkutil::StringArray string_array{};
 
 		// GLFW extensions.
 		uint32_t glfw_extension_count{};
@@ -85,6 +86,8 @@ namespace renderer
 		}
 	}
 
+	// Main functions ----------------------------------------------------------------------------------------
+
 	void Context::Initialize()
 	{
 		InitializeInstance();
@@ -103,7 +106,7 @@ namespace renderer
 		app_info.apiVersion = VK_API_VERSION_1_3;
 
 		uint32_t extension_count{};
-		StringArray extensions_string_array{ GetRequiredExtensions() };
+		pmkutil::StringArray extensions_string_array{ GetRequiredExtensions() };
 		const char** extensions{ extensions_string_array.GetStringArray(&extension_count) };;
 		CheckExtensionsSupported(extensions_string_array);
 

@@ -18,6 +18,6 @@ private:
 	GLFWwindow* window_{};
 	renderer::VulkanRenderer renderer_{};
 
-	uint32_t width_;
-	uint32_t height_;
+	uint32_t width_{};
+	uint32_t height_{};
 };
