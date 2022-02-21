@@ -11,7 +11,9 @@ namespace renderer
 	const std::vector<const char*> required_extensions{};
 
 	const std::vector<const char*> required_layers = {
-		"VK_LAYER_KHRONOS_validation"
+		"VK_LAYER_KHRONOS_validation",
+		"VK_LAYER_KHRONOS_tetris",
+		//"VK_LAYER_KHRONOS_synchronization2",
 	};
 
 	class Context

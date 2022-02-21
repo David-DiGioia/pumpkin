@@ -58,6 +58,7 @@ namespace renderer
 		for (const char* s : required_extensions) {
 			logger::Print("\t%s\n", s);
 		}
+		logger::Print("\n");
 
 		string_array.PushBack(required_extensions.data(), (uint32_t)required_extensions.size());
 
@@ -66,7 +67,22 @@ namespace renderer
 
 	void CheckValidationLayersSupported(const std::vector<const char*>& requested_layers)
 	{
+		uint32_t layer_count{};
+		vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+		std::vector<VkLayerProperties> available_layers(layer_count);
+		vkEnumerateInstanceLayerProperties(&layer_count, available_layers.data());
 
+		std::unordered_set<std::string> layers_set{};
+
+		for (const VkLayerProperties& prop : available_layers) {
+			layers_set.insert(prop.layerName);
+		}
+
+		for (const char* layer : required_layers) {
+			if (layers_set.find(layer) == layers_set.end()) {
+				logger::Error("Unable to find required layer %s\n", layer);
+			}
+		}
 	}
 
 	void Context::Initialize()
@@ -91,10 +107,10 @@ namespace renderer
 		const char** extensions{ extensions_string_array.GetStringArray(&extension_count) };;
 		CheckExtensionsSupported(extensions_string_array);
 
-		uint32_t layer_count{};
+		uint32_t layer_count{ 0 };
 		const char* const* layers{ nullptr };
 
-		if (config::optimization_level != config::OptimizationLevel::AGGRESSIVE) {
+		if (!config::disable_validation) {
 			CheckValidationLayersSupported(required_layers);
 			layer_count = (uint32_t)required_layers.size();
 			layers = required_layers.data();
@@ -103,13 +119,15 @@ namespace renderer
 		VkInstanceCreateInfo instance_info{};
 		instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		instance_info.pApplicationInfo = &app_info;
-		instance_info.enabledLayerCount = 0;
-		instance_info.ppEnabledLayerNames = nullptr;
+		instance_info.enabledLayerCount = layer_count;
+		instance_info.ppEnabledLayerNames = layers;
 		instance_info.enabledExtensionCount = extension_count;
 		instance_info.ppEnabledExtensionNames = extensions;
 
 		VkResult result{ vkCreateInstance(&instance_info, nullptr, &instance_) };
 		CheckResult(result, "Failed to create instance.");
+
+		volkLoadInstance(instance_);
 	}
 
 	void Context::InitializePhysicalDevice()

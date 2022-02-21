@@ -9,7 +9,7 @@ namespace logger
 {
 	template<typename... Args>
 	void Print(const std::string& f, Args... args) {
-		if (config::optimization_level != config::OptimizationLevel::AGGRESSIVE) {
+		if (!config::suppress_logger) {
 			printf(f.c_str(), args...);
 		}
 	}
