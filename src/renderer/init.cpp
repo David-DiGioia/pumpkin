@@ -82,6 +82,7 @@ namespace renderer
 		for (const char* layer : required_layers) {
 			if (layers_set.find(layer) == layers_set.end()) {
 				logger::Error("Unable to find required layer %s\n", layer);
+				logger::TaggedError("Validation", "Test validation message\nAnother line\n");
 			}
 		}
 	}

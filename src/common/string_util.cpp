@@ -12,6 +12,23 @@ namespace pmkutil
 		return str;
 	}
 
+	void LeftTrim(std::string& s) {
+		s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+			return !std::isspace(ch);
+			}));
+	}
+
+	void RightTrim(std::string& s) {
+		s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+			return !std::isspace(ch);
+			}).base(), s.end());
+	}
+
+	void Trim(std::string& s) {
+		LeftTrim(s);
+		RightTrim(s);
+	}
+
 	const char** StringArray::GetStringArray(uint32_t* count_out)
 	{
 		c_strings_.clear();

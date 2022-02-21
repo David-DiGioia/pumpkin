@@ -7,6 +7,15 @@ namespace pmkutil
 {
 	std::string StringReplace(std::string str, const std::string& from, const std::string& to);
 
+	// Trim from left in place.
+	void LeftTrim(std::string& s);
+
+	// Trim from right in place.
+	void RightTrim(std::string& s);
+
+	// Trim string (not in place).
+	void Trim(std::string& s);
+
 	// Acts as a wrapper around a const char**, allowing you to return a StringArray from a function
 	// without dangling pointers / ownership problems.
 	class StringArray
