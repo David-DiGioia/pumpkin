@@ -13,12 +13,14 @@ namespace renderer
 	// Debug callback ------------------------------------------------------------------------------------------
 
 	VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-		VkDebugUtilsMessageTypeFlagsEXT messageType,
-		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-		void* pUserData) {
+		VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+		VkDebugUtilsMessageTypeFlagsEXT message_type,
+		const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,
+		void* p_user_data) {
 
-		logger::TaggedError("DebugCallback", logger::TextColor::YELLOW, "%s\n", pCallbackData->pMessage);
+		if (message_severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+			logger::TaggedError("DebugCallback", logger::TextColor::YELLOW, "%s\n", p_callback_data->pMessage);
+		}
 
 		return VK_FALSE;
 	}
@@ -107,12 +109,58 @@ namespace renderer
 		}
 	}
 
+	VkDeviceSize GetPhysicalDeviceRam(VkPhysicalDevice physical_device)
+	{
+		VkDeviceSize max_vram{ 0 };
+
+		VkPhysicalDeviceMemoryProperties2 mem_prop{};
+		mem_prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+		vkGetPhysicalDeviceMemoryProperties2(physical_device, &mem_prop);
+
+		for (int i{ 0 }; i < mem_prop.memoryProperties.memoryHeapCount; ++i) {
+
+			const auto& heap{ mem_prop.memoryProperties.memoryHeaps[i] };
+
+			// Looking only at device local memory, find heap with maximum vram.
+			if ((heap.size > max_vram) &&
+				(heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)) {
+
+				max_vram = heap.size;
+			}
+		}
+
+		return max_vram;
+	}
+
+	VkPhysicalDevice ChoosePhysicalDevice(const std::vector<VkPhysicalDevice>& physical_devices)
+	{
+		VkPhysicalDevice max_physical_device{ 0 };
+		VkDeviceSize max_vram{ 0 };
+		std::string gpu_name{};
+
+		for (auto physical_device : physical_devices)
+		{
+			VkPhysicalDeviceProperties2 prop{};
+			prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+			vkGetPhysicalDeviceProperties2(physical_device, &prop);
+
+			VkDeviceSize current_vram{ GetPhysicalDeviceRam(physical_device) };
+
+			if (current_vram > max_vram) {
+				max_physical_device = physical_device;
+				max_vram = current_vram;
+				gpu_name = prop.properties.deviceName;
+			}
+		}
+
+		logger::Print("Selecting %s with largest device-local heap of %.2f GB.\n", gpu_name.c_str(), max_vram / 1'000'000'000.0f);
+		return max_physical_device;
+	}
+
 	// Main functions ------------------------------------------------------------------------------------------
 
 	void Context::Initialize()
 	{
-		logger::Error("Test error\n");
-
 		InitializeInstance();
 
 		if (!config::disable_validation) {
@@ -176,7 +224,12 @@ namespace renderer
 
 	void Context::InitializePhysicalDevice()
 	{
+		uint32_t physical_device_count{};
+		vkEnumeratePhysicalDevices(instance_, &physical_device_count, nullptr);
+		std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
+		vkEnumeratePhysicalDevices(instance_, &physical_device_count, physical_devices.data());
 
+		physical_device_ = ChoosePhysicalDevice(physical_devices);
 	}
 
 	void Context::InitializeDevice()
@@ -187,7 +240,7 @@ namespace renderer
 	void Context::CleanUp()
 	{
 		if (!config::disable_validation) {
-			//vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
+			vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
 		}
 
 		vkDestroyInstance(instance_, nullptr);

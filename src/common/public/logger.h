@@ -38,7 +38,7 @@ namespace logger
 
 	template<typename... Args>
 	void TaggedError(std::string tag, TextColor color, const std::string& f, Args... args) {
-
+		// Print tag.
 		tag = "[" + tag + "]: ";
 		tag = GetColoredText(tag, color);
 		printf("%s", tag.c_str());
@@ -52,6 +52,7 @@ namespace logger
 		pmkutil::RightTrim(f_indented);
 		f_indented += "\n";
 
+		// Print message.
 		std::string formatted{ GetColoredText(f_indented, TextColor::RED) };
 		printf(formatted.c_str(), args...);
 	}

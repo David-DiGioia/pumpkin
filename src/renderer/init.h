@@ -36,5 +36,6 @@ namespace renderer
 	private:
 		VkInstance instance_{};
 		VkDebugUtilsMessengerEXT debug_messenger_{};
+		VkPhysicalDevice physical_device_{};
 	};
 }
