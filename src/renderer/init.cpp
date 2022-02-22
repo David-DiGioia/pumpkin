@@ -18,7 +18,7 @@ namespace renderer
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 		void* pUserData) {
 
-		logger::TaggedError("DebugCallback", "%s\n", pCallbackData->pMessage);
+		logger::TaggedError("DebugCallback", logger::TextColor::YELLOW, "%s\n", pCallbackData->pMessage);
 
 		return VK_FALSE;
 	}
@@ -103,7 +103,6 @@ namespace renderer
 		for (const char* layer : required_layers) {
 			if (layers_set.find(layer) == layers_set.end()) {
 				logger::Error("Unable to find required layer %s\n", layer);
-				logger::TaggedError("Validation", "Test validation message\nAnother line\n");
 			}
 		}
 	}
@@ -112,6 +111,8 @@ namespace renderer
 
 	void Context::Initialize()
 	{
+		logger::Error("Test error\n");
+
 		InitializeInstance();
 
 		if (!config::disable_validation) {
@@ -186,7 +187,7 @@ namespace renderer
 	void Context::CleanUp()
 	{
 		if (!config::disable_validation) {
-			vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
+			//vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
 		}
 
 		vkDestroyInstance(instance_, nullptr);
