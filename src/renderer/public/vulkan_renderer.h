@@ -2,7 +2,7 @@
 
 #include "volk.h"
 #include "GLFW/glfw3.h"
-#include "init.h"
+#include "context.h"
 
 namespace renderer
 {

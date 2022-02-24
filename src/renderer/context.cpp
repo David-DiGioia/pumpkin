@@ -1,4 +1,4 @@
-#include "init.h"
+#include "context.h"
 
 #include <unordered_set>
 #include "GLFW/glfw3.h"
@@ -27,7 +27,7 @@ namespace renderer
 
 	// Helper functions ----------------------------------------------------------------------------------------
 
-	void CheckExtensionsSupported(const pmkutil::StringArray& requested_extensions)
+	void CheckInstanceExtensionsSupported(const pmkutil::StringArray& requested_extensions)
 	{
 		// Get supported extension properties.
 		uint32_t extension_properties_count{ 0 };
@@ -45,12 +45,12 @@ namespace renderer
 		// Check that each requested extension is supported.
 		for (const std::string& requested : requested_extensions) {
 			if (extension_property_set.find(requested) == extension_property_set.end()) {
-				logger::Error("Extension %s is not supported on this machine.\n", requested.c_str());
+				logger::Error("Instance extension %s is not supported on this machine.\n", requested.c_str());
 			}
 		}
 	}
 
-	pmkutil::StringArray GetRequiredExtensions()
+	pmkutil::StringArray GetRequiredInstanceExtensions()
 	{
 		pmkutil::StringArray string_array{};
 
@@ -68,10 +68,10 @@ namespace renderer
 		// Extensions requested by renderer.
 		logger::Print("Enabling the following application-requested extensions:\n");
 
-		if (required_extensions.empty()) {
+		if (required_instance_extensions.empty()) {
 			logger::Print("\t[None]\n");
 		}
-		for (const char* s : required_extensions) {
+		for (const char* s : required_instance_extensions) {
 
 			// If validation is disabled we don't enable debug utils extension.
 			if (config::disable_validation) {
@@ -117,7 +117,7 @@ namespace renderer
 		mem_prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
 		vkGetPhysicalDeviceMemoryProperties2(physical_device, &mem_prop);
 
-		for (int i{ 0 }; i < mem_prop.memoryProperties.memoryHeapCount; ++i) {
+		for (uint32_t i{ 0 }; i < mem_prop.memoryProperties.memoryHeapCount; ++i) {
 
 			const auto& heap{ mem_prop.memoryProperties.memoryHeaps[i] };
 
@@ -153,8 +153,53 @@ namespace renderer
 			}
 		}
 
-		logger::Print("Selecting %s with largest device-local heap of %.2f GB.\n", gpu_name.c_str(), max_vram / 1'000'000'000.0f);
+		logger::Print("Selecting %s with largest device-local heap of %.2f GB.\n\n", gpu_name.c_str(), max_vram / 1'000'000'000.0f);
 		return max_physical_device;
+	}
+
+	uint32_t GetGraphicsQueueFamilyIndex(VkPhysicalDevice physical_device) {
+		uint32_t prop_count{};
+		vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &prop_count, nullptr);
+		std::vector<VkQueueFamilyProperties> properties(prop_count);
+		vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &prop_count, properties.data());
+
+		uint32_t graphics_family{};
+
+		for (uint32_t i{ 0 }; i < prop_count; ++i)
+		{
+			// All graphics queue families also support transfer operations
+			// whether or not that bit is specified.
+			if (properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+			{
+				graphics_family = i;
+				break;
+			}
+		}
+
+		return graphics_family;
+	}
+
+	void CheckDeviceExtensionsSupported(VkPhysicalDevice physical_device, const std::vector<const char*>& requested_extensions)
+	{
+		// Get supported extension properties.
+		uint32_t extension_properties_count{ 0 };
+		vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_properties_count, nullptr);
+		std::vector<VkExtensionProperties> extension_properties(extension_properties_count);
+		vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_properties_count, extension_properties.data());
+
+		// Convert to set.
+		std::unordered_set<std::string> extension_property_set;
+
+		for (const auto& prop : extension_properties) {
+			extension_property_set.insert(prop.extensionName);
+		}
+
+		// Check that each requested extension is supported.
+		for (const std::string& requested : requested_extensions) {
+			if (extension_property_set.find(requested) == extension_property_set.end()) {
+				logger::Error("Device extension %s is not supported on this machine.\n", requested.c_str());
+			}
+		}
 	}
 
 	// Main functions ------------------------------------------------------------------------------------------
@@ -182,9 +227,9 @@ namespace renderer
 		app_info.apiVersion = VK_API_VERSION_1_3;
 
 		uint32_t extension_count{};
-		pmkutil::StringArray extensions_string_array{ GetRequiredExtensions() };
+		pmkutil::StringArray extensions_string_array{ GetRequiredInstanceExtensions() };
 		const char** extensions{ extensions_string_array.GetStringArray(&extension_count) };;
-		CheckExtensionsSupported(extensions_string_array);
+		CheckInstanceExtensionsSupported(extensions_string_array);
 
 		uint32_t layer_count{ 0 };
 		const char* const* layers{ nullptr };
@@ -234,15 +279,46 @@ namespace renderer
 
 	void Context::InitializeDevice()
 	{
+		float priority{ 1.0f };
 
+		VkDeviceQueueCreateInfo graphics_queue_info{};
+		graphics_queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		graphics_queue_info.queueFamilyIndex = GetGraphicsQueueFamilyIndex(physical_device_);
+		graphics_queue_info.queueCount = 1;
+		graphics_queue_info.pQueuePriorities = &priority;
+
+		logger::Print("Enabling the following device extensions:\n");
+		for (const char* extension : required_device_extensions) {
+			logger::Print("\t%s\n", extension);
+		}
+
+		CheckDeviceExtensionsSupported(physical_device_, required_device_extensions);
+
+		VkPhysicalDeviceFeatures features{};
+
+		VkDeviceCreateInfo device_info{};
+		device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		device_info.queueCreateInfoCount = 1;
+		device_info.pQueueCreateInfos = &graphics_queue_info;
+		device_info.enabledExtensionCount = (uint32_t)required_device_extensions.size();
+		device_info.ppEnabledExtensionNames = required_device_extensions.data();
+		device_info.pEnabledFeatures = &features;
+
+		VkResult result{ vkCreateDevice(physical_device_, &device_info, nullptr, &device_) };
+		CheckResult(result, "Failed to create device.");
+
+		volkLoadDevice(device_);
 	}
 
 	void Context::CleanUp()
 	{
+		vkDestroyDevice(device_, nullptr);
+
 		if (!config::disable_validation) {
 			vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
 		}
 
+		// Physical device is implicitly destroyed with the instance.
 		vkDestroyInstance(instance_, nullptr);
 	}
 }

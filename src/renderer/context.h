@@ -8,9 +8,18 @@
 
 namespace renderer
 {
-	const std::vector<const char*> required_extensions{
+	// GLFW instance extensions are added later.
+	const std::vector<const char*> required_instance_extensions{
 		// Debug util extension can be ignored in GetRequiredExtensions depending on optimization level.
 		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+	};
+
+	const std::vector<const char*> required_device_extensions{
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+		VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // Needed by acceleration structure extension.
 	};
 
 	const std::vector<const char*> required_layers = {
@@ -23,6 +32,9 @@ namespace renderer
 	public:
 		void Initialize();
 
+		void CleanUp();
+
+	private:
 		void InitializeInstance();
 
 		void InitializeDebugMessenger();
@@ -31,11 +43,9 @@ namespace renderer
 
 		void InitializeDevice();
 
-		void CleanUp();
-
-	private:
 		VkInstance instance_{};
 		VkDebugUtilsMessengerEXT debug_messenger_{};
 		VkPhysicalDevice physical_device_{};
+		VkDevice device_{};
 	};
 }

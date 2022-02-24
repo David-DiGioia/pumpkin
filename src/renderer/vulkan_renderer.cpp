@@ -10,7 +10,7 @@
 
 #include "vulkan_util.h"
 #include "logger.h"
-#include "init.h"
+#include "context.h"
 
 namespace renderer
 {
