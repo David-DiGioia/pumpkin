@@ -25,9 +25,181 @@ namespace renderer
 		return VK_FALSE;
 	}
 
+	// Main functions ------------------------------------------------------------------------------------------
+
+	void Context::Initialize(GLFWwindow* glfw_window)
+	{
+		window = glfw_window;
+
+		InitializeInstance();
+		InitializeDebugMessenger();
+		InitializeSurface();
+		ChoosePhysicalDevice();
+		InitializeDevice();
+	}
+
+	void Context::InitializeInstance()
+	{
+		VkApplicationInfo app_info{};
+		app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+		app_info.pApplicationName = "Pumpkin App";
+		app_info.applicationVersion = 1;
+		app_info.pEngineName = "Pumpkin Engine";
+		app_info.engineVersion = config::PUMPKIN_VERSION_MAJOR * 1000 + config::PUMPKIN_VERSION_MINOR;
+		app_info.apiVersion = VK_API_VERSION_1_3;
+
+		uint32_t extension_count{};
+		pmkutil::StringArray extensions_string_array{ GetRequiredInstanceExtensions() };
+		const char** extensions{ extensions_string_array.GetStringArray(&extension_count) };;
+		CheckInstanceExtensionsSupported(extensions_string_array);
+
+		uint32_t layer_count{ 0 };
+		const char* const* layers{ nullptr };
+
+		if (!config::disable_validation) {
+			CheckValidationLayersSupported(required_layers);
+			layer_count = (uint32_t)required_layers.size();
+			layers = required_layers.data();
+		}
+
+		VkInstanceCreateInfo instance_info{
+			.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+			.pApplicationInfo = &app_info,
+			.enabledLayerCount = layer_count,
+			.ppEnabledLayerNames = layers,
+			.enabledExtensionCount = extension_count,
+			.ppEnabledExtensionNames = extensions,
+		};
+
+		VkResult result{ vkCreateInstance(&instance_info, nullptr, &instance) };
+		CheckResult(result, "Failed to create instance.");
+
+		volkLoadInstance(instance);
+	}
+
+	void Context::InitializeDebugMessenger()
+	{
+		if (config::disable_validation) {
+			return;
+		}
+
+		VkDebugUtilsMessengerCreateInfoEXT messenger_info{
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+			.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+			.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+			.pfnUserCallback = DebugCallback,
+			.pUserData = nullptr,
+		};
+
+		VkResult result{ vkCreateDebugUtilsMessengerEXT(instance, &messenger_info, nullptr, &debug_messenger_) };
+		CheckResult(result, "Failed to create debug messenger.");
+	}
+
+	void Context::InitializeSurface()
+	{
+		VkResult result{ glfwCreateWindowSurface(instance, window, nullptr, &surface) };
+		CheckResult(result, "Failed to create surface.");
+	}
+
+	void Context::ChoosePhysicalDevice()
+	{
+		uint32_t physical_device_count{};
+		vkEnumeratePhysicalDevices(instance, &physical_device_count, nullptr);
+		std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
+		vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices.data());
+
+		VkPhysicalDevice max_physical_device{ 0 };
+		VkDeviceSize max_vram{ 0 };
+		std::string gpu_name{};
+
+		for (auto physical_device : physical_devices)
+		{
+			VkPhysicalDeviceProperties2 prop{};
+			prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+			vkGetPhysicalDeviceProperties2(physical_device, &prop);
+
+			VkDeviceSize current_vram{ GetPhysicalDeviceRam(physical_device) };
+
+			if (current_vram > max_vram) {
+				max_physical_device = physical_device;
+				max_vram = current_vram;
+				gpu_name = prop.properties.deviceName;
+			}
+		}
+
+		logger::Print("Selecting %s with largest device-local heap of %.2f GB.\n\n", gpu_name.c_str(), max_vram / 1'000'000'000.0f);
+
+		physical_device = max_physical_device;
+	}
+
+	void Context::InitializeDevice()
+	{
+		float priority{ 1.0f };
+
+		VkDeviceQueueCreateInfo graphics_queue_info{
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.queueFamilyIndex = GetGraphicsQueueFamilyIndex(),
+			.queueCount = 1,
+			.pQueuePriorities = &priority,
+		};
+
+		logger::Print("Enabling the following device extensions:\n");
+		for (const char* extension : required_device_extensions) {
+			logger::Print("\t%s\n", extension);
+		}
+		logger::Print("\n");
+
+		CheckDeviceExtensionsSupported(required_device_extensions);
+
+		VkPhysicalDeviceFeatures features{};
+
+		VkDeviceCreateInfo device_info{
+			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			.queueCreateInfoCount = 1,
+			.pQueueCreateInfos = &graphics_queue_info,
+			.enabledExtensionCount = (uint32_t)required_device_extensions.size(),
+			.ppEnabledExtensionNames = required_device_extensions.data(),
+			.pEnabledFeatures = &features,
+		};
+
+		VkResult result{ vkCreateDevice(physical_device, &device_info, nullptr, &device) };
+		CheckResult(result, "Failed to create device.");
+
+		volkLoadDevice(device);
+	}
+
+	void Context::CleanUp()
+	{
+		vkDestroyDevice(device, nullptr);
+
+		if (!config::disable_validation) {
+			vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger_, nullptr);
+		}
+
+		vkDestroySurfaceKHR(instance, surface, nullptr);
+
+		// Physical device is implicitly destroyed with the instance.
+		vkDestroyInstance(instance, nullptr);
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	// Helper functions ----------------------------------------------------------------------------------------
 
-	void CheckInstanceExtensionsSupported(const pmkutil::StringArray& requested_extensions)
+	void Context::CheckInstanceExtensionsSupported(const pmkutil::StringArray& requested_extensions)
 	{
 		// Get supported extension properties.
 		uint32_t extension_properties_count{ 0 };
@@ -50,7 +222,7 @@ namespace renderer
 		}
 	}
 
-	pmkutil::StringArray GetRequiredInstanceExtensions()
+	pmkutil::StringArray Context::GetRequiredInstanceExtensions()
 	{
 		pmkutil::StringArray string_array{};
 
@@ -89,7 +261,7 @@ namespace renderer
 		return string_array;
 	}
 
-	void CheckValidationLayersSupported(const std::vector<const char*>& requested_layers)
+	void Context::CheckValidationLayersSupported(const std::vector<const char*>& requested_layers)
 	{
 		uint32_t layer_count{};
 		vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
@@ -109,7 +281,7 @@ namespace renderer
 		}
 	}
 
-	VkDeviceSize GetPhysicalDeviceRam(VkPhysicalDevice physical_device)
+	VkDeviceSize Context::GetPhysicalDeviceRam(VkPhysicalDevice physical_device)
 	{
 		VkDeviceSize max_vram{ 0 };
 
@@ -132,44 +304,27 @@ namespace renderer
 		return max_vram;
 	}
 
-	VkPhysicalDevice ChoosePhysicalDevice(const std::vector<VkPhysicalDevice>& physical_devices)
+	uint32_t Context::GetGraphicsQueueFamilyIndex()
 	{
-		VkPhysicalDevice max_physical_device{ 0 };
-		VkDeviceSize max_vram{ 0 };
-		std::string gpu_name{};
-
-		for (auto physical_device : physical_devices)
-		{
-			VkPhysicalDeviceProperties2 prop{};
-			prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-			vkGetPhysicalDeviceProperties2(physical_device, &prop);
-
-			VkDeviceSize current_vram{ GetPhysicalDeviceRam(physical_device) };
-
-			if (current_vram > max_vram) {
-				max_physical_device = physical_device;
-				max_vram = current_vram;
-				gpu_name = prop.properties.deviceName;
-			}
-		}
-
-		logger::Print("Selecting %s with largest device-local heap of %.2f GB.\n\n", gpu_name.c_str(), max_vram / 1'000'000'000.0f);
-		return max_physical_device;
-	}
-
-	uint32_t GetGraphicsQueueFamilyIndex(VkPhysicalDevice physical_device) {
 		uint32_t prop_count{};
 		vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &prop_count, nullptr);
-		std::vector<VkQueueFamilyProperties> properties(prop_count);
-		vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &prop_count, properties.data());
+		std::vector<VkQueueFamilyProperties2> properties(prop_count);
+		for (auto& prop : properties) {
+			prop.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
+		}
+		vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &prop_count, properties.data());
 
 		uint32_t graphics_family{};
 
 		for (uint32_t i{ 0 }; i < prop_count; ++i)
 		{
+			bool graphics_support{ (bool)(properties[i].queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) };
+			VkBool32 present_support{ false };
+			vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_support);
+
 			// All graphics queue families also support transfer operations
 			// whether or not that bit is specified.
-			if (properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+			if (graphics_support && present_support)
 			{
 				graphics_family = i;
 				break;
@@ -179,7 +334,7 @@ namespace renderer
 		return graphics_family;
 	}
 
-	void CheckDeviceExtensionsSupported(VkPhysicalDevice physical_device, const std::vector<const char*>& requested_extensions)
+	void Context::CheckDeviceExtensionsSupported(const std::vector<const char*>& requested_extensions)
 	{
 		// Get supported extension properties.
 		uint32_t extension_properties_count{ 0 };
@@ -202,123 +357,4 @@ namespace renderer
 		}
 	}
 
-	// Main functions ------------------------------------------------------------------------------------------
-
-	void Context::Initialize()
-	{
-		InitializeInstance();
-
-		if (!config::disable_validation) {
-			InitializeDebugMessenger();
-		}
-
-		InitializePhysicalDevice();
-		InitializeDevice();
-	}
-
-	void Context::InitializeInstance()
-	{
-		VkApplicationInfo app_info{};
-		app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		app_info.pApplicationName = "Pumpkin App";
-		app_info.applicationVersion = 1;
-		app_info.pEngineName = "Pumpkin Engine";
-		app_info.engineVersion = config::PUMPKIN_VERSION_MAJOR * 1000 + config::PUMPKIN_VERSION_MINOR;
-		app_info.apiVersion = VK_API_VERSION_1_3;
-
-		uint32_t extension_count{};
-		pmkutil::StringArray extensions_string_array{ GetRequiredInstanceExtensions() };
-		const char** extensions{ extensions_string_array.GetStringArray(&extension_count) };;
-		CheckInstanceExtensionsSupported(extensions_string_array);
-
-		uint32_t layer_count{ 0 };
-		const char* const* layers{ nullptr };
-
-		if (!config::disable_validation) {
-			CheckValidationLayersSupported(required_layers);
-			layer_count = (uint32_t)required_layers.size();
-			layers = required_layers.data();
-		}
-
-		VkInstanceCreateInfo instance_info{};
-		instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-		instance_info.pApplicationInfo = &app_info;
-		instance_info.enabledLayerCount = layer_count;
-		instance_info.ppEnabledLayerNames = layers;
-		instance_info.enabledExtensionCount = extension_count;
-		instance_info.ppEnabledExtensionNames = extensions;
-
-		VkResult result{ vkCreateInstance(&instance_info, nullptr, &instance_) };
-		CheckResult(result, "Failed to create instance.");
-
-		volkLoadInstance(instance_);
-	}
-
-	void Context::InitializeDebugMessenger()
-	{
-		VkDebugUtilsMessengerCreateInfoEXT messenger_info{};
-		messenger_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-		messenger_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		messenger_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		messenger_info.pfnUserCallback = DebugCallback;
-		messenger_info.pUserData = nullptr;
-
-		VkResult result{ vkCreateDebugUtilsMessengerEXT(instance_, &messenger_info, nullptr, &debug_messenger_) };
-		CheckResult(result, "Failed to create debug messenger.");
-	}
-
-	void Context::InitializePhysicalDevice()
-	{
-		uint32_t physical_device_count{};
-		vkEnumeratePhysicalDevices(instance_, &physical_device_count, nullptr);
-		std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
-		vkEnumeratePhysicalDevices(instance_, &physical_device_count, physical_devices.data());
-
-		physical_device_ = ChoosePhysicalDevice(physical_devices);
-	}
-
-	void Context::InitializeDevice()
-	{
-		float priority{ 1.0f };
-
-		VkDeviceQueueCreateInfo graphics_queue_info{};
-		graphics_queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-		graphics_queue_info.queueFamilyIndex = GetGraphicsQueueFamilyIndex(physical_device_);
-		graphics_queue_info.queueCount = 1;
-		graphics_queue_info.pQueuePriorities = &priority;
-
-		logger::Print("Enabling the following device extensions:\n");
-		for (const char* extension : required_device_extensions) {
-			logger::Print("\t%s\n", extension);
-		}
-
-		CheckDeviceExtensionsSupported(physical_device_, required_device_extensions);
-
-		VkPhysicalDeviceFeatures features{};
-
-		VkDeviceCreateInfo device_info{};
-		device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		device_info.queueCreateInfoCount = 1;
-		device_info.pQueueCreateInfos = &graphics_queue_info;
-		device_info.enabledExtensionCount = (uint32_t)required_device_extensions.size();
-		device_info.ppEnabledExtensionNames = required_device_extensions.data();
-		device_info.pEnabledFeatures = &features;
-
-		VkResult result{ vkCreateDevice(physical_device_, &device_info, nullptr, &device_) };
-		CheckResult(result, "Failed to create device.");
-
-		volkLoadDevice(device_);
-	}
-
-	void Context::CleanUp()
-	{
-		vkDestroyDevice(device_, nullptr);
-
-		if (!config::disable_validation) {
-			vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
-		}
-
-		// Physical device is implicitly destroyed with the instance.
-		vkDestroyInstance(instance_, nullptr);
-	}
 }

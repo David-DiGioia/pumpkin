@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include "volk.h"
+#include "GLFW/glfw3.h"
 
 #include "string_util.h"
 
@@ -12,6 +13,7 @@ namespace renderer
 	const std::vector<const char*> required_instance_extensions{
 		// Debug util extension can be ignored in GetRequiredExtensions depending on optimization level.
 		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+		VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
 	};
 
 	const std::vector<const char*> required_device_extensions{
@@ -30,22 +32,40 @@ namespace renderer
 	class Context
 	{
 	public:
-		void Initialize();
+		void Initialize(GLFWwindow* glfw_window);
 
 		void CleanUp();
+
+		VkInstance instance{};
+		GLFWwindow* window{};
+		VkSurfaceKHR surface{};
+		VkPhysicalDevice physical_device{};
+		VkDevice device{};
 
 	private:
 		void InitializeInstance();
 
 		void InitializeDebugMessenger();
 
-		void InitializePhysicalDevice();
+		void InitializeSurface();
+
+		void ChoosePhysicalDevice();
 
 		void InitializeDevice();
 
-		VkInstance instance_{};
+		// Helper functions
+		void CheckInstanceExtensionsSupported(const pmkutil::StringArray& requested_extensions);
+
+		pmkutil::StringArray GetRequiredInstanceExtensions();
+
+		void CheckValidationLayersSupported(const std::vector<const char*>& requested_layers);
+
+		VkDeviceSize GetPhysicalDeviceRam(VkPhysicalDevice physical_device);
+
+		uint32_t GetGraphicsQueueFamilyIndex();
+
+		void CheckDeviceExtensionsSupported(const std::vector<const char*>& requested_extensions);
+
 		VkDebugUtilsMessengerEXT debug_messenger_{};
-		VkPhysicalDevice physical_device_{};
-		VkDevice device_{};
 	};
 }

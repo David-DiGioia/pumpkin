@@ -5,6 +5,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_util.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/context.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/context.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/swapchain.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/swapchain.cpp"
 )
 
 add_library(Renderer "${SOURCES}")

@@ -5,14 +5,11 @@
 
 void Pumpkin::Initialize()
 {
-    width_ = 800;
-    height_ = 600;
-
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     window_ = glfwCreateWindow(width_, height_, "Pumpkin Engine", nullptr, nullptr);
 
-    renderer_.Initialize();
+    renderer_.Initialize(window_);
 }
 
 void Pumpkin::Start()

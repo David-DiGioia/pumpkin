@@ -14,12 +14,13 @@
 
 namespace renderer
 {
-    void VulkanRenderer::Initialize()
+    void VulkanRenderer::Initialize(GLFWwindow* window)
     {
         VkResult result{ volkInitialize() };
         CheckResult(result, "Failed to initialize volk.");
 
-        context_.Initialize();
+        context_.Initialize(window);
+        swapchain_.Initialize(&context_);
     }
 
     void VulkanRenderer::CleanUp()
