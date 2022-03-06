@@ -25,6 +25,7 @@ namespace renderer
 
     void VulkanRenderer::CleanUp()
     {
+        swapchain_.CleanUp();
         context_.CleanUp();
     }
 }

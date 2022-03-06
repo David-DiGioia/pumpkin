@@ -14,6 +14,7 @@ namespace renderer
 	{
 		context_ = context;
 		InitializeSwapchain();
+		InitializeImageResources();
 	}
 
 	void Swapchain::InitializeSwapchain()
@@ -25,6 +26,8 @@ namespace renderer
 		VkSurfaceFormatKHR format{ ChooseSurfaceFormat() };
 		VkPresentModeKHR present_mode{ ChooseSwapchainPresentMode() };
 		VkExtent2D extent{ GetSwapchainExtent(capabilities) };
+
+		swapchain_image_format_ = format.format;
 
 		VkSwapchainCreateInfoKHR swapchain_info{
 			.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -46,12 +49,54 @@ namespace renderer
 			.oldSwapchain = VK_NULL_HANDLE,
 		};
 
-		VkResult result = vkCreateSwapchainKHR(context_->device, &swapchain_info, nullptr, &swapchain_);
+		VkResult result{ vkCreateSwapchainKHR(context_->device, &swapchain_info, nullptr, &swapchain_) };
 		CheckResult(result, "Failed to create swapchain.");
+	}
+
+	void Swapchain::InitializeImageResources()
+	{
+		vkGetSwapchainImagesKHR(context_->device, swapchain_, &swapchain_image_count_, nullptr);
+		images_.resize(swapchain_image_count_);
+		vkGetSwapchainImagesKHR(context_->device, swapchain_, &swapchain_image_count_, images_.data());
+
+		image_views_.resize(swapchain_image_count_);
+
+		VkImageViewCreateInfo image_view_info{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.flags = 0,
+			.image = VK_NULL_HANDLE, // We assign the image in the loop.
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = swapchain_image_format_,
+			.components = {
+				.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+			},
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+		};
+
+		for (uint32_t i{ 0 }; i < swapchain_image_count_; ++i)
+		{
+			image_view_info.image = images_[i];
+
+			VkResult result{ vkCreateImageView(context_->device, &image_view_info, nullptr, &image_views_[i]) };
+			CheckResult(result, "Failed to create image view.");
+		}
 	}
 
 	void Swapchain::CleanUp()
 	{
+		for (auto& view : image_views_) {
+			vkDestroyImageView(context_->device, view, nullptr);
+		}
+
 		vkDestroySwapchainKHR(context_->device, swapchain_, nullptr);
 	}
 
