@@ -9,6 +9,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/swapchain.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/pipeline.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/pipeline.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/shaders/default.vert"
+    "${CMAKE_CURRENT_SOURCE_DIR}/shaders/default.frag"
 )
 
 add_library(Renderer "${SOURCES}")

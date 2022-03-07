@@ -1,13 +1,26 @@
 #pragma once
 
-class GraphicsPipeline
+#include <string>
+#include "volk.h"
+
+#include "context.h"
+
+namespace renderer
 {
-public:
-	GraphicsPipeline();
+	const std::string spirv_prefix{ "../src/renderer/shaders/spirv/" };
 
-	~GraphicsPipeline();
+	class GraphicsPipeline
+	{
+	public:
+		GraphicsPipeline(Context* context);
 
-private:
-	VkPipeline pipeline_{};
-};
+		~GraphicsPipeline();
 
+	private:
+		VkResult LoadShaderModule(const std::string& filePath, VkShaderModule* outShaderModule) const;
+
+		VkPipeline pipeline_{};
+		VkPipelineLayout layout_{};
+		Context* context_{};
+	};
+}
