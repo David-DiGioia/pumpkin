@@ -7,6 +7,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/context.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/swapchain.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/swapchain.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/pipeline.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/pipeline.cpp"
 )
 
 add_library(Renderer "${SOURCES}")
