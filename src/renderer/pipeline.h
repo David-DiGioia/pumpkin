@@ -4,19 +4,20 @@
 #include "volk.h"
 
 #include "context.h"
+#include "swapchain.h"
 
 namespace renderer
 {
-	const std::string spirv_prefix{ "../src/renderer/shaders/spirv/" };
-
 	class GraphicsPipeline
 	{
 	public:
-		GraphicsPipeline(Context* context);
+		void Initialize(Context* context, Swapchain* swapchain);
 
-		~GraphicsPipeline();
+		void CleanUp();
 
 	private:
+		void CreatePipelineLayout();
+
 		VkResult LoadShaderModule(const std::string& filePath, VkShaderModule* outShaderModule) const;
 
 		VkPipeline pipeline_{};

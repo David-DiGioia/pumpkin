@@ -100,6 +100,11 @@ namespace renderer
 		vkDestroySwapchainKHR(context_->device, swapchain_, nullptr);
 	}
 
+	VkFormat Swapchain::GetImageFormat() const
+	{
+		return swapchain_image_format_;
+	}
+
 
 
 
@@ -178,19 +183,16 @@ namespace renderer
 		// If currentExtent has max value then the surface size is determined by the extent of the swapchain.
 		if (capabilities.currentExtent.width == std::numeric_limits<uint32_t>::max())
 		{
-			// We can't just return the width_ and height_ variables because these are GLFW screen coordinates
-			// which don't always correspond exactly to pixels. Vulkan needs the extents specified in pixels.
-			int width{};
-			int height{};
-			glfwGetFramebufferSize(context_->window, &width, &height);
+			Extents extents{ context_->GetWindowExtents() };
 
-			VkExtent2D extent{ (uint32_t)width, (uint32_t)height };
+			VkExtent2D extent{ extents.width, extents.height };
 
 			extent.width = std::clamp(extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
 			extent.height = std::clamp(extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
 			return extent;
-		} else
+		}
+		else
 		{
 			// Otherwise currentExtent is equal to the current extents of the surface
 			// and we create the swapchain with the same size.

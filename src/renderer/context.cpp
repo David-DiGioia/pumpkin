@@ -16,8 +16,8 @@ namespace renderer
 		VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 		VkDebugUtilsMessageTypeFlagsEXT message_type,
 		const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,
-		void* p_user_data) {
-
+		void* p_user_data)
+	{
 		if (message_severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
 			logger::TaggedError("DebugCallback", logger::TextColor::YELLOW, "%s\n", p_callback_data->pMessage);
 		}
@@ -117,10 +117,13 @@ namespace renderer
 			VkPhysicalDeviceProperties2 prop{};
 			prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 			vkGetPhysicalDeviceProperties2(physical_device, &prop);
-
 			VkDeviceSize current_vram{ GetPhysicalDeviceRam(physical_device) };
 
-			if (current_vram > max_vram) {
+			VkPhysicalDeviceMemoryProperties mem_prop{};
+			vkGetPhysicalDeviceMemoryProperties(physical_device, &mem_prop);
+
+			if (current_vram > max_vram)
+			{
 				max_physical_device = physical_device;
 				max_vram = current_vram;
 				gpu_name = prop.properties.deviceName;
@@ -151,10 +154,16 @@ namespace renderer
 
 		CheckDeviceExtensionsSupported(required_device_extensions);
 
+		VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
+			.dynamicRendering = VK_TRUE,
+		};
+
 		VkPhysicalDeviceFeatures features{};
 
 		VkDeviceCreateInfo device_info{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			.pNext = &dynamic_rendering_features,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &graphics_queue_info,
 			.enabledExtensionCount = (uint32_t)required_device_extensions.size(),
@@ -182,17 +191,12 @@ namespace renderer
 		vkDestroyInstance(instance, nullptr);
 	}
 
-
-
-
-
-
-
-
-
-
-
-
+	Extents Context::GetWindowExtents()
+	{
+		int width{}, height{};
+		glfwGetFramebufferSize(window, &width, &height);
+		return { (uint32_t)width, (uint32_t)height };
+	}
 
 
 
@@ -215,7 +219,8 @@ namespace renderer
 		}
 
 		// Check that each requested extension is supported.
-		for (const std::string& requested : requested_extensions) {
+		for (const std::string& requested : requested_extensions)
+		{
 			if (extension_property_set.find(requested) == extension_property_set.end()) {
 				logger::Error("Instance extension %s is not supported on this machine.\n", requested.c_str());
 			}
@@ -243,11 +248,14 @@ namespace renderer
 		if (required_instance_extensions.empty()) {
 			logger::Print("\t[None]\n");
 		}
-		for (const char* s : required_instance_extensions) {
 
+		for (const char* s : required_instance_extensions)
+		{
 			// If validation is disabled we don't enable debug utils extension.
-			if (config::disable_validation) {
-				if (std::string{ s } == VK_EXT_DEBUG_UTILS_EXTENSION_NAME) {
+			if (config::disable_validation)
+			{
+				if (std::string{ s } == VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+				{
 					logger::Print("\t[Ignored] %s\n", s);
 					continue;
 				}
@@ -256,6 +264,7 @@ namespace renderer
 			logger::Print("\t%s\n", s);
 			string_array.PushBack(s);
 		}
+
 		logger::Print("\n");
 
 		return string_array;
@@ -322,12 +331,14 @@ namespace renderer
 			VkBool32 present_support{ false };
 			vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_support);
 
+			logger::Print("Queue %d\nflags: %d\npresent_support: %d\n\n", i, properties[i].queueFamilyProperties.queueFlags, (uint32_t)present_support);
+
 			// All graphics queue families also support transfer operations
 			// whether or not that bit is specified.
 			if (graphics_support && present_support)
 			{
 				graphics_family = i;
-				break;
+				//break;
 			}
 		}
 

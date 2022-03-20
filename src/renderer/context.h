@@ -22,11 +22,18 @@ namespace renderer
 		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 		VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // Needed by acceleration structure extension.
+		VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
 	};
 
 	const std::vector<const char*> required_layers = {
 		"VK_LAYER_KHRONOS_validation",
 		//"VK_LAYER_KHRONOS_synchronization2",
+	};
+
+	struct Extents
+	{
+		uint32_t width;
+		uint32_t height;
 	};
 
 	class Context
@@ -35,6 +42,8 @@ namespace renderer
 		void Initialize(GLFWwindow* glfw_window);
 
 		void CleanUp();
+
+		Extents GetWindowExtents();
 
 		VkInstance instance{};
 		GLFWwindow* window{};

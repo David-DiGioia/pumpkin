@@ -14,6 +14,8 @@ namespace renderer
 
 		void CleanUp();
 
+		VkFormat GetImageFormat() const;
+
 	private:
 		void InitializeSwapchain();
 

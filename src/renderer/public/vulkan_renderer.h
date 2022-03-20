@@ -5,6 +5,7 @@
 
 #include "context.h"
 #include "swapchain.h"
+#include "pipeline.h"
 
 namespace renderer
 {
@@ -18,5 +19,6 @@ namespace renderer
 	private:
 		Context context_{};
 		Swapchain swapchain_{};
+		GraphicsPipeline graphics_pipeline_{};
 	};
 }

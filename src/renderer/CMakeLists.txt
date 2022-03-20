@@ -11,6 +11,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/pipeline.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/shaders/default.vert"
     "${CMAKE_CURRENT_SOURCE_DIR}/shaders/default.frag"
+    "${CMAKE_CURRENT_SOURCE_DIR}/mesh.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/mesh.cpp"
 )
 
 add_library(Renderer "${SOURCES}")

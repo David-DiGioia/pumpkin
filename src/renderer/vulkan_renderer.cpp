@@ -21,11 +21,13 @@ namespace renderer
 
         context_.Initialize(window);
         swapchain_.Initialize(&context_);
+        graphics_pipeline_.Initialize(&context_, &swapchain_);
     }
 
     void VulkanRenderer::CleanUp()
     {
         swapchain_.CleanUp();
         context_.CleanUp();
+        graphics_pipeline_.CleanUp();
     }
 }
