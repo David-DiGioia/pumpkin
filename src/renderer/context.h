@@ -45,6 +45,8 @@ namespace renderer
 
 		Extents GetWindowExtents();
 
+		uint32_t GetGraphicsQueueFamilyIndex();
+
 		VkInstance instance{};
 		GLFWwindow* window{};
 		VkSurfaceKHR surface{};
@@ -71,10 +73,11 @@ namespace renderer
 
 		VkDeviceSize GetPhysicalDeviceRam(VkPhysicalDevice physical_device);
 
-		uint32_t GetGraphicsQueueFamilyIndex();
+		uint32_t ChooseGraphicsQueueFamilyIndex();
 
 		void CheckDeviceExtensionsSupported(const std::vector<const char*>& requested_extensions);
 
 		VkDebugUtilsMessengerEXT debug_messenger_{};
+		uint32_t graphics_queue_family_{};
 	};
 }

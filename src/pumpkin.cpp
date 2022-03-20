@@ -25,6 +25,7 @@ void Pumpkin::MainLoop()
 {
     while (!glfwWindowShouldClose(window_)) {
         glfwPollEvents();
+        renderer_.Present();
     }
 }
 

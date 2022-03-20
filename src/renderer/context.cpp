@@ -139,9 +139,11 @@ namespace renderer
 	{
 		float priority{ 1.0f };
 
+		graphics_queue_family_ = ChooseGraphicsQueueFamilyIndex();
+
 		VkDeviceQueueCreateInfo graphics_queue_info{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-			.queueFamilyIndex = GetGraphicsQueueFamilyIndex(),
+			.queueFamilyIndex = graphics_queue_family_,
 			.queueCount = 1,
 			.pQueuePriorities = &priority,
 		};
@@ -198,6 +200,10 @@ namespace renderer
 		return { (uint32_t)width, (uint32_t)height };
 	}
 
+	uint32_t Context::GetGraphicsQueueFamilyIndex()
+	{
+		return graphics_queue_family_;
+	}
 
 
 
@@ -313,7 +319,7 @@ namespace renderer
 		return max_vram;
 	}
 
-	uint32_t Context::GetGraphicsQueueFamilyIndex()
+	uint32_t Context::ChooseGraphicsQueueFamilyIndex()
 	{
 		uint32_t prop_count{};
 		vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &prop_count, nullptr);
