@@ -177,6 +177,8 @@ namespace renderer
 		CheckResult(result, "Failed to create device.");
 
 		volkLoadDevice(device);
+
+		vkGetDeviceQueue(device, graphics_queue_family_, 0, &graphics_queue);
 	}
 
 	void Context::CleanUp()

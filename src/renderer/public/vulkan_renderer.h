@@ -16,7 +16,8 @@ namespace renderer
 	{
 		VkCommandBuffer command_buffer;
 		VkFence render_fence;
-
+		VkSemaphore present_semaphore;
+		VkSemaphore render_semaphore;
 	};
 
 	class VulkanRenderer
@@ -26,9 +27,13 @@ namespace renderer
 
 		void CleanUp();
 
+		void Draw();
+
 		void Present();
 
 	private:
+		void NextFrame();
+
 		FrameResources& GetCurrentFrame();
 
 		void InitializeFrameResources();

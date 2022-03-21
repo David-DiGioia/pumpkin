@@ -105,6 +105,18 @@ namespace renderer
 		return swapchain_image_format_;
 	}
 
+	uint32_t Swapchain::AcquireNextImage(VkSemaphore semaphore) const
+	{
+		uint32_t image_index{};
+		vkAcquireNextImageKHR(context_->device, swapchain_, 1'000'000'000, semaphore, VK_NULL_HANDLE, &image_index);
+		return image_index;
+	}
+
+	VkSwapchainKHR& Swapchain::GetSwapchain()
+	{
+		return swapchain_;
+	}
+
 
 
 

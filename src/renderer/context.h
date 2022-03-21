@@ -52,6 +52,7 @@ namespace renderer
 		VkSurfaceKHR surface{};
 		VkPhysicalDevice physical_device{};
 		VkDevice device{};
+		VkQueue graphics_queue{};
 
 	private:
 		void InitializeInstance();

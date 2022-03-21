@@ -16,6 +16,10 @@ namespace renderer
 
 		VkFormat GetImageFormat() const;
 
+		uint32_t AcquireNextImage(VkSemaphore semaphore) const;
+
+		VkSwapchainKHR& GetSwapchain();
+
 	private:
 		void InitializeSwapchain();
 
