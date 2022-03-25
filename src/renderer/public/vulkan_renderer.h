@@ -15,9 +15,9 @@ namespace renderer
 	struct FrameResources
 	{
 		VkCommandBuffer command_buffer;
-		VkFence render_fence;
-		VkSemaphore present_semaphore;
-		VkSemaphore render_semaphore;
+		VkFence render_done_fence;
+		VkSemaphore image_acquired_semaphore;
+		VkSemaphore render_done_semaphore;
 	};
 
 	class VulkanRenderer

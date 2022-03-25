@@ -41,14 +41,14 @@ namespace renderer
 	void VulkanRenderer::Present()
 	{
 		// Wait until the gpu has finished rendering the last frame. Timeout of 1 second.
-		VkResult result{ vkWaitForFences(context_.device, 1, &GetCurrentFrame().render_fence, true, 1'000'000'000) };
+		VkResult result{ vkWaitForFences(context_.device, 1, &GetCurrentFrame().render_done_fence, true, 1'000'000'000) };
 		CheckResult(result, "Error waiting for render_fence.");
-		result = vkResetFences(context_.device, 1, &GetCurrentFrame().render_fence);
+		result = vkResetFences(context_.device, 1, &GetCurrentFrame().render_done_fence);
 		CheckResult(result, "Error resetting render_fence.");
 
 		// Request image from the swapchain, one second timeout.
 		// This is also where vsync happens according to vkguide, but for me it happens at present.
-		uint32_t image_index{ swapchain_.AcquireNextImage(GetCurrentFrame().present_semaphore) };
+		uint32_t image_index{ swapchain_.AcquireNextImage(GetCurrentFrame().image_acquired_semaphore) };
 
 		// Now that we are sure that the commands finished executing, we can safely
 		// reset the command buffer to begin recording again.
@@ -82,17 +82,17 @@ namespace renderer
 		VkSubmitInfo submit_info{
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = &GetCurrentFrame().present_semaphore,
+			.pWaitSemaphores = &GetCurrentFrame().image_acquired_semaphore,
 			.pWaitDstStageMask = &wait_stage,
 			.commandBufferCount = 1,
 			.pCommandBuffers = &GetCurrentFrame().command_buffer,
 			.signalSemaphoreCount = 1,
-			.pSignalSemaphores = &GetCurrentFrame().render_semaphore,
+			.pSignalSemaphores = &GetCurrentFrame().render_done_semaphore,
 		};
 
 		// Submit command buffer to the queue and execute it.
 		// render_fence will now block until the graphic commands finish execution.
-		result = vkQueueSubmit(context_.graphics_queue, 1, &submit_info, GetCurrentFrame().render_fence);
+		result = vkQueueSubmit(context_.graphics_queue, 1, &submit_info, GetCurrentFrame().render_done_fence);
 		CheckResult(result, "Error submitting queue.");
 
 		// This will put the image we just rendered into the visible window.
@@ -101,7 +101,7 @@ namespace renderer
 		VkPresentInfoKHR present_info{
 			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = &GetCurrentFrame().render_semaphore,
+			.pWaitSemaphores = &GetCurrentFrame().render_done_semaphore,
 			.swapchainCount = 1,
 			.pSwapchains = &swapchain_.GetSwapchain(),
 			.pImageIndices = &image_index,
