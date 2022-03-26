@@ -73,9 +73,9 @@ namespace renderer
 		result = vkEndCommandBuffer(GetCurrentFrame().command_buffer);
 		CheckResult(result, "Failed to end command buffer.");
 
-		// We want to wait on the present_semaphore, as that semaphore is signaled when the
-		// swapchain is ready. We will signal the render_semaphore, to signal that rendering
-		// has finished.
+		// We want to wait on the image_acquired_semaphore, as that semaphore is signaled when
+		// the swapchain image is ready. We will signal the render_done_semaphore, to signal that
+		// rendering has finished.
 
 		VkPipelineStageFlags wait_stage{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
@@ -91,12 +91,12 @@ namespace renderer
 		};
 
 		// Submit command buffer to the queue and execute it.
-		// render_fence will now block until the graphic commands finish execution.
+		// render_done_fence will now block until the graphic commands finish execution.
 		result = vkQueueSubmit(context_.graphics_queue, 1, &submit_info, GetCurrentFrame().render_done_fence);
 		CheckResult(result, "Error submitting queue.");
 
 		// This will put the image we just rendered into the visible window.
-		// We want to wait on render_semaphore for that, as it's necessary that the
+		// We want to wait on render_done_semaphore for that, as it's necessary that the
 		// drawing commands have finished before the image is displayed to the user.
 		VkPresentInfoKHR present_info{
 			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
