@@ -18,8 +18,11 @@ namespace renderer
 		const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,
 		void* p_user_data)
 	{
-		if (message_severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-			logger::TaggedError("DebugCallback", logger::TextColor::YELLOW, "%s\n", p_callback_data->pMessage);
+		if (message_severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+			logger::TaggedWarning("DebugCallback", logger::TextColor::BRIGHT_BLACK, "%s\n", p_callback_data->pMessage);
+		}
+		else if (message_severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+			logger::TaggedError("DebugCallback", logger::TextColor::BRIGHT_BLACK, "%s\n", p_callback_data->pMessage);
 		}
 
 		return VK_FALSE;

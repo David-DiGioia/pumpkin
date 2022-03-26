@@ -30,17 +30,19 @@ namespace logger
 	std::string GetColoredText(const std::string& text, TextColor color);
 
 	template<typename... Args>
-	void Print(const std::string& f, Args... args) {
+	void Print(const std::string& f, Args... args)
+	{
 		if (!config::suppress_logger) {
 			printf(f.c_str(), args...);
 		}
 	}
 
 	template<typename... Args>
-	void TaggedError(std::string tag, TextColor color, const std::string& f, Args... args) {
+	void TaggedMessage(std::string tag, TextColor tag_color, TextColor color, const std::string& f, Args... args)
+	{
 		// Print tag.
 		tag = "[" + tag + "]: ";
-		tag = GetColoredText(tag, color);
+		tag = GetColoredText(tag, tag_color);
 		printf("%s", tag.c_str());
 
 		// Make enough whitespace to align text to right of tag.
@@ -53,12 +55,25 @@ namespace logger
 		f_indented += "\n";
 
 		// Print message.
-		std::string formatted{ GetColoredText(f_indented, TextColor::RED) };
+		std::string formatted{ GetColoredText(f_indented, color) };
 		printf(formatted.c_str(), args...);
 	}
 
 	template<typename... Args>
-	void Error(const std::string& f, Args... args) {
+	void TaggedError(const std::string& tag, TextColor color, const std::string& f, Args... args)
+	{
+		TaggedMessage(tag, color, TextColor::RED, f, args...);
+	}
+
+	template<typename... Args>
+	void TaggedWarning(std::string tag, TextColor color, const std::string& f, Args... args)
+	{
+		TaggedMessage(tag, color, TextColor::YELLOW, f, args...);
+	}
+
+	template<typename... Args>
+	void Error(const std::string& f, Args... args)
+	{
 		TaggedError("Error", TextColor::RED, f, args...);
 	}
 }
