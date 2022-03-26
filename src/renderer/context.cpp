@@ -342,8 +342,6 @@ namespace renderer
 			VkBool32 present_support{ false };
 			vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_support);
 
-			logger::Print("Queue %d\nflags: %d\npresent_support: %d\n\n", i, properties[i].queueFamilyProperties.queueFlags, (uint32_t)present_support);
-
 			// All graphics queue families also support transfer operations
 			// whether or not that bit is specified.
 			if (graphics_support && present_support)

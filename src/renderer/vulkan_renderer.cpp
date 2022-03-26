@@ -33,14 +33,14 @@ namespace renderer
 		graphics_pipeline_.CleanUp();
 	}
 
-	void VulkanRenderer::Draw()
+	void VulkanRenderer::Draw(VkCommandBuffer cmd)
 	{
 
 	}
 
 	void VulkanRenderer::Render()
 	{
-		// Wait until the gpu has finished rendering the last frame. Timeout of 1 second.
+		// Wait until the GPU has finished rendering the last frame to use these resources. Timeout of 1 second.
 		VkResult result{ vkWaitForFences(context_.device, 1, &GetCurrentFrame().render_done_fence, true, 1'000'000'000) };
 		CheckResult(result, "Error waiting for render_fence.");
 		result = vkResetFences(context_.device, 1, &GetCurrentFrame().render_done_fence);
@@ -55,30 +55,13 @@ namespace renderer
 		result = vkResetCommandBuffer(GetCurrentFrame().command_buffer, 0);
 		CheckResult(result, "Error resetting command buffer.");
 
-		// Begin the command buffer recording. We will use this command buffer exactly once,
-		// so we want to let Vulkan know that.
-		VkCommandBufferBeginInfo command_buffer_begin_info{
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-			.pInheritanceInfo = nullptr,
-		};
-
-		result = vkBeginCommandBuffer(GetCurrentFrame().command_buffer, &command_buffer_begin_info);
-		CheckResult(result, "Failed to begin command buffer.");
-
-		// begin rendering
-		Draw();
-		// end rendering
-
-		result = vkEndCommandBuffer(GetCurrentFrame().command_buffer);
-		CheckResult(result, "Failed to end command buffer.");
-
-		// We want to wait on the image_acquired_semaphore, as that semaphore is signaled when
-		// the swapchain image is ready. We will signal the render_done_semaphore, to signal that
-		// rendering has finished.
+		// Drawing commands happen here.
+		RecordCommandBuffer(GetCurrentFrame().command_buffer, image_index);
 
 		VkPipelineStageFlags wait_stage{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
+		// We can't start rendering until image_acquired_semaphore is signaled,
+		// meaning the image is ready to be used.
 		VkSubmitInfo submit_info{
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 			.waitSemaphoreCount = 1,
@@ -113,6 +96,129 @@ namespace renderer
 		CheckResult(result, "Error presenting image.");
 
 		NextFrame();
+	}
+
+	void VulkanRenderer::RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index)
+	{
+		// Begin the command buffer recording. We will use this command buffer exactly once,
+		// so we want to let Vulkan know that.
+		VkCommandBufferBeginInfo command_buffer_begin_info{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+			.pInheritanceInfo = nullptr,
+		};
+
+		VkResult result{ vkBeginCommandBuffer(cmd, &command_buffer_begin_info) };
+		CheckResult(result, "Failed to begin command buffer.");
+
+		Extents window_extents{ context_.GetWindowExtents() };
+		VkClearColorValue clear_color{ 1.0f, 0.0f, 0.0f, 1.0f };
+
+		VkRenderingAttachmentInfo color_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = swapchain_.GetImageView(image_index),
+			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingInfo rendering_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = {0, 0},
+				.extent = {window_extents.width, window_extents.height},
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr,
+		};
+
+		TransitionSwapImageForRender(cmd, image_index);
+		vkCmdBeginRendering(cmd, &rendering_info);
+		Draw(cmd);
+		vkCmdEndRendering(cmd);
+		TransitionSwapImageForPresent(cmd, image_index);
+
+		result = vkEndCommandBuffer(GetCurrentFrame().command_buffer);
+		CheckResult(result, "Failed to end command buffer.");
+	}
+
+	void VulkanRenderer::TransitionSwapImageForRender(VkCommandBuffer cmd, uint32_t image_index)
+	{
+		// Transition image to optimal layout for rendering to.
+		VkImageMemoryBarrier image_memory_barrier{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.srcQueueFamilyIndex = context_.GetGraphicsQueueFamilyIndex(),
+			.dstQueueFamilyIndex = context_.GetGraphicsQueueFamilyIndex(),
+			.image = swapchain_.GetImage(image_index),
+			.subresourceRange = {
+			  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			  .baseMipLevel = 0,
+			  .levelCount = 1,
+			  .baseArrayLayer = 0,
+			  .layerCount = 1,
+			}
+		};
+
+		vkCmdPipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,  // srcStageMask
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // dstStageMask
+			0,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1, // imageMemoryBarrierCount
+			&image_memory_barrier // pImageMemoryBarriers
+		);
+	}
+
+	void VulkanRenderer::TransitionSwapImageForPresent(VkCommandBuffer cmd, uint32_t image_index)
+	{
+		// Transition image to optimal format for presentation.
+		VkImageMemoryBarrier image_memory_barrier{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = 0,
+			.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			.srcQueueFamilyIndex = context_.GetGraphicsQueueFamilyIndex(),
+			.dstQueueFamilyIndex = context_.GetGraphicsQueueFamilyIndex(),
+			.image = swapchain_.GetImage(image_index),
+			.subresourceRange = {
+			  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			  .baseMipLevel = 0,
+			  .levelCount = 1,
+			  .baseArrayLayer = 0,
+			  .layerCount = 1,
+			}
+		};
+
+		vkCmdPipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // srcStageMask
+			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, // dstStageMask
+			VK_DEPENDENCY_BY_REGION_BIT,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1, // imageMemoryBarrierCount
+			&image_memory_barrier // pImageMemoryBarriers
+		);
 	}
 
 	void VulkanRenderer::NextFrame()
@@ -159,6 +265,27 @@ namespace renderer
 
 	void VulkanRenderer::InitializeSyncObjects()
 	{
+		// Start in signaled state since frame resources are initially not in use.
+		VkFenceCreateInfo fence_info{
+			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+			.flags = VK_FENCE_CREATE_SIGNALED_BIT,
+		};
 
+		VkSemaphoreCreateInfo semaphore_info{
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+			.flags = 0 // Reserved.
+		};
+
+		for (FrameResources& resource : frame_resources_)
+		{
+			VkResult result{ vkCreateFence(context_.device, &fence_info, nullptr, &resource.render_done_fence) };
+			CheckResult(result, "Failed to create fence.");
+
+			result = vkCreateSemaphore(context_.device, &semaphore_info, nullptr, &resource.image_acquired_semaphore);
+			CheckResult(result, "Failed to create semaphore.");
+
+			result = vkCreateSemaphore(context_.device, &semaphore_info, nullptr, &resource.render_done_semaphore);
+			CheckResult(result, "Failed to create semaphore.");
+		}
 	}
 }

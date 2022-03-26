@@ -27,11 +27,17 @@ namespace renderer
 
 		void CleanUp();
 
-		void Draw();
-
 		void Render();
 
 	private:
+		void Draw(VkCommandBuffer cmd);
+
+		void RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index);
+
+		void TransitionSwapImageForRender(VkCommandBuffer cmd, uint32_t image_index);
+
+		void TransitionSwapImageForPresent(VkCommandBuffer cmd, uint32_t image_index);
+
 		void NextFrame();
 
 		FrameResources& GetCurrentFrame();

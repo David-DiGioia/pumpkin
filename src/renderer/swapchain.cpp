@@ -117,8 +117,15 @@ namespace renderer
 		return swapchain_;
 	}
 
+	VkImageView& Swapchain::GetImageView(uint32_t index)
+	{
+		return image_views_[index];
+	}
 
-
+	VkImage& Swapchain::GetImage(uint32_t index)
+	{
+		return images_[index];
+	}
 
 	// Helper functions ----------------------------------------------------------------------------------------
 

@@ -18,7 +18,12 @@ namespace renderer
 
 		uint32_t AcquireNextImage(VkSemaphore semaphore) const;
 
+		// Return reference so we can get address of returned value.
 		VkSwapchainKHR& GetSwapchain();
+
+		VkImageView& GetImageView(uint32_t index);
+
+		VkImage& GetImage(uint32_t index);
 
 	private:
 		void InitializeSwapchain();
