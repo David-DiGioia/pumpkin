@@ -29,7 +29,7 @@ namespace renderer
 
 		void Draw();
 
-		void Present();
+		void Render();
 
 	private:
 		void NextFrame();

@@ -38,7 +38,7 @@ namespace renderer
 
 	}
 
-	void VulkanRenderer::Present()
+	void VulkanRenderer::Render()
 	{
 		// Wait until the gpu has finished rendering the last frame. Timeout of 1 second.
 		VkResult result{ vkWaitForFences(context_.device, 1, &GetCurrentFrame().render_done_fence, true, 1'000'000'000) };
