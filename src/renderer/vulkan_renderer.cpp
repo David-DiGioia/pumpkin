@@ -33,11 +33,6 @@ namespace renderer
 		graphics_pipeline_.CleanUp();
 	}
 
-	void VulkanRenderer::Draw(VkCommandBuffer cmd)
-	{
-
-	}
-
 	void VulkanRenderer::Render()
 	{
 		// Wait until the GPU has finished rendering the last frame to use these resources. Timeout of 1 second.
@@ -98,19 +93,8 @@ namespace renderer
 		NextFrame();
 	}
 
-	void VulkanRenderer::RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index)
+	void VulkanRenderer::Draw(VkCommandBuffer cmd, uint32_t image_index)
 	{
-		// Begin the command buffer recording. We will use this command buffer exactly once,
-		// so we want to let Vulkan know that.
-		VkCommandBufferBeginInfo command_buffer_begin_info{
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-			.pInheritanceInfo = nullptr,
-		};
-
-		VkResult result{ vkBeginCommandBuffer(cmd, &command_buffer_begin_info) };
-		CheckResult(result, "Failed to begin command buffer.");
-
 		Extents window_extents{ context_.GetWindowExtents() };
 		VkClearColorValue clear_color{ 1.0f, 0.0f, 0.0f, 1.0f };
 
@@ -141,10 +125,29 @@ namespace renderer
 			.pStencilAttachment = nullptr,
 		};
 
-		TransitionSwapImageForRender(cmd, image_index);
+		// First render pass.
 		vkCmdBeginRendering(cmd, &rendering_info);
-		Draw(cmd);
+
+
+
 		vkCmdEndRendering(cmd);
+	}
+
+	void VulkanRenderer::RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index)
+	{
+		// Begin the command buffer recording. We will use this command buffer exactly once,
+		// so we want to let Vulkan know that.
+		VkCommandBufferBeginInfo command_buffer_begin_info{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+			.pInheritanceInfo = nullptr,
+		};
+
+		VkResult result{ vkBeginCommandBuffer(cmd, &command_buffer_begin_info) };
+		CheckResult(result, "Failed to begin command buffer.");
+
+		TransitionSwapImageForRender(cmd, image_index);
+		Draw(cmd, image_index);
 		TransitionSwapImageForPresent(cmd, image_index);
 
 		result = vkEndCommandBuffer(GetCurrentFrame().command_buffer);

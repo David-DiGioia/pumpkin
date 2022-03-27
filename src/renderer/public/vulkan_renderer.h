@@ -30,7 +30,7 @@ namespace renderer
 		void Render();
 
 	private:
-		void Draw(VkCommandBuffer cmd);
+		void Draw(VkCommandBuffer cmd, uint32_t image_index);
 
 		void RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index);
 
