@@ -22,6 +22,7 @@ namespace renderer
 		context_.Initialize(window);
 		swapchain_.Initialize(&context_);
 		graphics_pipeline_.Initialize(&context_, &swapchain_);
+		allocator_.Initialize(context_.device);
 
 		InitializeFrameResources();
 	}
@@ -163,8 +164,8 @@ namespace renderer
 			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			.srcQueueFamilyIndex = context_.GetGraphicsQueueFamilyIndex(),
-			.dstQueueFamilyIndex = context_.GetGraphicsQueueFamilyIndex(),
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 			.image = swapchain_.GetImage(image_index),
 			.subresourceRange = {
 			  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -198,8 +199,8 @@ namespace renderer
 			.dstAccessMask = 0,
 			.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-			.srcQueueFamilyIndex = context_.GetGraphicsQueueFamilyIndex(),
-			.dstQueueFamilyIndex = context_.GetGraphicsQueueFamilyIndex(),
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 			.image = swapchain_.GetImage(image_index),
 			.subresourceRange = {
 			  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,

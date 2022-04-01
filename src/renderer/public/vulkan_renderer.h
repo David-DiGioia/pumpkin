@@ -7,6 +7,7 @@
 #include "context.h"
 #include "swapchain.h"
 #include "pipeline.h"
+#include "memory_allocator.h"
 
 namespace renderer
 {
@@ -52,6 +53,7 @@ namespace renderer
 		Swapchain swapchain_{};
 		GraphicsPipeline graphics_pipeline_{};
 		VkCommandPool command_pool_{};
+		Allocator allocator_{};
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_;

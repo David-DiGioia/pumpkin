@@ -13,6 +13,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/shaders/default.frag"
     "${CMAKE_CURRENT_SOURCE_DIR}/mesh.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/mesh.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/memory_allocator.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/memory_allocator.cpp"
 )
 
 add_library(Renderer "${SOURCES}")
