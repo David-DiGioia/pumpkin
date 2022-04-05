@@ -29,9 +29,23 @@ namespace renderer
 
 	void VulkanRenderer::CleanUp()
 	{
+		vkDeviceWaitIdle(context_.device);
+
+		// Destroy sync objects.
+		for (FrameResources& resource : frame_resources_)
+		{
+			vkDestroyFence(context_.device, resource.render_done_fence, nullptr);
+			vkDestroySemaphore(context_.device, resource.image_acquired_semaphore, nullptr);
+			vkDestroySemaphore(context_.device, resource.render_done_semaphore, nullptr);
+		}
+
+		// Destroying command pool frees all command buffers allocated from it.
+		vkDestroyCommandPool(context_.device, command_pool_, nullptr);
+
+		allocator_.CleanUp();
+		graphics_pipeline_.CleanUp();
 		swapchain_.CleanUp();
 		context_.CleanUp();
-		graphics_pipeline_.CleanUp();
 	}
 
 	void VulkanRenderer::Render()

@@ -18,6 +18,8 @@ namespace renderer
 	public:
 		void Initialize(Context* context);
 
+		void CleanUp();
+
 		BufferResource CreateBufferResource(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
 
 	private:

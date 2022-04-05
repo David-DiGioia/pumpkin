@@ -58,18 +58,18 @@ namespace renderer
 			bool device_local{ (bool)(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
 			bool host_visible{ (bool)(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
 
-			MemoryTypeAllocations allocation{};
-			allocation.memory_type = memory_properties.memoryTypes[i];
-			allocation.memory_type_index = i;
+			MemoryTypeAllocations mem_type_allocations{};
+			mem_type_allocations.memory_type = memory_properties.memoryTypes[i];
+			mem_type_allocations.memory_type_index = i;
 
 			if (device_local && host_visible) {
-				device_host_allocations_.push_back(allocation);
+				device_host_allocations_.push_back(mem_type_allocations);
 			}
 			else if (device_local) {
-				device_allocations_.push_back(allocation);
+				device_allocations_.push_back(mem_type_allocations);
 			}
 			else if (host_visible) {
-				host_allocations_.push_back(allocation);
+				host_allocations_.push_back(mem_type_allocations);
 			}
 		}
 
@@ -94,6 +94,33 @@ namespace renderer
 		limits_ = physical_device_properties.properties.limits;
 		remaining_allocations_ = limits_.maxMemoryAllocationCount;
 		max_alloc_size_ = maintenance_properties.maxMemoryAllocationSize;
+	}
+
+	void Allocator::CleanUp()
+	{
+		// Free all DEVICE_LOCAL | HOST_VISIBLE allocations.
+		for (MemoryTypeAllocations& mem_type_allocations : device_host_allocations_)
+		{
+			for (Allocation& alloc : mem_type_allocations.allocations) {
+				vkFreeMemory(context_->device, alloc.memory, nullptr);
+			}
+		}
+
+		// Free all DEVICE_LOCAL allocations.
+		for (MemoryTypeAllocations& mem_type_allocations : device_allocations_)
+		{
+			for (Allocation& alloc : mem_type_allocations.allocations) {
+				vkFreeMemory(context_->device, alloc.memory, nullptr);
+			}
+		}
+
+		// Free all HOST_VISIBLE allocations.
+		for (MemoryTypeAllocations& mem_type_allocations : host_allocations_)
+		{
+			for (Allocation& alloc : mem_type_allocations.allocations) {
+				vkFreeMemory(context_->device, alloc.memory, nullptr);
+			}
+		}
 	}
 
 	BufferResource Allocator::CreateBufferResource(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
