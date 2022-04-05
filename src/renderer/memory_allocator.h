@@ -24,8 +24,8 @@ namespace renderer
 		struct Allocation
 		{
 			VkDeviceMemory memory;
-			VkDeviceSize available_allocation_offset; // The byte offset where unbound allocated memory starts.
-			VkDeviceSize available_allocated_memory; // How much allocated memory is left in this allocation?
+			VkDeviceSize available_offset; // The byte offset where unbound allocated memory starts.
+			VkDeviceSize available_memory; // How much allocated memory is left in this allocation?
 		};
 
 		struct MemoryTypeAllocations
@@ -35,16 +35,41 @@ namespace renderer
 			std::vector<Allocation> allocations;
 		};
 
+		// Get info of an existing allocation for buffer to be bound to.
+		//
 		// Returns byte offset into device memory.
-		VkDeviceSize AllocateMemoryType(
+		VkDeviceSize ExistingAllocation(
+			VkDeviceSize alignment_offset,
+			VkDeviceSize required_size,
+			Allocation* alloc,
+			VkDeviceMemory** out_memory
+		);
+
+		// Make a new memory allocation.
+		// 
+		// Returns byte offset into device memory.
+		VkDeviceSize NewAllocation(
+			VkDeviceSize required_size,
+			MemoryTypeAllocations* alloc,
+			VkDeviceMemory** out_memory
+		);
+
+		// Find an allocation of a specific memory type to bind a buffer to. If an allocation
+		// cannot be found, make a new allocation.
+		// 
+		// Returns byte offset into device memory.
+		VkDeviceSize FindMemoryType(
 			const VkMemoryRequirements& requirements,
 			VkMemoryPropertyFlags properties,
 			std::vector<MemoryTypeAllocations>& memory_type_allocations,
 			VkDeviceMemory** out_memory
 		);
 
+		// Find an allocation to bind a buffer to. If an allocation cannot be found,
+		// make a new allocation.
+		// 
 		// Returns byte offset into device memory.
-		VkDeviceSize AllocateMemory(
+		VkDeviceSize FindMemory(
 			const VkMemoryRequirements& requirements,
 			VkMemoryPropertyFlags properties,
 			VkDeviceMemory** out_memory
@@ -53,6 +78,7 @@ namespace renderer
 		Context* context_{};
 		VkPhysicalDeviceLimits limits_{};
 		uint32_t remaining_allocations_{};
+		VkDeviceSize max_alloc_size_{};
 
 		std::vector<MemoryTypeAllocations> device_allocations_{};
 		std::vector<MemoryTypeAllocations> host_allocations_{};

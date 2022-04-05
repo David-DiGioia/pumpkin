@@ -1,15 +1,16 @@
 #include "memory_allocator.h"
 
+#include <algorithm>
+
 #include "vulkan_util.h"
 #include "logger.h"
 
 namespace renderer
 {
 	/*
-	* Possible implementation for allocator:
 	* Create three vectors of memory types, HOST_VISIBLE | DEVICE_LOCAL,
 	* HOT_VISIBLE and DEVICE_LOCAL. Iterate through all types in appropriate
-	* vector and choose the one with the largest remaining memory heap that
+	* vector and choose the first one with enough remaining memory in heap that
 	* satisfies all the usage flags passed to CreateBufferResource.
 	*
 	* Allocate some percent, eg 10% of remaining memory from the chosen heap,
@@ -54,8 +55,8 @@ namespace renderer
 		// So if only DEVICE_LOCAL is specified, it will be not be HOST_VISIBLE too, for example.
 		for (uint32_t i{ 0 }; i < memory_properties.memoryTypeCount; ++i)
 		{
-			bool device_local{ memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-			bool host_visible{ memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT };
+			bool device_local{ (bool)(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
+			bool host_visible{ (bool)(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
 
 			MemoryTypeAllocations allocation{};
 			allocation.memory_type = memory_properties.memoryTypes[i];
@@ -72,23 +73,31 @@ namespace renderer
 			}
 		}
 
+		remaining_heap_memory_.resize(memory_properties.memoryHeapCount);
+
 		// Store free available memory of each heap.
 		for (uint32_t i{ 0 }; i < memory_properties.memoryHeapCount; ++i) {
 			remaining_heap_memory_[i] = memory_properties.memoryHeaps[i].size;
 		}
 
 		// Store physical device limits to check against later.
-		VkPhysicalDeviceProperties physical_device_properties{};
-		vkGetPhysicalDeviceProperties(context_->physical_device, &physical_device_properties);
-		limits_ = physical_device_properties.limits;
+		VkPhysicalDeviceMaintenance3Properties maintenance_properties{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES,
+		};
+
+		VkPhysicalDeviceProperties2 physical_device_properties{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+			.pNext = &maintenance_properties,
+		};
+
+		vkGetPhysicalDeviceProperties2(context_->physical_device, &physical_device_properties);
+		limits_ = physical_device_properties.properties.limits;
 		remaining_allocations_ = limits_.maxMemoryAllocationCount;
+		max_alloc_size_ = maintenance_properties.maxMemoryAllocationSize;
 	}
 
 	BufferResource Allocator::CreateBufferResource(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
 	{
-		BufferResource resource{};
-		resource.size = size;
-
 		VkBufferCreateInfo buffer_info{
 			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			.flags = 0,
@@ -99,13 +108,25 @@ namespace renderer
 			.pQueueFamilyIndices = nullptr, // Ignored for sharing mode exclusive.
 		};
 
-		VkResult result{ vkCreateBuffer(context_->device, &buffer_info, nullptr, &resource.buffer) };
+		VkBuffer buffer{};
+		VkResult result{ vkCreateBuffer(context_->device, &buffer_info, nullptr, &buffer) };
 		CheckResult(result, "Failed to create buffer.");
 
 		VkMemoryRequirements memory_requirements{};
-		vkGetBufferMemoryRequirements(context_->device, resource.buffer, &memory_requirements);
+		vkGetBufferMemoryRequirements(context_->device, buffer, &memory_requirements);
 
-		resource.offset = AllocateMemory(memory_requirements, properties, &resource.memory);
+		VkDeviceMemory* memory{};
+		VkDeviceSize offset{ FindMemory(memory_requirements, properties, &memory) };
+
+		result = vkBindBufferMemory(context_->device, buffer, *memory, offset);
+		CheckResult(result, "Failed to bind buffer to memory.");
+
+		return BufferResource{
+			.buffer = buffer,
+			.memory = memory,
+			.size = size,
+			.offset = offset,
+		};
 	}
 
 	// Get the lowest number we must add to offset such that it meets alignment requirement.
@@ -114,7 +135,43 @@ namespace renderer
 		return (alignment - (offset % alignment)) % alignment;
 	}
 
-	VkDeviceSize Allocator::AllocateMemoryType(
+	VkDeviceSize Allocator::ExistingAllocation(VkDeviceSize alignment_offset, VkDeviceSize required_size, Allocation* alloc, VkDeviceMemory** out_memory)
+	{
+		*out_memory = &alloc->memory;
+
+		VkDeviceSize buffer_start_offset{ alloc->available_offset + alignment_offset };
+
+		alloc->available_offset += alignment_offset + required_size;
+		alloc->available_memory -= alignment_offset + required_size;
+
+		return buffer_start_offset;
+	}
+
+	VkDeviceSize Allocator::NewAllocation(VkDeviceSize required_size, MemoryTypeAllocations* mem_type_alloc, VkDeviceMemory** out_memory)
+	{
+		VkDeviceSize alloc_size{ (VkDeviceSize)(ALLOCATION_RATIO * remaining_heap_memory_[mem_type_alloc->memory_type_index]) };
+		alloc_size = std::clamp(alloc_size, required_size, max_alloc_size_);
+
+		// Otherwise make new allocation.
+		VkMemoryAllocateInfo allocate_info{
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			.allocationSize = alloc_size,
+			.memoryTypeIndex = mem_type_alloc->memory_type_index,
+		};
+
+		mem_type_alloc->allocations.emplace_back();
+		VkResult result{ vkAllocateMemory(context_->device, &allocate_info, nullptr, &mem_type_alloc->allocations.back().memory) };
+		CheckResult(result, "Failed to allocate memory.");
+
+		// No need to worry about alignment since we are return buffer at offset 0.
+		mem_type_alloc->allocations.back().available_memory = alloc_size - required_size;
+		mem_type_alloc->allocations.back().available_offset = required_size;
+
+		*out_memory = &mem_type_alloc->allocations.back().memory;
+		return (VkDeviceSize)0; // Buffer will start at beginning of allocation.
+	}
+
+	VkDeviceSize Allocator::FindMemoryType(
 		const VkMemoryRequirements& requirements,
 		VkMemoryPropertyFlags properties,
 		std::vector<MemoryTypeAllocations>& memory_type_allocations,
@@ -124,62 +181,48 @@ namespace renderer
 		for (MemoryTypeAllocations& memory_type_alloc : memory_type_allocations)
 		{
 			bool has_all_properties{ (memory_type_alloc.memory_type.propertyFlags & properties) == properties };
-			bool meets_buffer_requirement{ requirements.memoryTypeBits & (1 << memory_type_alloc.memory_type_index) };
+			bool meets_buffer_requirement{ (bool)(requirements.memoryTypeBits & (1 << memory_type_alloc.memory_type_index)) };
 
 			if (has_all_properties && meets_buffer_requirement)
 			{
 				for (Allocation& alloc : memory_type_alloc.allocations)
 				{
-					VkDeviceSize alignment_offset{ GetAlignmentOffset(alloc.available_offset, requirements.alignment)};
+					VkDeviceSize alignment_offset{ GetAlignmentOffset(alloc.available_offset, requirements.alignment) };
 
 					// Use existing allocation if there's enough memory left.
-					if (alloc.available_memory - alignment_offset >= requirements.size)
-					{
-						*out_memory = &alloc.memory;
-
-						VkDeviceSize buffer_start_offset{ alloc.available_offset + alignment_offset };
-
-						alloc.available_offset += alignment_offset + requirements.size;
-						alloc.available_memory -= alignment_offset + requirements.size;
-
-						return buffer_start_offset;
+					if (requirements.size <= alloc.available_memory - alignment_offset) {
+						return ExistingAllocation(alignment_offset, requirements.size, &alloc, out_memory);
 					}
 				}
 
-				// Otherwise make new allocation.
-				VkMemoryAllocateInfo allocate_info{
-					.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-					.allocationSize = requirements.size,
-					.memoryTypeIndex = memory_type_alloc.memory_type_index,
-				};
-
-				// TODO: pickup here.
-
-				memory_type_alloc.allocations.emplace_back();
-				vkAllocateMemory(context_->device, &allocate_info, nullptr, &memory_type_alloc.allocations.back().memory);
+				// Otherwise we need to allocate more memory of this type.
+				return NewAllocation(requirements.size, &memory_type_alloc, out_memory);
 			}
 		}
+
+		logger::Error("No memory type was found meeting user specified properties and physical device requirements.\n");
+		return (VkDeviceSize)~0ull;
 	}
 
-	VkDeviceSize Allocator::AllocateMemory(
+	VkDeviceSize Allocator::FindMemory(
 		const VkMemoryRequirements& requirements,
 		VkMemoryPropertyFlags properties,
 		VkDeviceMemory** out_memory
 	)
 	{
-		bool device_local{ properties & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-		bool host_visible{ properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT };
+		bool device_local{ (bool)(properties & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
+		bool host_visible{ (bool)(properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
 
 		VkDeviceSize offset = ~0ull;
 
 		if (device_local && host_visible) {
-			offset = AllocateMemoryType(requirements, properties, device_host_allocations_, out_memory);
+			offset = FindMemoryType(requirements, properties, device_host_allocations_, out_memory);
 		}
 		else if (device_local) {
-			offset = AllocateMemoryType(requirements, properties, device_allocations_, out_memory);
+			offset = FindMemoryType(requirements, properties, device_allocations_, out_memory);
 		}
 		else if (host_visible) {
-			offset = AllocateMemoryType(requirements, properties, host_allocations_, out_memory);
+			offset = FindMemoryType(requirements, properties, host_allocations_, out_memory);
 		}
 		else {
 			logger::Error("Unsupported memory properties.");

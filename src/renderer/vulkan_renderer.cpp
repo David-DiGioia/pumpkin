@@ -22,7 +22,7 @@ namespace renderer
 		context_.Initialize(window);
 		swapchain_.Initialize(&context_);
 		graphics_pipeline_.Initialize(&context_, &swapchain_);
-		allocator_.Initialize(context_.device);
+		allocator_.Initialize(&context_);
 
 		InitializeFrameResources();
 	}
