@@ -25,11 +25,15 @@ namespace renderer
 		allocator_.Initialize(&context_);
 
 		InitializeFrameResources();
+
+		test_triangle_ = LoadTriangle(context_, allocator_);
 	}
 
 	void VulkanRenderer::CleanUp()
 	{
 		vkDeviceWaitIdle(context_.device);
+
+		allocator_.DestroyBufferResource(&test_triangle_.buffer_resource);
 
 		// Destroy sync objects.
 		for (FrameResources& resource : frame_resources_)
@@ -111,7 +115,7 @@ namespace renderer
 	void VulkanRenderer::Draw(VkCommandBuffer cmd, uint32_t image_index)
 	{
 		Extents window_extents{ context_.GetWindowExtents() };
-		VkClearColorValue clear_color{ 1.0f, 0.0f, 0.0f, 1.0f };
+		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.2f, 1.0f };
 
 		VkRenderingAttachmentInfo color_attachment_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -143,7 +147,10 @@ namespace renderer
 		// First render pass.
 		vkCmdBeginRendering(cmd, &rendering_info);
 
-
+		VkDeviceSize zero_offset{ 0 };
+		vkCmdBindVertexBuffers(cmd, 0, 1, &test_triangle_.buffer_resource.buffer, &zero_offset);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
+		vkCmdDraw(cmd, 3, 1, 0, 0);
 
 		vkCmdEndRendering(cmd);
 	}

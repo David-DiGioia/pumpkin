@@ -156,6 +156,12 @@ namespace renderer
 		};
 	}
 
+	void Allocator::DestroyBufferResource(BufferResource* buffer_resource)
+	{
+		vkDestroyBuffer(context_->device, buffer_resource->buffer, nullptr);
+		// TODO: Track which buffers are destroyed for when we do defragmentation.
+	}
+
 	// Get the lowest number we must add to offset such that it meets alignment requirement.
 	VkDeviceSize GetAlignmentOffset(VkDeviceSize offset, VkDeviceSize alignment)
 	{
@@ -176,7 +182,7 @@ namespace renderer
 
 	VkDeviceSize Allocator::NewAllocation(VkDeviceSize required_size, MemoryTypeAllocations* mem_type_alloc, VkDeviceMemory** out_memory)
 	{
-		VkDeviceSize alloc_size{ (VkDeviceSize)(ALLOCATION_RATIO * remaining_heap_memory_[mem_type_alloc->memory_type_index]) };
+		VkDeviceSize alloc_size{ (VkDeviceSize)(ALLOCATION_RATIO * remaining_heap_memory_[mem_type_alloc->memory_type.heapIndex]) };
 		alloc_size = std::clamp(alloc_size, required_size, max_alloc_size_);
 
 		// Otherwise make new allocation.
@@ -257,5 +263,14 @@ namespace renderer
 
 		--remaining_allocations_;
 		return offset;
+	}
+
+	const BufferResource& BufferResource::operator=(const BufferResource& other)
+	{
+		buffer = other.buffer;
+		memory = other.memory;
+		size = other.size;
+		offset = other.offset;
+		return other;
 	}
 }

@@ -15,13 +15,14 @@ namespace renderer
 
 		void CleanUp();
 
+		VkPipeline pipeline{};
+		VkPipelineLayout layout{};
+
 	private:
 		void CreatePipelineLayout();
 
 		VkResult LoadShaderModule(const std::string& filePath, VkShaderModule* outShaderModule) const;
 
-		VkPipeline pipeline_{};
-		VkPipelineLayout layout_{};
 		Context* context_{};
 	};
 }

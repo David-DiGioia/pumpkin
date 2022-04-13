@@ -8,6 +8,7 @@
 #include "swapchain.h"
 #include "pipeline.h"
 #include "memory_allocator.h"
+#include "mesh.h"
 
 namespace renderer
 {
@@ -56,6 +57,8 @@ namespace renderer
 		Allocator allocator_{};
 
 		uint32_t current_frame_{};
-		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_;
+		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
+
+		Mesh test_triangle_{};
 	};
 }

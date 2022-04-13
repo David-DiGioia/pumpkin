@@ -10,7 +10,7 @@
 
 namespace renderer
 {
-	const std::string spirv_prefix{ "../../src/renderer/shaders/spirv/" };
+	const std::string spirv_prefix{ "renderer/shaders/" };
 
 	void GraphicsPipeline::Initialize(Context* context, Swapchain* swapchain)
 	{
@@ -198,14 +198,14 @@ namespace renderer
 			.pDepthStencilState = nullptr, // No depth buffer yet.
 			.pColorBlendState = &color_blend_info,
 			.pDynamicState = &dynamic_info,
-			.layout = layout_,
+			.layout = layout,
 			.renderPass = VK_NULL_HANDLE, // We're using dynamic rendering.
 			.subpass = 0,
 			.basePipelineHandle = VK_NULL_HANDLE,
 			.basePipelineIndex = 0,
 		};
 
-		result = vkCreateGraphicsPipelines(context_->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline_);
+		result = vkCreateGraphicsPipelines(context_->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline);
 		CheckResult(result, "Failed to create graphics pipeline.");
 
 		vkDestroyShaderModule(context_->device, vertex_shader, nullptr);
@@ -214,8 +214,8 @@ namespace renderer
 
 	void GraphicsPipeline::CleanUp()
 	{
-		vkDestroyPipelineLayout(context_->device, layout_, nullptr);
-		vkDestroyPipeline(context_->device, pipeline_, nullptr);
+		vkDestroyPipelineLayout(context_->device, layout, nullptr);
+		vkDestroyPipeline(context_->device, pipeline, nullptr);
 	}
 
 	void GraphicsPipeline::CreatePipelineLayout()
@@ -229,7 +229,7 @@ namespace renderer
 			.pPushConstantRanges = nullptr,
 		};
 
-		VkResult result{ vkCreatePipelineLayout(context_->device, &layout_info, nullptr, &layout_) };
+		VkResult result{ vkCreatePipelineLayout(context_->device, &layout_info, nullptr, &layout) };
 		CheckResult(result, "Failed to create pipeline layout.");
 	}
 

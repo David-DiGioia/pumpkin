@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include "volk.h"
 
@@ -11,6 +13,8 @@ namespace renderer
 		VkDeviceMemory* memory; // Should be shared by multiple buffers.
 		VkDeviceSize size; // Byte size of buffer.
 		VkDeviceSize offset; // Offset into memory where the buffer starts.
+
+		const BufferResource& operator=(const BufferResource& other);
 	};
 
 	class Allocator
@@ -21,6 +25,8 @@ namespace renderer
 		void CleanUp();
 
 		BufferResource CreateBufferResource(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+
+		void DestroyBufferResource(BufferResource* buffer_resource);
 
 	private:
 		struct Allocation
