@@ -23,3 +23,35 @@ target_include_directories(Renderer PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(Renderer PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")
 
 target_link_libraries(Renderer PRIVATE Common)
+
+macro(COMPILE_SHADER shader_name)
+    SET(GLSL "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader_name}")
+    SET(SPIRV "${PROJECT_BINARY_DIR}/shaders/${shader_name}.spv")
+
+    add_custom_command(
+        OUTPUT ${SPIRV}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/shaders/"
+        COMMAND glslangvalidator.exe -V ${GLSL} -o ${SPIRV}
+        DEPENDS ${GLSL} # If GLSL changes, this command will be run to compile them again.
+    )
+
+    list(APPEND SPIRV_BINARY_FILES ${SPIRV})
+endmacro()
+
+add_custom_target(
+    Shaders
+    DEPENDS ${SPIRV_BINARY_FILES}
+)
+
+add_dependencies(Renderer Shaders)
+
+#add_custom_command(TARGET Renderer PRE_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Renderer>/shaders/"
+#    COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_BINARY_DIR}/shaders" "$<TARGET_FILE_DIR:Renderer>/shaders/"
+#)
+
+COMPILE_SHADER("default.frag")
+COMPILE_SHADER("default.vert")
+
+MESSAGE(${SPIRV_BINARY_FILES})
+
