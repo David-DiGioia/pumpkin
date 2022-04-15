@@ -1,63 +1,12 @@
 #include "mesh.h"
 
 #include <type_traits>
+#include <vector>
 
+#include "tiny_gltf.h"
 #include "logger.h"
 #include "memory_allocator.h"
-
-#define VERTEX_ATTRIBUTE(loc, attr)								\
-	VkVertexInputAttributeDescription{							\
-		.location = loc,										\
-		.binding = vertex_binding,								\
-		.format = GetVulkanFormat<decltype(Vertex::attr)>(),	\
-		.offset = offsetof(Vertex, attr),						\
-	}															\
-
-template <typename T>
-VkFormat GetVulkanFormat()
-{
-	if (std::is_same<glm::vec4, T>::value) {
-		return VK_FORMAT_R32G32B32A32_SFLOAT;
-	}
-	else if (std::is_same<glm::vec3, T>::value) {
-		return VK_FORMAT_R32G32B32_SFLOAT;
-	}
-	else if (std::is_same<glm::vec2, T>::value) {
-		return VK_FORMAT_R32G32_SFLOAT;
-	}
-	else if (std::is_same<float, T>::value) {
-		return VK_FORMAT_R32_SFLOAT;
-	}
-	else if (std::is_same<glm::ivec4, T>::value) {
-		return VK_FORMAT_R32G32B32A32_SINT;
-	}
-	else if (std::is_same<glm::ivec3, T>::value) {
-		return VK_FORMAT_R32G32B32_SINT;
-	}
-	else if (std::is_same<glm::ivec2, T>::value) {
-		return VK_FORMAT_R32G32_SINT;
-	}
-	else if (std::is_same<int, T>::value) {
-		return VK_FORMAT_R32_SINT;
-	}
-	else if (std::is_same<glm::uvec4, T>::value) {
-		return VK_FORMAT_R32G32B32A32_UINT;
-	}
-	else if (std::is_same<glm::uvec3, T>::value) {
-		return VK_FORMAT_R32G32B32_UINT;
-	}
-	else if (std::is_same<glm::uvec2, T>::value) {
-		return VK_FORMAT_R32G32_UINT;
-	}
-	else if (std::is_same<uint32_t, T>::value) {
-		return VK_FORMAT_R32_UINT;
-	}
-
-	logger::Error("Unknown Vulkan format requested.");
-
-	return VK_FORMAT_UNDEFINED;
-}
-
+#include "vulkan_util.h"
 
 namespace renderer
 {
@@ -66,6 +15,11 @@ namespace renderer
 		return {
 			VERTEX_ATTRIBUTE(0, position),
 		};
+	}
+
+	void LoadMeshesGLTF(const tinygltf::Model& model, std::vector<Mesh>* out_meshes)
+	{
+		// TODO!
 	}
 
 	Mesh LoadTriangle(const Context& context, Allocator& alloc)

@@ -2,6 +2,8 @@
     "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/pumpkin.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/pumpkin.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/scene.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/scene.cpp"
 )
 
 add_executable(Pumpkin "${SOURCES}")
