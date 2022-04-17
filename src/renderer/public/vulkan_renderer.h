@@ -9,6 +9,7 @@
 #include "pipeline.h"
 #include "memory_allocator.h"
 #include "mesh.h"
+#include "vulkan_util.h"
 
 namespace renderer
 {
@@ -30,6 +31,8 @@ namespace renderer
 		void CleanUp();
 
 		void Render();
+
+		void LoadMeshesGLTF(tinygltf::Model& model, std::vector<Mesh>* out_meshes);
 
 	private:
 		void Draw(VkCommandBuffer cmd, uint32_t image_index);
@@ -55,10 +58,9 @@ namespace renderer
 		GraphicsPipeline graphics_pipeline_{};
 		VkCommandPool command_pool_{};
 		Allocator allocator_{};
+		VulkanUtil vulkan_util_{};
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
-
-		Mesh test_triangle_{};
 	};
 }

@@ -5,7 +5,8 @@
 #include "glm/glm.hpp"
 #include "glm/gtx/quaternion.hpp"
 
-#include "public/mesh.h"
+#include "mesh_types.h"
+#include "vulkan_renderer.h"
 
 struct Node
 {
@@ -26,7 +27,7 @@ class Scene
 public:
 	// Import the whole GLTF hierarchy, adding all nodes to scene.
 	// Note that Blender doesn't export cameras or lights.
-	void ImportGLTF(const std::string& path);
+	void ImportGLTF(renderer::VulkanRenderer* renderer, const std::string& path);
 
 private:
 	std::vector<Node*> root_nodes_;

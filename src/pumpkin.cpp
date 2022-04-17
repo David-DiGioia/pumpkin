@@ -17,7 +17,7 @@ void Pumpkin::Start()
 	logger::Print("Pumpkin Engine Version %d.%d\n\n", config::PUMPKIN_VERSION_MAJOR, config::PUMPKIN_VERSION_MINOR);
 
     Initialize();
-    scene_.ImportGLTF("../../assets/test_gltf.gltf");
+    scene_.ImportGLTF(&renderer_, "../../assets/test_gltf.gltf");
     MainLoop();
     CleanUp();
 }

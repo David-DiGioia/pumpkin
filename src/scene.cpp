@@ -13,7 +13,7 @@
 #include "logger.h"
 #include "mesh.h"
 
-void Scene::ImportGLTF(const std::string& path)
+void Scene::ImportGLTF(renderer::VulkanRenderer* renderer, const std::string& path)
 {
 	logger::Print("Loading glTF file: %s\n", path.c_str());
 
@@ -38,7 +38,7 @@ void Scene::ImportGLTF(const std::string& path)
 	}
 
 	meshes_.reserve(model.meshes.size());
-	renderer::LoadMeshesGLTF(model, &meshes_);
+	renderer->LoadMeshesGLTF(model, &meshes_);
 
 	int i{ 0 };
 	nodes_.resize(model.nodes.size());
@@ -48,15 +48,15 @@ void Scene::ImportGLTF(const std::string& path)
 		node.mesh = &meshes_[gltf_node.mesh];
 
 		if (!gltf_node.translation.empty()) {
-			node.translation = glm::vec3{ gltf_node.translation[0], gltf_node.translation[1], gltf_node.translation[2] };
+			node.translation = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };
 		}
 
 		if (!gltf_node.scale.empty()) {
-			node.scale = glm::vec3{ gltf_node.scale[0], gltf_node.scale[1], gltf_node.scale[2] };
+			node.scale = glm::vec3{ (float)gltf_node.scale[0], (float)gltf_node.scale[1], (float)gltf_node.scale[2] };
 		}
 
 		if (!gltf_node.rotation.empty()) {
-			node.rotation = glm::quat{ gltf_node.rotation[0], gltf_node.rotation[1], gltf_node.rotation[2], gltf_node.rotation[3] };
+			node.rotation = glm::quat{ (float)gltf_node.rotation[0], (float)gltf_node.rotation[1], (float)gltf_node.rotation[2], (float)gltf_node.rotation[3] };
 		}
 
 		for (int child_idx : gltf_node.children) {

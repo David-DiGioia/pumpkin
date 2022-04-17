@@ -11,6 +11,7 @@
 #include "vulkan_util.h"
 #include "logger.h"
 #include "context.h"
+#include "mesh.h"
 
 namespace renderer
 {
@@ -23,17 +24,14 @@ namespace renderer
 		swapchain_.Initialize(&context_);
 		graphics_pipeline_.Initialize(&context_, &swapchain_);
 		allocator_.Initialize(&context_);
+		vulkan_util_.Initialize(&context_, &allocator_);
 
 		InitializeFrameResources();
-
-		test_triangle_ = LoadTriangle(context_, allocator_);
 	}
 
 	void VulkanRenderer::CleanUp()
 	{
 		vkDeviceWaitIdle(context_.device);
-
-		allocator_.DestroyBufferResource(&test_triangle_.buffer_resource);
 
 		// Destroy sync objects.
 		for (FrameResources& resource : frame_resources_)
@@ -46,6 +44,7 @@ namespace renderer
 		// Destroying command pool frees all command buffers allocated from it.
 		vkDestroyCommandPool(context_.device, command_pool_, nullptr);
 
+		vulkan_util_.CleanUp();
 		allocator_.CleanUp();
 		graphics_pipeline_.CleanUp();
 		swapchain_.CleanUp();
@@ -55,7 +54,7 @@ namespace renderer
 	void VulkanRenderer::Render()
 	{
 		// Wait until the GPU has finished rendering the last frame to use these resources. Timeout of 1 second.
-		VkResult result{ vkWaitForFences(context_.device, 1, &GetCurrentFrame().render_done_fence, true, 1'000'000'000) };
+		VkResult result{ vkWaitForFences(context_.device, 1, &GetCurrentFrame().render_done_fence, VK_TRUE, 1'000'000'000) };
 		CheckResult(result, "Error waiting for render_fence.");
 		result = vkResetFences(context_.device, 1, &GetCurrentFrame().render_done_fence);
 		CheckResult(result, "Error resetting render_fence.");
@@ -148,9 +147,9 @@ namespace renderer
 		vkCmdBeginRendering(cmd, &rendering_info);
 
 		VkDeviceSize zero_offset{ 0 };
-		vkCmdBindVertexBuffers(cmd, 0, 1, &test_triangle_.buffer_resource.buffer, &zero_offset);
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
-		vkCmdDraw(cmd, 3, 1, 0, 0);
+		//vkCmdBindVertexBuffers(cmd, 0, 1, &test_triangle_.vertices_resource.buffer, &zero_offset);
+		//vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
+		//vkCmdDraw(cmd, 3, 1, 0, 0);
 
 		vkCmdEndRendering(cmd);
 	}
@@ -312,5 +311,29 @@ namespace renderer
 			result = vkCreateSemaphore(context_.device, &semaphore_info, nullptr, &resource.render_done_semaphore);
 			CheckResult(result, "Failed to create semaphore.");
 		}
+	}
+
+	void VulkanRenderer::LoadMeshesGLTF(tinygltf::Model& model, std::vector<Mesh>* out_meshes)
+	{
+		vulkan_util_.Begin();
+
+		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
+		{
+			out_meshes->emplace_back();
+			auto& mesh{ out_meshes->back() };
+
+			LoadVerticesGLTF(model, tinygltf_mesh, &mesh.vertices);
+			LoadIndicesGLTF(model, tinygltf_mesh, &mesh.indices);
+
+			mesh.vertices_resource = allocator_.CreateBufferResource(mesh.vertices.size() * sizeof(Vertex),
+				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			vulkan_util_.TransferBufferToDevice(mesh.vertices, mesh.vertices_resource);
+
+			mesh.indices_resource = allocator_.CreateBufferResource(mesh.indices.size() * sizeof(uint16_t),
+				VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			vulkan_util_.TransferBufferToDevice(mesh.indices, mesh.indices_resource);
+		}
+
+		vulkan_util_.Submit();
 	}
 }
