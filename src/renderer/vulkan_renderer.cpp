@@ -51,21 +51,24 @@ namespace renderer
 		context_.CleanUp();
 	}
 
-	void VulkanRenderer::Render()
+	void VulkanRenderer::WaitForLastFrame()
 	{
 		// Wait until the GPU has finished rendering the last frame to use these resources. Timeout of 1 second.
 		VkResult result{ vkWaitForFences(context_.device, 1, &GetCurrentFrame().render_done_fence, VK_TRUE, 1'000'000'000) };
 		CheckResult(result, "Error waiting for render_fence.");
 		result = vkResetFences(context_.device, 1, &GetCurrentFrame().render_done_fence);
 		CheckResult(result, "Error resetting render_fence.");
+	}
 
+	void VulkanRenderer::Render(const std::vector<RenderObject>* render_objects)
+	{
 		// Request image from the swapchain, one second timeout.
 		// This is also where vsync happens according to vkguide, but for me it happens at present.
 		uint32_t image_index{ swapchain_.AcquireNextImage(GetCurrentFrame().image_acquired_semaphore) };
 
 		// Now that we are sure that the commands finished executing, we can safely
 		// reset the command buffer to begin recording again.
-		result = vkResetCommandBuffer(GetCurrentFrame().command_buffer, 0);
+		VkResult result{ vkResetCommandBuffer(GetCurrentFrame().command_buffer, 0) };
 		CheckResult(result, "Error resetting command buffer.");
 
 		// Drawing commands happen here.

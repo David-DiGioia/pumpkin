@@ -22,11 +22,26 @@ void Pumpkin::Start()
     CleanUp();
 }
 
+void Pumpkin::HostWork()
+{
+
+}
+
+void Pumpkin::HostRenderWork()
+{
+    scene_.UpdateRenderObjects();
+}
+
 void Pumpkin::MainLoop()
 {
-    while (!glfwWindowShouldClose(window_)) {
+    while (!glfwWindowShouldClose(window_))
+    {
         glfwPollEvents();
-        renderer_.Render();
+
+        HostWork();
+        renderer_.WaitForLastFrame();
+        HostRenderWork();
+        renderer_.Render(scene_.GetRenderObjects());
     }
 }
 

@@ -1,8 +1,10 @@
 #pragma once
 
 #include <array>
+#include <vector>
 #include "volk.h"
 #include "GLFW/glfw3.h"
+#include "glm/glm.hpp"
 
 #include "context.h"
 #include "swapchain.h"
@@ -11,9 +13,17 @@
 #include "mesh.h"
 #include "vulkan_util.h"
 
+
 namespace renderer
 {
 	constexpr uint32_t FRAMES_IN_FLIGHT{ 2 };
+
+	struct RenderObject
+	{
+		Mesh* mesh;
+		VertexType vertex_type;
+		glm::mat4 transform;
+	};
 
 	struct FrameResources
 	{
@@ -30,7 +40,13 @@ namespace renderer
 
 		void CleanUp();
 
-		void Render();
+		// Waits for the last frame with the same index, since the frame resources
+		// will be occupied until it finishes rendering.
+		//
+		// Do all CPU work that mutates render objects between WaitForLastFrame() and Render().
+		void WaitForLastFrame();
+
+		void Render(const std::vector<RenderObject>* render_objects);
 
 		void LoadMeshesGLTF(tinygltf::Model& model, std::vector<Mesh>* out_meshes);
 

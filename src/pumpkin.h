@@ -16,6 +16,12 @@ public:
 	void CleanUp();
 
 private:
+	// General work the host needs to do each frame.
+	void HostWork();
+
+	// Work the host needs to do that modifies the render objects.
+	void HostRenderWork();
+
 	GLFWwindow* window_{};
 	renderer::VulkanRenderer renderer_{};
 	Scene scene_{};
