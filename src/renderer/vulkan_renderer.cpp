@@ -60,7 +60,7 @@ namespace renderer
 		CheckResult(result, "Error resetting render_fence.");
 	}
 
-	void VulkanRenderer::Render(const std::vector<RenderObject>* render_objects)
+	uint32_t VulkanRenderer::Render(const std::vector<RenderObject>* render_objects)
 	{
 		// Request image from the swapchain, one second timeout.
 		// This is also where vsync happens according to vkguide, but for me it happens at present.
@@ -112,6 +112,7 @@ namespace renderer
 		CheckResult(result, "Error presenting image.");
 
 		NextFrame();
+		return current_frame_;
 	}
 
 	void VulkanRenderer::Draw(VkCommandBuffer cmd, uint32_t image_index)

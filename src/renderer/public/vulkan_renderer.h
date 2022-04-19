@@ -18,11 +18,18 @@ namespace renderer
 {
 	constexpr uint32_t FRAMES_IN_FLIGHT{ 2 };
 
+	struct DescriptorSetResource
+	{
+		VkDescriptorSet descriptor_set;
+		BufferResource resource;
+	};
+
 	struct RenderObject
 	{
 		Mesh* mesh;
 		VertexType vertex_type;
 		glm::mat4 transform;
+		DescriptorSetResource object_descriptors; // Includes UBO containing transform (model matrix).
 	};
 
 	struct FrameResources
@@ -46,7 +53,14 @@ namespace renderer
 		// Do all CPU work that mutates render objects between WaitForLastFrame() and Render().
 		void WaitForLastFrame();
 
-		void Render(const std::vector<RenderObject>* render_objects);
+		// Render the list of render objects.
+		// 
+		// Note that the render objects are externally synchronized, meaning the caller must
+		// mutate the render objects only corresponding to the current frame index and after
+		// waiting for WaitForLastFrame().
+		// 
+		// Returns the index of the current frame-in-flight.
+		uint32_t Render(const std::vector<RenderObject>* render_objects);
 
 		void LoadMeshesGLTF(tinygltf::Model& model, std::vector<Mesh>* out_meshes);
 

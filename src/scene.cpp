@@ -50,7 +50,7 @@ void Scene::ImportGLTF(renderer::VulkanRenderer* renderer, const std::string& pa
 		if (gltf_node.mesh >= 0)
 		{
 			renderer::Mesh* mesh_ptr = &meshes_[gltf_node.mesh];
-			node.render_object = CreateRenderObject(mesh_ptr);
+			node.render_object_idx = CreateRenderObject(mesh_ptr);
 
 			if (!gltf_node.translation.empty()) {
 				node.translation = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };
@@ -72,31 +72,49 @@ void Scene::ImportGLTF(renderer::VulkanRenderer* renderer, const std::string& pa
 	}
 }
 
-renderer::RenderObject* Scene::CreateRenderObject(renderer::Mesh* mesh)
+uint32_t Scene::CreateRenderObject(renderer::Mesh* mesh)
 {
-	render_objects_.emplace_back();
-	render_objects_.back().mesh = mesh;
-	render_objects_.back().vertex_type = renderer::VertexType::POSITION_NORMAL_COORD;
-	render_objects_.back().transform = glm::mat4(1.0f);
-	return &render_objects_.back();
+	for (auto& frame : frame_resources_)
+	{
+		frame.render_objects.emplace_back();
+		frame.render_objects.back().mesh = mesh;
+		frame.render_objects.back().vertex_type = renderer::VertexType::POSITION_NORMAL_COORD;
+		frame.render_objects.back().transform = glm::mat4(1.0f);
+	}
+
+	return (uint32_t)(frame_resources_[0].render_objects.size() - 1);
 }
 
 std::vector<renderer::RenderObject>* Scene::GetRenderObjects()
 {
-	return &render_objects_;
+	return &frame_resources_[current_frame_].render_objects;
 }
 
 void Scene::UpdateRenderObjects()
 {
 	for (Node& node : nodes_)
 	{
-		if (node.render_object)
+		if (node.render_object_idx != NULL_INDEX)
 		{
 			glm::mat4 scale_mat{ glm::scale(node.scale) };
 			glm::mat4 rotation_mat{ glm::toMat4(node.rotation) };
 			glm::mat4 translate_mat{ glm::translate(node.translation) };
 
-			node.render_object->transform = translate_mat * rotation_mat * scale_mat;
+			GetRenderObject(node.render_object_idx)->transform = translate_mat * rotation_mat * scale_mat;
 		}
 	}
+}
+
+void Scene::DrawScene(renderer::VulkanRenderer& renderer)
+{
+	current_frame_ = renderer.Render(GetRenderObjects());
+}
+
+renderer::RenderObject* Scene::GetRenderObject(uint32_t idx)
+{
+	if (idx == NULL_INDEX) {
+		return nullptr;
+	}
+
+	return &frame_resources_[current_frame_].render_objects[idx];
 }
