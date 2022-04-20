@@ -14,7 +14,12 @@
 #include "mesh.h"
 #include "glm/gtx/transform.hpp"
 
-void Scene::ImportGLTF(renderer::VulkanRenderer* renderer, const std::string& path)
+void Scene::Initialize(renderer::VulkanRenderer* renderer)
+{
+	renderer_ = renderer;
+}
+
+void Scene::ImportGLTF(const std::string& path)
 {
 	logger::Print("Loading glTF file: %s\n", path.c_str());
 
@@ -39,7 +44,7 @@ void Scene::ImportGLTF(renderer::VulkanRenderer* renderer, const std::string& pa
 	}
 
 	meshes_.reserve(model.meshes.size());
-	renderer->LoadMeshesGLTF(model, &meshes_);
+	renderer_->LoadMeshesGLTF(model, &meshes_);
 
 	int i{ (int)nodes_.size() };
 	nodes_.resize(nodes_.size() + model.nodes.size());
@@ -76,10 +81,12 @@ uint32_t Scene::CreateRenderObject(renderer::Mesh* mesh)
 {
 	for (auto& frame : frame_resources_)
 	{
-		frame.render_objects.emplace_back();
-		frame.render_objects.back().mesh = mesh;
-		frame.render_objects.back().vertex_type = renderer::VertexType::POSITION_NORMAL_COORD;
-		frame.render_objects.back().transform = glm::mat4(1.0f);
+		// Renderer associates descriptor with buffer, and buffer is written to
+		// in UpdateRenderObjects() function.
+		renderer::RenderObject render_object{ renderer_->CreateRenderObject() };
+		render_object.mesh = mesh;
+		render_object.vertex_type = renderer::VertexType::POSITION_NORMAL_COORD;
+		render_object.uniform_buffer.transform = glm::mat4(1.0f);
 	}
 
 	return (uint32_t)(frame_resources_[0].render_objects.size() - 1);
@@ -94,14 +101,18 @@ void Scene::UpdateRenderObjects()
 {
 	for (Node& node : nodes_)
 	{
-		if (node.render_object_idx != NULL_INDEX)
-		{
-			glm::mat4 scale_mat{ glm::scale(node.scale) };
-			glm::mat4 rotation_mat{ glm::toMat4(node.rotation) };
-			glm::mat4 translate_mat{ glm::translate(node.translation) };
-
-			GetRenderObject(node.render_object_idx)->transform = translate_mat * rotation_mat * scale_mat;
+		// Not every node has a render object.
+		if (node.render_object_idx == NULL_INDEX) {
+			continue;
 		}
+
+		glm::mat4 scale_mat{ glm::scale(node.scale) };
+		glm::mat4 rotation_mat{ glm::toMat4(node.rotation) };
+		glm::mat4 translate_mat{ glm::translate(node.translation) };
+
+		renderer::RenderObject* render_object{ GetRenderObject(node.render_object_idx) };
+		render_object->uniform_buffer.transform = translate_mat * rotation_mat * scale_mat;
+		renderer_->UploadRenderObjectBufferToDevice(render_object);
 	}
 }
 

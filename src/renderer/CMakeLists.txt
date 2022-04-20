@@ -14,6 +14,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/mesh.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/memory_allocator.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/memory_allocator.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/descriptor_set.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/descriptor_set.cpp"
 )
 
 add_library(Renderer "${SOURCES}")

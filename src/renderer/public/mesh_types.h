@@ -21,19 +21,19 @@ namespace renderer
 
 	struct Vertex
 	{
-		glm::vec3 position;
-		glm::vec3 normal;
-		glm::vec2 tex_coord;
+		glm::vec3 position{};
+		glm::vec3 normal{};
+		glm::vec2 tex_coord{};
 
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};
 
 	struct Mesh
 	{
-		std::vector<Vertex> vertices;
-		std::vector<uint16_t> indices;
+		std::vector<Vertex> vertices{};
+		std::vector<uint16_t> indices{};
 
-		BufferResource vertices_resource;
-		BufferResource indices_resource;
+		BufferResource vertices_resource{};
+		BufferResource indices_resource{};
 	};
 }

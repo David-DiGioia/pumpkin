@@ -16,6 +16,7 @@ namespace renderer
 		void CleanUp();
 
 		VkPipeline pipeline{};
+		VkDescriptorSetLayout descriptor_set_layout{};
 		VkPipelineLayout layout{};
 
 	private:

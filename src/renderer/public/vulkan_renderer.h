@@ -12,7 +12,7 @@
 #include "memory_allocator.h"
 #include "mesh.h"
 #include "vulkan_util.h"
-
+#include "descriptor_set.h"
 
 namespace renderer
 {
@@ -28,8 +28,17 @@ namespace renderer
 	{
 		Mesh* mesh;
 		VertexType vertex_type;
-		glm::mat4 transform;
-		DescriptorSetResource object_descriptors; // Includes UBO containing transform (model matrix).
+
+		// Object data that is passed to shader in object_descriptors.
+		// When this data is updated, it will be reflected in the
+		// object_descriptors resource, since they are associated at
+		// creation of the render object.
+		struct UniformBuffer
+		{
+			glm::mat4 transform;
+		} uniform_buffer;
+
+		DescriptorSetResource object_descriptors;
 	};
 
 	struct FrameResources
@@ -64,6 +73,12 @@ namespace renderer
 
 		void LoadMeshesGLTF(tinygltf::Model& model, std::vector<Mesh>* out_meshes);
 
+		// Create a render object with the buffer resource and descriptors already associated
+		// with the render object data.
+		RenderObject CreateRenderObject();
+
+		void UploadRenderObjectBufferToDevice(RenderObject* render_object);
+
 	private:
 		void Draw(VkCommandBuffer cmd, uint32_t image_index);
 
@@ -88,6 +103,7 @@ namespace renderer
 		GraphicsPipeline graphics_pipeline_{};
 		VkCommandPool command_pool_{};
 		Allocator allocator_{};
+		DescriptorAllocator descriptor_allocator_{};
 		VulkanUtil vulkan_util_{};
 
 		uint32_t current_frame_{};

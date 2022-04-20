@@ -1,3 +1,4 @@
+#include "public\vulkan_renderer.h"
 #include "vulkan_renderer.h"
 
 #define VOLK_IMPLEMENTATION
@@ -12,6 +13,7 @@
 #include "logger.h"
 #include "context.h"
 #include "mesh.h"
+#include "descriptor_set.h"
 
 namespace renderer
 {
@@ -22,6 +24,7 @@ namespace renderer
 
 		context_.Initialize(window);
 		swapchain_.Initialize(&context_);
+		descriptor_allocator_.Initialize(&context_);
 		graphics_pipeline_.Initialize(&context_, &swapchain_);
 		allocator_.Initialize(&context_);
 		vulkan_util_.Initialize(&context_, &allocator_);
@@ -47,6 +50,7 @@ namespace renderer
 		vulkan_util_.CleanUp();
 		allocator_.CleanUp();
 		graphics_pipeline_.CleanUp();
+		descriptor_allocator_.CleanUp();
 		swapchain_.CleanUp();
 		context_.CleanUp();
 	}
@@ -113,6 +117,55 @@ namespace renderer
 
 		NextFrame();
 		return current_frame_;
+	}
+
+	RenderObject VulkanRenderer::CreateRenderObject()
+	{
+		RenderObject render_object{};
+		render_object.object_descriptors.resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+		// Make descriptor set.
+		VkDescriptorSetAllocateInfo allocate_info{
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+			.descriptorPool = descriptor_pool_,
+			.descriptorSetCount = 1,
+			.pSetLayouts = &graphics_pipeline_.descriptor_set_layout,
+		};
+
+		VkResult result{ vkAllocateDescriptorSets(context_.device, &allocate_info, &render_object.object_descriptors.descriptor_set) };
+		CheckResult(result, "Failed to allocate descriptor sets.");
+
+		// Associate descriptor set with render object ubo data.
+		VkDescriptorBufferInfo buffer_info{
+			.buffer = render_object.object_descriptors.resource.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE,
+		};
+
+		VkWriteDescriptorSet write_info{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = render_object.object_descriptors.descriptor_set,
+			.dstBinding = 0, // TODO: Later don't hardcode this once we have better way of making descriptor set layouts.
+			.dstArrayElement = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // TODO: Again, shouldn't be hardcoded.
+			.pImageInfo = nullptr,
+			.pBufferInfo = &buffer_info,
+			.pTexelBufferView = nullptr,
+		};
+
+		vkUpdateDescriptorSets(context_.device, 1, &write_info, 0, nullptr);
+
+		return render_object;
+	}
+
+	void VulkanRenderer::UploadRenderObjectBufferToDevice(RenderObject* render_object)
+	{
+		void* data{};
+		vkMapMemory(context_.device, *render_object->object_descriptors.resource.memory, 0, render_object->object_descriptors.resource.size, 0, &data);
+		memcpy(data, &render_object->uniform_buffer, sizeof(RenderObject::UniformBuffer));
+		vkUnmapMemory(context_.device, *render_object->object_descriptors.resource.memory);
 	}
 
 	void VulkanRenderer::Draw(VkCommandBuffer cmd, uint32_t image_index)

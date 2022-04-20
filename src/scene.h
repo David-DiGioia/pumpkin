@@ -34,9 +34,11 @@ struct SceneFrameResources
 class Scene
 {
 public:
+	void Initialize(renderer::VulkanRenderer* renderer);
+
 	// Import the whole GLTF hierarchy, adding all nodes to scene.
 	// Note that Blender doesn't export cameras or lights.
-	void ImportGLTF(renderer::VulkanRenderer* renderer, const std::string& path);
+	void ImportGLTF(const std::string& path);
 
 	// Create render object, adding it to both frame resources lists.
 	//
@@ -53,6 +55,7 @@ public:
 	renderer::RenderObject* GetRenderObject(uint32_t idx);
 
 private:
+	renderer::VulkanRenderer* renderer_{};
 	std::vector<Node*> root_nodes_{};
 	std::vector<Node> nodes_{}; // All nodes in the scene.
 	std::vector<renderer::Mesh> meshes_{}; // All meshes used by nodes.
