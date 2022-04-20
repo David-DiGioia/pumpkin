@@ -18,27 +18,18 @@ namespace renderer
 {
 	constexpr uint32_t FRAMES_IN_FLIGHT{ 2 };
 
-	struct DescriptorSetResource
-	{
-		VkDescriptorSet descriptor_set;
-		BufferResource resource;
-	};
-
 	struct RenderObject
 	{
 		Mesh* mesh;
 		VertexType vertex_type;
 
-		// Object data that is passed to shader in object_descriptors.
-		// When this data is updated, it will be reflected in the
-		// object_descriptors resource, since they are associated at
-		// creation of the render object.
 		struct UniformBuffer
 		{
 			glm::mat4 transform;
 		} uniform_buffer;
 
-		DescriptorSetResource object_descriptors;
+		BufferResource ubo_buffer_resource;
+		DescriptorSetResource ubo_descriptor_set_resource;
 	};
 
 	struct FrameResources
@@ -73,6 +64,8 @@ namespace renderer
 
 		void LoadMeshesGLTF(tinygltf::Model& model, std::vector<Mesh>* out_meshes);
 
+		void InitializeDescriptorSetLayouts();
+
 		// Create a render object with the buffer resource and descriptors already associated
 		// with the render object data.
 		RenderObject CreateRenderObject();
@@ -92,6 +85,8 @@ namespace renderer
 
 		FrameResources& GetCurrentFrame();
 
+		void InitializePipelines();
+
 		void InitializeFrameResources();
 
 		void InitializeCommandBuffers();
@@ -105,6 +100,8 @@ namespace renderer
 		Allocator allocator_{};
 		DescriptorAllocator descriptor_allocator_{};
 		VulkanUtil vulkan_util_{};
+
+		DescriptorSetLayoutResource render_object_layout_resource_{};
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};

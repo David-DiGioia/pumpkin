@@ -12,7 +12,7 @@ namespace renderer
 {
 	const std::string spirv_prefix{ "shaders/" };
 
-	void GraphicsPipeline::Initialize(Context* context, Swapchain* swapchain)
+	void GraphicsPipeline::Initialize(Context* context, Swapchain* swapchain, const std::vector<DescriptorSetLayoutResource>& set_layouts)
 	{
 		context_ = context;
 
@@ -169,7 +169,7 @@ namespace renderer
 			.pDynamicStates = nullptr,
 		};
 
-		CreatePipelineLayout();
+		CreatePipelineLayout(set_layouts);
 
 		VkFormat swapchain_image_format = swapchain->GetImageFormat();
 
@@ -218,13 +218,20 @@ namespace renderer
 		vkDestroyPipeline(context_->device, pipeline, nullptr);
 	}
 
-	void GraphicsPipeline::CreatePipelineLayout()
+	void GraphicsPipeline::CreatePipelineLayout(const std::vector<DescriptorSetLayoutResource>& set_layouts)
 	{
+		// Convert layout resources to Vulkan set layouts.
+		std::vector<VkDescriptorSetLayout> vk_set_layouts;
+		vk_set_layouts.reserve(set_layouts.size());
+		for (auto& set_layout : set_layouts) {
+			vk_set_layouts.push_back(set_layout.layout);
+		}
+
 		VkPipelineLayoutCreateInfo layout_info{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			.flags = 0,
-			.setLayoutCount = 0,
-			.pSetLayouts = nullptr,
+			.setLayoutCount = (uint32_t)vk_set_layouts.size(),
+			.pSetLayouts = vk_set_layouts.data(),
 			.pushConstantRangeCount = 0,
 			.pPushConstantRanges = nullptr,
 		};

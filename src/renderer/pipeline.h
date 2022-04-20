@@ -5,22 +5,22 @@
 
 #include "context.h"
 #include "swapchain.h"
+#include "descriptor_set.h"
 
 namespace renderer
 {
 	class GraphicsPipeline
 	{
 	public:
-		void Initialize(Context* context, Swapchain* swapchain);
+		void Initialize(Context* context, Swapchain* swapchain, const std::vector<DescriptorSetLayoutResource>& set_layouts);
 
 		void CleanUp();
 
 		VkPipeline pipeline{};
-		VkDescriptorSetLayout descriptor_set_layout{};
 		VkPipelineLayout layout{};
 
 	private:
-		void CreatePipelineLayout();
+		void CreatePipelineLayout(const std::vector<DescriptorSetLayoutResource>& set_layouts);
 
 		VkResult LoadShaderModule(const std::string& filePath, VkShaderModule* outShaderModule) const;
 

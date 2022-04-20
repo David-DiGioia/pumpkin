@@ -17,6 +17,8 @@
 
 namespace renderer
 {
+	static constexpr uint32_t RENDER_OBJECT_UBO_BINDING{ 0 };
+
 	void VulkanRenderer::Initialize(GLFWwindow* window)
 	{
 		VkResult result{ volkInitialize() };
@@ -25,10 +27,10 @@ namespace renderer
 		context_.Initialize(window);
 		swapchain_.Initialize(&context_);
 		descriptor_allocator_.Initialize(&context_);
-		graphics_pipeline_.Initialize(&context_, &swapchain_);
+		InitializeDescriptorSetLayouts();
+		InitializePipelines();
 		allocator_.Initialize(&context_);
 		vulkan_util_.Initialize(&context_, &allocator_);
-
 		InitializeFrameResources();
 	}
 
@@ -53,6 +55,15 @@ namespace renderer
 		descriptor_allocator_.CleanUp();
 		swapchain_.CleanUp();
 		context_.CleanUp();
+	}
+
+	void VulkanRenderer::InitializePipelines()
+	{
+		std::vector<DescriptorSetLayoutResource> set_layouts{
+			render_object_layout_resource_,
+		};
+
+		graphics_pipeline_.Initialize(&context_, &swapchain_, set_layouts);
 	}
 
 	void VulkanRenderer::WaitForLastFrame()
@@ -119,47 +130,37 @@ namespace renderer
 		return current_frame_;
 	}
 
+	void VulkanRenderer::InitializeDescriptorSetLayouts()
+	{
+		VkDescriptorSetLayoutBinding ubo_binding{
+			.binding = RENDER_OBJECT_UBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> render_object_bindings{
+			ubo_binding,
+		};
+
+		 render_object_layout_resource_ = descriptor_allocator_.CreateLayoutResource(render_object_bindings);
+	}
+
 	RenderObject VulkanRenderer::CreateRenderObject()
 	{
 		RenderObject render_object{};
-		render_object.object_descriptors.resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
+		render_object.ubo_buffer_resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
-		// Make descriptor set.
-		VkDescriptorSetAllocateInfo allocate_info{
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-			.descriptorPool = descriptor_pool_,
-			.descriptorSetCount = 1,
-			.pSetLayouts = &graphics_pipeline_.descriptor_set_layout,
-		};
-
-		VkResult result{ vkAllocateDescriptorSets(context_.device, &allocate_info, &render_object.object_descriptors.descriptor_set) };
-		CheckResult(result, "Failed to allocate descriptor sets.");
-
-		// Associate descriptor set with render object ubo data.
-		VkDescriptorBufferInfo buffer_info{
-			.buffer = render_object.object_descriptors.resource.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE,
-		};
-
-		VkWriteDescriptorSet write_info{
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = render_object.object_descriptors.descriptor_set,
-			.dstBinding = 0, // TODO: Later don't hardcode this once we have better way of making descriptor set layouts.
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // TODO: Again, shouldn't be hardcoded.
-			.pImageInfo = nullptr,
-			.pBufferInfo = &buffer_info,
-			.pTexelBufferView = nullptr,
-		};
-
-		vkUpdateDescriptorSets(context_.device, 1, &write_info, 0, nullptr);
+		render_object.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_);
+		render_object.ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object.ubo_buffer_resource);
 
 		return render_object;
 	}
 
+	// TODO: This is not needed and named wrong. Make render objects stored by render engine, and have it
+	//       take care of this automatically, and handle double buffering.
 	void VulkanRenderer::UploadRenderObjectBufferToDevice(RenderObject* render_object)
 	{
 		void* data{};

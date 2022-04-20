@@ -92,18 +92,6 @@ namespace renderer
 
 	DescriptorSetResource DescriptorAllocator::CreateDescriptorSetResource(const DescriptorSetLayoutResource& layout_resource)
 	{
-		//VkDescriptorSetLayoutBinding ubo_binding{
-		//	.binding = 0,
-		//	.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		//	.descriptorCount = 1,
-		//	.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-		//	.pImmutableSamplers = nullptr,
-		//};
-
-		//std::vector<VkDescriptorSetLayoutBinding> bindings{
-		//	ubo_binding,
-		//};
-
 		DescriptorSetResource resource{};
 		resource.layout_resource = &layout_resource;
 		resource.device_ = context_->device;
