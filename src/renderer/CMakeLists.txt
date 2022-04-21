@@ -1,6 +1,5 @@
 set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/public/vulkan_renderer.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/public/mesh_types.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_renderer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_util.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_util.cpp"

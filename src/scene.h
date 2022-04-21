@@ -6,7 +6,6 @@
 #include "glm/glm.hpp"
 #include "glm/gtx/quaternion.hpp"
 
-#include "mesh_types.h"
 #include "vulkan_renderer.h"
 
 struct Node
