@@ -36,7 +36,9 @@ namespace renderer
 
 		void CleanUp();
 
-		DescriptorSetLayoutResource CreateLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings);
+		DescriptorSetLayoutResource CreateDescriptorSetLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings);
+
+		void DestroyDescriptorSetLayoutResource(DescriptorSetLayoutResource* layout_resource);
 
 		DescriptorSetResource CreateDescriptorSetResource(const DescriptorSetLayoutResource& layout_resource);
 

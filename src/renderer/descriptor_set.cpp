@@ -67,7 +67,7 @@ namespace renderer
 		vkDestroyDescriptorPool(context_->device, pool_, nullptr);
 	}
 
-	DescriptorSetLayoutResource DescriptorAllocator::CreateLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings)
+	DescriptorSetLayoutResource DescriptorAllocator::CreateDescriptorSetLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings)
 	{
 		DescriptorSetLayoutResource layout_resource{};
 
@@ -89,6 +89,10 @@ namespace renderer
 		return layout_resource;
 	}
 
+	void DescriptorAllocator::DestroyDescriptorSetLayoutResource(DescriptorSetLayoutResource* layout_resource)
+	{
+		vkDestroyDescriptorSetLayout(context_->device, layout_resource->layout, nullptr);
+	}
 
 	DescriptorSetResource DescriptorAllocator::CreateDescriptorSetResource(const DescriptorSetLayoutResource& layout_resource)
 	{

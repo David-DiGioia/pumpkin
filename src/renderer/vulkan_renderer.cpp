@@ -39,11 +39,23 @@ namespace renderer
 		vkDeviceWaitIdle(context_.device);
 
 		// Destroy sync objects.
-		for (FrameResources& resource : frame_resources_)
+		for (FrameResources& frame : frame_resources_)
 		{
-			vkDestroyFence(context_.device, resource.render_done_fence, nullptr);
-			vkDestroySemaphore(context_.device, resource.image_acquired_semaphore, nullptr);
-			vkDestroySemaphore(context_.device, resource.render_done_semaphore, nullptr);
+			vkDestroyFence(context_.device, frame.render_done_fence, nullptr);
+			vkDestroySemaphore(context_.device, frame.image_acquired_semaphore, nullptr);
+			vkDestroySemaphore(context_.device, frame.render_done_semaphore, nullptr);
+
+			for (RenderObject& render_object : frame.render_objects_) {
+				allocator_.DestroyBufferResource(&render_object.ubo_buffer_resource);
+			}
+		}
+
+		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&render_object_layout_resource_);
+
+		for (Mesh& mesh : meshes_)
+		{
+			allocator_.DestroyBufferResource(&mesh.vertices_resource);
+			allocator_.DestroyBufferResource(&mesh.indices_resource);
 		}
 
 		// Destroying command pool frees all command buffers allocated from it.
@@ -323,7 +335,7 @@ namespace renderer
 			ubo_binding,
 		};
 
-		render_object_layout_resource_ = descriptor_allocator_.CreateLayoutResource(render_object_bindings);
+		render_object_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(render_object_bindings);
 	}
 
 	void VulkanRenderer::InitializeFrameResources()
