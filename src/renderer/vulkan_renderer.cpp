@@ -177,9 +177,14 @@ namespace renderer
 		vkCmdBeginRendering(cmd, &rendering_info);
 
 		VkDeviceSize zero_offset{ 0 };
-		//vkCmdBindVertexBuffers(cmd, 0, 1, &test_triangle_.vertices_resource.buffer, &zero_offset);
-		//vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
-		//vkCmdDraw(cmd, 3, 1, 0, 0);
+
+		RenderObject& render_obj{ GetCurrentFrame().render_objects_[2] };
+
+		vkCmdBindVertexBuffers(cmd, 0, 1, &render_obj.mesh->vertices_resource.buffer, &zero_offset);
+		vkCmdBindIndexBuffer(cmd, render_obj.mesh->indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
+		//vkCmdBindDescriptorSets()
+		vkCmdDrawIndexed(cmd, render_obj.mesh->indices.size(), 1, 0, 0, 0);
 
 		vkCmdEndRendering(cmd);
 	}

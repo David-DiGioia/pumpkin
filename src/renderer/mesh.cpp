@@ -14,6 +14,8 @@ namespace renderer
 	{
 		return {
 			VERTEX_ATTRIBUTE(0, position),
+			VERTEX_ATTRIBUTE(1, normal),
+			VERTEX_ATTRIBUTE(2, tex_coord),
 		};
 	}
 
