@@ -75,7 +75,7 @@ namespace renderer
 		CheckResult(result, "Error resetting render_fence.");
 	}
 
-	uint32_t VulkanRenderer::Render(const std::vector<RenderObject>* render_objects)
+	void VulkanRenderer::Render()
 	{
 		// Request image from the swapchain, one second timeout.
 		// This is also where vsync happens according to vkguide, but for me it happens at present.
@@ -127,46 +127,6 @@ namespace renderer
 		CheckResult(result, "Error presenting image.");
 
 		NextFrame();
-		return current_frame_;
-	}
-
-	void VulkanRenderer::InitializeDescriptorSetLayouts()
-	{
-		VkDescriptorSetLayoutBinding ubo_binding{
-			.binding = RENDER_OBJECT_UBO_BINDING,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-			.pImmutableSamplers = nullptr,
-		};
-
-		std::vector<VkDescriptorSetLayoutBinding> render_object_bindings{
-			ubo_binding,
-		};
-
-		 render_object_layout_resource_ = descriptor_allocator_.CreateLayoutResource(render_object_bindings);
-	}
-
-	RenderObject VulkanRenderer::CreateRenderObject()
-	{
-		RenderObject render_object{};
-		render_object.ubo_buffer_resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-		render_object.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_);
-		render_object.ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object.ubo_buffer_resource);
-
-		return render_object;
-	}
-
-	// TODO: This is not needed and named wrong. Make render objects stored by render engine, and have it
-	//       take care of this automatically, and handle double buffering.
-	void VulkanRenderer::UploadRenderObjectBufferToDevice(RenderObject* render_object)
-	{
-		void* data{};
-		vkMapMemory(context_.device, *render_object->object_descriptors.resource.memory, 0, render_object->object_descriptors.resource.size, 0, &data);
-		memcpy(data, &render_object->uniform_buffer, sizeof(RenderObject::UniformBuffer));
-		vkUnmapMemory(context_.device, *render_object->object_descriptors.resource.memory);
 	}
 
 	void VulkanRenderer::Draw(VkCommandBuffer cmd, uint32_t image_index)
@@ -313,6 +273,59 @@ namespace renderer
 		return frame_resources_[current_frame_];
 	}
 
+	RenderObjectHandle VulkanRenderer::CreateRenderObject(uint32_t mesh_index)
+	{
+		for (auto& frame : frame_resources_)
+		{
+			RenderObject render_object{
+				.mesh = &meshes_[mesh_index],
+				.vertex_type = VertexType::POSITION_NORMAL_COORD,
+
+				.uniform_buffer = {
+					.transform = glm::mat4(1.0f),
+				},
+
+				.ubo_buffer_resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
+					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
+
+				.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_),
+			};
+
+			render_object.ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object.ubo_buffer_resource);
+			frame.render_objects_.push_back(render_object);
+		}
+
+		return (RenderObjectHandle)mesh_index;
+	}
+
+	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
+	{
+		RenderObject& render_object{ frame_resources_[current_frame_].render_objects_[render_object_handle] };
+		render_object.uniform_buffer.transform = transform;
+
+		void* data{};
+		vkMapMemory(context_.device, *render_object.ubo_buffer_resource.memory, 0, render_object.ubo_buffer_resource.size, 0, &data);
+		memcpy(data, &render_object.uniform_buffer, sizeof(RenderObject::UniformBuffer));
+		vkUnmapMemory(context_.device, *render_object.ubo_buffer_resource.memory);
+	}
+
+	void VulkanRenderer::InitializeDescriptorSetLayouts()
+	{
+		VkDescriptorSetLayoutBinding ubo_binding{
+			.binding = RENDER_OBJECT_UBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> render_object_bindings{
+			ubo_binding,
+		};
+
+		render_object_layout_resource_ = descriptor_allocator_.CreateLayoutResource(render_object_bindings);
+	}
+
 	void VulkanRenderer::InitializeFrameResources()
 	{
 		InitializeCommandBuffers();
@@ -371,14 +384,14 @@ namespace renderer
 		}
 	}
 
-	void VulkanRenderer::LoadMeshesGLTF(tinygltf::Model& model, std::vector<Mesh>* out_meshes)
+	void VulkanRenderer::LoadMeshesGLTF(tinygltf::Model& model)
 	{
 		vulkan_util_.Begin();
 
 		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
 		{
-			out_meshes->emplace_back();
-			auto& mesh{ out_meshes->back() };
+			meshes_.emplace_back();
+			auto& mesh{ meshes_.back() };
 
 			LoadVerticesGLTF(model, tinygltf_mesh, &mesh.vertices);
 			LoadIndicesGLTF(model, tinygltf_mesh, &mesh.indices);

@@ -43,8 +43,7 @@ void Scene::ImportGLTF(const std::string& path)
 		logger::Error("Failed to parse glTF\n");
 	}
 
-	meshes_.reserve(model.meshes.size());
-	renderer_->LoadMeshesGLTF(model, &meshes_);
+	renderer_->LoadMeshesGLTF(model);
 
 	int i{ (int)nodes_.size() };
 	nodes_.resize(nodes_.size() + model.nodes.size());
@@ -54,8 +53,7 @@ void Scene::ImportGLTF(const std::string& path)
 
 		if (gltf_node.mesh >= 0)
 		{
-			renderer::Mesh* mesh_ptr = &meshes_[gltf_node.mesh];
-			node.render_object_idx = CreateRenderObject(mesh_ptr);
+			node.render_object = renderer_->CreateRenderObject(gltf_node.mesh);
 
 			if (!gltf_node.translation.empty()) {
 				node.translation = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };
@@ -73,28 +71,9 @@ void Scene::ImportGLTF(const std::string& path)
 				node.children.push_back(&nodes_[child_idx]);
 			}
 		}
+
 		nodes_[i++] = node;
 	}
-}
-
-uint32_t Scene::CreateRenderObject(renderer::Mesh* mesh)
-{
-	for (auto& frame : frame_resources_)
-	{
-		// Renderer associates descriptor with buffer, and buffer is written to
-		// in UpdateRenderObjects() function.
-		renderer::RenderObject render_object{ renderer_->CreateRenderObject() };
-		render_object.mesh = mesh;
-		render_object.vertex_type = renderer::VertexType::POSITION_NORMAL_COORD;
-		render_object.uniform_buffer.transform = glm::mat4(1.0f);
-	}
-
-	return (uint32_t)(frame_resources_[0].render_objects.size() - 1);
-}
-
-std::vector<renderer::RenderObject>* Scene::GetRenderObjects()
-{
-	return &frame_resources_[current_frame_].render_objects;
 }
 
 void Scene::UpdateRenderObjects()
@@ -102,7 +81,7 @@ void Scene::UpdateRenderObjects()
 	for (Node& node : nodes_)
 	{
 		// Not every node has a render object.
-		if (node.render_object_idx == NULL_INDEX) {
+		if (node.render_object == renderer::NULL_HANDLE) {
 			continue;
 		}
 
@@ -110,22 +89,6 @@ void Scene::UpdateRenderObjects()
 		glm::mat4 rotation_mat{ glm::toMat4(node.rotation) };
 		glm::mat4 translate_mat{ glm::translate(node.translation) };
 
-		renderer::RenderObject* render_object{ GetRenderObject(node.render_object_idx) };
-		render_object->uniform_buffer.transform = translate_mat * rotation_mat * scale_mat;
-		renderer_->UploadRenderObjectBufferToDevice(render_object);
+		renderer_->SetRenderObjectTransform(node.render_object, translate_mat * rotation_mat * scale_mat);
 	}
-}
-
-void Scene::DrawScene(renderer::VulkanRenderer& renderer)
-{
-	current_frame_ = renderer.Render(GetRenderObjects());
-}
-
-renderer::RenderObject* Scene::GetRenderObject(uint32_t idx)
-{
-	if (idx == NULL_INDEX) {
-		return nullptr;
-	}
-
-	return &frame_resources_[current_frame_].render_objects[idx];
 }

@@ -16,10 +16,16 @@
 
 namespace renderer
 {
+	typedef uint32_t RenderObjectHandle;
+
+	constexpr uint32_t NULL_HANDLE{ 0xFFFFFFFF };
 	constexpr uint32_t FRAMES_IN_FLIGHT{ 2 };
 
 	struct RenderObject
 	{
+		// TODO: Later handle multiple primitives per mesh from GLTF file.
+		//       This occurs when a single mesh has multiple materials.
+		//       For raytracing we probably want to implement with geometry indexing.
 		Mesh* mesh;
 		VertexType vertex_type;
 
@@ -34,6 +40,8 @@ namespace renderer
 
 	struct FrameResources
 	{
+		std::vector<RenderObject> render_objects_{};
+
 		VkCommandBuffer command_buffer;
 		VkFence render_done_fence;
 		VkSemaphore image_acquired_semaphore;
@@ -53,24 +61,15 @@ namespace renderer
 		// Do all CPU work that mutates render objects between WaitForLastFrame() and Render().
 		void WaitForLastFrame();
 
-		// Render the list of render objects.
-		// 
-		// Note that the render objects are externally synchronized, meaning the caller must
-		// mutate the render objects only corresponding to the current frame index and after
-		// waiting for WaitForLastFrame().
-		// 
-		// Returns the index of the current frame-in-flight.
-		uint32_t Render(const std::vector<RenderObject>* render_objects);
+		void Render();
 
-		void LoadMeshesGLTF(tinygltf::Model& model, std::vector<Mesh>* out_meshes);
-
-		void InitializeDescriptorSetLayouts();
+		void LoadMeshesGLTF(tinygltf::Model& model);
 
 		// Create a render object with the buffer resource and descriptors already associated
 		// with the render object data.
-		RenderObject CreateRenderObject();
+		RenderObjectHandle CreateRenderObject(uint32_t mesh_index);
 
-		void UploadRenderObjectBufferToDevice(RenderObject* render_object);
+		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
 	private:
 		void Draw(VkCommandBuffer cmd, uint32_t image_index);
@@ -93,6 +92,8 @@ namespace renderer
 
 		void InitializeSyncObjects();
 
+		void InitializeDescriptorSetLayouts();
+
 		Context context_{};
 		Swapchain swapchain_{};
 		GraphicsPipeline graphics_pipeline_{};
@@ -101,6 +102,7 @@ namespace renderer
 		DescriptorAllocator descriptor_allocator_{};
 		VulkanUtil vulkan_util_{};
 
+		std::vector<Mesh> meshes_{}; // All meshes referenced by render objects.
 		DescriptorSetLayoutResource render_object_layout_resource_{};
 
 		uint32_t current_frame_{};

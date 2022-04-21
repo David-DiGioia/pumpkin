@@ -42,7 +42,7 @@ void Pumpkin::MainLoop()
 		HostWork();
 		renderer_.WaitForLastFrame();
 		HostRenderWork();
-		scene_.DrawScene(renderer_);
+		renderer_.Render();
 	}
 }
 
