@@ -78,6 +78,9 @@ namespace renderer
 			.patchControlPoints = 1,
 		};
 
+		// The commented out portion below is for non-dynamic scissors and viewport.
+		// Now dynamic viewport and scissors are enabled in the dynamic_states struct below.
+		/*
 		Extents window_extents{ context_->GetWindowExtents() };
 
 		VkViewport viewport{
@@ -101,6 +104,16 @@ namespace renderer
 			.pViewports = &viewport,
 			.scissorCount = 1,
 			.pScissors = &scissor,
+		};
+		*/
+
+		VkPipelineViewportStateCreateInfo viewport_info{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+			.flags = 0, // Reserved.
+			.viewportCount = 1,
+			.pViewports = nullptr, // Ignored for dynamic viewport.
+			.scissorCount = 1,
+			.pScissors = nullptr, // Ignored for dynamic scissor.
 		};
 
 		VkPipelineRasterizationStateCreateInfo rasterization_info{
@@ -162,11 +175,16 @@ namespace renderer
 			.blendConstants = {0.0f, 0.0f, 0.0f, 0.0f},
 		};
 
+		std::vector<VkDynamicState> dynamic_states{
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR,
+		};
+
 		VkPipelineDynamicStateCreateInfo dynamic_info{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
 			.flags = 0,
-			.dynamicStateCount = 0,
-			.pDynamicStates = nullptr,
+			.dynamicStateCount = (uint32_t)dynamic_states.size(),
+			.pDynamicStates = dynamic_states.data(),
 		};
 
 		CreatePipelineLayout(set_layouts);

@@ -94,6 +94,8 @@ namespace renderer
 
 		void InitializeDescriptorSetLayouts();
 
+		void RecreateSwapchain();
+
 		Context context_{};
 		Swapchain swapchain_{};
 		GraphicsPipeline graphics_pipeline_{};

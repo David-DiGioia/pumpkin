@@ -199,8 +199,27 @@ namespace renderer
 			.pInheritanceInfo = nullptr,
 		};
 
+		Extents window_extents{ context_.GetWindowExtents() };
+
+		VkViewport viewport{
+			.x = 0.0f,
+			.y = 0.0f,
+			.width = (float)window_extents.width,
+			.height = (float)window_extents.height,
+			.minDepth = 0.0f,
+			.maxDepth = 1.0f,
+		};
+
+		VkRect2D scissor{
+			.offset = {0, 0},
+			.extent = {window_extents.width, window_extents.height},
+		};
+
 		VkResult result{ vkBeginCommandBuffer(cmd, &command_buffer_begin_info) };
 		CheckResult(result, "Failed to begin command buffer.");
+
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
 
 		TransitionSwapImageForRender(cmd, image_index);
 		Draw(cmd, image_index);
