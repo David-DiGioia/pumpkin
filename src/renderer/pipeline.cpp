@@ -78,35 +78,6 @@ namespace renderer
 			.patchControlPoints = 1,
 		};
 
-		// The commented out portion below is for non-dynamic scissors and viewport.
-		// Now dynamic viewport and scissors are enabled in the dynamic_states struct below.
-		/*
-		Extents window_extents{ context_->GetWindowExtents() };
-
-		VkViewport viewport{
-			.x = 0.0f,
-			.y = 0.0f,
-			.width = (float)window_extents.width,
-			.height = (float)window_extents.height,
-			.minDepth = 0.0f,
-			.maxDepth = 1.0f,
-		};
-
-		VkRect2D scissor{
-			.offset = {0, 0},
-			.extent = {window_extents.width, window_extents.height},
-		};
-
-		VkPipelineViewportStateCreateInfo viewport_info{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-			.flags = 0, // Reserved.
-			.viewportCount = 1,
-			.pViewports = &viewport,
-			.scissorCount = 1,
-			.pScissors = &scissor,
-		};
-		*/
-
 		VkPipelineViewportStateCreateInfo viewport_info{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
 			.flags = 0, // Reserved.
