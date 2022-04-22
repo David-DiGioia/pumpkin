@@ -19,10 +19,19 @@ namespace renderer
 {
 	static constexpr uint32_t RENDER_OBJECT_UBO_BINDING{ 0 };
 
+	void WindowResizedCallback(GLFWwindow* window, int width, int height)
+	{
+		auto renderer{ reinterpret_cast<VulkanRenderer*>(glfwGetWindowUserPointer(window)) };
+		renderer->WindowResized();
+	}
+
 	void VulkanRenderer::Initialize(GLFWwindow* window)
 	{
 		VkResult result{ volkInitialize() };
 		CheckResult(result, "Failed to initialize volk.");
+
+		glfwSetWindowUserPointer(window, this);
+		glfwSetFramebufferSizeCallback(window, WindowResizedCallback);
 
 		context_.Initialize(window);
 		swapchain_.Initialize(&context_);
@@ -67,6 +76,22 @@ namespace renderer
 		descriptor_allocator_.CleanUp();
 		swapchain_.CleanUp();
 		context_.CleanUp();
+	}
+
+	void VulkanRenderer::WindowResized()
+	{
+		Extents extents{ context_.GetWindowExtents() };
+
+		// If window is minimized, just wait here until it is unminimized.
+		while (extents.width == 0 || extents.height == 0)
+		{
+			extents = context_.GetWindowExtents();
+			glfwWaitEvents();
+		}
+
+		vkDeviceWaitIdle(context_.device);
+		swapchain_.CleanUp();
+		swapchain_.Initialize(&context_);
 	}
 
 	void VulkanRenderer::InitializePipelines()

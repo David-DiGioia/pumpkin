@@ -63,6 +63,8 @@ namespace renderer
 
 		void Render();
 
+		void WindowResized();
+
 		void LoadMeshesGLTF(tinygltf::Model& model);
 
 		// Create a render object with the buffer resource and descriptors already associated
@@ -93,8 +95,6 @@ namespace renderer
 		void InitializeSyncObjects();
 
 		void InitializeDescriptorSetLayouts();
-
-		void RecreateSwapchain();
 
 		Context context_{};
 		Swapchain swapchain_{};
