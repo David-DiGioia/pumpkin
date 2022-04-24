@@ -1,11 +1,17 @@
 #include "pumpkin.h"
 
+#include "volk.h"
+
 int main()
 {
-	Pumpkin pumpkin{};
-	pumpkin.Start();
+	Editor editor{};
+	editor.Initialize();
 
-	// pumpkin.SetRenderTarget(VkImage);
+	EditorInfo editor_info{ editor.GetEditorInfo() };
+
+	Pumpkin pumpkin{};
+	pumpkin.SetEditorInfo(&editor_info);
+	pumpkin.Start();
 
 	return 0;
 }

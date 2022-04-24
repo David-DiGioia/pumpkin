@@ -12,6 +12,7 @@ target_include_directories (Renderer PUBLIC
     # Header only
     "${CMAKE_CURRENT_SOURCE_DIR}/glm"
     "${CMAKE_CURRENT_SOURCE_DIR}/tinygltf"
+    "${CMAKE_CURRENT_SOURCE_DIR}/imgui"
 )
 
 target_link_libraries(Renderer PUBLIC

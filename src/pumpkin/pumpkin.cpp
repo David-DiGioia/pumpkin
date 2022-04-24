@@ -52,3 +52,8 @@ void Pumpkin::CleanUp()
 	glfwDestroyWindow(window_);
 	glfwTerminate();
 }
+
+void Pumpkin::SetEditorInfo(const EditorInfo* editor_info)
+{
+	editor_info_ = *editor_info;
+}
