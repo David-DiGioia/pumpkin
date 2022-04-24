@@ -10,7 +10,7 @@
 
 namespace renderer
 {
-	const std::string spirv_prefix{ "shaders/" };
+	const std::string spirv_prefix{ "../shaders/" };
 
 	void GraphicsPipeline::Initialize(Context* context, Swapchain* swapchain, const std::vector<DescriptorSetLayoutResource>& set_layouts)
 	{

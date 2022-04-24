@@ -1,0 +1,54 @@
+The editor project files example:
+
+MyExampleProject
+	- MyExampleProject.json
+	- Meshes
+	- Materials
+	- Scripts
+
+Where the json file contains the initial state of all the nodes in the scene,
+all of the meshes/scripts/hierarchy etc associated with the scene.
+
+Building the game will make generate a C++ file that loads all the assets, as registers the C++ game scripts with the engine static library.
+Also for simplicity it will export the whole scene to a glTF file, since the editor can change the
+hierarchy of the user's original glTF files that they imported.
+
+Example output C++ file:
+
+Bootstrap.cpp
+----------------------------------------------------------
+#include "pumpkin.h"
+#include "scripts.h"
+
+int main()
+{
+	// Instantiate the engine from a static library.
+	Pumpkin pmk{};
+
+	// Instantiate all the instances of script objects the user has initially in the scene.
+	Player player{};
+	Enemy enemy_00{100, 20}; // Pass parameters specific to enemy, like health and speed.
+	Enemy enemy_01{50, 20};
+	Cloud cloud{};
+
+	std::vector<ScriptParent*> scripts{&player, &enemy_00, &enemy_01, &cloud};
+
+	pmk.LoadScene("path/to/scene.gltf"); // All of scene starting scene hierarchy loaded.
+	pmk.LoadOffscreenAssets("path/to/offscreen.gltf"); // All assets not initially in scene.
+
+	for (ScriptParent& script : scripts)
+	{
+		// Register all ScriptParent::Update/Init/FixedUpdate functions to Pumpkin to call later.
+		pmk.RegisterScript(script);
+	}
+
+	pmk.Run();
+}
+----------------------------------------------------------
+
+Also have a #define in the game that let's the editor use IPC to update the game in real time, also letting
+the game send updates to display in the editor.
+
+The game will open up in a new window when it's run from the editor, and it will stay in sync with the editor's view.
+
+

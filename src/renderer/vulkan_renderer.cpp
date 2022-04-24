@@ -209,7 +209,7 @@ namespace renderer
 		vkCmdBindIndexBuffer(cmd, render_obj.mesh->indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
 		//vkCmdBindDescriptorSets()
-		vkCmdDrawIndexed(cmd, render_obj.mesh->indices.size(), 1, 0, 0, 0);
+		vkCmdDrawIndexed(cmd, (uint32_t)render_obj.mesh->indices.size(), 1, 0, 0, 0);
 
 		vkCmdEndRendering(cmd);
 	}
