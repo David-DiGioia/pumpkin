@@ -103,6 +103,9 @@ namespace renderer
 		// Call this to submit all commands and wait for them to finish.
 		void Submit();
 
+		// Use this command buffer to do custom commands between calling Begin() and Submit().
+		VkCommandBuffer& GetCommandBuffer();
+
 	private:
 		Context* context_{};
 		Allocator* alloc_{};

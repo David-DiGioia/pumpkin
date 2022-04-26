@@ -6,12 +6,6 @@
 #include "vulkan_renderer.h"
 #include "scene.h"
 
-struct EditorInfo
-{
-	VkImageView render_target;
-	std::function<void()> gui_callback;
-};
-
 class Pumpkin
 {
 public:
@@ -23,7 +17,7 @@ public:
 
 	void CleanUp();
 
-	void SetEditorInfo(const EditorInfo* editor_info);
+	void SetEditorCallback(std::function<void(void)> callback);
 
 private:
 	// General work the host needs to do each frame.
@@ -35,8 +29,8 @@ private:
 	GLFWwindow* window_{};
 	renderer::VulkanRenderer renderer_{};
 	Scene scene_{};
-	EditorInfo editor_info_{};
 
+	bool editor_mode_enabled_{ false };
 	uint32_t width_{ 800 };
 	uint32_t height_{ 600 };
 };

@@ -43,7 +43,17 @@
 #if defined(IMGUI_IMPL_VULKAN_NO_PROTOTYPES) && !defined(VK_NO_PROTOTYPES)
 #define VK_NO_PROTOTYPES
 #endif
-#include <vulkan/vulkan.h>
+
+/*
+* Changed imgui to use volk.h instead of vulkan.h mixing them creates conflicts. The imgui comments mention
+* defining IMGUI_IMPL_VULKAN_NO_PROTOTYPES or VK_NO_PROTOTYPES if you want to use a custom loader, but this
+* expects you to pass a loading function to imgui, but I want to use the functions that volk already loaded.
+* So we include volk.h and undefine VK_NO_PROTOTYPES so imgui doesn't think it needs to be the one to load
+* the functions.
+*/
+//#include <vulkan/vulkan.h>
+#include "volk.h"
+#undef VK_NO_PROTOTYPES
 
 // Initialization data, for ImGui_ImplVulkan_Init()
 // [Please zero-clear before use!]
@@ -62,6 +72,8 @@ struct ImGui_ImplVulkan_InitInfo
     VkSampleCountFlagBits           MSAASamples;            // >= VK_SAMPLE_COUNT_1_BIT (0 -> default to VK_SAMPLE_COUNT_1_BIT)
     const VkAllocationCallbacks*    Allocator;
     void                            (*CheckVkResultFn)(VkResult err);
+    bool                            UseDynamicRendering;
+    VkFormat                        ColorAttachmentFormat;
 };
 
 // Called by user code

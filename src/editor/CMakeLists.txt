@@ -1,11 +1,12 @@
 set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/editor.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/editor.cpp"
 )
 
 add_executable(Editor "${SOURCES}")
 
-target_include_directories(Renderer PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_include_directories(Renderer PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")
+target_include_directories(Editor PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(Editor
     Pumpkin

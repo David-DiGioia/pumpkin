@@ -1,4 +1,5 @@
 #include "pumpkin.h"
+#include "editor.h"
 
 #include "volk.h"
 
@@ -7,10 +8,10 @@ int main()
 	Editor editor{};
 	editor.Initialize();
 
-	EditorInfo editor_info{ editor.GetEditorInfo() };
+	auto render_callback{ editor.GetRenderCallback() };
 
 	Pumpkin pumpkin{};
-	pumpkin.SetEditorInfo(&editor_info);
+	pumpkin.SetEditorCallback(render_callback);
 	pumpkin.Start();
 
 	return 0;

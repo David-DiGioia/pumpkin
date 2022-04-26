@@ -53,7 +53,8 @@ void Pumpkin::CleanUp()
 	glfwTerminate();
 }
 
-void Pumpkin::SetEditorInfo(const EditorInfo* editor_info)
+void Pumpkin::SetEditorCallback(std::function<void(void)> callback)
 {
-	editor_info_ = *editor_info;
+	editor_mode_enabled_ = true;
+	renderer_.SetEditorCallback(callback);
 }

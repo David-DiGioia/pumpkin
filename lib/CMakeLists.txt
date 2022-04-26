@@ -3,20 +3,22 @@
 find_package(Vulkan REQUIRED FATAL_ERROR)
 
 add_subdirectory(volk)
+add_subdirectory(imgui)
 
 # Public
 target_include_directories (Renderer PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/glfw-3.3.6.bin.WIN64/include"
     "${Vulkan_INCLUDE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/imgui"
 
     # Header only
     "${CMAKE_CURRENT_SOURCE_DIR}/glm"
     "${CMAKE_CURRENT_SOURCE_DIR}/tinygltf"
-    "${CMAKE_CURRENT_SOURCE_DIR}/imgui"
 )
 
 target_link_libraries(Renderer PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/glfw-3.3.6.bin.WIN64/lib-vc2022/glfw3.lib"
     "${Vulkan_LIBRARY}"
     volk_headers
+    Imgui
 )

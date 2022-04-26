@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <array>
 #include <vector>
 #include "volk.h"
@@ -73,6 +74,8 @@ namespace renderer
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
+		void SetEditorCallback(const std::function<void(void)>& callback);
+
 	private:
 		void Draw(VkCommandBuffer cmd, uint32_t image_index);
 
@@ -95,6 +98,17 @@ namespace renderer
 		void InitializeSyncObjects();
 
 		void InitializeDescriptorSetLayouts();
+
+		void InitializeEditorGui();
+
+		void RenderEditorGui();
+
+		struct EditorResources
+		{
+			std::function<void(void)> render_callback_{};
+			VkDescriptorSet render_target_{};
+			VkDescriptorPool descriptor_pool_{};
+		} editor_resources_{};
 
 		Context context_{};
 		Swapchain swapchain_{};

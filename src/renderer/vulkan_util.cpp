@@ -93,4 +93,9 @@ namespace renderer
 
 		vkResetCommandPool(context_->device, command_pool_, 0);
 	}
+
+	VkCommandBuffer& VulkanUtil::GetCommandBuffer()
+	{
+		return cmd_;
+	}
 }
