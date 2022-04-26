@@ -5,8 +5,8 @@ find_package(Vulkan REQUIRED FATAL_ERROR)
 add_subdirectory(volk)
 add_subdirectory(imgui)
 
-# Public
-target_include_directories (Renderer PUBLIC
+# System keyword ignores warnings from these libraries.
+target_include_directories (Renderer SYSTEM PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/glfw-3.3.6.bin.WIN64/include"
     "${Vulkan_INCLUDE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/imgui"

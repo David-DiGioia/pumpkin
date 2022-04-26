@@ -152,8 +152,11 @@ LICENSE
 
 */
 
+
 #ifndef INCLUDE_STB_IMAGE_WRITE_H
 #define INCLUDE_STB_IMAGE_WRITE_H
+
+#define STBI_MSC_SECURE_CRT
 
 #include <stdlib.h>
 
