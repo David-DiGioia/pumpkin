@@ -8,31 +8,34 @@
 
 #include "vulkan_renderer.h"
 
-struct Node
+namespace pmk
 {
-	renderer::RenderObjectHandle render_object{ renderer::NULL_HANDLE };
+	struct Node
+	{
+		renderer::RenderObjectHandle render_object{ renderer::NULL_HANDLE };
 
-	glm::vec3 translation{};
-	glm::vec3 scale{};
-	glm::quat rotation{};
+		glm::vec3 translation{};
+		glm::vec3 scale{};
+		glm::quat rotation{};
 
-	std::vector<Node*> children{};
-};
+		std::vector<Node*> children{};
+	};
 
-class Scene
-{
-public:
-	void Initialize(renderer::VulkanRenderer* renderer);
+	class Scene
+	{
+	public:
+		void Initialize(renderer::VulkanRenderer* renderer);
 
-	// Import the whole GLTF hierarchy, adding all nodes to scene.
-	// Note that Blender doesn't export cameras or lights.
-	void ImportGLTF(const std::string& path);
+		// Import the whole GLTF hierarchy, adding all nodes to scene.
+		// Note that Blender doesn't export cameras or lights.
+		void ImportGLTF(const std::string& path);
 
-	// Update all render objects transforms to reflect their containing node.
-	void UpdateRenderObjects();
+		// Update all render objects transforms to reflect their containing node.
+		void UpdateRenderObjects();
 
-private:
-	renderer::VulkanRenderer* renderer_{};
-	std::vector<Node*> root_nodes_{};
-	std::vector<Node> nodes_{}; // All nodes in the scene.
-};
+	private:
+		renderer::VulkanRenderer* renderer_{};
+		std::vector<Node*> root_nodes_{};
+		std::vector<Node> nodes_{}; // All nodes in the scene.
+	};
+}

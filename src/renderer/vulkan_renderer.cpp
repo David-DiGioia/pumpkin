@@ -18,7 +18,6 @@
 #include "mesh.h"
 #include "descriptor_set.h"
 
-
 namespace renderer
 {
 	static constexpr uint32_t RENDER_OBJECT_UBO_BINDING{ 0 };
@@ -46,14 +45,15 @@ namespace renderer
 		vulkan_util_.Initialize(&context_, &allocator_);
 		InitializeFrameResources();
 
-		if (editor_resources_.render_callback_) {
+		if (editor_active_) {
 			InitializeEditorGui();
 		}
 	}
 
-	void VulkanRenderer::SetEditorCallback(const std::function<void(void)>& callback)
+	void VulkanRenderer::SetEditorInfo(const EditorInfo& editor_info)
 	{
-		editor_resources_.render_callback_ = callback;
+		editor_active_ = true;
+		editor_resources_.info = editor_info;
 	}
 
 	void VulkanRenderer::InitializeEditorGui()
@@ -82,7 +82,7 @@ namespace renderer
 			.pPoolSizes = pool_sizes.data(),
 		};
 
-		VkResult result{ vkCreateDescriptorPool(context_.device, &pool_info, nullptr, &editor_resources_.descriptor_pool_) };
+		VkResult result{ vkCreateDescriptorPool(context_.device, &pool_info, nullptr, &editor_resources_.descriptor_pool) };
 		CheckResult(result, "Failed to create imgui descriptor pool.");
 
 
@@ -100,7 +100,7 @@ namespace renderer
 			.PhysicalDevice = context_.physical_device,
 			.Device = context_.device,
 			.Queue = context_.graphics_queue,
-			.DescriptorPool = editor_resources_.descriptor_pool_,
+			.DescriptorPool = editor_resources_.descriptor_pool,
 			.MinImageCount = 3,
 			.ImageCount = 3,
 			.MSAASamples = VK_SAMPLE_COUNT_1_BIT,
@@ -119,11 +119,8 @@ namespace renderer
 
 		// Clear font textures from cpu data.
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
-	}
 
-	void DrawEditorGui()
-	{
-		ImGui::ShowDemoWindow();
+		editor_resources_.info.initialization_callback(editor_resources_.render_target, editor_resources_.info.user_data);
 	}
 
 	void VulkanRenderer::RenderEditorGui()
@@ -132,7 +129,7 @@ namespace renderer
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		DrawEditorGui();
+		editor_resources_.info.gui_callback();
 
 		ImGui::Render();
 	}
@@ -142,9 +139,9 @@ namespace renderer
 	{
 		vkDeviceWaitIdle(context_.device);
 
-		if (editor_resources_.render_callback_)
+		if (editor_active_)
 		{
-			vkDestroyDescriptorPool(context_.device, editor_resources_.descriptor_pool_, nullptr);
+			vkDestroyDescriptorPool(context_.device, editor_resources_.descriptor_pool, nullptr);
 			ImGui_ImplVulkan_Shutdown();
 		}
 
@@ -215,7 +212,7 @@ namespace renderer
 
 	void VulkanRenderer::Render()
 	{
-		if (editor_resources_.render_callback_) {
+		if (editor_active_) {
 			RenderEditorGui();
 		}
 
@@ -317,7 +314,7 @@ namespace renderer
 		vkCmdDrawIndexed(cmd, (uint32_t)render_obj.mesh->indices.size(), 1, 0, 0, 0);
 
 
-		if (editor_resources_.render_callback_) {
+		if (editor_active_) {
 			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 		}
 

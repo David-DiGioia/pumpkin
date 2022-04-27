@@ -1,6 +1,5 @@
 #pragma once
 
-#include <functional>
 #include <array>
 #include <vector>
 #include "volk.h"
@@ -14,6 +13,7 @@
 #include "mesh.h"
 #include "vulkan_util.h"
 #include "descriptor_set.h"
+#include "editor_backend.h"
 
 namespace renderer
 {
@@ -74,7 +74,7 @@ namespace renderer
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
-		void SetEditorCallback(const std::function<void(void)>& callback);
+		void SetEditorInfo(const EditorInfo& editor_info);
 
 	private:
 		void Draw(VkCommandBuffer cmd, uint32_t image_index);
@@ -105,10 +105,11 @@ namespace renderer
 
 		struct EditorResources
 		{
-			std::function<void(void)> render_callback_{};
-			VkDescriptorSet render_target_{};
-			VkDescriptorPool descriptor_pool_{};
+			EditorInfo info{};
+			VkDescriptorSet render_target{};
+			VkDescriptorPool descriptor_pool{};
 		} editor_resources_{};
+		bool editor_active_{};
 
 		Context context_{};
 		Swapchain swapchain_{};

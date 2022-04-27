@@ -8,10 +8,8 @@ int main()
 	Editor editor{};
 	editor.Initialize();
 
-	auto render_callback{ editor.GetRenderCallback() };
-
-	Pumpkin pumpkin{};
-	pumpkin.SetEditorCallback(render_callback);
+	pmk::Pumpkin pumpkin{};
+	pumpkin.SetEditorInfo(editor.GetEditorInfo());
 	pumpkin.Start();
 
 	return 0;

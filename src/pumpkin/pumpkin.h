@@ -1,36 +1,39 @@
 #pragma once
 
-#include <functional>
 #include "GLFW/glfw3.h"
 
 #include "vulkan_renderer.h"
+#include "editor_backend.h"
 #include "scene.h"
 
-class Pumpkin
+namespace pmk
 {
-public:
-	void Initialize();
+	class Pumpkin
+	{
+	public:
+		void Initialize();
 
-	void Start();
+		void Start();
 
-	void MainLoop();
+		void MainLoop();
 
-	void CleanUp();
+		void CleanUp();
 
-	void SetEditorCallback(std::function<void(void)> callback);
+		void SetEditorInfo(const renderer::EditorInfo& editor_info);
 
-private:
-	// General work the host needs to do each frame.
-	void HostWork();
+	private:
+		// General work the host needs to do each frame.
+		void HostWork();
 
-	// Work the host needs to do that modifies the render objects.
-	void HostRenderWork();
+		// Work the host needs to do that modifies the render objects.
+		void HostRenderWork();
 
-	GLFWwindow* window_{};
-	renderer::VulkanRenderer renderer_{};
-	Scene scene_{};
+		GLFWwindow* window_{};
+		renderer::VulkanRenderer renderer_{};
+		Scene scene_{};
 
-	bool editor_mode_enabled_{ false };
-	uint32_t width_{ 800 };
-	uint32_t height_{ 600 };
-};
+		bool editor_mode_enabled_{ false };
+		uint32_t width_{ 1280 };
+		uint32_t height_{ 720 };
+	};
+}
