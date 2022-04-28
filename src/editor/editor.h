@@ -4,16 +4,19 @@
 
 #include "pumpkin.h"
 #include "editor_backend.h"
+#include "gui.h"
 
 class Editor
 {
 public:
 	void Initialize();
 
-	void SetRenderedImageID(ImTextureID rendered_image);
+	void InitializeGui();
+
+	void DrawGui(ImTextureID rendered_image_id);
 
 	renderer::EditorInfo GetEditorInfo();
 
 private:
-	ImTextureID rendered_image_id_{}; // Renderer draws to this image.
+	EditorGui gui_{};
 };

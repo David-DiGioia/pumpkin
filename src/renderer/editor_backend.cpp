@@ -18,7 +18,7 @@ namespace renderer
 		InitializeImGui();
 
 		// Call editor's custom initialization function.
-		info_.initialization_callback((ImTextureID)render_target_, info_.user_data);
+		info_.initialization_callback(info_.user_data);
 	}
 
 	void EditorBackend::CleanUp()
@@ -33,7 +33,8 @@ namespace renderer
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		info_.gui_callback();
+		// Call editor's custom gui callback.
+		info_.gui_callback((ImTextureID)render_target_, info_.user_data);
 
 		ImGui::Render();
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
