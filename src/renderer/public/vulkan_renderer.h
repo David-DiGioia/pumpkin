@@ -99,16 +99,8 @@ namespace renderer
 
 		void InitializeDescriptorSetLayouts();
 
-		void InitializeEditorGui();
-
-		void RenderEditorGui();
-
-		struct EditorResources
-		{
-			EditorInfo info{};
-			VkDescriptorSet render_target{};
-			VkDescriptorPool descriptor_pool{};
-		} editor_resources_{};
+		friend class EditorBackend;
+		EditorBackend editor_backend_{};
 		bool editor_active_{};
 
 		Context context_{};

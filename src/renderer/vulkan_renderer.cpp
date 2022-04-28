@@ -8,8 +8,6 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm/vec4.hpp"
 #include "glm/mat4x4.hpp"
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
 
 #include "vulkan_util.h"
@@ -46,103 +44,22 @@ namespace renderer
 		InitializeFrameResources();
 
 		if (editor_active_) {
-			InitializeEditorGui();
+			editor_backend_.Initialize(this);
 		}
 	}
 
 	void VulkanRenderer::SetEditorInfo(const EditorInfo& editor_info)
 	{
+		editor_backend_.SetEditorInfo(editor_info);
 		editor_active_ = true;
-		editor_resources_.info = editor_info;
 	}
-
-	void VulkanRenderer::InitializeEditorGui()
-	{
-		// Create descriptor pool for imgui.
-
-		std::vector<VkDescriptorPoolSize> pool_sizes{
-			{ VK_DESCRIPTOR_TYPE_SAMPLER, 100 },
-			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100 },
-			{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 100 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 100 },
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 100 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 100 },
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100 },
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 100 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 100 },
-			{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 100 }
-		};
-
-		VkDescriptorPoolCreateInfo pool_info = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-			.maxSets = 1000,
-			.poolSizeCount = (uint32_t)pool_sizes.size(),
-			.pPoolSizes = pool_sizes.data(),
-		};
-
-		VkResult result{ vkCreateDescriptorPool(context_.device, &pool_info, nullptr, &editor_resources_.descriptor_pool) };
-		CheckResult(result, "Failed to create imgui descriptor pool.");
-
-
-		// Initialize imgui library.
-
-		// This initializes the core structures of imgui
-		ImGui::CreateContext();
-
-		// This initializes imgui for GLFW.
-		ImGui_ImplGlfw_InitForVulkan(context_.window, true);
-
-		// This initializes imgui for Vulkan.
-		ImGui_ImplVulkan_InitInfo init_info{
-			.Instance = context_.instance,
-			.PhysicalDevice = context_.physical_device,
-			.Device = context_.device,
-			.Queue = context_.graphics_queue,
-			.DescriptorPool = editor_resources_.descriptor_pool,
-			.MinImageCount = 3,
-			.ImageCount = 3,
-			.MSAASamples = VK_SAMPLE_COUNT_1_BIT,
-			.UseDynamicRendering = true,
-			.ColorAttachmentFormat = swapchain_.GetImageFormat(),
-		};
-
-		// Pass null handle since we're using dynamic rendering.
-		ImGui_ImplVulkan_Init(&init_info, VK_NULL_HANDLE);
-
-		// Execute a gpu command to upload imgui font textures.
-		vulkan_util_.Begin();
-		auto& cmd{ vulkan_util_.GetCommandBuffer() };
-		ImGui_ImplVulkan_CreateFontsTexture(cmd);
-		vulkan_util_.Submit();
-
-		// Clear font textures from cpu data.
-		ImGui_ImplVulkan_DestroyFontUploadObjects();
-
-		editor_resources_.info.initialization_callback(editor_resources_.render_target, editor_resources_.info.user_data);
-	}
-
-	void VulkanRenderer::RenderEditorGui()
-	{
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-
-		editor_resources_.info.gui_callback();
-
-		ImGui::Render();
-	}
-
 
 	void VulkanRenderer::CleanUp()
 	{
 		vkDeviceWaitIdle(context_.device);
 
-		if (editor_active_)
-		{
-			vkDestroyDescriptorPool(context_.device, editor_resources_.descriptor_pool, nullptr);
-			ImGui_ImplVulkan_Shutdown();
+		if (editor_active_) {
+			editor_backend_.CleanUp();
 		}
 
 		// Destroy sync objects.
@@ -212,10 +129,6 @@ namespace renderer
 
 	void VulkanRenderer::Render()
 	{
-		if (editor_active_) {
-			RenderEditorGui();
-		}
-
 		// Request image from the swapchain, one second timeout.
 		// This is also where vsync happens according to vkguide, but for me it happens at present.
 		uint32_t image_index{ swapchain_.AcquireNextImage(GetCurrentFrame().image_acquired_semaphore) };
@@ -314,8 +227,9 @@ namespace renderer
 		vkCmdDrawIndexed(cmd, (uint32_t)render_obj.mesh->indices.size(), 1, 0, 0, 0);
 
 
-		if (editor_active_) {
-			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+		if (editor_active_)
+		{
+			editor_backend_.RenderGui(cmd);
 		}
 
 		vkCmdEndRendering(cmd);
