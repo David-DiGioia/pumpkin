@@ -21,6 +21,8 @@ namespace pmk
 
 		void SetEditorInfo(const renderer::EditorInfo& editor_info);
 
+		void SetEditorViewportSize(const renderer::Extent& extent);
+
 	private:
 		// General work the host needs to do each frame.
 		void HostWork();

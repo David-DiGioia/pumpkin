@@ -6,6 +6,7 @@
 #include "GLFW/glfw3.h"
 
 #include "string_util.h"
+#include "renderer_types.h"
 
 namespace renderer
 {
@@ -30,12 +31,6 @@ namespace renderer
 		//"VK_LAYER_KHRONOS_synchronization2",
 	};
 
-	struct Extents
-	{
-		uint32_t width;
-		uint32_t height;
-	};
-
 	class Context
 	{
 	public:
@@ -43,7 +38,7 @@ namespace renderer
 
 		void CleanUp();
 
-		Extents GetWindowExtents();
+		Extent GetWindowExtent();
 
 		uint32_t GetGraphicsQueueFamilyIndex();
 

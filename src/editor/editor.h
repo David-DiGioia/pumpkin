@@ -9,11 +9,11 @@
 class Editor
 {
 public:
-	void Initialize();
+	void Initialize(pmk::Pumpkin* pumpkin);
 
 	void InitializeGui();
 
-	void DrawGui(ImTextureID rendered_image_id);
+	void DrawGui(ImTextureID* rendered_image_id);
 
 	renderer::EditorInfo GetEditorInfo();
 

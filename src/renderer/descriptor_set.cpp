@@ -29,6 +29,29 @@ namespace renderer
 		vkUpdateDescriptorSets(device_, 1, &write_info, 0, nullptr);
 	}
 
+	void DescriptorSetResource::LinkImageToBinding(uint32_t binding, const ImageResource& image_resource)
+	{
+		VkDescriptorImageInfo image_info{
+			.sampler = image_resource.sampler,
+			.imageView = image_resource.image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		};
+
+		VkWriteDescriptorSet write_info{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = descriptor_set,
+			.dstBinding = binding,
+			.dstArrayElement = 0,
+			.descriptorCount = 1,
+			.descriptorType = layout_resource->bindings.at(binding).descriptorType,
+			.pImageInfo = &image_info,
+			.pBufferInfo = nullptr,
+			.pTexelBufferView = nullptr,
+		};
+
+		vkUpdateDescriptorSets(device_, 1, &write_info, 0, nullptr);
+	}
+
 	void DescriptorAllocator::Initialize(Context* context)
 	{
 		context_ = context;

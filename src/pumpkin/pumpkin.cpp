@@ -60,4 +60,9 @@ namespace pmk
 		editor_mode_enabled_ = true;
 		renderer_.SetEditorInfo(editor_info);
 	}
+
+	void Pumpkin::SetEditorViewportSize(const renderer::Extent& extent)
+	{
+		renderer_.SetEditorViewportSize(extent);
+	}
 }

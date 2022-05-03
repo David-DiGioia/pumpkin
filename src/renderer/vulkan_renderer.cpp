@@ -54,9 +54,17 @@ namespace renderer
 		editor_active_ = true;
 	}
 
+	void VulkanRenderer::SetEditorViewportSize(const Extent& extent)
+	{
+		if (editor_active_) {
+			editor_backend_.SetViewportSize(extent);
+		}
+	}
+
 	void VulkanRenderer::CleanUp()
 	{
-		vkDeviceWaitIdle(context_.device);
+		VkResult result{ vkDeviceWaitIdle(context_.device) };
+		CheckResult(result, "Error waiting for device to idle.");
 
 		if (editor_active_) {
 			editor_backend_.CleanUp();
@@ -95,12 +103,12 @@ namespace renderer
 
 	void VulkanRenderer::WindowResized()
 	{
-		Extents extents{ context_.GetWindowExtents() };
+		Extent extents{ context_.GetWindowExtent() };
 
 		// If window is minimized, just wait here until it is unminimized.
 		while (extents.width == 0 || extents.height == 0)
 		{
-			extents = context_.GetWindowExtents();
+			extents = context_.GetWindowExtent();
 			glfwWaitEvents();
 		}
 
@@ -137,6 +145,10 @@ namespace renderer
 		// reset the command buffer to begin recording again.
 		VkResult result{ vkResetCommandBuffer(GetCurrentFrame().command_buffer, 0) };
 		CheckResult(result, "Error resetting command buffer.");
+
+		if (editor_active_) {
+			editor_backend_.DrawGui();
+		}
 
 		// Drawing commands happen here.
 		RecordCommandBuffer(GetCurrentFrame().command_buffer, image_index);
@@ -183,12 +195,12 @@ namespace renderer
 
 	void VulkanRenderer::Draw(VkCommandBuffer cmd, uint32_t image_index)
 	{
-		Extents window_extents{ context_.GetWindowExtents() };
+		Extent viewport_extents{ GetViewportExtent() };
 		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.2f, 1.0f };
 
 		VkRenderingAttachmentInfo color_attachment_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.imageView = swapchain_.GetImageView(image_index),
+			.imageView = GetViewportImageView(image_index),
 			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 			.resolveMode = VK_RESOLVE_MODE_NONE,
 			.resolveImageView = VK_NULL_HANDLE,
@@ -202,8 +214,8 @@ namespace renderer
 			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
 			.flags = 0,
 			.renderArea = {
-				.offset = {0, 0},
-				.extent = {window_extents.width, window_extents.height},
+				.offset = { 0, 0 },
+				.extent = { viewport_extents.width, viewport_extents.height },
 			},
 			.layerCount = 1,
 			.viewMask = 0,
@@ -213,7 +225,18 @@ namespace renderer
 			.pStencilAttachment = nullptr,
 		};
 
-		// First render pass.
+		if (editor_active_)
+		{
+			// If we're using the editor's image we need to transition it to be a color attachment.
+			PipelineBarrier(
+				cmd, editor_backend_.GetViewportImage().image,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+			);
+		}
+
+		// First render pass. Render 3D Viewport.
 		vkCmdBeginRendering(cmd, &rendering_info);
 
 		VkDeviceSize zero_offset{ 0 };
@@ -226,13 +249,29 @@ namespace renderer
 		//vkCmdBindDescriptorSets()
 		vkCmdDrawIndexed(cmd, (uint32_t)render_obj.mesh->indices.size(), 1, 0, 0, 0);
 
+		vkCmdEndRendering(cmd);
 
+		// Second (optional) render pass. Render editor GUI if the editor is enabled.
 		if (editor_active_)
 		{
-			editor_backend_.RenderGui(cmd);
+			// Pipeline barrier to make sure previous rendering finishes before fragment shader.
+			// Also transitions image layout to be read from shader.
+			PipelineBarrier(
+				cmd, editor_backend_.GetViewportImage().image,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+			);
+
+			Extent window_extent{ context_.GetWindowExtent() };
+			color_attachment_info.imageView = swapchain_.GetImageView(image_index);
+			rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
+
+			vkCmdBeginRendering(cmd, &rendering_info);
+			editor_backend_.RecordCommandBuffer(cmd);
+			vkCmdEndRendering(cmd);
 		}
 
-		vkCmdEndRendering(cmd);
 	}
 
 	void VulkanRenderer::RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index)
@@ -245,20 +284,20 @@ namespace renderer
 			.pInheritanceInfo = nullptr,
 		};
 
-		Extents window_extents{ context_.GetWindowExtents() };
+		Extent viewport_extent{ GetViewportExtent() };
 
 		VkViewport viewport{
 			.x = 0.0f,
 			.y = 0.0f,
-			.width = (float)window_extents.width,
-			.height = (float)window_extents.height,
+			.width = (float)viewport_extent.width,
+			.height = (float)viewport_extent.height,
 			.minDepth = 0.0f,
 			.maxDepth = 1.0f,
 		};
 
 		VkRect2D scissor{
 			.offset = {0, 0},
-			.extent = {window_extents.width, window_extents.height},
+			.extent = {viewport_extent.width, viewport_extent.height},
 		};
 
 		VkResult result{ vkBeginCommandBuffer(cmd, &command_buffer_begin_info) };
@@ -350,9 +389,29 @@ namespace renderer
 		current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
 	}
 
-	FrameResources& VulkanRenderer::GetCurrentFrame()
+	VulkanRenderer::FrameResources& VulkanRenderer::GetCurrentFrame()
 	{
 		return frame_resources_[current_frame_];
+	}
+
+	Extent VulkanRenderer::GetViewportExtent()
+	{
+		if (editor_active_) {
+			return editor_backend_.GetViewportExtent();
+		}
+		else {
+			return context_.GetWindowExtent();
+		}
+	}
+
+	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
+	{
+		if (editor_active_) {
+			return editor_backend_.GetViewportImage().image_view;
+		}
+		else {
+			return swapchain_.GetImageView(image_index);
+		}
 	}
 
 	RenderObjectHandle VulkanRenderer::CreateRenderObject(uint32_t mesh_index)

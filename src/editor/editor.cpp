@@ -5,7 +5,7 @@
 
 #include "gui.h"
 
-void InitializeCallback(void* user_data)
+void InitializationCallback(void* user_data)
 {
 	Editor* editor{ (Editor*)user_data };
 	editor->InitializeGui();
@@ -13,22 +13,25 @@ void InitializeCallback(void* user_data)
 
 // We pass rendered_image_id to the draw callback instead of at initialization because the
 // rendered image ID is a frame resource, so we alternate which one gets drawn to each frame.
-void GuiCallback(ImTextureID rendered_image_id, void* user_data)
+// It is a pointer because we may need to change the underlying descriptor set if the
+// viewport is resized.
+void GuiCallback(ImTextureID* rendered_image_id, void* user_data)
 {
 	Editor* editor{ (Editor*)user_data };
 	editor->DrawGui(rendered_image_id);
 }
 
-void Editor::Initialize()
+void Editor::Initialize(pmk::Pumpkin* pumpkin)
 {
+	gui_.Initialize(pumpkin);
 }
 
 void Editor::InitializeGui()
 {
-	gui_.Initialize();
+	gui_.InitializeGui();
 }
 
-void Editor::DrawGui(ImTextureID rendered_image_id)
+void Editor::DrawGui(ImTextureID* rendered_image_id)
 {
 	gui_.DrawGui(rendered_image_id);
 }
@@ -36,7 +39,7 @@ void Editor::DrawGui(ImTextureID rendered_image_id)
 renderer::EditorInfo Editor::GetEditorInfo()
 {
 	return {
-		.initialization_callback = InitializeCallback,
+		.initialization_callback = InitializationCallback,
 		.gui_callback = GuiCallback,
 		.user_data = (void*)this,
 	};

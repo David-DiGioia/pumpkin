@@ -17,6 +17,19 @@ namespace renderer
 		const BufferResource& operator=(const BufferResource& other);
 	};
 
+	struct ImageResource
+	{
+		VkImage image;
+		VkImageView image_view;
+		VkSampler sampler;
+		VkExtent2D extent;
+		VkFormat format;
+		VkDeviceMemory* memory; // Should be shared by multiple buffers.
+		VkDeviceSize offset; // Offset into memory where the image starts.
+
+		const ImageResource& operator=(const ImageResource& other);
+	};
+
 	class Allocator
 	{
 	public:
@@ -26,7 +39,16 @@ namespace renderer
 
 		BufferResource CreateBufferResource(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
 
+		ImageResource CreateImageResource(
+			Extent extent,
+			VkImageUsageFlags usage,
+			VkMemoryPropertyFlags properties,
+			VkFormat format
+		);
+
 		void DestroyBufferResource(BufferResource* buffer_resource);
+
+		void DestroyImageResource(ImageResource* image_resource);
 
 	private:
 		struct Allocation

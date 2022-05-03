@@ -14,13 +14,11 @@
 #include "vulkan_util.h"
 #include "descriptor_set.h"
 #include "editor_backend.h"
+#include "renderer_types.h"
 
 namespace renderer
 {
 	typedef uint32_t RenderObjectHandle;
-
-	constexpr uint32_t NULL_HANDLE{ 0xFFFFFFFF };
-	constexpr uint32_t FRAMES_IN_FLIGHT{ 2 };
 
 	struct RenderObject
 	{
@@ -37,16 +35,6 @@ namespace renderer
 
 		BufferResource ubo_buffer_resource;
 		DescriptorSetResource ubo_descriptor_set_resource;
-	};
-
-	struct FrameResources
-	{
-		std::vector<RenderObject> render_objects_{};
-
-		VkCommandBuffer command_buffer;
-		VkFence render_done_fence;
-		VkSemaphore image_acquired_semaphore;
-		VkSemaphore render_done_semaphore;
 	};
 
 	class VulkanRenderer
@@ -76,7 +64,11 @@ namespace renderer
 
 		void SetEditorInfo(const EditorInfo& editor_info);
 
+		void SetEditorViewportSize(const Extent& extent);
+
 	private:
+		struct FrameResources;
+
 		void Draw(VkCommandBuffer cmd, uint32_t image_index);
 
 		void RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index);
@@ -89,6 +81,10 @@ namespace renderer
 
 		FrameResources& GetCurrentFrame();
 
+		Extent GetViewportExtent();
+
+		VkImageView GetViewportImageView(uint32_t image_index);
+
 		void InitializePipelines();
 
 		void InitializeFrameResources();
@@ -98,6 +94,16 @@ namespace renderer
 		void InitializeSyncObjects();
 
 		void InitializeDescriptorSetLayouts();
+
+		struct FrameResources
+		{
+			std::vector<RenderObject> render_objects_{};
+
+			VkCommandBuffer command_buffer;
+			VkFence render_done_fence;
+			VkSemaphore image_acquired_semaphore;
+			VkSemaphore render_done_semaphore;
+		};
 
 		friend class EditorBackend;
 		EditorBackend editor_backend_{};

@@ -202,7 +202,7 @@ namespace renderer
 		// If currentExtent has max value then the surface size is determined by the extent of the swapchain.
 		if (capabilities.currentExtent.width == std::numeric_limits<uint32_t>::max())
 		{
-			Extents extents{ context_->GetWindowExtents() };
+			Extent extents{ context_->GetWindowExtent() };
 
 			VkExtent2D extent{ extents.width, extents.height };
 

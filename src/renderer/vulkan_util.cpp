@@ -4,12 +4,55 @@
 
 namespace renderer
 {
+	// Stateless ---------------------------------------------------------------------------------------------
+
 	void CheckResult(VkResult result, const std::string& msg)
 	{
 		if (result != VK_SUCCESS) {
 			logger::Error("Vulkan function returned the VkResult: %d\nMessage: %s\n", result, msg.c_str());
 		}
 	}
+
+	void PipelineBarrier(
+		VkCommandBuffer cmd, VkImage image,
+		VkImageLayout old_layout, VkImageLayout new_layout,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+	)
+	{
+		VkImageMemoryBarrier image_memory_barrier{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = src_access_mask,
+			.dstAccessMask = dst_access_mask,
+			.oldLayout = old_layout,
+			.newLayout = new_layout,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = image,
+			.subresourceRange = {
+			  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			  .baseMipLevel = 0,
+			  .levelCount = 1,
+			  .baseArrayLayer = 0,
+			  .layerCount = 1,
+			}
+		};
+
+		vkCmdPipelineBarrier(
+			cmd,
+			src_stage_mask, // srcStageMask
+			dst_stage_mask, // dstStageMask
+			0,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1, // imageMemoryBarrierCount
+			&image_memory_barrier // pImageMemoryBarriers
+		);
+	}
+
+	// Stateful ----------------------------------------------------------------------------------------------
 
 	void VulkanUtil::Initialize(Context* context, Allocator* alloc)
 	{
@@ -43,6 +86,16 @@ namespace renderer
 		vkCreateFence(context_->device, &fence_info, nullptr, &fence_);
 	}
 
+	void VulkanUtil::PipelineBarrier(
+		VkImage image,
+		VkImageLayout old_layout, VkImageLayout new_layout,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+	)
+	{
+		renderer::PipelineBarrier(cmd_, image, old_layout, new_layout, src_access_mask, dst_access_mask, src_stage_mask, dst_stage_mask);
+	}
+
 	void VulkanUtil::CleanUp()
 	{
 		for (BufferResource& resource : destroy_queue_) {
@@ -53,7 +106,7 @@ namespace renderer
 		vkDestroyCommandPool(context_->device, command_pool_, nullptr);
 	}
 
-	void VulkanUtil::Begin()
+	VkCommandBuffer& VulkanUtil::Begin()
 	{
 		VkCommandBufferBeginInfo begin_info{
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -62,6 +115,8 @@ namespace renderer
 		};
 
 		vkBeginCommandBuffer(cmd_, &begin_info);
+
+		return cmd_;
 	}
 
 	void VulkanUtil::Submit()
@@ -92,10 +147,5 @@ namespace renderer
 		destroy_queue_.clear();
 
 		vkResetCommandPool(context_->device, command_pool_, 0);
-	}
-
-	VkCommandBuffer& VulkanUtil::GetCommandBuffer()
-	{
-		return cmd_;
 	}
 }

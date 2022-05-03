@@ -5,10 +5,10 @@
 
 int main()
 {
-	Editor editor{};
-	editor.Initialize();
-
 	pmk::Pumpkin pumpkin{};
+	Editor editor{};
+	editor.Initialize(&pumpkin);
+
 	pumpkin.SetEditorInfo(editor.GetEditorInfo());
 	pumpkin.Start();
 

@@ -6,11 +6,12 @@
 
 #include "logger.h"
 #include "memory_allocator.h"
+#include "renderer_types.h"
 
 #define VERTEX_ATTRIBUTE(loc, attr)								\
 	VkVertexInputAttributeDescription{							\
 		.location = loc,										\
-		.binding = vertex_binding,								\
+		.binding = VERTEX_BINDING,								\
 		.format = GetVulkanFormat<decltype(Vertex::attr)>(),	\
 		.offset = offsetof(Vertex, attr),						\
 	}
@@ -64,6 +65,13 @@ namespace renderer
 
 	void CheckResult(VkResult result, const std::string& msg);
 
+	void PipelineBarrier(
+		VkCommandBuffer cmd, VkImage image,
+		VkImageLayout old_layout, VkImageLayout new_layout,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+	);
+
 	// Utility object to help with common Vulkan tasks that need a command buffer.
 	class VulkanUtil
 	{
@@ -95,16 +103,21 @@ namespace renderer
 			destroy_queue_.push_back(staging);
 		}
 
+		void PipelineBarrier(
+			VkImage image,
+			VkImageLayout old_layout, VkImageLayout new_layout,
+			VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
+			VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+		);
+
 		void CleanUp();
 
 		// Call this before issuing any commands.
-		void Begin();
+		// Use the command buffer to do custom commands between calling Begin() and Submit().
+		VkCommandBuffer& Begin();
 
 		// Call this to submit all commands and wait for them to finish.
 		void Submit();
-
-		// Use this command buffer to do custom commands between calling Begin() and Submit().
-		VkCommandBuffer& GetCommandBuffer();
 
 	private:
 		Context* context_{};

@@ -198,7 +198,7 @@ namespace renderer
 		vkDestroyInstance(instance, nullptr);
 	}
 
-	Extents Context::GetWindowExtents()
+	Extent Context::GetWindowExtent()
 	{
 		int width{}, height{};
 		glfwGetFramebufferSize(window, &width, &height);

@@ -6,7 +6,12 @@
 
 const std::string default_layout_path{ "default_imgui_layout.ini" };
 
-void EditorGui::Initialize()
+void EditorGui::Initialize(pmk::Pumpkin* pumpkin)
+{
+	pumpkin_ = pumpkin;
+}
+
+void EditorGui::InitializeGui()
 {
 	// Set ImGui settings.
 	ImGuiIO& io = ImGui::GetIO();
@@ -16,13 +21,13 @@ void EditorGui::Initialize()
 	ImGui::LoadIniSettingsFromDisk(default_layout_path.c_str());
 }
 
-void EditorGui::DrawGui(ImTextureID rendered_image_id)
+void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 {
 	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
 	MainMenu();
 	RightPane();
-	EngineViewport();
+	EngineViewport(rendered_image_id);
 }
 
 void MainMenuSaveDefaultLayout()
@@ -67,15 +72,29 @@ void EditorGui::RightPane()
 }
 
 // The 3D scene rendered from Renderer.
-void EditorGui::EngineViewport()
+void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 {
-	if (!ImGui::Begin("Custom Window"))
+	bool success{ ImGui::Begin("Custom Window") };
+
+	ImVec2 render_size{ ImGui::GetContentRegionAvail() };
+	UpdateViewportSize({ (uint32_t)render_size.x, (uint32_t)render_size.y });
+
+	if (!success)
 	{
 		ImGui::End();
 		return;
 	}
 
-	ImVec2 render_size{ ImGui::GetContentRegionAvail() };
+	ImGui::Image(*rendered_image_id, render_size);
 
 	ImGui::End();
+}
+
+void EditorGui::UpdateViewportSize(const renderer::Extent& extent)
+{
+	if (extent != viewport_extent_)
+	{
+		viewport_extent_ = extent;
+		pumpkin_->SetEditorViewportSize(extent);
+	}
 }

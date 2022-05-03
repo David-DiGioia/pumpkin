@@ -17,6 +17,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/memory_allocator.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/descriptor_set.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/descriptor_set.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer_types.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer_types.cpp"
 )
 
 add_library(Renderer "${SOURCES}")

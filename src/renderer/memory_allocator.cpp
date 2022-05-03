@@ -156,10 +156,116 @@ namespace renderer
 		};
 	}
 
+	ImageResource Allocator::CreateImageResource(Extent extent, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkFormat format)
+	{
+		// Image.
+		VkImageCreateInfo image_info{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			.flags = 0,
+			.imageType = VK_IMAGE_TYPE_2D,
+			.format = format,
+			.extent = {
+				.width = extent.width,
+				.height = extent.height,
+				.depth = 1,
+			},
+			.mipLevels = 1,
+			.arrayLayers = 1,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.tiling = VK_IMAGE_TILING_OPTIMAL,
+			.usage = usage,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+			.queueFamilyIndexCount = 0,
+			.pQueueFamilyIndices = nullptr, // Ignored for sharing mode exclusive.
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		};
+
+		VkImage image{};
+		VkResult result{ vkCreateImage(context_->device, &image_info, nullptr, &image) };
+		CheckResult(result, "Failed to create image.");
+
+		VkMemoryRequirements memory_requirements{};
+		vkGetImageMemoryRequirements(context_->device, image, &memory_requirements);
+
+		VkDeviceMemory* memory{};
+		VkDeviceSize offset{ FindMemory(memory_requirements, properties, &memory) };
+
+		result = vkBindImageMemory(context_->device, image, *memory, offset);
+		CheckResult(result, "Failed to bind image to memory.");
+
+		// Image view.
+		VkImageViewCreateInfo image_view_info{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.flags = 0,
+			.image = image,
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = format,
+			.components = {
+				.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+			},
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, // Potentially need to make depth optional later.
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+		};
+
+		VkImageView image_view{};
+		result = vkCreateImageView(context_->device, &image_view_info, nullptr, &image_view);
+		CheckResult(result, "Failed to create image view.");
+
+		// Sampler.
+		VkSamplerCreateInfo sampler_info{
+			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			.flags = 0,
+			.magFilter = VK_FILTER_LINEAR,
+			.minFilter = VK_FILTER_LINEAR,
+			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+			.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+			.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+			.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+			.mipLodBias = 0.0f,
+			.anisotropyEnable = VK_FALSE,
+			.maxAnisotropy = 1.0f,
+			.compareEnable = VK_FALSE,
+			.compareOp = VK_COMPARE_OP_ALWAYS,
+			.minLod = 0.0f,
+			.maxLod = VK_LOD_CLAMP_NONE,
+			.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+		};
+
+		VkSampler sampler{};
+		result = vkCreateSampler(context_->device, &sampler_info, nullptr, &sampler);
+		CheckResult(result, "Failed to create sampler.");
+
+		return ImageResource{
+			.image = image,
+			.image_view = image_view,
+			.sampler = sampler,
+			.extent = {extent.width, extent.height},
+			.format = format,
+			.memory = memory,
+			.offset = offset,
+		};
+	}
+
 	void Allocator::DestroyBufferResource(BufferResource* buffer_resource)
 	{
 		vkDestroyBuffer(context_->device, buffer_resource->buffer, nullptr);
 		// TODO: Track which buffers are destroyed for when we do defragmentation.
+	}
+
+	void Allocator::DestroyImageResource(ImageResource* image_resource)
+	{
+		vkDestroySampler(context_->device, image_resource->sampler, nullptr);
+		vkDestroyImageView(context_->device, image_resource->image_view, nullptr);
+		vkDestroyImage(context_->device, image_resource->image, nullptr);
+		// TODO: Track which images are destroyed for when we do defragmentation.
 	}
 
 	// Get the lowest number we must add to offset such that it meets alignment requirement.
@@ -270,6 +376,18 @@ namespace renderer
 		buffer = other.buffer;
 		memory = other.memory;
 		size = other.size;
+		offset = other.offset;
+		return other;
+	}
+
+	const ImageResource& ImageResource::operator=(const ImageResource& other)
+	{
+		image = other.image;
+		image_view = other.image_view;
+		sampler = other.sampler;
+		extent = other.extent;
+		format = other.format;
+		memory = other.memory;
 		offset = other.offset;
 		return other;
 	}

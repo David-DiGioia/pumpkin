@@ -22,6 +22,8 @@ namespace renderer
 
 		void LinkBufferToBinding(uint32_t binding, const BufferResource& buffer_resource);
 
+		void LinkImageToBinding(uint32_t binding, const ImageResource& image_resource);
+
 	private:
 		// We let the device secretly be stored by DescriptorSetResource to keep
 		// interface of LinkBufferToBinding simple, without needing to pass device.

@@ -17,9 +17,6 @@
 
 namespace renderer
 {
-	constexpr uint32_t vertex_binding{ 0 };
-	constexpr uint32_t instance_binding{ 1 };
-
 	enum class VertexType
 	{
 		NONE,
