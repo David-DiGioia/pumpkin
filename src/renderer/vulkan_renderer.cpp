@@ -225,7 +225,10 @@ namespace renderer
 			.pStencilAttachment = nullptr,
 		};
 
-		if (editor_active_)
+		// If we're using the editor and the viewport is minimized, we skip rendering to the 3D viewport.
+		bool minimized{ editor_active_ && !editor_backend_.GetViewportVisible() };
+
+		if (editor_active_ && !minimized)
 		{
 			// If we're using the editor's image we need to transition it to be a color attachment.
 			PipelineBarrier(
@@ -236,23 +239,25 @@ namespace renderer
 			);
 		}
 
-		// First render pass. Render 3D Viewport.
-		vkCmdBeginRendering(cmd, &rendering_info);
+		if (!minimized)
+		{
+			// First render pass. Render 3D Viewport.
+			vkCmdBeginRendering(cmd, &rendering_info);
 
-		VkDeviceSize zero_offset{ 0 };
+			VkDeviceSize zero_offset{ 0 };
 
-		RenderObject& render_obj{ GetCurrentFrame().render_objects_[2] };
+			RenderObject& render_obj{ GetCurrentFrame().render_objects_[2] };
 
-		vkCmdBindVertexBuffers(cmd, 0, 1, &render_obj.mesh->vertices_resource.buffer, &zero_offset);
-		vkCmdBindIndexBuffer(cmd, render_obj.mesh->indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
-		//vkCmdBindDescriptorSets()
-		vkCmdDrawIndexed(cmd, (uint32_t)render_obj.mesh->indices.size(), 1, 0, 0, 0);
+			vkCmdBindVertexBuffers(cmd, 0, 1, &render_obj.mesh->vertices_resource.buffer, &zero_offset);
+			vkCmdBindIndexBuffer(cmd, render_obj.mesh->indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
+			//vkCmdBindDescriptorSets()
+			vkCmdDrawIndexed(cmd, (uint32_t)render_obj.mesh->indices.size(), 1, 0, 0, 0);
 
-		vkCmdEndRendering(cmd);
+			vkCmdEndRendering(cmd);
+		}
 
-		// Second (optional) render pass. Render editor GUI if the editor is enabled.
-		if (editor_active_)
+		if (editor_active_ && !minimized)
 		{
 			// Pipeline barrier to make sure previous rendering finishes before fragment shader.
 			// Also transitions image layout to be read from shader.
@@ -262,7 +267,11 @@ namespace renderer
 				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
 			);
+		}
 
+		// Second render pass. Render editor GUI if the editor is enabled.
+		if (editor_active_)
+		{
 			Extent window_extent{ context_.GetWindowExtent() };
 			color_attachment_info.imageView = swapchain_.GetImageView(image_index);
 			rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
@@ -284,7 +293,7 @@ namespace renderer
 			.pInheritanceInfo = nullptr,
 		};
 
-		Extent viewport_extent{ GetViewportExtent() };
+		Extent viewport_extent{ GetViewportExtent()};
 
 		VkViewport viewport{
 			.x = 0.0f,
@@ -303,8 +312,16 @@ namespace renderer
 		VkResult result{ vkBeginCommandBuffer(cmd, &command_buffer_begin_info) };
 		CheckResult(result, "Failed to begin command buffer.");
 
-		vkCmdSetViewport(cmd, 0, 1, &viewport);
-		vkCmdSetScissor(cmd, 0, 1, &scissor);
+		// If the editor viewport is minimized we don't set viewport/scissors.
+		bool minimized{ editor_active_ && !editor_backend_.GetViewportVisible() };
+
+		if (!minimized)
+		{
+			// We only need to set these for the 3D viewport render because the ImGui
+			// implementation sets them again for the GUI render pass.
+			vkCmdSetViewport(cmd, 0, 1, &viewport);
+			vkCmdSetScissor(cmd, 0, 1, &scissor);
+		}
 
 		TransitionSwapImageForRender(cmd, image_index);
 		Draw(cmd, image_index);

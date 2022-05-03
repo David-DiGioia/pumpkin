@@ -37,6 +37,8 @@ namespace renderer
 
 		Extent GetViewportExtent() const;
 
+		bool GetViewportVisible() const;
+
 		ImageResource& GetViewportImage();
 
 	private:
@@ -64,5 +66,6 @@ namespace renderer
 		EditorInfo info_{};
 		VkDescriptorPool descriptor_pool_{};
 		Extent viewport_extent_{};
+		bool viewport_visible_{};
 	};
 }

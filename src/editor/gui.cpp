@@ -59,7 +59,7 @@ void EditorGui::MainMenu()
 
 void EditorGui::RightPane()
 {
-	if (!ImGui::Begin("Custom Window"))
+	if (!ImGui::Begin("Right pane"))
 	{
 		// Early out if the window is collapsed, as an optimization.
 		ImGui::End();
@@ -74,10 +74,13 @@ void EditorGui::RightPane()
 // The 3D scene rendered from Renderer.
 void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 {
-	bool success{ ImGui::Begin("Custom Window") };
+	bool success{ ImGui::Begin("Viewport") };
 
 	ImVec2 render_size{ ImGui::GetContentRegionAvail() };
-	UpdateViewportSize({ (uint32_t)render_size.x, (uint32_t)render_size.y });
+	// If window closes ImGui sets its size to -1. So clamp to 0.
+	uint32_t width{ (uint32_t)std::max(render_size.x, 0.0f) };
+	uint32_t height{ (uint32_t)std::max(render_size.y, 0.0f) };
+	UpdateViewportSize({ width, height });
 
 	if (!success)
 	{
@@ -85,7 +88,9 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 		return;
 	}
 
-	ImGui::Image(*rendered_image_id, render_size);
+	if ((viewport_extent_.width != 0) && (viewport_extent_.height != 0)) {
+		ImGui::Image(*rendered_image_id, render_size);
+	}
 
 	ImGui::End();
 }

@@ -57,8 +57,13 @@ namespace renderer
 		if (extent != viewport_extent_)
 		{
 			viewport_extent_ = extent;
-			DestroyFrameResources();
-			CreateFrameResources(extent);
+			viewport_visible_ = (extent.width != 0) && (extent.height != 0);
+
+			if (viewport_visible_)
+			{
+				DestroyFrameResources();
+				CreateFrameResources(extent);
+			}
 		}
 	}
 
@@ -70,6 +75,11 @@ namespace renderer
 	ImageResource& EditorBackend::GetViewportImage()
 	{
 		return GetCurrentFrame().render_image_;
+	}
+
+	bool EditorBackend::GetViewportVisible() const
+	{
+		return viewport_visible_;
 	}
 
 	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
