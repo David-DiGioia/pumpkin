@@ -24,6 +24,7 @@ namespace renderer
 
 	void EditorBackend::CleanUp()
 	{
+		DestroyFrameResources();
 		vkDestroyDescriptorPool(renderer_->context_.device, descriptor_pool_, nullptr);
 		ImGui_ImplVulkan_Shutdown();
 	}
