@@ -74,7 +74,12 @@ void EditorGui::RightPane()
 // The 3D scene rendered from Renderer.
 void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 {
-	bool success{ ImGui::Begin("Viewport") };
+	//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, 1.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	bool success{ ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoTitleBar) };
+	ImGui::PopStyleVar(3);
 
 	ImVec2 render_size{ ImGui::GetContentRegionAvail() };
 	// If window closes ImGui sets its size to -1. So clamp to 0.
