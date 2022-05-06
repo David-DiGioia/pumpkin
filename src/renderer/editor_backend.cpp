@@ -5,6 +5,7 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
+#include "implot/implot.h"
 
 #include "vulkan_renderer.h"
 #include "vulkan_util.h"
@@ -27,6 +28,8 @@ namespace renderer
 		DestroyFrameResources();
 		vkDestroyDescriptorPool(renderer_->context_.device, descriptor_pool_, nullptr);
 		ImGui_ImplVulkan_Shutdown();
+		ImPlot::DestroyContext();
+		ImGui::DestroyContext();
 	}
 
 	void EditorBackend::DrawGui()
@@ -153,6 +156,7 @@ namespace renderer
 	{
 		// This initializes the core structures of imgui
 		ImGui::CreateContext();
+		ImPlot::CreateContext();
 
 		// This initializes imgui for GLFW.
 		ImGui_ImplGlfw_InitForVulkan(renderer_->context_.window, true);

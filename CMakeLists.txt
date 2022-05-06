@@ -9,6 +9,12 @@ cmake_policy(SET CMP0079 NEW)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# These variables let us copy DLLs into the bin directories of the editor/bootstrap.
+set(Editor_BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/src/editor/Release")
+set(Editor_BINARY_DIR_D "${CMAKE_CURRENT_SOURCE_DIR}/build/src/editor/Debug")
+set(Bootstrap_BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/src/bootstrap/Release")
+set(Bootstrap_BINARY_DIR_D "${CMAKE_CURRENT_SOURCE_DIR}/build/src/bootstrap/Debug")
+
 add_subdirectory(src)
 
 # Set Editor as startup project.

@@ -16,6 +16,12 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_vulkan.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_win32.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/implot/implot.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/implot/implot.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/implot/implot_demo.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/implot/implot_internal.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/implot/implot_items.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/curve_editor/curve_v122.hpp"
 )
 
 add_library(Imgui "${SOURCES}")
