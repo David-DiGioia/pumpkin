@@ -37,20 +37,24 @@ set(SFML_LIBS
 )
 
 # Link libraries only in debug build.
-target_link_libraries(Renderer PUBLIC debug
+target_link_libraries(Pumpkin PUBLIC debug
     "${SFML_LIBS_D}"
 )
 
 # Link libraries only in release build.
-target_link_libraries(Renderer PUBLIC optimized
+target_link_libraries(Pumpkin PUBLIC optimized
     "${SFML_LIBS_R}"
 )
 
 # Link libraries in all builds.
+target_link_libraries(Pumpkin PUBLIC
+    "${SFML_LIBS}"
+)
+
+# Link libraries for renderer.
 target_link_libraries(Renderer PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/glfw-3.3.6.bin.WIN64/lib-vc2022/glfw3.lib"
     "${Vulkan_LIBRARY}"
-    "${SFML_LIBS}"
     volk_headers
     Imgui
 )
