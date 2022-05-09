@@ -11,6 +11,7 @@ namespace pmk
 	constexpr uint32_t AUDIO_CHUNK_COUNT{ 2 };
 	constexpr uint32_t AUDIO_CHUNK_SIZE{ 2048 }; // Number of samples in a chunk.
 	constexpr uint32_t SAMPLE_RATE{ 44100 };
+	constexpr uint32_t MAX_HARMONIC_MULTIPLE{ 8 };
 	constexpr uint32_t AUDIO_BUF_SIZE{ AUDIO_CHUNK_COUNT * AUDIO_CHUNK_SIZE };
 
 	typedef std::array<sf::Int16, AUDIO_BUF_SIZE> AudioBuffer;
@@ -59,7 +60,11 @@ namespace pmk
 
 		void SetAmplitude(float amplitude);
 
+		// Get total time audio has been playing.
 		float GetTime() const;
+
+		// Get time modulo buffer duration. This is useful for play head indicator on timeline.
+		float GetBufferTime() const;
 
 		const AudioBuffer& GetAudioBuffer() const;
 
@@ -83,6 +88,7 @@ namespace pmk
 		bool ready_to_write_{ false }; // True when the chunk at chunk_index_ is ready to be written to by main thread.
 		uint32_t chunk_index_{ 0 }; // The index of the chunk next in line to be used by the stream.
 		std::mutex mutex_{}; // Needed since onGetData() function is processed on separate thread.
+		uint32_t sample_index_{ 0 }; // Monotonically increasing, to avoid discontinuity when wrapping around audio buffer.
 	};
 
 	class AudioEngine

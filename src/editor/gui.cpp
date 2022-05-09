@@ -30,9 +30,6 @@ void EditorGui::InitializeGui()
 
 	fundamental_wave_editor_data_.resize(CURVE_EDITOR_POINTS);
 	fundamental_wave_editor_data_[0].x = -1;
-
-	harmonics_editor_data_.resize(CURVE_EDITOR_POINTS);
-	harmonics_editor_data_[0].x = -1;
 }
 
 void EditorGui::DrawGui(ImTextureID* rendered_image_id)
@@ -135,9 +132,6 @@ void EditorGui::AudioWindow()
 			status = "Curve has been changed.";
 		}
 		ImGui::Text(status.c_str());
-
-		if (ImGui::Curve("Harmonics", ImVec2(content_region.x, 200), harmonics_editor_data_.size(), harmonics_editor_data_.data())) {
-		}
 	}
 
 	{
@@ -157,7 +151,7 @@ void EditorGui::AudioWindow()
 			ImPlot::SetupAxisLimits(ImAxis_Y1, -3500.0, 3500.0);
 			ImPlot::PlotLine("Audio buffer line", x_data.data(), y_data.data(), y_data.size());
 			
-			float current_time{ editor_->instrument_.GetTime() };
+			float current_time{ editor_->instrument_.GetBufferTime() };
 			ImPlot::PlotVLines("Current time", &current_time, 1);
 
 			ImPlot::EndPlot();
@@ -171,15 +165,24 @@ void EditorGui::AudioWindow()
 		editor_->instrument_.Reset();
 
 		editor_->instrument_.AddWave({
-			.fundamental_wave = [&](float x) { return ImGui::CurveValueSmoothAudio(x, fundamental_wave_editor_data_.size(), fundamental_wave_editor_data_.data()); },
-			//.fundamental_wave = pmk::wave::Sin01,
-			.harmonic_multipliers = [&](float time, uint32_t freq_multiple) { return (1.0f / freq_multiple) * ImGui::CurveValueSmooth(freq_multiple / 16.0f, harmonics_editor_data_.size(), harmonics_editor_data_.data()); },
+			//.fundamental_wave = [&](float x) { return ImGui::CurveValueSmoothAudio(x, fundamental_wave_editor_data_.size(), fundamental_wave_editor_data_.data()); },
+			.fundamental_wave = pmk::wave::Sin01,
+			.harmonic_multipliers = [&](float time, uint32_t freq_multiple) { return harmonic_multiples_[freq_multiple - 1]; },
+			.relative_frequency = 1.0f,
 			});
 
 		editor_->instrument_.Play();
 	}
 
-	ImGui::DragFloat("Frequency", &frequency_, 1.0f, 0.0f, 20000.0f);
+	ImGui::DragFloat("Frequency", &frequency_, 1.0f, 1.0f, 20000.0f);
+
+	for (uint32_t i{ 0 }; i < pmk::MAX_HARMONIC_MULTIPLE; ++i)
+	{
+		ImGui::PushID(i);
+		ImGui::VSliderFloat("##harmonic", ImVec2(30, 160), &harmonic_multiples_[i], 0.0f, 1.0f);
+		ImGui::SameLine();
+		ImGui::PopID();
+	}
 
 	ImGui::End();
 }

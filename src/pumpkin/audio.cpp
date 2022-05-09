@@ -7,7 +7,6 @@
 namespace pmk
 {
 	constexpr float TWO_PI{ 6.28318530718f };
-	constexpr uint32_t MAX_HARMONIC_MULTIPLE{ 16 };
 
 	template <typename Func>
 	int16_t SampleWave(uint32_t tick, float frequency, float amplitude, Func f)
@@ -84,6 +83,11 @@ namespace pmk
 		return getPlayingOffset().asSeconds();
 	}
 
+	float Instrument::GetBufferTime() const
+	{
+		return std::fmodf(getPlayingOffset().asSeconds(), AUDIO_BUF_SIZE / (float)SAMPLE_RATE);
+	}
+
 	const AudioBuffer& Instrument::GetAudioBuffer() const
 	{
 		return audio_buffer_;
@@ -96,20 +100,21 @@ namespace pmk
 		for (uint32_t i{ start_index }; i < start_index + AUDIO_CHUNK_SIZE; ++i)
 		{
 			audio_buffer_[i] = 0;
-			float seconds{ i / (float)SAMPLE_RATE };
+			float seconds{ GetTime() };
 
 			for (const Wave& wave : waves_)
 			{
 				for (uint32_t j{ 1 }; j <= MAX_HARMONIC_MULTIPLE; ++j)
 				{
 					audio_buffer_[i] += SampleWave(
-						i,
+						sample_index_,
 						frequency_ * wave.relative_frequency * j,
 						amplitude_ * wave.harmonic_multipliers(seconds, j),
 						wave.fundamental_wave
 					);
 				}
 			}
+			++sample_index_;
 		}
 	}
 
