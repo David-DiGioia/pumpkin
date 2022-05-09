@@ -34,6 +34,7 @@ set(SFML_LIBS
     "${CMAKE_CURRENT_SOURCE_DIR}/SFML-2.5.1/lib/vorbisfile.lib"
     "${CMAKE_CURRENT_SOURCE_DIR}/SFML-2.5.1/lib/vorbis.lib"
     "${CMAKE_CURRENT_SOURCE_DIR}/SFML-2.5.1/lib/ogg.lib"
+    "${CMAKE_CURRENT_SOURCE_DIR}/SFML-2.5.1/lib/WinMM.Lib"
 )
 
 # Link libraries only in debug build.

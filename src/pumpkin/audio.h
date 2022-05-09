@@ -3,13 +3,17 @@
 #include <functional>
 #include <vector>
 #include <array>
+#include <mutex>
 #include "SFML/Audio.hpp"
 
 namespace pmk
 {
-	constexpr uint32_t AUDIO_CHUNKS_IN_FLIGHT{ 2 };
+	constexpr uint32_t AUDIO_CHUNK_COUNT{ 2 };
 	constexpr uint32_t AUDIO_CHUNK_SIZE{ 2048 }; // Number of samples in a chunk.
 	constexpr uint32_t SAMPLE_RATE{ 44100 };
+	constexpr uint32_t AUDIO_BUF_SIZE{ AUDIO_CHUNK_COUNT * AUDIO_CHUNK_SIZE };
+
+	typedef std::array<sf::Int16, AUDIO_BUF_SIZE> AudioBuffer;
 
 	// Built in wave functions. In each case t is in [0, 1] and output is in [-1, 1].
 	namespace wave
@@ -37,14 +41,7 @@ namespace pmk
 		float unison_step_size{ 10.0f }; // In hertz.
 	};
 
-	class InstrumentAudioStream : public sf::SoundStream
-	{
-		virtual bool onGetData(Chunk& data);
-
-		virtual void onSeek(sf::Time timeOffset);
-	};
-
-	class Instrument
+	class Instrument : public sf::SoundStream
 	{
 	public:
 		Instrument();
@@ -64,24 +61,28 @@ namespace pmk
 
 		float GetTime() const;
 
-		const std::array<sf::Int16, AUDIO_CHUNK_SIZE* AUDIO_CHUNKS_IN_FLIGHT>& GetAudioBuffer() const;
+		const AudioBuffer& GetAudioBuffer() const;
 
 	private:
-		// Returns true if the play position passed into a new audio chunk.
-		bool AudioChunkChanged();
+		void RecordAudioChunk();
 
-		void RecordAudioChunk(uint32_t chunk_index);
+		void NextChunk();
+
+		virtual bool onGetData(Chunk& data);
+
+		virtual void onSeek(sf::Time timeOffset);
 
 		std::vector<Wave> waves_{};
-		sf::SoundBuffer sound_buffer_{};
-		sf::Sound sound_{};
-		std::array<sf::Int16, AUDIO_CHUNK_SIZE* AUDIO_CHUNKS_IN_FLIGHT> audio_buffer_{};
 
 		float frequency_{ 200.0f };
 		float amplitude_{ 0.1f };
 
-		bool playing_{}; // True if this instrument is currently playing.
-		uint32_t current_chunk_index_{}; // The index of the last chunk the audio was playing in.
+		// The audio stream is run on a different thread by SFML so we double buffer the audio,
+		// while it's being read from one half of the buffer we write to the other.
+		AudioBuffer audio_buffer_{};
+		bool ready_to_write_{ false }; // True when the chunk at chunk_index_ is ready to be written to by main thread.
+		uint32_t chunk_index_{ 0 }; // The index of the chunk next in line to be used by the stream.
+		std::mutex mutex_{}; // Needed since onGetData() function is processed on separate thread.
 	};
 
 	class AudioEngine

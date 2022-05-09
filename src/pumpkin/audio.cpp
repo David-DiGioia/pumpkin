@@ -33,15 +33,15 @@ namespace pmk
 
 	Instrument::Instrument()
 	{
-		sound_.setBuffer(sound_buffer_);
-		sound_.setLoop(true);
-		RecordAudioChunk(0);
+		// Call the parent class's initialize function.
+		initialize(1, SAMPLE_RATE);
 	}
 
 	void Instrument::Play()
 	{
-		playing_ = true;
-		sound_.play();
+		// Record first chunk before playing so we have something to play.
+		RecordAudioChunk();
+		play(); // Parent function to play audio stream.
 	}
 
 	void Instrument::Reset()
@@ -51,17 +51,16 @@ namespace pmk
 
 	void Instrument::FrameUpdate()
 	{
-		if (!playing_) {
+		if (getStatus() != sf::SoundSource::Playing) {
 			return;
 		}
 
-		if (AudioChunkChanged())
+		if (ready_to_write_)
 		{
-			uint32_t next_index{ (current_chunk_index_ + 1) % AUDIO_CHUNKS_IN_FLIGHT };
-			auto play_offset{ sound_.getPlayingOffset() };
-			RecordAudioChunk(next_index);
-			sound_.setPlayingOffset(play_offset);
-			sound_.play();
+			RecordAudioChunk();
+			mutex_.lock();
+			ready_to_write_ = false;
+			mutex_.unlock();
 		}
 	}
 
@@ -82,33 +81,17 @@ namespace pmk
 
 	float Instrument::GetTime() const
 	{
-		return sound_.getPlayingOffset().asSeconds();
+		return getPlayingOffset().asSeconds();
 	}
 
-	const std::array<sf::Int16, AUDIO_CHUNK_SIZE* AUDIO_CHUNKS_IN_FLIGHT>& Instrument::GetAudioBuffer() const
+	const AudioBuffer& Instrument::GetAudioBuffer() const
 	{
 		return audio_buffer_;
 	}
 
-	bool Instrument::AudioChunkChanged()
+	void Instrument::RecordAudioChunk()
 	{
-		float current_time{ sound_.getPlayingOffset().asSeconds() };
-		float audio_chunk_time{ AUDIO_CHUNK_SIZE / (float)SAMPLE_RATE };
-		uint32_t chunk_index{ (uint32_t)(current_time / audio_chunk_time) };
-
-		if (chunk_index != current_chunk_index_)
-		{
-			current_chunk_index_ = chunk_index;
-			return true;
-		}
-
-		return false;
-
-	}
-
-	void Instrument::RecordAudioChunk(uint32_t chunk_index)
-	{
-		uint32_t start_index = chunk_index * AUDIO_CHUNK_SIZE;
+		uint32_t start_index = chunk_index_ * AUDIO_CHUNK_SIZE;
 
 		for (uint32_t i{ start_index }; i < start_index + AUDIO_CHUNK_SIZE; ++i)
 		{
@@ -128,8 +111,28 @@ namespace pmk
 				}
 			}
 		}
+	}
 
-		sound_buffer_.loadFromSamples(audio_buffer_.data(), audio_buffer_.size(), 1, SAMPLE_RATE);
+	void Instrument::NextChunk()
+	{
+		chunk_index_ = (chunk_index_ + 1) % AUDIO_CHUNK_COUNT;
+	}
+
+	bool Instrument::onGetData(Chunk& data)
+	{
+		data.sampleCount = AUDIO_CHUNK_SIZE;
+		data.samples = &audio_buffer_[(size_t)chunk_index_ * AUDIO_CHUNK_SIZE];
+
+		NextChunk();
+		mutex_.lock();
+		ready_to_write_ = true;
+		mutex_.unlock();
+		return true;
+	}
+
+	void Instrument::onSeek(sf::Time timeOffset)
+	{
+		// TODO: Maybe do something here...
 	}
 
 	namespace wave
@@ -161,42 +164,4 @@ namespace pmk
 			instrument->FrameUpdate();
 		}
 	}
-
-	/*
-	// Get a single audio sample from a sinewave.
-	//
-	// tick - The index of the sample. Every 44100 samples is one second of audio.
-	// frequency - The frequency of the wave that's being sampled from.
-	// amplitude - The volume of the sample. Should be in the range [0, 1].
-	int16_t SineWave(uint32_t tick, float frequency, float amplitude)
-	{
-		return SampleWave(tick, frequency, amplitude, std::sinf);
-	}
-
-	int16_t CustomWave(uint32_t tick, float frequency, float amplitude, const std::vector<ImVec2>& curve_data)
-	{
-		return SampleWave(tick, frequency, amplitude, [&](float x) {
-			float integer_part{};
-			return ImGui::CurveValueSmoothAudio(std::modff(x, &integer_part), curve_data.size(), curve_data.data());
-			});
-	}
-
-	void EditorGui::PlayTestSound()
-	{
-		float seconds{ 2.0f };
-
-		std::vector<sf::Int16> samples(seconds * SAMPLE_RATE);
-
-		for (uint32_t i{ 0 }; i < samples.size(); ++i)
-		{
-			float freq{ 200.0f };
-			samples[i] = CustomWave(i, freq, 0.4f, curve_editor_data_);
-		}
-
-		sound_buffer_.loadFromSamples(samples.data(), samples.size(), 1, SAMPLE_RATE);
-
-		sound_.setBuffer(sound_buffer_);
-		sound_.play();
-	}
-	*/
 }
