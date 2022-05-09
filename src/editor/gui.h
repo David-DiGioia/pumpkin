@@ -2,14 +2,15 @@
 
 #include <cstdint>
 #include <vector>
-#include "imgui.h"
 #include "pumpkin.h"
-#include "SFML/Audio.hpp"
+#include "imgui.h"
+
+class Editor;
 
 class EditorGui
 {
 public:
-	void Initialize(pmk::Pumpkin* pumpkin);
+	void Initialize(Editor* editor);
 
 	void InitializeGui();
 
@@ -26,15 +27,10 @@ private:
 
 	void UpdateViewportSize(const renderer::Extent& extent);
 
-	void PlayTestSound();
-
-	pmk::Pumpkin* pumpkin_{};
+	Editor* editor_{};
 	renderer::Extent viewport_extent_{};
 
-	std::vector<float> x_data_{};
-
-	std::vector<ImVec2> curve_editor_data_{};
-
-	sf::SoundBuffer sound_buffer_{};
-	sf::Sound sound_{};
+	std::vector<ImVec2> fundamental_wave_editor_data_{};
+	std::vector<ImVec2> harmonics_editor_data_{};
+	float frequency_{ 100.0f };
 };

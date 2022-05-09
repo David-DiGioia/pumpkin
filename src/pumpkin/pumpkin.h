@@ -5,6 +5,7 @@
 #include "vulkan_renderer.h"
 #include "editor_backend.h"
 #include "scene.h"
+#include "audio.h"
 
 namespace pmk
 {
@@ -23,6 +24,8 @@ namespace pmk
 
 		void SetEditorViewportSize(const renderer::Extent& extent);
 
+		AudioEngine& GetAudioEngine();
+
 	private:
 		// General work the host needs to do each frame.
 		void HostWork();
@@ -33,6 +36,7 @@ namespace pmk
 		GLFWwindow* window_{};
 		renderer::VulkanRenderer renderer_{};
 		Scene scene_{};
+		AudioEngine audio_engine_{};
 
 		bool editor_mode_enabled_{ false };
 		uint32_t width_{ 1280 };

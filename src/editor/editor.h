@@ -17,6 +17,12 @@ public:
 
 	renderer::EditorInfo GetEditorInfo();
 
+
 private:
+	friend class EditorGui;
+
+	pmk::Pumpkin* pumpkin_{};
 	EditorGui gui_{};
+
+	pmk::Instrument instrument_{};
 };

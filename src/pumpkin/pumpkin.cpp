@@ -27,7 +27,7 @@ namespace pmk
 
 	void Pumpkin::HostWork()
 	{
-
+		audio_engine_.Update();
 	}
 
 	void Pumpkin::HostRenderWork()
@@ -64,5 +64,9 @@ namespace pmk
 	void Pumpkin::SetEditorViewportSize(const renderer::Extent& extent)
 	{
 		renderer_.SetEditorViewportSize(extent);
+	}
+	AudioEngine& Pumpkin::GetAudioEngine()
+	{
+		return audio_engine_;
 	}
 }
