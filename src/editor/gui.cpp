@@ -2,13 +2,15 @@
 
 #include <cmath>
 #include <string>
+#include <climits>
 #include "imgui.h"
 #include "implot/implot.h"
 #include "curve_editor/curve_v122.hpp"
+
 #include "editor.h"
 #include "pumpkin.h"
-
 #include "logger.h"
+#include "music.h"
 
 const std::string default_layout_path{ "default_imgui_layout.ini" };
 
@@ -26,6 +28,7 @@ void EditorGui::InitializeGui()
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.IniFilename = NULL; // Disable automatic saving of layout.
 	io.IniSavingRate = 0.1f; // Small number so we can save often.
+	io.WantCaptureKeyboard = true;
 	ImGui::LoadIniSettingsFromDisk(default_layout_path.c_str());
 
 	fundamental_wave_editor_data_.resize(CURVE_EDITOR_POINTS);
@@ -148,33 +151,39 @@ void EditorGui::AudioWindow()
 
 		if (ImPlot::BeginPlot("Audio buffer plot"))
 		{
-			ImPlot::SetupAxisLimits(ImAxis_Y1, -3500.0, 3500.0);
+			ImPlot::SetupAxisLimits(ImAxis_Y1, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max());
 			ImPlot::PlotLine("Audio buffer line", x_data.data(), y_data.data(), y_data.size());
-			
-			float current_time{ editor_->instrument_.GetBufferTime() };
-			ImPlot::PlotVLines("Current time", &current_time, 1);
+
+			//float current_time{ editor_->instrument_.GetBufferTime() };
+			//ImPlot::PlotVLines("Current time", &current_time, 1);
 
 			ImPlot::EndPlot();
 		}
 	}
 
-	editor_->instrument_.SetFrequency(frequency_);
-
-	if (ImGui::Button("Play audio"))
+	if (ImGui::Button("Add wave"))
 	{
-		editor_->instrument_.Reset();
-
 		editor_->instrument_.AddWave({
-			//.fundamental_wave = [&](float x) { return ImGui::CurveValueSmoothAudio(x, fundamental_wave_editor_data_.size(), fundamental_wave_editor_data_.data()); },
-			.fundamental_wave = pmk::wave::Sin01,
+			.fundamental_wave = [&](float x) { return ImGui::CurveValueSmoothAudio(x, fundamental_wave_editor_data_.size(), fundamental_wave_editor_data_.data()); },
+			//.fundamental_wave = pmk::wave::Sin01,
 			.harmonic_multipliers = [&](float time, uint32_t freq_multiple) { return harmonic_multiples_[freq_multiple - 1]; },
 			.relative_frequency = 1.0f,
 			});
-
-		editor_->instrument_.Play();
 	}
 
-	ImGui::DragFloat("Frequency", &frequency_, 1.0f, 1.0f, 20000.0f);
+	ImGui::Combo("Key", &current_key, pmk::note_names.data(), pmk::note_names.size());
+
+
+	// Key input.
+	std::vector<pmk::Note> notes{ GetNotesFromInput((pmk::Note)current_key, ScaleType::MAJOR)};
+
+	editor_->instrument_.PlayNotes(notes);
+
+	ImGui::SliderInt("Unison", &unison_, 1, 16);
+	ImGui::SliderFloat("Unison radius", &unison_radius_, 0.0f, 30.0f);
+
+	editor_->instrument_.SetUnison(unison_);
+	editor_->instrument_.SetUnisonRadius(unison_radius_);
 
 	for (uint32_t i{ 0 }; i < pmk::MAX_HARMONIC_MULTIPLE; ++i)
 	{

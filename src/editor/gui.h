@@ -32,6 +32,8 @@ private:
 	renderer::Extent viewport_extent_{};
 
 	std::vector<ImVec2> fundamental_wave_editor_data_{};
-	float frequency_{ 100.0f };
 	std::array<float, pmk::MAX_HARMONIC_MULTIPLE> harmonic_multiples_{ 1.0f };
+	int current_key{};
+	int unison_{ 1 };
+	float unison_radius_{ 0.1f };
 };

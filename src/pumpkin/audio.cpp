@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include "logger.h"
 
 namespace pmk
@@ -9,7 +10,7 @@ namespace pmk
 	constexpr float TWO_PI{ 6.28318530718f };
 
 	template <typename Func>
-	int16_t SampleWave(uint32_t tick, float frequency, float amplitude, Func f)
+	int16_t SampleWave(uint32_t tick, float frequency, float amplitude, uint32_t unison, float unison_spread, Func f)
 	{
 		// Sampling frequency is the number of samples (ticks) per second, so dividing
 		// by number of cycles in a second (frequency) gives us the number of ticks in a cycle.
@@ -30,6 +31,15 @@ namespace pmk
 		return (int16_t)(amplitude_discrete * f(cycle_ratio));
 	}
 
+	// Use sigmoid function to change sample from [-inf, inf] range to [int16_t min, int16_t max] to prevent clipping.
+	int16_t sigmoid(int32_t sample)
+	{
+		// Output is in range [-radius, radius].
+		constexpr float radius{ (float)std::numeric_limits<int16_t>::max() };
+		float output{ (2.0f * radius) / (1.0f + std::expf((-2.0f * sample) / radius)) - radius };
+		return (int16_t)std::clamp(output, -radius, radius);
+	}
+
 	Instrument::Instrument()
 	{
 		// Call the parent class's initialize function.
@@ -41,6 +51,20 @@ namespace pmk
 		// Record first chunk before playing so we have something to play.
 		RecordAudioChunk();
 		play(); // Parent function to play audio stream.
+	}
+
+	void Instrument::PlayNotes(const std::vector<Note>& notes)
+	{
+		note_activations_.fill(0.0f);
+
+		for (Note note : notes) {
+			note_activations_[(uint32_t)note] = 1.0f;
+		}
+
+		Status status = getStatus();
+		if (!notes.empty() && status != Status::Playing) {
+			Play();
+		}
 	}
 
 	void Instrument::Reset()
@@ -68,14 +92,19 @@ namespace pmk
 		waves_.push_back(wave);
 	}
 
-	void Instrument::SetFrequency(float frequency)
-	{
-		frequency_ = frequency;
-	}
-
 	void Instrument::SetAmplitude(float amplitude)
 	{
 		amplitude_ = amplitude;
+	}
+
+	void Instrument::SetUnison(uint32_t unison)
+	{
+		unison_ = unison;
+	}
+
+	void Instrument::SetUnisonRadius(float radius)
+	{
+		unison_radius_ = radius;
 	}
 
 	float Instrument::GetTime() const
@@ -99,21 +128,64 @@ namespace pmk
 
 		for (uint32_t i{ start_index }; i < start_index + AUDIO_CHUNK_SIZE; ++i)
 		{
-			audio_buffer_[i] = 0;
+			int32_t raw_sample{ 0 };
 			float seconds{ GetTime() };
 
-			for (const Wave& wave : waves_)
+
+			for (uint32_t note_idx{ 0 }; note_idx < (uint32_t)Note::NOTES_COUNT; ++note_idx)
 			{
-				for (uint32_t j{ 1 }; j <= MAX_HARMONIC_MULTIPLE; ++j)
+				if (note_activations_[note_idx] < 0.001f) {
+					continue;
+				}
+
+				for (const Wave& wave : waves_)
 				{
-					audio_buffer_[i] += SampleWave(
-						sample_index_,
-						frequency_ * wave.relative_frequency * j,
-						amplitude_ * wave.harmonic_multipliers(seconds, j),
-						wave.fundamental_wave
-					);
+					for (uint32_t j{ 1 }; j <= MAX_HARMONIC_MULTIPLE; ++j)
+					{
+						float freq{ note_frequencies[note_idx] * wave.relative_frequency * j };
+						float ticks_per_cycle{ SAMPLE_RATE / freq };
+
+						float ampl{ amplitude_ * wave.harmonic_multipliers(seconds, j), };
+						if (ampl == 0.0f) {
+							continue;
+						}
+
+						uint32_t unison_voices_count_{};
+						int32_t total_unison_sampled_{};
+
+						for (uint32_t k{ 0 }; k < unison_; ++k)
+						{
+							float freq_offset{ (k * unison_radius_) / unison_ };
+
+							total_unison_sampled_ += SampleWave(
+								sample_index_,
+								freq + freq_offset,
+								ampl,
+								unison_,
+								unison_radius_,
+								wave.fundamental_wave
+							);
+							unison_voices_count_++;
+
+							if (k == 0) {
+								continue;
+							}
+
+							total_unison_sampled_ += SampleWave(
+								sample_index_,
+								freq - freq_offset,
+								ampl,
+								unison_,
+								unison_radius_,
+								wave.fundamental_wave
+							);
+							unison_voices_count_++;
+						}
+						raw_sample += total_unison_sampled_;
+					}
 				}
 			}
+			audio_buffer_[i] = sigmoid(raw_sample);
 			++sample_index_;
 		}
 	}
