@@ -32,7 +32,7 @@ namespace pmk
 	}
 
 	// Use sigmoid function to change sample from [-inf, inf] range to [int16_t min, int16_t max] to prevent clipping.
-	int16_t sigmoid(int32_t sample)
+	int16_t Sigmoid(int32_t sample)
 	{
 		// Output is in range [-radius, radius].
 		constexpr float radius{ (float)std::numeric_limits<int16_t>::max() };
@@ -185,7 +185,7 @@ namespace pmk
 					}
 				}
 			}
-			audio_buffer_[i] = sigmoid(raw_sample);
+			audio_buffer_[i] = Sigmoid(raw_sample);
 			++sample_index_;
 		}
 	}

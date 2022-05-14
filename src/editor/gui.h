@@ -32,8 +32,16 @@ private:
 	renderer::Extent viewport_extent_{};
 
 	std::vector<ImVec2> fundamental_wave_editor_data_{};
+	std::vector<ImVec2> attack_editor_data_{};
+	std::vector<ImVec2> sustain_editor_data_{};
+	std::vector<ImVec2> release_editor_data_{};
+	float attack_duration_{ 0.1f };
+	float sustain_duration_{ 0.1f };
+	float release_duration_{ 0.1f };
+
 	std::array<float, pmk::MAX_HARMONIC_MULTIPLE> harmonic_multiples_{ 1.0f };
-	int current_key{};
+	int current_key{ (int)pmk::Note::C_3 };
 	int unison_{ 1 };
 	float unison_radius_{ 0.1f };
+	float amplitude_{ 0.1f };
 };

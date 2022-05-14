@@ -33,6 +33,12 @@ void EditorGui::InitializeGui()
 
 	fundamental_wave_editor_data_.resize(CURVE_EDITOR_POINTS);
 	fundamental_wave_editor_data_[0].x = -1;
+	attack_editor_data_.resize(CURVE_EDITOR_POINTS);
+	attack_editor_data_[0].x = -1;
+	sustain_editor_data_.resize(CURVE_EDITOR_POINTS);
+	sustain_editor_data_[0].x = -1;
+	release_editor_data_.resize(CURVE_EDITOR_POINTS);
+	release_editor_data_[0].x = -1;
 }
 
 void EditorGui::DrawGui(ImTextureID* rendered_image_id)
@@ -131,10 +137,20 @@ void EditorGui::AudioWindow()
 
 		std::string status{ "Curve has not been changed." };
 
-		if (ImGui::Curve("Fundamental wave", ImVec2(content_region.x, 200), fundamental_wave_editor_data_.size(), fundamental_wave_editor_data_.data())) {
+		if (ImGui::Curve("Fundamental wave", ImVec2(content_region.x, 200), true, fundamental_wave_editor_data_.size(), fundamental_wave_editor_data_.data())) {
 			status = "Curve has been changed.";
 		}
 		ImGui::Text(status.c_str());
+
+		ImGui::Curve("Attack", ImVec2(content_region.x / 3.0f, 200), false, attack_editor_data_.size(), attack_editor_data_.data());
+		ImGui::SameLine();
+		ImGui::Curve("Sustain", ImVec2(content_region.x / 3.0f, 200), false, sustain_editor_data_.size(), sustain_editor_data_.data());
+		ImGui::SameLine();
+		ImGui::Curve("Release", ImVec2(content_region.x / 3.0f - 20, 200), false, release_editor_data_.size(), release_editor_data_.data());
+
+		ImGui::DragFloat("Attack duration", &attack_duration_, 0.01f, 0.0f, 100.0f);
+		ImGui::DragFloat("Sustain duration", &sustain_duration_, 0.01f, 0.0f, 100.0f);
+		ImGui::DragFloat("Release duration", &release_duration_, 0.01f, 0.0f, 100.0f);
 	}
 
 	{
@@ -171,11 +187,14 @@ void EditorGui::AudioWindow()
 			});
 	}
 
+	ImGui::DragFloat("Amplitude", &amplitude_, 0.001f, 0.0f, 1.0f);
+	editor_->instrument_.SetAmplitude(amplitude_);
+
 	ImGui::Combo("Key", &current_key, pmk::note_names.data(), pmk::note_names.size());
 
 
 	// Key input.
-	std::vector<pmk::Note> notes{ GetNotesFromInput((pmk::Note)current_key, ScaleType::MAJOR)};
+	std::vector<pmk::Note> notes{ GetNotesFromInput((pmk::Note)current_key, ScaleType::MAJOR) };
 
 	editor_->instrument_.PlayNotes(notes);
 
