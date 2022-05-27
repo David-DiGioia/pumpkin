@@ -44,13 +44,29 @@ namespace pmk
 	{
 		// Call the parent class's initialize function.
 		initialize(1, SAMPLE_RATE);
+
+		// They all start in deactive state, which triggers the release curve.
+		// So init to infinity so it will be silent initially.
+		note_times_.fill(std::numeric_limits<float>::infinity());
+	}
+
+	Instrument::Instrument(const Instrument& other)
+	{
+		std::memcpy(this, &other, sizeof(Instrument));
 	}
 
 	void Instrument::Play()
 	{
+		chunk_index_ = 0;
+
 		// Record first chunk before playing so we have something to play.
 		RecordAudioChunk();
 		play(); // Parent function to play audio stream.
+	}
+
+	void Instrument::Stop()
+	{
+		stop();
 	}
 
 	void Instrument::PlayNotes(const std::vector<Note>& notes)
@@ -80,6 +96,7 @@ namespace pmk
 
 		if (ready_to_write_)
 		{
+			UpdateTimes();
 			RecordAudioChunk();
 			mutex_.lock();
 			ready_to_write_ = false;
@@ -107,6 +124,56 @@ namespace pmk
 		unison_radius_ = radius;
 	}
 
+	void Instrument::SetAttack(const std::function<float(float t)>& func, float duration)
+	{
+		attack_func_ = func;
+		attack_duration_ = duration;
+	}
+
+	void Instrument::SetSustain(const std::function<float(float t)>& func, float duration)
+	{
+		sustain_func_ = func;
+		sustain_duration_ = duration;
+	}
+
+	void Instrument::SetRelease(const std::function<float(float t)>& func, float duration)
+	{
+		release_func_ = func;
+		release_duration_ = duration;
+	}
+
+	float Instrument::EvaluateEnvelope(Note note, float record_time)
+	{
+		bool active{ note_activations_[(uint32_t)note] >= NOTE_ACTIVATION_CUTOFF };
+		float time{ note_times_[(uint32_t)note] + record_time };
+
+		float result{};
+
+		if (active)
+		{
+			if (time < attack_duration_) {
+				result = attack_func_(time / attack_duration_);
+			}
+			else if (time - attack_duration_ < sustain_duration_) {
+				result = sustain_func_((time - attack_duration_) / sustain_duration_);
+			}
+			else {
+				result = sustain_func_(1.0f);
+			}
+		}
+		else if (time < release_duration_) {
+			result = note_last_envelope_[(uint32_t)note] * release_func_(time / release_duration_);
+		}
+		else {
+			result = 0;
+		}
+
+		if (active) {
+			note_last_envelope_[(uint32_t)note] = result;
+		}
+		return result;
+	}
+
 	float Instrument::GetTime() const
 	{
 		return getPlayingOffset().asSeconds();
@@ -122,6 +189,21 @@ namespace pmk
 		return audio_buffer_;
 	}
 
+	float Instrument::GetNoteActivation()
+	{
+		return note_activations_[(float)Note::C_3];
+	}
+
+	float Instrument::GetNoteTime()
+	{
+		return note_times_[(float)Note::C_3];
+	}
+
+	float Instrument::GetNoteReleaseAmplitude()
+	{
+		return note_last_envelope_[(float)Note::C_3];
+	}
+
 	void Instrument::RecordAudioChunk()
 	{
 		uint32_t start_index = chunk_index_ * AUDIO_CHUNK_SIZE;
@@ -130,11 +212,13 @@ namespace pmk
 		{
 			int32_t raw_sample{ 0 };
 			float seconds{ GetTime() };
+			float record_time{ (i - start_index) / (float)SAMPLE_RATE }; // Time into this recording we are.
 
 
 			for (uint32_t note_idx{ 0 }; note_idx < (uint32_t)Note::NOTES_COUNT; ++note_idx)
 			{
-				if (note_activations_[note_idx] < 0.001f) {
+				if ((note_activations_[note_idx] < NOTE_ACTIVATION_CUTOFF) &&
+					(note_times_[note_idx] > release_duration_)) {
 					continue;
 				}
 
@@ -145,7 +229,7 @@ namespace pmk
 						float freq{ note_frequencies[note_idx] * wave.relative_frequency * j };
 						float ticks_per_cycle{ SAMPLE_RATE / freq };
 
-						float ampl{ amplitude_ * wave.harmonic_multipliers(seconds, j), };
+						float ampl{ amplitude_ * wave.harmonic_multipliers(seconds, j) * EvaluateEnvelope((Note)note_idx, record_time)};
 						if (ampl == 0.0f) {
 							continue;
 						}
@@ -182,12 +266,34 @@ namespace pmk
 							unison_voices_count_++;
 						}
 						raw_sample += total_unison_sampled_;
+						//raw_sample = 30000 * EvaluateEnvelope((Note)note_idx, record_time);
 					}
 				}
 			}
 			audio_buffer_[i] = Sigmoid(raw_sample);
 			++sample_index_;
 		}
+
+		//audio_buffer_[start_index] = std::numeric_limits<int16_t>::max();
+	}
+
+	void Instrument::UpdateTimes()
+	{
+		for (uint32_t i{ 0 }; i < (uint32_t)Note::NOTES_COUNT; ++i)
+		{
+			bool active{ note_activations_[i] >= NOTE_ACTIVATION_CUTOFF };
+			bool previous_active{ note_previous_activations_[i] >= NOTE_ACTIVATION_CUTOFF };
+
+			// We reset a note's timer each time we press or release a key.
+			if (active != previous_active) {
+				note_times_[i] = 0.0f;
+			}
+			else {
+				note_times_[i] += AUDIO_CHUNK_SIZE / (float)SAMPLE_RATE;
+			}
+		}
+
+		note_previous_activations_ = note_activations_;
 	}
 
 	void Instrument::NextChunk()

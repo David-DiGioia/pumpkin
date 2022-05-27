@@ -22,6 +22,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/implot/implot_internal.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/implot/implot_items.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/curve_editor/curve_v122.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/imsequencer/imsequencer.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/imsequencer/imsequencer.cpp"
 )
 
 add_library(Imgui "${SOURCES}")

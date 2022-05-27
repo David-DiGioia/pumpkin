@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include "imgui.h"
 
 #include "pumpkin.h"
@@ -17,6 +18,9 @@ public:
 
 	renderer::EditorInfo GetEditorInfo();
 
+	void AddInstrument(const char* name);
+
+	void SetActiveInstrument(int index);
 
 private:
 	friend class EditorGui;
@@ -24,5 +28,7 @@ private:
 	pmk::Pumpkin* pumpkin_{};
 	EditorGui gui_{};
 
-	pmk::Instrument instrument_{};
+	pmk::Instrument* active_instrument_{};
+	std::vector<pmk::Instrument> instruments_{};
+	std::vector<const char*> instrument_names_{};
 };

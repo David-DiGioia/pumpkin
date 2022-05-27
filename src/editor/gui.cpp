@@ -6,6 +6,7 @@
 #include "imgui.h"
 #include "implot/implot.h"
 #include "curve_editor/curve_v122.hpp"
+#include "imsequencer/imsequencer.h"
 
 #include "editor.h"
 #include "pumpkin.h"
@@ -32,13 +33,16 @@ void EditorGui::InitializeGui()
 	ImGui::LoadIniSettingsFromDisk(default_layout_path.c_str());
 
 	fundamental_wave_editor_data_.resize(CURVE_EDITOR_POINTS);
-	fundamental_wave_editor_data_[0].x = -1;
 	attack_editor_data_.resize(CURVE_EDITOR_POINTS);
-	attack_editor_data_[0].x = -1;
 	sustain_editor_data_.resize(CURVE_EDITOR_POINTS);
-	sustain_editor_data_[0].x = -1;
 	release_editor_data_.resize(CURVE_EDITOR_POINTS);
-	release_editor_data_[0].x = -1;
+
+	editor_->active_instrument_->AddWave({
+		.fundamental_wave = [&](float x) { return ImGui::CurveValueSmoothAudio(x, fundamental_wave_editor_data_.size(), fundamental_wave_editor_data_.data()); },
+		//.fundamental_wave = pmk::wave::Sin01,
+		.harmonic_multipliers = [&](float time, uint32_t freq_multiple) { return harmonic_multiples_[freq_multiple - 1]; },
+		.relative_frequency = 1.0f,
+		});
 }
 
 void EditorGui::DrawGui(ImTextureID* rendered_image_id)
@@ -132,6 +136,21 @@ void EditorGui::AudioWindow()
 		return;
 	}
 
+	if (ImGui::Combo("Instrument", &current_instrument_index_, editor_->instrument_names_.data(), editor_->instrument_names_.size())) {
+		editor_->SetActiveInstrument(current_instrument_index_);
+	}
+
+	if (ImGui::Button("Add instrument"))
+	{
+		editor_->AddInstrument("Another instrument");
+		editor_->active_instrument_->AddWave({
+			.fundamental_wave = [&](float x) { return ImGui::CurveValueSmoothAudio(x, fundamental_wave_editor_data_.size(), fundamental_wave_editor_data_.data()); },
+			//.fundamental_wave = pmk::wave::Sin01,
+			.harmonic_multipliers = [&](float time, uint32_t freq_multiple) { return harmonic_multiples_[freq_multiple - 1]; },
+			.relative_frequency = 1.0f,
+			});
+	}
+
 	{
 		ImVec2 content_region{ ImGui::GetContentRegionAvail() };
 
@@ -151,10 +170,22 @@ void EditorGui::AudioWindow()
 		ImGui::DragFloat("Attack duration", &attack_duration_, 0.01f, 0.0f, 100.0f);
 		ImGui::DragFloat("Sustain duration", &sustain_duration_, 0.01f, 0.0f, 100.0f);
 		ImGui::DragFloat("Release duration", &release_duration_, 0.01f, 0.0f, 100.0f);
+
+		editor_->active_instrument_->SetAttack(
+			[&](float x) { return ImGui::CurveValueSmooth(x, attack_editor_data_.size(), attack_editor_data_.data()); }, attack_duration_
+		);
+
+		editor_->active_instrument_->SetSustain(
+			[&](float x) { return ImGui::CurveValueSmooth(x, sustain_editor_data_.size(), sustain_editor_data_.data()); }, sustain_duration_
+		);
+
+		editor_->active_instrument_->SetRelease(
+			[&](float x) { return ImGui::CurveValueSmooth(x, release_editor_data_.size(), release_editor_data_.data()); }, release_duration_
+		);
 	}
 
 	{
-		const auto& audio_buffer{ editor_->instrument_.GetAudioBuffer() };
+		const auto& audio_buffer{ editor_->active_instrument_->GetAudioBuffer() };
 
 		std::vector<float> x_data(audio_buffer.size());
 		std::vector<float> y_data(audio_buffer.size());
@@ -170,39 +201,37 @@ void EditorGui::AudioWindow()
 			ImPlot::SetupAxisLimits(ImAxis_Y1, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max());
 			ImPlot::PlotLine("Audio buffer line", x_data.data(), y_data.data(), y_data.size());
 
-			//float current_time{ editor_->instrument_.GetBufferTime() };
-			//ImPlot::PlotVLines("Current time", &current_time, 1);
+			float current_time{ editor_->active_instrument_->GetBufferTime() };
+			ImPlot::PlotVLines("Current time", &current_time, 1);
 
 			ImPlot::EndPlot();
 		}
 	}
 
-	if (ImGui::Button("Add wave"))
-	{
-		editor_->instrument_.AddWave({
-			.fundamental_wave = [&](float x) { return ImGui::CurveValueSmoothAudio(x, fundamental_wave_editor_data_.size(), fundamental_wave_editor_data_.data()); },
-			//.fundamental_wave = pmk::wave::Sin01,
-			.harmonic_multipliers = [&](float time, uint32_t freq_multiple) { return harmonic_multiples_[freq_multiple - 1]; },
-			.relative_frequency = 1.0f,
-			});
+	if (ImGui::Button("Stop")) {
+		editor_->active_instrument_->Stop();
 	}
 
-	ImGui::DragFloat("Amplitude", &amplitude_, 0.001f, 0.0f, 1.0f);
-	editor_->instrument_.SetAmplitude(amplitude_);
+	ImGui::Text("C_3 activation: %.4f", editor_->active_instrument_->GetNoteActivation());
+	ImGui::Text("C_3 time: %.4f", editor_->active_instrument_->GetNoteTime());
+	ImGui::Text("C_3 release amplitude: %.4f", editor_->active_instrument_->GetNoteReleaseAmplitude());
 
-	ImGui::Combo("Key", &current_key, pmk::note_names.data(), pmk::note_names.size());
+	ImGui::DragFloat("Amplitude", &amplitude_, 0.001f, 0.0f, 1.0f);
+	editor_->active_instrument_->SetAmplitude(amplitude_);
+
+	ImGui::Combo("Key", &current_key_, pmk::note_names.data(), pmk::note_names.size());
 
 
 	// Key input.
-	std::vector<pmk::Note> notes{ GetNotesFromInput((pmk::Note)current_key, ScaleType::MAJOR) };
+	std::vector<pmk::Note> notes{ GetNotesFromInput((pmk::Note)current_key_, ScaleType::MAJOR) };
 
-	editor_->instrument_.PlayNotes(notes);
+	editor_->active_instrument_->PlayNotes(notes);
 
 	ImGui::SliderInt("Unison", &unison_, 1, 16);
 	ImGui::SliderFloat("Unison radius", &unison_radius_, 0.0f, 30.0f);
 
-	editor_->instrument_.SetUnison(unison_);
-	editor_->instrument_.SetUnisonRadius(unison_radius_);
+	editor_->active_instrument_->SetUnison(unison_);
+	editor_->active_instrument_->SetUnisonRadius(unison_radius_);
 
 	for (uint32_t i{ 0 }; i < pmk::MAX_HARMONIC_MULTIPLE; ++i)
 	{
@@ -211,6 +240,10 @@ void EditorGui::AudioWindow()
 		ImGui::SameLine();
 		ImGui::PopID();
 	}
+
+	//ImSequencer::SequenceInterface sequence{};
+
+	//ImSequencer::Sequencer()
 
 	ImGui::End();
 }

@@ -5,6 +5,8 @@
 
 #include "gui.h"
 
+constexpr uint32_t MAX_INSTRUMENTS{ 32 };
+
 void InitializationCallback(void* user_data)
 {
 	Editor* editor{ (Editor*)user_data };
@@ -16,7 +18,9 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	pumpkin_ = pumpkin;
 	gui_.Initialize(this);
 
-	pumpkin->GetAudioEngine().AddInstrument(&instrument_);
+	// Must reserve ahead of time or pointers to elements become invalid.
+	instruments_.reserve(MAX_INSTRUMENTS);
+	AddInstrument("Default");
 }
 
 // We pass rendered_image_id to the draw callback instead of at initialization because the
@@ -46,4 +50,20 @@ renderer::EditorInfo Editor::GetEditorInfo()
 		.gui_callback = GuiCallback,
 		.user_data = (void*)this,
 	};
+}
+
+void Editor::AddInstrument(const char* name)
+{
+	if (instruments_.size() >= MAX_INSTRUMENTS) {
+		logger::Error("Maximum instruments exceeded.");
+	}
+
+	instrument_names_.push_back(name);
+	active_instrument_ = &instruments_.emplace_back();
+	pumpkin_->GetAudioEngine().AddInstrument(active_instrument_);
+}
+
+void Editor::SetActiveInstrument(int index)
+{
+	active_instrument_ = &instruments_[index];
 }

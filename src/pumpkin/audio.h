@@ -8,11 +8,12 @@
 
 namespace pmk
 {
-	constexpr uint32_t AUDIO_CHUNK_COUNT{ 2 };
-	constexpr uint32_t AUDIO_CHUNK_SIZE{ 2048 }; // Number of samples in a chunk.
+	constexpr uint32_t AUDIO_CHUNK_COUNT{ 40 };
+	constexpr uint32_t AUDIO_CHUNK_SIZE{ 1024 }; // Number of samples in a chunk.
 	constexpr uint32_t SAMPLE_RATE{ 44100 };
 	constexpr uint32_t MAX_HARMONIC_MULTIPLE{ 8 };
 	constexpr uint32_t AUDIO_BUF_SIZE{ AUDIO_CHUNK_COUNT * AUDIO_CHUNK_SIZE };
+	constexpr float NOTE_ACTIVATION_CUTOFF{ 0.01f }; // Notes below this activation are considered unactive.
 
 	typedef std::array<sf::Int16, AUDIO_BUF_SIZE> AudioBuffer;
 
@@ -183,7 +184,11 @@ namespace pmk
 	public:
 		Instrument();
 
+		Instrument(const Instrument& other);
+
 		void Play();
+
+		void Stop();
 
 		void PlayNotes(const std::vector<Note>& notes);
 
@@ -200,6 +205,15 @@ namespace pmk
 
 		void SetUnisonRadius(float radius);
 
+		void SetAttack(const std::function<float(float t)>& func, float duration);
+
+		void SetSustain(const std::function<float(float t)>& func, float duration);
+
+		void SetRelease(const std::function<float(float t)>& func, float duration);
+
+		// Get the envelope amplitude multiplier in range [0, 1] for a given note.
+		float EvaluateEnvelope(Note note, float record_time);
+
 		// Get total time audio has been playing.
 		float GetTime() const;
 
@@ -208,8 +222,14 @@ namespace pmk
 
 		const AudioBuffer& GetAudioBuffer() const;
 
+		float GetNoteActivation(); // temp
+		float GetNoteTime(); // temp
+		float GetNoteReleaseAmplitude(); // temp
+
 	private:
 		void RecordAudioChunk();
+
+		void UpdateTimes();
 
 		void NextChunk();
 
@@ -231,7 +251,17 @@ namespace pmk
 		uint32_t unison_{ 1 };
 		float unison_radius_{ 0.1f }; // In interval [0, 1] of how much oscillation period is sampled from.
 
+		std::function<float(float t)> attack_func_{};
+		std::function<float(float t)> sustain_func_{};
+		std::function<float(float t)> release_func_{};
+		float attack_duration_{};
+		float sustain_duration_{};
+		float release_duration_{};
+
 		std::array<float, (size_t)Note::NOTES_COUNT> note_activations_{}; // Each note is in [0, 1] representing activation. Using keyboard, maybe it jumps straight to 1?
+		std::array<float, (size_t)Note::NOTES_COUNT> note_previous_activations_{};
+		std::array<float, (size_t)Note::NOTES_COUNT> note_times_{}; // How long note has been active / deactive.
+		std::array<float, (size_t)Note::NOTES_COUNT> note_last_envelope_{};
 	};
 
 	class AudioEngine
