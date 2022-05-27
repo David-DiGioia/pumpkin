@@ -17,10 +17,6 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 {
 	pumpkin_ = pumpkin;
 	gui_.Initialize(this);
-
-	// Must reserve ahead of time or pointers to elements become invalid.
-	instruments_.reserve(MAX_INSTRUMENTS);
-	AddInstrument("Default");
 }
 
 // We pass rendered_image_id to the draw callback instead of at initialization because the
@@ -50,20 +46,4 @@ renderer::EditorInfo Editor::GetEditorInfo()
 		.gui_callback = GuiCallback,
 		.user_data = (void*)this,
 	};
-}
-
-void Editor::AddInstrument(const char* name)
-{
-	if (instruments_.size() >= MAX_INSTRUMENTS) {
-		logger::Error("Maximum instruments exceeded.");
-	}
-
-	instrument_names_.push_back(name);
-	active_instrument_ = &instruments_.emplace_back();
-	pumpkin_->GetAudioEngine().AddInstrument(active_instrument_);
-}
-
-void Editor::SetActiveInstrument(int index)
-{
-	active_instrument_ = &instruments_[index];
 }
