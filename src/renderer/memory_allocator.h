@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vector>
+#include <unordered_map>
+#include <set>
 #include "volk.h"
 
 #include "context.h"
@@ -56,6 +58,14 @@ namespace renderer
 			VkDeviceMemory memory;
 			VkDeviceSize available_offset; // The byte offset where unbound allocated memory starts.
 			VkDeviceSize available_memory; // How much allocated memory is left in this allocation?
+			std::set<VkDeviceSize> buffer_offsets; // Offsets of each buffer bound to this allocation.
+		};
+
+		// Associated to each bound buffer via 
+		struct BufferAllocationInfo
+		{
+			Allocation* allocation;
+			VkDeviceSize next_available_offset;
 		};
 
 		struct MemoryTypeAllocations
@@ -69,6 +79,7 @@ namespace renderer
 		//
 		// Returns byte offset into device memory.
 		VkDeviceSize ExistingAllocation(
+			uint64_t resource_handle,
 			VkDeviceSize alignment_offset,
 			VkDeviceSize required_size,
 			Allocation* alloc,
@@ -79,6 +90,7 @@ namespace renderer
 		// 
 		// Returns byte offset into device memory.
 		VkDeviceSize NewAllocation(
+			uint64_t resource_handle,
 			VkDeviceSize required_size,
 			MemoryTypeAllocations* alloc,
 			VkDeviceMemory** out_memory
@@ -89,6 +101,7 @@ namespace renderer
 		// 
 		// Returns byte offset into device memory.
 		VkDeviceSize FindMemoryType(
+			uint64_t resource_handle,
 			const VkMemoryRequirements& requirements,
 			VkMemoryPropertyFlags properties,
 			std::vector<MemoryTypeAllocations>& memory_type_allocations,
@@ -100,10 +113,15 @@ namespace renderer
 		// 
 		// Returns byte offset into device memory.
 		VkDeviceSize FindMemory(
+			uint64_t resource_handle,
 			const VkMemoryRequirements& requirements,
 			VkMemoryPropertyFlags properties,
 			VkDeviceMemory** out_memory
 		);
+
+		// Update the offsets associated with an allocation after a resource has been destroyed.
+		// This includes reclaiming memory that is no longer bound to a buffer/image.
+		void UpdateAllocationOffsets(uint64_t resource_handle);
 
 		Context* context_{};
 		VkPhysicalDeviceLimits limits_{};
@@ -113,6 +131,7 @@ namespace renderer
 		std::vector<MemoryTypeAllocations> device_allocations_{};
 		std::vector<MemoryTypeAllocations> host_allocations_{};
 		std::vector<MemoryTypeAllocations> device_host_allocations_{};
-		std::vector<VkDeviceSize> remaining_heap_memory_{};
+		std::vector<VkDeviceSize> remaining_heap_memory_{}; // Remaining memory corresponding to each memory heap in VkPhysicalDeviceMemoryProperties::memoryHeaps.
+		std::unordered_map<uint64_t, BufferAllocationInfo> allocation_info_map_{}; // Enables mapping buffer resources to their allocations. The key is a Vulkan handle cast to uint64_t.
 	};
 }

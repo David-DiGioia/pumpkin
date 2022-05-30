@@ -143,7 +143,7 @@ namespace renderer
 		vkGetBufferMemoryRequirements(context_->device, buffer, &memory_requirements);
 
 		VkDeviceMemory* memory{};
-		VkDeviceSize offset{ FindMemory(memory_requirements, properties, &memory) };
+		VkDeviceSize offset{ FindMemory((uint64_t)buffer, memory_requirements, properties, &memory) };
 
 		result = vkBindBufferMemory(context_->device, buffer, *memory, offset);
 		CheckResult(result, "Failed to bind buffer to memory.");
@@ -188,7 +188,7 @@ namespace renderer
 		vkGetImageMemoryRequirements(context_->device, image, &memory_requirements);
 
 		VkDeviceMemory* memory{};
-		VkDeviceSize offset{ FindMemory(memory_requirements, properties, &memory) };
+		VkDeviceSize offset{ FindMemory((uint64_t)image, memory_requirements, properties, &memory) };
 
 		result = vkBindImageMemory(context_->device, image, *memory, offset);
 		CheckResult(result, "Failed to bind image to memory.");
@@ -254,10 +254,36 @@ namespace renderer
 		};
 	}
 
+	void Allocator::UpdateAllocationOffsets(uint64_t resource_handle)
+	{
+		auto iter{ allocation_info_map_.find(resource_handle) };
+
+		if (iter != allocation_info_map_.end())
+		{
+			BufferAllocationInfo alloc_info{ iter->second };
+			alloc_info.allocation->buffer_offsets.erase(alloc_info.next_available_offset);
+
+			// If we destroy the highest address buffer, we must recalculate Allocation::available_offset.
+			if (alloc_info.next_available_offset == alloc_info.allocation->available_offset)
+			{
+				// The greatest offset such that all higher offsets in this allocation are free.
+				VkDeviceSize max_remaining_offset{ *alloc_info.allocation->buffer_offsets.rbegin() };
+				alloc_info.allocation->available_memory += alloc_info.allocation->available_offset - max_remaining_offset;
+				alloc_info.allocation->available_offset = max_remaining_offset;
+			}
+		}
+		else {
+			logger::Error("Failed to find resource of buffer attempting to be freed.");
+		}
+	}
+
 	void Allocator::DestroyBufferResource(BufferResource* buffer_resource)
 	{
 		vkDestroyBuffer(context_->device, buffer_resource->buffer, nullptr);
-		// TODO: Track which buffers are destroyed for when we do defragmentation.
+
+		if (buffer_resource->buffer) {
+			UpdateAllocationOffsets((uint64_t)buffer_resource->buffer);
+		}
 	}
 
 	void Allocator::DestroyImageResource(ImageResource* image_resource)
@@ -265,7 +291,10 @@ namespace renderer
 		vkDestroySampler(context_->device, image_resource->sampler, nullptr);
 		vkDestroyImageView(context_->device, image_resource->image_view, nullptr);
 		vkDestroyImage(context_->device, image_resource->image, nullptr);
-		// TODO: Track which images are destroyed for when we do defragmentation.
+
+		if (image_resource->image) {
+			UpdateAllocationOffsets((uint64_t)image_resource->image);
+		}
 	}
 
 	// Get the lowest number we must add to offset such that it meets alignment requirement.
@@ -274,7 +303,7 @@ namespace renderer
 		return (alignment - (offset % alignment)) % alignment;
 	}
 
-	VkDeviceSize Allocator::ExistingAllocation(VkDeviceSize alignment_offset, VkDeviceSize required_size, Allocation* alloc, VkDeviceMemory** out_memory)
+	VkDeviceSize Allocator::ExistingAllocation(uint64_t resource_handle, VkDeviceSize alignment_offset, VkDeviceSize required_size, Allocation* alloc, VkDeviceMemory** out_memory)
 	{
 		*out_memory = &alloc->memory;
 
@@ -282,11 +311,18 @@ namespace renderer
 
 		alloc->available_offset += alignment_offset + required_size;
 		alloc->available_memory -= alignment_offset + required_size;
+		alloc->buffer_offsets.insert(alloc->available_offset);
+
+		BufferAllocationInfo alloc_info{
+			.allocation = alloc,
+			.next_available_offset = alloc->available_offset,
+		};
+		allocation_info_map_[resource_handle] = alloc_info;
 
 		return buffer_start_offset;
 	}
 
-	VkDeviceSize Allocator::NewAllocation(VkDeviceSize required_size, MemoryTypeAllocations* mem_type_alloc, VkDeviceMemory** out_memory)
+	VkDeviceSize Allocator::NewAllocation(uint64_t resource_handle, VkDeviceSize required_size, MemoryTypeAllocations* mem_type_alloc, VkDeviceMemory** out_memory)
 	{
 		VkDeviceSize alloc_size{ (VkDeviceSize)(ALLOCATION_RATIO * remaining_heap_memory_[mem_type_alloc->memory_type.heapIndex]) };
 		alloc_size = std::clamp(alloc_size, required_size, max_alloc_size_);
@@ -298,19 +334,30 @@ namespace renderer
 			.memoryTypeIndex = mem_type_alloc->memory_type_index,
 		};
 
-		mem_type_alloc->allocations.emplace_back();
-		VkResult result{ vkAllocateMemory(context_->device, &allocate_info, nullptr, &mem_type_alloc->allocations.back().memory) };
+		Allocation& allocation{ mem_type_alloc->allocations.emplace_back() };
+		VkResult result{ vkAllocateMemory(context_->device, &allocate_info, nullptr, &allocation.memory) };
 		CheckResult(result, "Failed to allocate memory.");
 
 		// No need to worry about alignment since we are return buffer at offset 0.
-		mem_type_alloc->allocations.back().available_memory = alloc_size - required_size;
-		mem_type_alloc->allocations.back().available_offset = required_size;
+		allocation.available_memory = alloc_size - required_size;
+		allocation.available_offset = required_size;
+		allocation.buffer_offsets.insert(0); // Insert 0 too since this is initial allocation.
+		allocation.buffer_offsets.insert(allocation.available_offset);
 
-		*out_memory = &mem_type_alloc->allocations.back().memory;
+		BufferAllocationInfo alloc_info{
+			.allocation = &allocation,
+			.next_available_offset = allocation.available_offset,
+		};
+
+		// Need this association when we destroy the buffer.
+		allocation_info_map_[resource_handle] = alloc_info;
+
+		*out_memory = &allocation.memory;
 		return (VkDeviceSize)0; // Buffer will start at beginning of allocation.
 	}
 
 	VkDeviceSize Allocator::FindMemoryType(
+		uint64_t resource_handle,
 		const VkMemoryRequirements& requirements,
 		VkMemoryPropertyFlags properties,
 		std::vector<MemoryTypeAllocations>& memory_type_allocations,
@@ -330,12 +377,12 @@ namespace renderer
 
 					// Use existing allocation if there's enough memory left.
 					if (requirements.size <= alloc.available_memory - alignment_offset) {
-						return ExistingAllocation(alignment_offset, requirements.size, &alloc, out_memory);
+						return ExistingAllocation(resource_handle, alignment_offset, requirements.size, &alloc, out_memory);
 					}
 				}
 
 				// Otherwise we need to allocate more memory of this type.
-				return NewAllocation(requirements.size, &memory_type_alloc, out_memory);
+				return NewAllocation(resource_handle, requirements.size, &memory_type_alloc, out_memory);
 			}
 		}
 
@@ -344,6 +391,7 @@ namespace renderer
 	}
 
 	VkDeviceSize Allocator::FindMemory(
+		uint64_t resource_handle,
 		const VkMemoryRequirements& requirements,
 		VkMemoryPropertyFlags properties,
 		VkDeviceMemory** out_memory
@@ -355,13 +403,13 @@ namespace renderer
 		VkDeviceSize offset = ~0ull;
 
 		if (device_local && host_visible) {
-			offset = FindMemoryType(requirements, properties, device_host_allocations_, out_memory);
+			offset = FindMemoryType(resource_handle, requirements, properties, device_host_allocations_, out_memory);
 		}
 		else if (device_local) {
-			offset = FindMemoryType(requirements, properties, device_allocations_, out_memory);
+			offset = FindMemoryType(resource_handle, requirements, properties, device_allocations_, out_memory);
 		}
 		else if (host_visible) {
-			offset = FindMemoryType(requirements, properties, host_allocations_, out_memory);
+			offset = FindMemoryType(resource_handle, requirements, properties, host_allocations_, out_memory);
 		}
 		else {
 			logger::Error("Unsupported memory properties.");
