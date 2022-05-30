@@ -5,8 +5,7 @@ find_package(Vulkan REQUIRED FATAL_ERROR)
 add_subdirectory(volk)
 add_subdirectory(imgui)
 
-# System keyword ignores warnings from these libraries.
-target_include_directories (Renderer SYSTEM PUBLIC
+set(RENDERER_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/glfw-3.3.6.bin.WIN64/include"
     "${Vulkan_INCLUDE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/imgui"
@@ -15,6 +14,14 @@ target_include_directories (Renderer SYSTEM PUBLIC
     # Header only.
     "${CMAKE_CURRENT_SOURCE_DIR}/glm"
     "${CMAKE_CURRENT_SOURCE_DIR}/tinygltf"
+)
+
+# System keyword ignores warnings from these libraries.
+target_include_directories (Renderer SYSTEM PUBLIC
+    "${RENDERER_INCLUDE_DIRS}"
+)
+target_include_directories (Renderer_B SYSTEM PUBLIC
+    "${RENDERER_INCLUDE_DIRS}"
 )
 
 set(SFML_LIBS_D
@@ -41,9 +48,15 @@ set(SFML_LIBS
 target_link_libraries(Pumpkin PUBLIC debug
     "${SFML_LIBS_D}"
 )
+target_link_libraries(Pumpkin_B PUBLIC debug
+    "${SFML_LIBS_D}"
+)
 
 # Link libraries only in release build.
 target_link_libraries(Pumpkin PUBLIC optimized
+    "${SFML_LIBS_R}"
+)
+target_link_libraries(Pumpkin_B PUBLIC optimized
     "${SFML_LIBS_R}"
 )
 
@@ -51,16 +64,28 @@ target_link_libraries(Pumpkin PUBLIC optimized
 target_link_libraries(Pumpkin PUBLIC
     "${SFML_LIBS}"
 )
+target_link_libraries(Pumpkin_B PUBLIC
+    "${SFML_LIBS}"
+)
 
 # Link libraries for renderer.
-target_link_libraries(Renderer PUBLIC
+set(RENDERER_LINK_LIBS
     "${CMAKE_CURRENT_SOURCE_DIR}/glfw-3.3.6.bin.WIN64/lib-vc2022/glfw3.lib"
     "${Vulkan_LIBRARY}"
     volk_headers
     Imgui
 )
+target_link_libraries(Renderer PUBLIC
+    "${RENDERER_LINK_LIBS}"
+)
+target_link_libraries(Renderer_B PUBLIC
+    "${RENDERER_LINK_LIBS}"
+)
 
 target_compile_definitions(Renderer PUBLIC
+    "SFML_STATIC"
+)
+target_compile_definitions(Renderer_B PUBLIC
     "SFML_STATIC"
 )
 

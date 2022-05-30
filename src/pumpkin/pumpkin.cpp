@@ -19,6 +19,12 @@ namespace pmk
 	{
 		logger::Print("Pumpkin Engine Version %d.%d\n\n", config::PUMPKIN_VERSION_MAJOR, config::PUMPKIN_VERSION_MINOR);
 
+#ifdef EDITOR_ENABLED
+		logger::Print("Editor enabled in Pumpkin\n");
+#else
+		logger::Print("Editor disabled in Pumpkin\n");
+#endif
+
 		Initialize();
 		scene_.ImportGLTF("../../../assets/test_gltf.gltf");
 		MainLoop();

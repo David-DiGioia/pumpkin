@@ -54,3 +54,16 @@ add_custom_target(
 )
 
 add_dependencies(Renderer Shaders)
+
+target_compile_definitions(Renderer PRIVATE EDITOR_ENABLED=1)
+
+# Bootstrap version (editor disabled) of Renderer target.
+
+add_library(Renderer_B "${SOURCES}")
+
+target_include_directories(Renderer_B PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(Renderer_B PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")
+
+target_link_libraries(Renderer_B PRIVATE Common)
+
+add_dependencies(Renderer_B Shaders)

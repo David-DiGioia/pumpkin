@@ -28,6 +28,12 @@ namespace renderer
 
 	void VulkanRenderer::Initialize(GLFWwindow* window)
 	{
+#ifdef EDITOR_ENABLED
+		logger::Print("Editor enabled in Renderer\n");
+#else
+		logger::Print("Editor disabled in Renderer\n");
+#endif
+
 		VkResult result{ volkInitialize() };
 		CheckResult(result, "Failed to initialize volk.");
 
