@@ -34,7 +34,6 @@ namespace pmk
 		renderer::VulkanRenderer renderer_{};
 		Scene scene_{};
 
-		bool editor_mode_enabled_{ false };
 		uint32_t width_{ 1280 };
 		uint32_t height_{ 720 };
 	};

@@ -19,12 +19,6 @@ namespace pmk
 	{
 		logger::Print("Pumpkin Engine Version %d.%d\n\n", config::PUMPKIN_VERSION_MAJOR, config::PUMPKIN_VERSION_MINOR);
 
-#ifdef EDITOR_ENABLED
-		logger::Print("Editor enabled in Pumpkin\n");
-#else
-		logger::Print("Editor disabled in Pumpkin\n");
-#endif
-
 		Initialize();
 		scene_.ImportGLTF("../../../assets/test_gltf.gltf");
 		MainLoop();
@@ -62,12 +56,15 @@ namespace pmk
 
 	void Pumpkin::SetEditorInfo(const renderer::EditorInfo& editor_info)
 	{
-		editor_mode_enabled_ = true;
+#ifdef EDITOR_ENABLED
 		renderer_.SetEditorInfo(editor_info);
+#endif
 	}
 
 	void Pumpkin::SetEditorViewportSize(const renderer::Extent& extent)
 	{
+#ifdef EDITOR_ENABLED
 		renderer_.SetEditorViewportSize(extent);
+#endif
 	}
 }

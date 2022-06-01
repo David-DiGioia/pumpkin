@@ -28,12 +28,6 @@ namespace renderer
 
 	void VulkanRenderer::Initialize(GLFWwindow* window)
 	{
-#ifdef EDITOR_ENABLED
-		logger::Print("Editor enabled in Renderer\n");
-#else
-		logger::Print("Editor disabled in Renderer\n");
-#endif
-
 		VkResult result{ volkInitialize() };
 		CheckResult(result, "Failed to initialize volk.");
 
@@ -49,32 +43,31 @@ namespace renderer
 		vulkan_util_.Initialize(&context_, &allocator_);
 		InitializeFrameResources();
 
-		if (editor_active_) {
-			editor_backend_.Initialize(this);
-		}
+#ifdef EDITOR_ENABLED
+		editor_backend_.Initialize(this);
+#endif
 	}
 
+#ifdef EDITOR_ENABLED
 	void VulkanRenderer::SetEditorInfo(const EditorInfo& editor_info)
 	{
 		editor_backend_.SetEditorInfo(editor_info);
-		editor_active_ = true;
 	}
 
 	void VulkanRenderer::SetEditorViewportSize(const Extent& extent)
 	{
-		if (editor_active_) {
-			editor_backend_.SetViewportSize(extent);
-		}
+		editor_backend_.SetViewportSize(extent);
 	}
+#endif
 
 	void VulkanRenderer::CleanUp()
 	{
 		VkResult result{ vkDeviceWaitIdle(context_.device) };
 		CheckResult(result, "Error waiting for device to idle.");
 
-		if (editor_active_) {
-			editor_backend_.CleanUp();
-		}
+#ifdef EDITOR_ENABLED
+		editor_backend_.CleanUp();
+#endif
 
 		// Destroy sync objects.
 		for (FrameResources& frame : frame_resources_)
@@ -152,9 +145,9 @@ namespace renderer
 		VkResult result{ vkResetCommandBuffer(GetCurrentFrame().command_buffer, 0) };
 		CheckResult(result, "Error resetting command buffer.");
 
-		if (editor_active_) {
-			editor_backend_.DrawGui();
-		}
+#ifdef EDITOR_ENABLED
+		editor_backend_.DrawGui();
+#endif
 
 		// Drawing commands happen here.
 		RecordCommandBuffer(GetCurrentFrame().command_buffer, image_index);
@@ -232,9 +225,14 @@ namespace renderer
 		};
 
 		// If we're using the editor and the viewport is minimized, we skip rendering to the 3D viewport.
-		bool minimized{ editor_active_ && !editor_backend_.GetViewportVisible() };
+#ifdef EDITOR_ENABLED
+		bool minimized{ !editor_backend_.GetViewportVisible() };
+#else
+		constexpr bool minimized{ false };
+#endif
 
-		if (editor_active_ && !minimized)
+#ifdef EDITOR_ENABLED
+		if (!minimized)
 		{
 			// If we're using the editor's image we need to transition it to be a color attachment.
 			PipelineBarrier(
@@ -244,6 +242,7 @@ namespace renderer
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 			);
 		}
+#endif
 
 		if (!minimized)
 		{
@@ -263,7 +262,8 @@ namespace renderer
 			vkCmdEndRendering(cmd);
 		}
 
-		if (editor_active_ && !minimized)
+#ifdef EDITOR_ENABLED
+		if (!minimized)
 		{
 			// Pipeline barrier to make sure previous rendering finishes before fragment shader.
 			// Also transitions image layout to be read from shader.
@@ -276,17 +276,14 @@ namespace renderer
 		}
 
 		// Second render pass. Render editor GUI if the editor is enabled.
-		if (editor_active_)
-		{
-			Extent window_extent{ context_.GetWindowExtent() };
-			color_attachment_info.imageView = swapchain_.GetImageView(image_index);
-			rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
+		Extent window_extent{ context_.GetWindowExtent() };
+		color_attachment_info.imageView = swapchain_.GetImageView(image_index);
+		rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
 
-			vkCmdBeginRendering(cmd, &rendering_info);
-			editor_backend_.RecordCommandBuffer(cmd);
-			vkCmdEndRendering(cmd);
-		}
-
+		vkCmdBeginRendering(cmd, &rendering_info);
+		editor_backend_.RecordCommandBuffer(cmd);
+		vkCmdEndRendering(cmd);
+#endif
 	}
 
 	void VulkanRenderer::RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index)
@@ -299,7 +296,7 @@ namespace renderer
 			.pInheritanceInfo = nullptr,
 		};
 
-		Extent viewport_extent{ GetViewportExtent()};
+		Extent viewport_extent{ GetViewportExtent() };
 
 		VkViewport viewport{
 			.x = 0.0f,
@@ -319,7 +316,11 @@ namespace renderer
 		CheckResult(result, "Failed to begin command buffer.");
 
 		// If the editor viewport is minimized we don't set viewport/scissors.
-		bool minimized{ editor_active_ && !editor_backend_.GetViewportVisible() };
+#ifdef EDITOR_ENABLED
+		bool minimized{ !editor_backend_.GetViewportVisible() };
+#else
+		constexpr bool minimized{ false };
+#endif
 
 		if (!minimized)
 		{
@@ -419,22 +420,20 @@ namespace renderer
 
 	Extent VulkanRenderer::GetViewportExtent()
 	{
-		if (editor_active_) {
-			return editor_backend_.GetViewportExtent();
-		}
-		else {
-			return context_.GetWindowExtent();
-		}
+#ifdef EDITOR_ENABLED
+		return editor_backend_.GetViewportExtent();
+#else
+		return context_.GetWindowExtent();
+#endif
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
 	{
-		if (editor_active_) {
-			return editor_backend_.GetViewportImage().image_view;
-		}
-		else {
-			return swapchain_.GetImageView(image_index);
-		}
+#ifdef EDITOR_ENABLED
+		return editor_backend_.GetViewportImage().image_view;
+#else
+		return swapchain_.GetImageView(image_index);
+#endif
 	}
 
 	RenderObjectHandle VulkanRenderer::CreateRenderObject(uint32_t mesh_index)

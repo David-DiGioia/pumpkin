@@ -62,9 +62,11 @@ namespace renderer
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
+#ifdef EDITOR_ENABLED
 		void SetEditorInfo(const EditorInfo& editor_info);
 
 		void SetEditorViewportSize(const Extent& extent);
+#endif
 
 	private:
 		struct FrameResources;
@@ -105,9 +107,11 @@ namespace renderer
 			VkSemaphore render_done_semaphore;
 		};
 
+		// Even though these are only used when EDITOR_ENABLED is defined, we don't change the structs
+		// between the editor enabled/disabled projects or we get runtime errors maybe stemming from
+		// breaking the one definition rule?
 		friend class EditorBackend;
 		EditorBackend editor_backend_{};
-		bool editor_active_{};
 
 		Context context_{};
 		Swapchain swapchain_{};

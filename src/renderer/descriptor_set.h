@@ -11,8 +11,8 @@ namespace renderer
 {
 	struct DescriptorSetLayoutResource
 	{
-		VkDescriptorSetLayout layout;
-		std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings; // Map of (binding, binding info).
+		VkDescriptorSetLayout layout{};
+		std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings{}; // Map of (binding, binding info).
 	};
 
 	struct DescriptorSetResource
