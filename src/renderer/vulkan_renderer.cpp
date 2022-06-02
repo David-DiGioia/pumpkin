@@ -463,7 +463,7 @@ namespace renderer
 
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
 	{
-		RenderObject& render_object{ frame_resources_[current_frame_].render_objects_[render_object_handle] };
+		RenderObject& render_object{ GetCurrentFrame().render_objects_[render_object_handle] };
 		render_object.uniform_buffer.transform = transform;
 
 		void* data{};

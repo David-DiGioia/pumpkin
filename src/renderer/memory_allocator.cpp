@@ -254,9 +254,9 @@ namespace renderer
 		};
 	}
 
-	void Allocator::UpdateAllocationOffsets(uint64_t resource_handle)
+	void Allocator::UpdateAllocationOffsets(uint64_t vulkan_handle)
 	{
-		auto iter{ allocation_info_map_.find(resource_handle) };
+		auto iter{ allocation_info_map_.find(vulkan_handle) };
 
 		if (iter != allocation_info_map_.end())
 		{
@@ -303,7 +303,7 @@ namespace renderer
 		return (alignment - (offset % alignment)) % alignment;
 	}
 
-	VkDeviceSize Allocator::ExistingAllocation(uint64_t resource_handle, VkDeviceSize alignment_offset, VkDeviceSize required_size, Allocation* alloc, VkDeviceMemory** out_memory)
+	VkDeviceSize Allocator::ExistingAllocation(uint64_t vulkan_handle, VkDeviceSize alignment_offset, VkDeviceSize required_size, Allocation* alloc, VkDeviceMemory** out_memory)
 	{
 		*out_memory = &alloc->memory;
 
@@ -317,12 +317,12 @@ namespace renderer
 			.allocation = alloc,
 			.next_available_offset = alloc->available_offset,
 		};
-		allocation_info_map_[resource_handle] = alloc_info;
+		allocation_info_map_[vulkan_handle] = alloc_info;
 
 		return buffer_start_offset;
 	}
 
-	VkDeviceSize Allocator::NewAllocation(uint64_t resource_handle, VkDeviceSize required_size, MemoryTypeAllocations* mem_type_alloc, VkDeviceMemory** out_memory)
+	VkDeviceSize Allocator::NewAllocation(uint64_t vulkan_handle, VkDeviceSize required_size, MemoryTypeAllocations* mem_type_alloc, VkDeviceMemory** out_memory)
 	{
 		VkDeviceSize alloc_size{ (VkDeviceSize)(ALLOCATION_RATIO * remaining_heap_memory_[mem_type_alloc->memory_type.heapIndex]) };
 		alloc_size = std::clamp(alloc_size, required_size, max_alloc_size_);
@@ -350,14 +350,14 @@ namespace renderer
 		};
 
 		// Need this association when we destroy the buffer.
-		allocation_info_map_[resource_handle] = alloc_info;
+		allocation_info_map_[vulkan_handle] = alloc_info;
 
 		*out_memory = &allocation.memory;
 		return (VkDeviceSize)0; // Buffer will start at beginning of allocation.
 	}
 
 	VkDeviceSize Allocator::FindMemoryType(
-		uint64_t resource_handle,
+		uint64_t vulkan_handle,
 		const VkMemoryRequirements& requirements,
 		VkMemoryPropertyFlags properties,
 		std::vector<MemoryTypeAllocations>& memory_type_allocations,
@@ -377,12 +377,12 @@ namespace renderer
 
 					// Use existing allocation if there's enough memory left.
 					if (requirements.size <= alloc.available_memory - alignment_offset) {
-						return ExistingAllocation(resource_handle, alignment_offset, requirements.size, &alloc, out_memory);
+						return ExistingAllocation(vulkan_handle, alignment_offset, requirements.size, &alloc, out_memory);
 					}
 				}
 
 				// Otherwise we need to allocate more memory of this type.
-				return NewAllocation(resource_handle, requirements.size, &memory_type_alloc, out_memory);
+				return NewAllocation(vulkan_handle, requirements.size, &memory_type_alloc, out_memory);
 			}
 		}
 
@@ -391,7 +391,7 @@ namespace renderer
 	}
 
 	VkDeviceSize Allocator::FindMemory(
-		uint64_t resource_handle,
+		uint64_t vulkan_handle,
 		const VkMemoryRequirements& requirements,
 		VkMemoryPropertyFlags properties,
 		VkDeviceMemory** out_memory
@@ -403,13 +403,13 @@ namespace renderer
 		VkDeviceSize offset = ~0ull;
 
 		if (device_local && host_visible) {
-			offset = FindMemoryType(resource_handle, requirements, properties, device_host_allocations_, out_memory);
+			offset = FindMemoryType(vulkan_handle, requirements, properties, device_host_allocations_, out_memory);
 		}
 		else if (device_local) {
-			offset = FindMemoryType(resource_handle, requirements, properties, device_allocations_, out_memory);
+			offset = FindMemoryType(vulkan_handle, requirements, properties, device_allocations_, out_memory);
 		}
 		else if (host_visible) {
-			offset = FindMemoryType(resource_handle, requirements, properties, host_allocations_, out_memory);
+			offset = FindMemoryType(vulkan_handle, requirements, properties, host_allocations_, out_memory);
 		}
 		else {
 			logger::Error("Unsupported memory properties.");

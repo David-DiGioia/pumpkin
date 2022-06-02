@@ -79,7 +79,7 @@ namespace renderer
 		//
 		// Returns byte offset into device memory.
 		VkDeviceSize ExistingAllocation(
-			uint64_t resource_handle,
+			uint64_t vulkan_handle,
 			VkDeviceSize alignment_offset,
 			VkDeviceSize required_size,
 			Allocation* alloc,
@@ -90,7 +90,7 @@ namespace renderer
 		// 
 		// Returns byte offset into device memory.
 		VkDeviceSize NewAllocation(
-			uint64_t resource_handle,
+			uint64_t vulkan_handle,
 			VkDeviceSize required_size,
 			MemoryTypeAllocations* alloc,
 			VkDeviceMemory** out_memory
@@ -101,7 +101,7 @@ namespace renderer
 		// 
 		// Returns byte offset into device memory.
 		VkDeviceSize FindMemoryType(
-			uint64_t resource_handle,
+			uint64_t vulkan_handle,
 			const VkMemoryRequirements& requirements,
 			VkMemoryPropertyFlags properties,
 			std::vector<MemoryTypeAllocations>& memory_type_allocations,
@@ -113,7 +113,7 @@ namespace renderer
 		// 
 		// Returns byte offset into device memory.
 		VkDeviceSize FindMemory(
-			uint64_t resource_handle,
+			uint64_t vulkan_handle,
 			const VkMemoryRequirements& requirements,
 			VkMemoryPropertyFlags properties,
 			VkDeviceMemory** out_memory
@@ -121,7 +121,7 @@ namespace renderer
 
 		// Update the offsets associated with an allocation after a resource has been destroyed.
 		// This includes reclaiming memory that is no longer bound to a buffer/image.
-		void UpdateAllocationOffsets(uint64_t resource_handle);
+		void UpdateAllocationOffsets(uint64_t vulkan_handle);
 
 		Context* context_{};
 		VkPhysicalDeviceLimits limits_{};
