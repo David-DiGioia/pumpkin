@@ -1,12 +1,17 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 
 namespace renderer
 {
-	// Constants.
+	// Handles.
 
-	constexpr uint32_t NULL_HANDLE{ 0xFFFFFFFF };
+	typedef uint64_t RenderObjectHandle;
+
+	constexpr uint64_t NULL_HANDLE{ std::numeric_limits<uint64_t>().max() };
+
+	// Constants.
 
 	constexpr uint32_t FRAMES_IN_FLIGHT{ 2 };
 

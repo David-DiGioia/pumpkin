@@ -18,25 +18,6 @@
 
 namespace renderer
 {
-	typedef uint32_t RenderObjectHandle;
-
-	struct RenderObject
-	{
-		// TODO: Later handle multiple primitives per mesh from GLTF file.
-		//       This occurs when a single mesh has multiple materials.
-		//       For raytracing we probably want to implement with geometry indexing.
-		Mesh* mesh;
-		VertexType vertex_type;
-
-		struct UniformBuffer
-		{
-			glm::mat4 transform;
-		} uniform_buffer;
-
-		BufferResource ubo_buffer_resource;
-		DescriptorSetResource ubo_descriptor_set_resource;
-	};
-
 	class VulkanRenderer
 	{
 	public:
