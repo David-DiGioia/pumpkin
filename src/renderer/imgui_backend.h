@@ -12,14 +12,14 @@ namespace renderer
 {
 	class VulkanRenderer;
 
-	struct EditorInfo
+	struct ImGuiCallbacks
 	{
 		std::function<void(void* user_data)> initialization_callback{};
 		std::function<void(ImTextureID* rendered_image_id, void* user_data)> gui_callback{};
 		void* user_data;
 	};
 
-	class EditorBackend
+	class ImGuiBackend
 	{
 	public:
 		void Initialize(VulkanRenderer* renderer);
@@ -31,7 +31,7 @@ namespace renderer
 
 		void RecordCommandBuffer(VkCommandBuffer cmd);
 
-		void SetEditorInfo(const EditorInfo& editor_info);
+		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
 
 		void SetViewportSize(const Extent& extent);
 
@@ -63,7 +63,7 @@ namespace renderer
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 
 		VulkanRenderer* renderer_{};
-		EditorInfo info_{};
+		ImGuiCallbacks callbacks_{};
 		VkDescriptorPool descriptor_pool_{};
 		Extent viewport_extent_{};
 		bool viewport_visible_{};

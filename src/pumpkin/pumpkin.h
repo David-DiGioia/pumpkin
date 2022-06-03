@@ -3,7 +3,6 @@
 #include "GLFW/glfw3.h"
 
 #include "vulkan_renderer.h"
-#include "editor_backend.h"
 #include "scene.h"
 
 namespace pmk
@@ -19,7 +18,7 @@ namespace pmk
 
 		void CleanUp();
 
-		void SetEditorInfo(const renderer::EditorInfo& editor_info);
+		void SetImGuiCallbacksInfo(const renderer::ImGuiCallbacks& editor_info);
 
 		void SetEditorViewportSize(const renderer::Extent& extent);
 

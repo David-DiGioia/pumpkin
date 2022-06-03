@@ -13,7 +13,7 @@
 #include "mesh.h"
 #include "vulkan_util.h"
 #include "descriptor_set.h"
-#include "editor_backend.h"
+#include "imgui_backend.h"
 #include "renderer_types.h"
 
 namespace renderer
@@ -44,9 +44,9 @@ namespace renderer
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
 #ifdef EDITOR_ENABLED
-		void SetEditorInfo(const EditorInfo& editor_info);
+		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
 
-		void SetEditorViewportSize(const Extent& extent);
+		void SetImGuiViewportSize(const Extent& extent);
 #endif
 
 	private:
@@ -91,8 +91,8 @@ namespace renderer
 		// Even though these are only used when EDITOR_ENABLED is defined, we don't change the structs
 		// between the editor enabled/disabled projects or we get runtime errors maybe stemming from
 		// breaking the one definition rule?
-		friend class EditorBackend;
-		EditorBackend editor_backend_{};
+		friend class ImGuiBackend;
+		ImGuiBackend imgui_backend_{};
 
 		Context context_{};
 		Swapchain swapchain_{};

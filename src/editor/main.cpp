@@ -9,7 +9,7 @@ int main()
 	Editor editor{};
 	editor.Initialize(&pumpkin);
 
-	pumpkin.SetEditorInfo(editor.GetEditorInfo());
+	pumpkin.SetImGuiCallbacksInfo(editor.GetEditorInfo());
 	pumpkin.Start();
 
 	return 0;

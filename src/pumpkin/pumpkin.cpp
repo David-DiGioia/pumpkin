@@ -54,17 +54,17 @@ namespace pmk
 		glfwTerminate();
 	}
 
-	void Pumpkin::SetEditorInfo(const renderer::EditorInfo& editor_info)
+	void Pumpkin::SetImGuiCallbacksInfo(const renderer::ImGuiCallbacks& editor_info)
 	{
 #ifdef EDITOR_ENABLED
-		renderer_.SetEditorInfo(editor_info);
+		renderer_.SetImGuiCallbacks(editor_info);
 #endif
 	}
 
 	void Pumpkin::SetEditorViewportSize(const renderer::Extent& extent)
 	{
 #ifdef EDITOR_ENABLED
-		renderer_.SetEditorViewportSize(extent);
+		renderer_.SetImGuiViewportSize(extent);
 #endif
 	}
 }

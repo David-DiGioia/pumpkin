@@ -39,7 +39,7 @@ void Editor::DrawGui(ImTextureID* rendered_image_id)
 	gui_.DrawGui(rendered_image_id);
 }
 
-renderer::EditorInfo Editor::GetEditorInfo()
+renderer::ImGuiCallbacks Editor::GetEditorInfo()
 {
 	return {
 		.initialization_callback = InitializationCallback,

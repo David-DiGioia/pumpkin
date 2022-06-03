@@ -44,19 +44,19 @@ namespace renderer
 		InitializeFrameResources();
 
 #ifdef EDITOR_ENABLED
-		editor_backend_.Initialize(this);
+		imgui_backend_.Initialize(this);
 #endif
 	}
 
 #ifdef EDITOR_ENABLED
-	void VulkanRenderer::SetEditorInfo(const EditorInfo& editor_info)
+	void VulkanRenderer::SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks)
 	{
-		editor_backend_.SetEditorInfo(editor_info);
+		imgui_backend_.SetImGuiCallbacks(imgui_callbacks);
 	}
 
-	void VulkanRenderer::SetEditorViewportSize(const Extent& extent)
+	void VulkanRenderer::SetImGuiViewportSize(const Extent& extent)
 	{
-		editor_backend_.SetViewportSize(extent);
+		imgui_backend_.SetViewportSize(extent);
 	}
 #endif
 
@@ -66,7 +66,7 @@ namespace renderer
 		CheckResult(result, "Error waiting for device to idle.");
 
 #ifdef EDITOR_ENABLED
-		editor_backend_.CleanUp();
+		imgui_backend_.CleanUp();
 #endif
 
 		// Destroy sync objects.
@@ -146,7 +146,7 @@ namespace renderer
 		CheckResult(result, "Error resetting command buffer.");
 
 #ifdef EDITOR_ENABLED
-		editor_backend_.DrawGui();
+		imgui_backend_.DrawGui();
 #endif
 
 		// Drawing commands happen here.
@@ -226,7 +226,7 @@ namespace renderer
 
 		// If we're using the editor and the viewport is minimized, we skip rendering to the 3D viewport.
 #ifdef EDITOR_ENABLED
-		bool minimized{ !editor_backend_.GetViewportVisible() };
+		bool minimized{ !imgui_backend_.GetViewportVisible() };
 #else
 		constexpr bool minimized{ false };
 #endif
@@ -236,7 +236,7 @@ namespace renderer
 		{
 			// If we're using the editor's image we need to transition it to be a color attachment.
 			PipelineBarrier(
-				cmd, editor_backend_.GetViewportImage().image,
+				cmd, imgui_backend_.GetViewportImage().image,
 				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
@@ -268,7 +268,7 @@ namespace renderer
 			// Pipeline barrier to make sure previous rendering finishes before fragment shader.
 			// Also transitions image layout to be read from shader.
 			PipelineBarrier(
-				cmd, editor_backend_.GetViewportImage().image,
+				cmd, imgui_backend_.GetViewportImage().image,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
@@ -281,7 +281,7 @@ namespace renderer
 		rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
 
 		vkCmdBeginRendering(cmd, &rendering_info);
-		editor_backend_.RecordCommandBuffer(cmd);
+		imgui_backend_.RecordCommandBuffer(cmd);
 		vkCmdEndRendering(cmd);
 #endif
 	}
@@ -317,7 +317,7 @@ namespace renderer
 
 		// If the editor viewport is minimized we don't set viewport/scissors.
 #ifdef EDITOR_ENABLED
-		bool minimized{ !editor_backend_.GetViewportVisible() };
+		bool minimized{ !imgui_backend_.GetViewportVisible() };
 #else
 		constexpr bool minimized{ false };
 #endif
@@ -421,7 +421,7 @@ namespace renderer
 	Extent VulkanRenderer::GetViewportExtent()
 	{
 #ifdef EDITOR_ENABLED
-		return editor_backend_.GetViewportExtent();
+		return imgui_backend_.GetViewportExtent();
 #else
 		return context_.GetWindowExtent();
 #endif
@@ -430,7 +430,7 @@ namespace renderer
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
 	{
 #ifdef EDITOR_ENABLED
-		return editor_backend_.GetViewportImage().image_view;
+		return imgui_backend_.GetViewportImage().image_view;
 #else
 		return swapchain_.GetImageView(image_index);
 #endif

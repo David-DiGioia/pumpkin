@@ -1,4 +1,4 @@
-#include "editor_backend.h"
+#include "imgui_backend.h"
 
 #include <vector>
 #include "volk.h"
@@ -12,7 +12,7 @@
 
 namespace renderer
 {
-	void EditorBackend::Initialize(VulkanRenderer* renderer)
+	void ImGuiBackend::Initialize(VulkanRenderer* renderer)
 	{
 		renderer_ = renderer;
 
@@ -20,10 +20,10 @@ namespace renderer
 		InitializeImGui();
 
 		// Call editor's custom initialization function.
-		info_.initialization_callback(info_.user_data);
+		callbacks_.initialization_callback(callbacks_.user_data);
 	}
 
-	void EditorBackend::CleanUp()
+	void ImGuiBackend::CleanUp()
 	{
 		DestroyFrameResources();
 		vkDestroyDescriptorPool(renderer_->context_.device, descriptor_pool_, nullptr);
@@ -32,7 +32,7 @@ namespace renderer
 		ImGui::DestroyContext();
 	}
 
-	void EditorBackend::DrawGui()
+	void ImGuiBackend::DrawGui()
 	{
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -40,22 +40,22 @@ namespace renderer
 
 		// Call editor's custom gui callback.
 		// The callback will update the viewport extent here if it needs to.
-		info_.gui_callback((ImTextureID*)&GetCurrentFrame().render_target_descriptor_, info_.user_data);
+		callbacks_.gui_callback((ImTextureID*)&GetCurrentFrame().render_target_descriptor_, callbacks_.user_data);
 
 		ImGui::Render();
 	}
 
-	void EditorBackend::RecordCommandBuffer(VkCommandBuffer cmd)
+	void ImGuiBackend::RecordCommandBuffer(VkCommandBuffer cmd)
 	{
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 	}
 
-	void EditorBackend::SetEditorInfo(const EditorInfo& editor_info)
+	void ImGuiBackend::SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks)
 	{
-		info_ = editor_info;
+		callbacks_ = imgui_callbacks;
 	}
 
-	void EditorBackend::SetViewportSize(const Extent& extent)
+	void ImGuiBackend::SetViewportSize(const Extent& extent)
 	{
 		if (extent != viewport_extent_)
 		{
@@ -70,27 +70,27 @@ namespace renderer
 		}
 	}
 
-	Extent EditorBackend::GetViewportExtent() const
+	Extent ImGuiBackend::GetViewportExtent() const
 	{
 		return viewport_extent_;
 	}
 
-	ImageResource& EditorBackend::GetViewportImage()
+	ImageResource& ImGuiBackend::GetViewportImage()
 	{
 		return GetCurrentFrame().render_image_;
 	}
 
-	bool EditorBackend::GetViewportVisible() const
+	bool ImGuiBackend::GetViewportVisible() const
 	{
 		return viewport_visible_;
 	}
 
-	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
+	ImGuiBackend::FrameResources& ImGuiBackend::GetCurrentFrame()
 	{
 		return frame_resources_[renderer_->current_frame_];
 	}
 
-	void EditorBackend::CreateFrameResources(Extent extent)
+	void ImGuiBackend::CreateFrameResources(Extent extent)
 	{
 		for (FrameResources& resource : frame_resources_)
 		{
@@ -109,7 +109,7 @@ namespace renderer
 		}
 	}
 
-	void EditorBackend::DestroyFrameResources()
+	void ImGuiBackend::DestroyFrameResources()
 	{
 		VkResult result{ vkDeviceWaitIdle(renderer_->context_.device) };
 		CheckResult(result, "Error waiting for device to idle.");
@@ -124,7 +124,7 @@ namespace renderer
 		}
 	}
 
-	void EditorBackend::CreateDescriptorPool()
+	void ImGuiBackend::CreateDescriptorPool()
 	{
 		std::vector<VkDescriptorPoolSize> pool_sizes{
 			{ VK_DESCRIPTOR_TYPE_SAMPLER, 100 },
@@ -152,7 +152,7 @@ namespace renderer
 		CheckResult(result, "Failed to create imgui descriptor pool.");
 	}
 
-	void EditorBackend::InitializeImGui()
+	void ImGuiBackend::InitializeImGui()
 	{
 		// This initializes the core structures of imgui
 		ImGui::CreateContext();

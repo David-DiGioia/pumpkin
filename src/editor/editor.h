@@ -4,7 +4,6 @@
 #include "imgui.h"
 
 #include "pumpkin.h"
-#include "editor_backend.h"
 #include "gui.h"
 
 class Editor
@@ -16,7 +15,7 @@ public:
 
 	void DrawGui(ImTextureID* rendered_image_id);
 
-	renderer::EditorInfo GetEditorInfo();
+	renderer::ImGuiCallbacks GetEditorInfo();
 
 private:
 	friend class EditorGui;
