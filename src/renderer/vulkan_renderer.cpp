@@ -85,9 +85,11 @@ namespace renderer
 			for (RenderObject& render_object : frame.render_objects) {
 				allocator_.DestroyBufferResource(&render_object.ubo_buffer_resource);
 			}
+			allocator_.DestroyBufferResource(&frame.camera_ubo_buffer);
 		}
 
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&render_object_layout_resource_);
+		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&camera_layout_resource_);
 
 		for (Mesh& mesh : meshes_)
 		{
