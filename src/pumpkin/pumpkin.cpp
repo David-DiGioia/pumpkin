@@ -31,7 +31,8 @@ namespace pmk
 
 	void Pumpkin::HostRenderWork()
 	{
-		scene_.UpdateRenderObjects();
+		scene_.UploadRenderObjects();
+		scene_.UploadCamera();
 	}
 
 	void Pumpkin::MainLoop()
@@ -66,5 +67,10 @@ namespace pmk
 #ifdef EDITOR_ENABLED
 		renderer_.SetImGuiViewportSize(extent);
 #endif
+	}
+
+	void Pumpkin::SetCameraPosition(const glm::vec3& pos)
+	{
+		scene_.GetCamera().position = pos;
 	}
 }

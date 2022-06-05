@@ -14,11 +14,21 @@ namespace pmk
 	{
 		renderer::RenderObjectHandle render_object{ renderer::NULL_HANDLE };
 
-		glm::vec3 translation{};
-		glm::vec3 scale{};
+		glm::vec3 position{};
+		glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
 		glm::quat rotation{};
 
 		std::vector<Node*> children{};
+	};
+
+	struct Camera
+	{
+		glm::vec3 position{};
+		glm::quat rotation{};
+		float fov{ 45.0f };
+		float near_plane{ 0.1f };
+
+		glm::mat4 GetViewMatrix() const;
 	};
 
 	class Scene
@@ -31,9 +41,14 @@ namespace pmk
 		void ImportGLTF(const std::string& path);
 
 		// Update all render objects transforms to reflect their containing node.
-		void UpdateRenderObjects();
+		void UploadRenderObjects();
+
+		void UploadCamera();
+
+		Camera& GetCamera();
 
 	private:
+		Camera camera_{};
 		renderer::VulkanRenderer* renderer_{};
 		std::vector<Node*> root_nodes_{};
 		std::vector<Node> nodes_{}; // All nodes in the scene.

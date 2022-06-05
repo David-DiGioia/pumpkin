@@ -8,6 +8,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm/vec4.hpp"
 #include "glm/mat4x4.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 #include "imgui.h"
 
 #include "vulkan_util.h"
@@ -18,6 +19,11 @@
 
 namespace renderer
 {
+	// Camera descriptor set.
+	static constexpr uint32_t CAMERA_UBO_SET{ 0 };
+	static constexpr uint32_t CAMERA_UBO_BINDING{ 0 };
+	// Render object descriptor set.
+	static constexpr uint32_t RENDER_OBJECT_UBO_SET{ 1 };
 	static constexpr uint32_t RENDER_OBJECT_UBO_BINDING{ 0 };
 
 	void WindowResizedCallback(GLFWwindow* window, int width, int height)
@@ -76,7 +82,7 @@ namespace renderer
 			vkDestroySemaphore(context_.device, frame.image_acquired_semaphore, nullptr);
 			vkDestroySemaphore(context_.device, frame.render_done_semaphore, nullptr);
 
-			for (RenderObject& render_object : frame.render_objects_) {
+			for (RenderObject& render_object : frame.render_objects) {
 				allocator_.DestroyBufferResource(&render_object.ubo_buffer_resource);
 			}
 		}
@@ -119,6 +125,7 @@ namespace renderer
 	void VulkanRenderer::InitializePipelines()
 	{
 		std::vector<DescriptorSetLayoutResource> set_layouts{
+			camera_layout_resource_,
 			render_object_layout_resource_,
 		};
 
@@ -249,14 +256,15 @@ namespace renderer
 			// First render pass. Render 3D Viewport.
 			vkCmdBeginRendering(cmd, &rendering_info);
 
-			VkDeviceSize zero_offset{ 0 };
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, CAMERA_UBO_SET, 1, &GetCurrentFrame().camera_descriptor_set_resource.descriptor_set, 0, nullptr);
 
-			RenderObject& render_obj{ GetCurrentFrame().render_objects_[2] };
+			VkDeviceSize zero_offset{ 0 };
+			RenderObject& render_obj{ GetCurrentFrame().render_objects[2] };
 
 			vkCmdBindVertexBuffers(cmd, 0, 1, &render_obj.mesh->vertices_resource.buffer, &zero_offset);
 			vkCmdBindIndexBuffer(cmd, render_obj.mesh->indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
-			//vkCmdBindDescriptorSets()
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj.ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
 			vkCmdDrawIndexed(cmd, (uint32_t)render_obj.mesh->indices.size(), 1, 0, 0, 0);
 
 			vkCmdEndRendering(cmd);
@@ -455,7 +463,7 @@ namespace renderer
 			};
 
 			render_object.ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object.ubo_buffer_resource);
-			frame.render_objects_.push_back(render_object);
+			frame.render_objects.push_back(render_object);
 		}
 
 		return (RenderObjectHandle)mesh_index;
@@ -463,13 +471,30 @@ namespace renderer
 
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
 	{
-		RenderObject& render_object{ GetCurrentFrame().render_objects_[render_object_handle] };
+		RenderObject& render_object{ GetCurrentFrame().render_objects[render_object_handle] };
 		render_object.uniform_buffer.transform = transform;
 
 		void* data{};
-		vkMapMemory(context_.device, *render_object.ubo_buffer_resource.memory, 0, render_object.ubo_buffer_resource.size, 0, &data);
+		vkMapMemory(context_.device, *render_object.ubo_buffer_resource.memory, render_object.ubo_buffer_resource.offset, render_object.ubo_buffer_resource.size, 0, &data);
 		memcpy(data, &render_object.uniform_buffer, sizeof(RenderObject::UniformBuffer));
 		vkUnmapMemory(context_.device, *render_object.ubo_buffer_resource.memory);
+	}
+
+	void VulkanRenderer::SetCameraMatrix(const glm::mat4& view, float fov, float near_plane)
+	{
+		Extent viewport_extent{ GetViewportExtent() };
+		glm::mat4 projection{ glm::infinitePerspective(glm::radians(fov), viewport_extent.width / (float)viewport_extent.height, near_plane) };
+		projection[1][1] *= -1;
+
+		auto& cam_buffer{ GetCurrentFrame().camera_ubo_buffer };
+		auto& cam_ubo{ GetCurrentFrame().camera_ubo };
+
+		cam_ubo.transform = projection * view;
+
+		void* data{};
+		vkMapMemory(context_.device, *cam_buffer.memory, cam_buffer.offset, cam_buffer.size, 0, &data);
+		memcpy(data, &cam_ubo, sizeof(FrameResources::CameraUBO));
+		vkUnmapMemory(context_.device, *cam_buffer.memory);
 	}
 
 	void VulkanRenderer::InitializeDescriptorSetLayouts()
@@ -482,6 +507,12 @@ namespace renderer
 			.pImmutableSamplers = nullptr,
 		};
 
+		std::vector<VkDescriptorSetLayoutBinding> camera_bindings{
+			ubo_binding,
+		};
+
+		camera_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(camera_bindings);
+
 		std::vector<VkDescriptorSetLayoutBinding> render_object_bindings{
 			ubo_binding,
 		};
@@ -493,6 +524,7 @@ namespace renderer
 	{
 		InitializeCommandBuffers();
 		InitializeSyncObjects();
+		InitializeCameraResources();
 	}
 
 	void VulkanRenderer::InitializeCommandBuffers()
@@ -513,9 +545,9 @@ namespace renderer
 			.commandBufferCount = 1,
 		};
 
-		for (uint32_t i{ 0 }; i < FRAMES_IN_FLIGHT; ++i)
+		for (FrameResources& resource : frame_resources_)
 		{
-			VkCommandBuffer* cmd_buffer{ &frame_resources_[i].command_buffer };
+			VkCommandBuffer* cmd_buffer{ &resource.command_buffer };
 			VkResult result{ vkAllocateCommandBuffers(context_.device, &allocate_info, cmd_buffer) };
 			CheckResult(result, "Failed to allocate command buffer.");
 		}
@@ -544,6 +576,18 @@ namespace renderer
 
 			result = vkCreateSemaphore(context_.device, &semaphore_info, nullptr, &resource.render_done_semaphore);
 			CheckResult(result, "Failed to create semaphore.");
+		}
+	}
+
+	void VulkanRenderer::InitializeCameraResources()
+	{
+		for (FrameResources& resource : frame_resources_)
+		{
+			resource.camera_ubo_buffer = allocator_.CreateBufferResource(sizeof(FrameResources::CameraUBO),
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+			resource.camera_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(camera_layout_resource_);
+			resource.camera_descriptor_set_resource.LinkBufferToBinding(CAMERA_UBO_BINDING, resource.camera_ubo_buffer);
 		}
 	}
 

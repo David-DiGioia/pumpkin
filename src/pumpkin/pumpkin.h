@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GLFW/glfw3.h"
+#include "glm/glm.hpp"
 
 #include "vulkan_renderer.h"
 #include "scene.h"
@@ -21,6 +22,8 @@ namespace pmk
 		void SetImGuiCallbacksInfo(const renderer::ImGuiCallbacks& editor_info);
 
 		void SetEditorViewportSize(const renderer::Extent& extent);
+
+		void SetCameraPosition(const glm::vec3& pos);
 
 	private:
 		// General work the host needs to do each frame.

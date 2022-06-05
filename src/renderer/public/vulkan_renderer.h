@@ -18,6 +18,23 @@
 
 namespace renderer
 {
+	struct RenderObject
+	{
+		// TODO: Later handle multiple primitives per mesh from GLTF file.
+		//       This occurs when a single mesh has multiple materials.
+		//       For raytracing we probably want to implement with geometry indexing.
+		Mesh* mesh;
+		VertexType vertex_type;
+
+		struct UniformBuffer
+		{
+			glm::mat4 transform;
+		} uniform_buffer;
+
+		BufferResource ubo_buffer_resource;
+		DescriptorSetResource ubo_descriptor_set_resource;
+	};
+
 	class VulkanRenderer
 	{
 	public:
@@ -42,6 +59,8 @@ namespace renderer
 		RenderObjectHandle CreateRenderObject(uint32_t mesh_index);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
+
+		void SetCameraMatrix(const glm::mat4& view, float fov, float near_plane);
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
@@ -76,11 +95,21 @@ namespace renderer
 
 		void InitializeSyncObjects();
 
+		void InitializeCameraResources();
+
 		void InitializeDescriptorSetLayouts();
 
 		struct FrameResources
 		{
-			std::vector<RenderObject> render_objects_{};
+			std::vector<RenderObject> render_objects{};
+
+			struct CameraUBO
+			{
+				glm::mat4 transform;
+			} camera_ubo;
+
+			BufferResource camera_ubo_buffer;
+			DescriptorSetResource camera_descriptor_set_resource{};
 
 			VkCommandBuffer command_buffer;
 			VkFence render_done_fence;
@@ -103,6 +132,7 @@ namespace renderer
 		VulkanUtil vulkan_util_{};
 
 		std::vector<Mesh> meshes_{}; // All meshes referenced by render objects.
+		DescriptorSetLayoutResource camera_layout_resource_{};
 		DescriptorSetLayoutResource render_object_layout_resource_{};
 
 		uint32_t current_frame_{};

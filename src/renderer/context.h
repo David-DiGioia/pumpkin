@@ -38,6 +38,7 @@ namespace renderer
 
 		void CleanUp();
 
+		// This function should not be called directly. Instead call VulkanRenderer::GetViewportExtent().
 		Extent GetWindowExtent();
 
 		uint32_t GetGraphicsQueueFamilyIndex();

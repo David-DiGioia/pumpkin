@@ -81,6 +81,9 @@ void EditorGui::RightPane()
 
 	ImGui::Text("Welcome to the Pumpkin engine!");
 
+	ImGui::DragFloat3("Camera position", cam_pos_);
+	editor_->pumpkin_->SetCameraPosition(glm::vec3(cam_pos_[0], cam_pos_[1], cam_pos_[2]));
+
 	ImGui::End();
 }
 

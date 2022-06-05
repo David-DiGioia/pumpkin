@@ -58,7 +58,7 @@ namespace pmk
 				node.render_object = renderer_->CreateRenderObject(gltf_node.mesh);
 
 				if (!gltf_node.translation.empty()) {
-					node.translation = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };
+					node.position = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };
 				}
 
 				if (!gltf_node.scale.empty()) {
@@ -78,7 +78,7 @@ namespace pmk
 		}
 	}
 
-	void Scene::UpdateRenderObjects()
+	void Scene::UploadRenderObjects()
 	{
 		for (Node& node : nodes_)
 		{
@@ -89,9 +89,24 @@ namespace pmk
 
 			glm::mat4 scale_mat{ glm::scale(node.scale) };
 			glm::mat4 rotation_mat{ glm::toMat4(node.rotation) };
-			glm::mat4 translate_mat{ glm::translate(node.translation) };
+			glm::mat4 translate_mat{ glm::translate(node.position) };
 
 			renderer_->SetRenderObjectTransform(node.render_object, translate_mat * rotation_mat * scale_mat);
 		}
+	}
+
+	void Scene::UploadCamera()
+	{
+		renderer_->SetCameraMatrix(camera_.GetViewMatrix(), camera_.fov, camera_.near_plane);
+	}
+
+	Camera& Scene::GetCamera()
+	{
+		return camera_;
+	}
+
+	glm::mat4 Camera::GetViewMatrix() const
+	{
+		return glm::inverse(glm::translate(position) * glm::toMat4(rotation));
 	}
 }
