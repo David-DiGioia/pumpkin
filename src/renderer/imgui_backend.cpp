@@ -158,6 +158,9 @@ namespace renderer
 		ImGui::CreateContext();
 		ImPlot::CreateContext();
 
+		// TODO: Once ImGui has pr merged, enable this.
+		//ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
 		// This initializes imgui for GLFW.
 		ImGui_ImplGlfw_InitForVulkan(renderer_->context_.window, true);
 

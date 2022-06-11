@@ -181,6 +181,9 @@ namespace renderer
 		result = vkQueueSubmit(context_.graphics_queue, 1, &submit_info, GetCurrentFrame().render_done_fence);
 		CheckResult(result, "Error submitting queue.");
 
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+
 		// This will put the image we just rendered into the visible window.
 		// We want to wait on render_done_semaphore for that, as it's necessary that the
 		// drawing commands have finished before the image is displayed to the user.
