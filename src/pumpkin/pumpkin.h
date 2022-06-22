@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
 
@@ -25,6 +26,10 @@ namespace pmk
 
 		void SetCameraPosition(const glm::vec3& pos);
 
+		Scene& GetScene();
+
+		float GetDeltaTime() const;
+
 	private:
 		// General work the host needs to do each frame.
 		void HostWork();
@@ -32,9 +37,14 @@ namespace pmk
 		// Work the host needs to do that modifies the render objects.
 		void HostRenderWork();
 
+		void UpdateDeltaTime();
+
 		GLFWwindow* window_{};
 		renderer::VulkanRenderer renderer_{};
 		Scene scene_{};
+
+		float delta_time_{};
+		std::chrono::steady_clock::time_point last_time_{};
 
 		uint32_t width_{ 1280 };
 		uint32_t height_{ 720 };

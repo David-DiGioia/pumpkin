@@ -5,6 +5,7 @@
 
 #include "pumpkin.h"
 #include "gui.h"
+#include "camera_controller.h"
 
 class Editor
 {
@@ -17,9 +18,14 @@ public:
 
 	renderer::ImGuiCallbacks GetEditorInfo();
 
+	CameraController& GetCameraController();
+
+	pmk::Pumpkin* GetPumpkin();
+
 private:
 	friend class EditorGui;
 
 	pmk::Pumpkin* pumpkin_{};
 	EditorGui gui_{};
+	CameraController controller_{};
 };

@@ -11,6 +11,7 @@
 #include "editor.h"
 #include "pumpkin.h"
 #include "logger.h"
+#include "input.h"
 
 const std::string default_layout_path{ "default_imgui_layout.ini" };
 
@@ -39,8 +40,6 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	MainMenu();
 	RightPane();
 	EngineViewport(rendered_image_id);
-
-	ImGui::ShowDemoWindow();
 }
 
 void MainMenuSaveDefaultLayout()
@@ -81,9 +80,6 @@ void EditorGui::RightPane()
 
 	ImGui::Text("Welcome to the Pumpkin engine!");
 
-	ImGui::DragFloat3("Camera position", cam_pos_);
-	editor_->pumpkin_->SetCameraPosition(glm::vec3(cam_pos_[0], cam_pos_[1], cam_pos_[2]));
-
 	ImGui::End();
 }
 
@@ -107,6 +103,10 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 	{
 		ImGui::End();
 		return;
+	}
+
+	if (ImGui::IsWindowFocused()) {
+		ProcessViewportInput(editor_);
 	}
 
 	if ((viewport_extent_.width != 0) && (viewport_extent_.height != 0)) {

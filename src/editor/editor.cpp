@@ -16,6 +16,7 @@ void InitializationCallback(void* user_data)
 void Editor::Initialize(pmk::Pumpkin* pumpkin)
 {
 	pumpkin_ = pumpkin;
+	controller_.Initialize(&pumpkin->GetScene().GetCamera());
 	gui_.Initialize(this);
 }
 
@@ -46,4 +47,14 @@ renderer::ImGuiCallbacks Editor::GetEditorInfo()
 		.gui_callback = GuiCallback,
 		.user_data = (void*)this,
 	};
+}
+
+CameraController& Editor::GetCameraController()
+{
+	return controller_;
+}
+
+pmk::Pumpkin* Editor::GetPumpkin()
+{
+	return pumpkin_;
 }

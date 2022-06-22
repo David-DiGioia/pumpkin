@@ -181,8 +181,10 @@ namespace renderer
 		result = vkQueueSubmit(context_.graphics_queue, 1, &submit_info, GetCurrentFrame().render_done_fence);
 		CheckResult(result, "Error submitting queue.");
 
+#ifdef EDITOR_ENABLED
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
+#endif
 
 		// This will put the image we just rendered into the visible window.
 		// We want to wait on render_done_semaphore for that, as it's necessary that the
@@ -489,7 +491,7 @@ namespace renderer
 	{
 		Extent viewport_extent{ GetViewportExtent() };
 		glm::mat4 projection{ glm::infinitePerspective(glm::radians(fov), viewport_extent.width / (float)viewport_extent.height, near_plane) };
-		projection[1][1] *= -1;
+		projection[1][1] *= -1; // Vulkan's y-axis is opposite that of OpenGl's.
 
 		auto& cam_buffer{ GetCurrentFrame().camera_ubo_buffer };
 		auto& cam_ubo{ GetCurrentFrame().camera_ubo };

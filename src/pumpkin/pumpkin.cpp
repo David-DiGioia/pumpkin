@@ -41,6 +41,7 @@ namespace pmk
 		{
 			glfwPollEvents();
 
+			UpdateDeltaTime();
 			HostWork();
 			renderer_.WaitForLastFrame();
 			HostRenderWork();
@@ -72,5 +73,23 @@ namespace pmk
 	void Pumpkin::SetCameraPosition(const glm::vec3& pos)
 	{
 		scene_.GetCamera().position = pos;
+	}
+
+	Scene& Pumpkin::GetScene()
+	{
+		return scene_;
+	}
+
+	float Pumpkin::GetDeltaTime() const
+	{
+		return delta_time_;
+	}
+
+	void Pumpkin::UpdateDeltaTime()
+	{
+		auto current_time{ std::chrono::steady_clock::now() };
+		auto microseconds{ std::chrono::duration_cast<std::chrono::microseconds>(current_time - last_time_).count() };
+		delta_time_ = microseconds / 1'000'000.0f;
+		last_time_ = current_time;
 	}
 }

@@ -4,6 +4,10 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/editor.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/gui.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/gui.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/input.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/input.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/camera_controller.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/camera_controller.cpp"
 )
 
 add_executable(Editor "${SOURCES}")

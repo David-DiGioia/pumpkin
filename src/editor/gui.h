@@ -28,6 +28,4 @@ private:
 
 	Editor* editor_{};
 	renderer::Extent viewport_extent_{};
-
-	float cam_pos_[3]{};
 };
