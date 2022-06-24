@@ -69,7 +69,8 @@ namespace renderer
 		VkCommandBuffer cmd, VkImage image,
 		VkImageLayout old_layout, VkImageLayout new_layout,
 		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkImageAspectFlags image_aspect = VK_IMAGE_ASPECT_COLOR_BIT
 	);
 
 	// Utility object to help with common Vulkan tasks that need a command buffer.
@@ -107,7 +108,8 @@ namespace renderer
 			VkImage image,
 			VkImageLayout old_layout, VkImageLayout new_layout,
 			VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-			VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+			VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+			VkImageAspectFlags image_aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		);
 
 		void CleanUp();

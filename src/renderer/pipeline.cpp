@@ -12,7 +12,7 @@ namespace renderer
 {
 	const std::string spirv_prefix{ "../shaders/" };
 
-	void GraphicsPipeline::Initialize(Context* context, Swapchain* swapchain, const std::vector<DescriptorSetLayoutResource>& set_layouts)
+	void GraphicsPipeline::Initialize(Context* context, Swapchain* swapchain, const std::vector<DescriptorSetLayoutResource>& set_layouts, VkFormat depth_format)
 	{
 		context_ = context;
 
@@ -94,7 +94,7 @@ namespace renderer
 			.rasterizerDiscardEnable = VK_FALSE,
 			.polygonMode = VK_POLYGON_MODE_FILL,
 			.cullMode = VK_CULL_MODE_BACK_BIT,
-			.frontFace = VK_FRONT_FACE_CLOCKWISE,
+			.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
 			.depthBiasEnable = VK_FALSE,
 			.depthBiasConstantFactor = 0.0f,
 			.depthBiasClamp = 0.0f,
@@ -120,8 +120,11 @@ namespace renderer
 			.depthWriteEnable = VK_TRUE,
 			.depthCompareOp = VK_COMPARE_OP_LESS,
 			.depthBoundsTestEnable = VK_FALSE,
-			.minDepthBounds = 0.0f,
-			.maxDepthBounds = 1.0f,
+			.stencilTestEnable = VK_FALSE,
+			.front = {}, // For stencil test.
+			.back = {},  // For stencil test.
+			.minDepthBounds = 0.0f, // For bounds test.
+			.maxDepthBounds = 1.0f, // For bounds test.
 		};
 
 		VkPipelineColorBlendAttachmentState color_blend_attachment{
@@ -168,7 +171,7 @@ namespace renderer
 			.viewMask = 0,
 			.colorAttachmentCount = 1,
 			.pColorAttachmentFormats = &swapchain_image_format,
-			.depthAttachmentFormat = {}, // TODO.
+			.depthAttachmentFormat = depth_format,
 			.stencilAttachmentFormat = {}, // TODO.
 		};
 
@@ -184,7 +187,7 @@ namespace renderer
 			.pViewportState = &viewport_info,
 			.pRasterizationState = &rasterization_info,
 			.pMultisampleState = &multisample_info,
-			.pDepthStencilState = nullptr, // No depth buffer yet.
+			.pDepthStencilState = &depth_stencil_info,
 			.pColorBlendState = &color_blend_info,
 			.pDynamicState = &dynamic_info,
 			.layout = layout,

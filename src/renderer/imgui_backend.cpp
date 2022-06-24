@@ -80,6 +80,11 @@ namespace renderer
 		return GetCurrentFrame().render_image_;
 	}
 
+	ImageResource& ImGuiBackend::GetViewportDepthImage()
+	{
+		return GetCurrentFrame().depth_image_;
+	}
+
 	bool ImGuiBackend::GetViewportVisible() const
 	{
 		return viewport_visible_;
@@ -101,11 +106,27 @@ namespace renderer
 				renderer_->swapchain_.GetImageFormat()
 			);
 
+			resource.depth_image_ = renderer_->allocator_.CreateImageResource(
+				extent,
+				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				renderer_->GetDepthImageFormat(),
+				VK_IMAGE_ASPECT_DEPTH_BIT
+			);
+
 			resource.render_target_descriptor_ = ImGui_ImplVulkan_AddTexture(
 				resource.render_image_.sampler,
 				resource.render_image_.image_view,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
+
+			renderer_->vulkan_util_.Begin();
+			renderer_->vulkan_util_.PipelineBarrier(resource.depth_image_.image,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+				0, 0,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				VK_IMAGE_ASPECT_DEPTH_BIT);
+			renderer_->vulkan_util_.Submit();
 		}
 	}
 
@@ -117,6 +138,7 @@ namespace renderer
 		for (FrameResources& resource : frame_resources_)
 		{
 			renderer_->allocator_.DestroyImageResource(&resource.render_image_);
+			renderer_->allocator_.DestroyImageResource(&resource.depth_image_);
 
 			result = vkFreeDescriptorSets(renderer_->context_.device, descriptor_pool_, 1, &resource.render_target_descriptor_);
 			CheckResult(result, "Failed to free descriptor set.");
@@ -181,7 +203,7 @@ namespace renderer
 		// Pass null handle since we're using dynamic rendering.
 		ImGui_ImplVulkan_Init(&init_info, VK_NULL_HANDLE);
 
-		// Execute a gpu command to upload imgui font textures.
+		// Execute a GPU command to upload imgui font textures.
 		auto& cmd{ renderer_->vulkan_util_.Begin() };
 		ImGui_ImplVulkan_CreateFontsTexture(cmd);
 		renderer_->vulkan_util_.Submit();

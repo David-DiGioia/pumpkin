@@ -45,7 +45,8 @@ namespace renderer
 			Extent extent,
 			VkImageUsageFlags usage,
 			VkMemoryPropertyFlags properties,
-			VkFormat format
+			VkFormat format,
+			VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		);
 
 		void DestroyBufferResource(BufferResource* buffer_resource);

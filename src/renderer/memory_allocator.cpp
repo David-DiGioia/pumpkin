@@ -156,7 +156,7 @@ namespace renderer
 		};
 	}
 
-	ImageResource Allocator::CreateImageResource(Extent extent, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkFormat format)
+	ImageResource Allocator::CreateImageResource(Extent extent, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkFormat format, VkImageAspectFlags aspect)
 	{
 		// Image.
 		VkImageCreateInfo image_info{
@@ -207,7 +207,7 @@ namespace renderer
 				.a = VK_COMPONENT_SWIZZLE_IDENTITY,
 			},
 			.subresourceRange = {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, // Potentially need to make depth optional later.
+				.aspectMask = aspect,
 				.baseMipLevel = 0,
 				.levelCount = 1,
 				.baseArrayLayer = 0,

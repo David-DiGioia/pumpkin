@@ -87,6 +87,10 @@ namespace renderer
 
 		VkImageView GetViewportImageView(uint32_t image_index);
 
+		VkImageView GetViewportDepthImageView();
+
+		VkFormat GetDepthImageFormat() const;
+
 		void InitializePipelines();
 
 		void InitializeFrameResources();
@@ -96,6 +100,8 @@ namespace renderer
 		void InitializeSyncObjects();
 
 		void InitializeCameraResources();
+
+		void InitializeDepthImages();
 
 		void InitializeDescriptorSetLayouts();
 
@@ -115,6 +121,10 @@ namespace renderer
 			VkFence render_done_fence;
 			VkSemaphore image_acquired_semaphore;
 			VkSemaphore render_done_semaphore;
+
+			// Only used when EDITOR_ENABLED is not defined.
+			// This is not in the Swapchain class since we only need frame-in-flight number depth images.
+			ImageResource depth_image;
 		};
 
 		// Even though these are only used when EDITOR_ENABLED is defined, we don't change the structs

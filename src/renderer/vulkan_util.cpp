@@ -17,7 +17,8 @@ namespace renderer
 		VkCommandBuffer cmd, VkImage image,
 		VkImageLayout old_layout, VkImageLayout new_layout,
 		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkImageAspectFlags image_aspect
 	)
 	{
 		VkImageMemoryBarrier image_memory_barrier{
@@ -30,7 +31,7 @@ namespace renderer
 			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 			.image = image,
 			.subresourceRange = {
-			  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			  .aspectMask = image_aspect,
 			  .baseMipLevel = 0,
 			  .levelCount = 1,
 			  .baseArrayLayer = 0,
@@ -90,10 +91,11 @@ namespace renderer
 		VkImage image,
 		VkImageLayout old_layout, VkImageLayout new_layout,
 		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkImageAspectFlags image_aspect
 	)
 	{
-		renderer::PipelineBarrier(cmd_, image, old_layout, new_layout, src_access_mask, dst_access_mask, src_stage_mask, dst_stage_mask);
+		renderer::PipelineBarrier(cmd_, image, old_layout, new_layout, src_access_mask, dst_access_mask, src_stage_mask, dst_stage_mask, image_aspect);
 	}
 
 	void VulkanUtil::CleanUp()

@@ -131,7 +131,12 @@ namespace renderer
 			render_object_layout_resource_,
 		};
 
-		graphics_pipeline_.Initialize(&context_, &swapchain_, set_layouts);
+		graphics_pipeline_.Initialize(&context_, &swapchain_, set_layouts, GetDepthImageFormat());
+	}
+
+	VkFormat VulkanRenderer::GetDepthImageFormat() const
+	{
+		return VK_FORMAT_D32_SFLOAT;
 	}
 
 	void VulkanRenderer::WaitForLastFrame()
@@ -223,6 +228,18 @@ namespace renderer
 			.clearValue = clear_color,
 		};
 
+		VkRenderingAttachmentInfo depth_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = GetViewportDepthImageView(),
+			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_NONE,
+			.clearValue = VkClearColorValue{1.0f, 1.0f, 1.0f, 1.0f},
+		};
+
 		VkRenderingInfo rendering_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
 			.flags = 0,
@@ -234,7 +251,7 @@ namespace renderer
 			.viewMask = 0,
 			.colorAttachmentCount = 1,
 			.pColorAttachments = &color_attachment_info,
-			.pDepthAttachment = nullptr,
+			.pDepthAttachment = &depth_attachment_info,
 			.pStencilAttachment = nullptr,
 		};
 
@@ -293,9 +310,25 @@ namespace renderer
 		// Second render pass. Render editor GUI if the editor is enabled.
 		Extent window_extent{ context_.GetWindowExtent() };
 		color_attachment_info.imageView = swapchain_.GetImageView(image_index);
-		rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
+		//rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
+		//rendering_info.pDepthAttachment = nullptr;
 
-		vkCmdBeginRendering(cmd, &rendering_info);
+		VkRenderingInfo rendering_info2{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = { window_extent.width, window_extent.height },
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr,
+		};
+
+		vkCmdBeginRendering(cmd, &rendering_info2);
 		imgui_backend_.RecordCommandBuffer(cmd);
 		vkCmdEndRendering(cmd);
 #endif
@@ -355,6 +388,8 @@ namespace renderer
 
 	void VulkanRenderer::TransitionSwapImageForRender(VkCommandBuffer cmd, uint32_t image_index)
 	{
+		// TODO: Use vulkan_util.cpp stateless pipeline barrier here and in below function.
+
 		// Transition image to optimal layout for rendering to.
 		VkImageMemoryBarrier image_memory_barrier{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -451,6 +486,15 @@ namespace renderer
 #endif
 	}
 
+	VkImageView VulkanRenderer::GetViewportDepthImageView()
+	{
+#ifdef EDITOR_ENABLED
+		return imgui_backend_.GetViewportDepthImage().image_view;
+#else
+		return GetCurrentFrame().depth_image.image_view;
+#endif
+	}
+
 	RenderObjectHandle VulkanRenderer::CreateRenderObject(uint32_t mesh_index)
 	{
 		for (auto& frame : frame_resources_)
@@ -532,6 +576,9 @@ namespace renderer
 		InitializeCommandBuffers();
 		InitializeSyncObjects();
 		InitializeCameraResources();
+#ifndef EDITOR_ENABLED
+		InitializeDepthImages();
+#endif
 	}
 
 	void VulkanRenderer::InitializeCommandBuffers()
@@ -596,6 +643,21 @@ namespace renderer
 			resource.camera_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(camera_layout_resource_);
 			resource.camera_descriptor_set_resource.LinkBufferToBinding(CAMERA_UBO_BINDING, resource.camera_ubo_buffer);
 		}
+	}
+
+	void VulkanRenderer::InitializeDepthImages()
+	{
+		for (FrameResources& resource : frame_resources_)
+		{
+			resource.depth_image = allocator_.CreateImageResource(
+				GetViewportExtent(),
+				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				GetDepthImageFormat()
+			);
+		}
+
+		// Maybe todo: Transition image with image barrier for being a depth image?
 	}
 
 	void VulkanRenderer::LoadMeshesGLTF(tinygltf::Model& model)

@@ -41,6 +41,8 @@ namespace renderer
 
 		ImageResource& GetViewportImage();
 
+		ImageResource& GetViewportDepthImage();
+
 	private:
 		struct FrameResources;
 
@@ -59,6 +61,7 @@ namespace renderer
 			// We use raw descriptor set here instead of resource since ImGui creates it for us.
 			VkDescriptorSet render_target_descriptor_{};
 			ImageResource render_image_{};
+			ImageResource depth_image_{};
 		};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 

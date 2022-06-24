@@ -12,7 +12,7 @@ namespace renderer
 	class GraphicsPipeline
 	{
 	public:
-		void Initialize(Context* context, Swapchain* swapchain, const std::vector<DescriptorSetLayoutResource>& set_layouts);
+		void Initialize(Context* context, Swapchain* swapchain, const std::vector<DescriptorSetLayoutResource>& set_layouts, VkFormat depth_format);
 
 		void CleanUp();
 

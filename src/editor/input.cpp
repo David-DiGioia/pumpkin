@@ -42,7 +42,7 @@ void ProcessViewportInput(Editor* editor)
 
 	if (mouse_delta != glm::vec2(0.0f, 0.0f))
 	{
-		controller.Rotate(mouse_delta.x * 0.01, mouse_delta.y * 0.01);
+		controller.Rotate(-mouse_delta.x * 0.01, -mouse_delta.y * 0.01);
 		ImGui::ResetMouseDragDelta();
 	}
 }
