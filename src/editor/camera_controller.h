@@ -33,6 +33,9 @@ private:
 	glm::vec3 up_{ 0.0f, 1.0f, 0.0f };
 	pmk::Camera* camera_{};
 
+	float movement_speed_{ 2.0f };
+	float mouse_sensitivity_{ 1.0f };
+
 	glm::vec3 focal_point_{};
 	bool focal_point_active_{ false };
 	float focal_distance_{ 5.0f };

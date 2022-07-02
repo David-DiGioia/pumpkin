@@ -8,14 +8,14 @@
 
 void ProcessViewportInput(Editor* editor)
 {
-	float delta{ editor->GetPumpkin()->GetDeltaTime() };
+	float delta_time{ editor->GetPumpkin()->GetDeltaTime() };
 	glm::vec3 move_dir{};
 
 	if (ImGui::IsKeyDown(ImGuiKey_W)) {
-		move_dir += glm::vec3{ 0.0f, 0.0f, 1.0f };
+		move_dir += glm::vec3{ 0.0f, 0.0f, -1.0f };
 	}
 	if (ImGui::IsKeyDown(ImGuiKey_S)) {
-		move_dir += glm::vec3{ 0.0f, 0.0f, -1.0f };
+		move_dir += glm::vec3{ 0.0f, 0.0f, 1.0f };
 	}
 	if (ImGui::IsKeyDown(ImGuiKey_D)) {
 		move_dir += glm::vec3{ 1.0f, 0.0f, 0.0f };
@@ -37,12 +37,12 @@ void ProcessViewportInput(Editor* editor)
 	if (move_dir != glm::vec3(0.0f, 0.0f, 0.0f))
 	{
 		move_dir = glm::normalize(move_dir);
-		controller.MoveRelativeToForward(delta * move_dir);
+		controller.MoveRelativeToForward(delta_time * move_dir);
 	}
 
 	if (mouse_delta != glm::vec2(0.0f, 0.0f))
 	{
-		controller.Rotate(-mouse_delta.x * 0.01, -mouse_delta.y * 0.01);
+		controller.Rotate(-mouse_delta.x * delta_time, -mouse_delta.y * delta_time);
 		ImGui::ResetMouseDragDelta();
 	}
 }

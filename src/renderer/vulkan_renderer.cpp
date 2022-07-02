@@ -310,25 +310,10 @@ namespace renderer
 		// Second render pass. Render editor GUI if the editor is enabled.
 		Extent window_extent{ context_.GetWindowExtent() };
 		color_attachment_info.imageView = swapchain_.GetImageView(image_index);
-		//rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
-		//rendering_info.pDepthAttachment = nullptr;
+		rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
+		rendering_info.pDepthAttachment = nullptr;
 
-		VkRenderingInfo rendering_info2{
-			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-			.flags = 0,
-			.renderArea = {
-				.offset = { 0, 0 },
-				.extent = { window_extent.width, window_extent.height },
-			},
-			.layerCount = 1,
-			.viewMask = 0,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &color_attachment_info,
-			.pDepthAttachment = nullptr,
-			.pStencilAttachment = nullptr,
-		};
-
-		vkCmdBeginRendering(cmd, &rendering_info2);
+		vkCmdBeginRendering(cmd, &rendering_info);
 		imgui_backend_.RecordCommandBuffer(cmd);
 		vkCmdEndRendering(cmd);
 #endif

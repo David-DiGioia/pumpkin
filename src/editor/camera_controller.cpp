@@ -6,12 +6,19 @@
 void CameraController::Initialize(pmk::Camera* camera)
 {
 	camera_ = camera;
+	UpdateCamera();
 }
 
 void CameraController::MoveRelativeToForward(const glm::vec3& relative_movement)
 {
 	glm::vec3 global_movement{ camera_->rotation * relative_movement };
-	camera_->position += global_movement;
+	focal_point_ += movement_speed_ * global_movement;
+
+	// Reset focal distance.
+	focal_point_ -= focal_distance_ * GetForward();
+	focal_distance_ = 0.0f;
+
+	UpdateCamera();
 }
 
 void CameraController::LookDirection(const glm::vec3& direction)
@@ -34,8 +41,8 @@ void CameraController::LookAt(const glm::vec3& target)
 
 void CameraController::Rotate(float phi_delta, float theta_delta)
 {
-	phi_ += phi_delta;
-	theta_ += theta_delta;
+	phi_ += phi_delta * mouse_sensitivity_;
+	theta_ += theta_delta * mouse_sensitivity_;
 	constexpr float epsilon{ 0.00001f };
 	theta_ = std::clamp(theta_, epsilon, PI - epsilon);
 	UpdateCamera();
