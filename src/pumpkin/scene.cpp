@@ -16,9 +16,44 @@
 
 namespace pmk
 {
+	Node::Node(uint32_t id)
+		: node_id{ id }
+	{}
+
+	Node* Node::GetParent() const
+	{
+		return parent_;
+	}
+
+	const std::unordered_set<Node*>& Node::GetChildren() const
+	{
+		return children_;
+	}
+
+	void Node::SetParent(Node* parent)
+	{
+		parent_ = parent;
+		if (parent) {
+			parent->children_.insert(this);
+		}
+	}
+
+	void Node::AddChild(Node* child)
+	{
+		if (child)
+		{
+			children_.insert(child);
+			child->parent_ = this;
+		}
+	}
+
 	void Scene::Initialize(renderer::VulkanRenderer* renderer)
 	{
 		renderer_ = renderer;
+
+		// Every node will be a descendent of the root node.
+		nodes_.push_back(CreateNode());
+		root_node_ = &nodes_.back();
 	}
 
 	void Scene::ImportGLTF(const std::string& path)
@@ -47,11 +82,10 @@ namespace pmk
 
 		renderer_->LoadMeshesGLTF(model);
 
-		int i{ (int)nodes_.size() };
-		nodes_.resize(nodes_.size() + model.nodes.size());
+		nodes_.reserve(nodes_.size() + model.nodes.size());
 		for (tinygltf::Node gltf_node : model.nodes)
 		{
-			Node node{};
+			Node node{ CreateNode() };
 
 			if (gltf_node.mesh >= 0)
 			{
@@ -70,11 +104,11 @@ namespace pmk
 				}
 
 				for (int child_idx : gltf_node.children) {
-					node.children.push_back(&nodes_[child_idx]);
+					node.AddChild(&nodes_[child_idx]);
 				}
 			}
 
-			nodes_[i++] = node;
+			nodes_.emplace_back(node);
 		}
 	}
 
@@ -103,6 +137,21 @@ namespace pmk
 	Camera& Scene::GetCamera()
 	{
 		return camera_;
+	}
+
+	Node Scene::CreateNode()
+	{
+		return Node(next_node_id_++);
+	}
+
+	std::vector<Node>& Scene::GetNodes()
+	{
+		return nodes_;
+	}
+
+	Node* Scene::GetRootNode() const
+	{
+		return root_node_;
 	}
 
 	glm::mat4 Camera::GetViewMatrix() const

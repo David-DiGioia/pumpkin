@@ -15,6 +15,9 @@ layout (set = 1, binding = 0) uniform RenderObjectUBO {
 
 void main()
 {
-    out_normal = normal;
+    // Ignore translation component of transform when transforming normal.
+    vec3 normal_transformed = mat3(render_object_ubo.transform) * normal;
+    out_normal = normalize(normal_transformed.xyz);
+
     gl_Position = camera_ubo.view_projection * render_object_ubo.transform * vec4(position, 1.0);
 }

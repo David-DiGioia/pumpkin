@@ -16,8 +16,13 @@ void InitializationCallback(void* user_data)
 void Editor::Initialize(pmk::Pumpkin* pumpkin)
 {
 	pumpkin_ = pumpkin;
-	controller_.Initialize(&pumpkin->GetScene().GetCamera());
+	auto& scene{ pumpkin->GetScene() };
+	controller_.Initialize(&scene.GetCamera());
 	gui_.Initialize(this);
+
+	// Set editor root node to match Pumpkin's scene root node.
+	node_map_[scene.GetRootNode()->node_id] = EditorNode{ scene.GetRootNode(), false };
+	root_node_ = &node_map_[scene.GetRootNode()->node_id];
 }
 
 // We pass rendered_image_id to the draw callback instead of at initialization because the
@@ -57,4 +62,20 @@ CameraController& Editor::GetCameraController()
 pmk::Pumpkin* Editor::GetPumpkin()
 {
 	return pumpkin_;
+}
+
+void Editor::ImportGLTF(const std::string& path)
+{
+	std::string prefix{ "../../../assets/" };
+	auto& nodes{ pumpkin_->GetScene().GetNodes() };
+
+	uint32_t i{ (uint32_t)nodes.size() };
+	pumpkin_->GetScene().ImportGLTF(prefix + path);
+
+	// Make a wrapper EditorNode for each imported pmk::Node.
+	while (i < nodes.size())
+	{
+		node_map_[nodes[i].node_id] = EditorNode{ &nodes[i], false };
+		++i;
+	}
 }

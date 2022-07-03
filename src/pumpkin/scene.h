@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <unordered_set>
 #include <array>
 #include <string>
 #include "glm/glm.hpp"
@@ -12,13 +13,28 @@ namespace pmk
 {
 	struct Node
 	{
+		const uint32_t node_id;
 		renderer::RenderObjectHandle render_object{ renderer::NULL_HANDLE };
 
 		glm::vec3 position{};
 		glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
 		glm::quat rotation{};
 
-		std::vector<Node*> children{};
+		Node* GetParent() const;
+
+		const std::unordered_set<Node*>& GetChildren() const;
+
+		void SetParent(Node* parent);
+
+		void AddChild(Node* child);
+
+	private:
+		// Make constructor private to insure node_id is assigned only from Scene.
+		Node(uint32_t id);
+		friend class Scene;
+
+		Node* parent_{};
+		std::unordered_set<Node*> children_{};
 	};
 
 	struct Camera
@@ -47,10 +63,17 @@ namespace pmk
 
 		Camera& GetCamera();
 
+		Node CreateNode();
+
+		std::vector<Node>& GetNodes();
+
+		Node* GetRootNode() const;
+
 	private:
 		Camera camera_{};
 		renderer::VulkanRenderer* renderer_{};
-		std::vector<Node*> root_nodes_{};
+		Node* root_node_{};
 		std::vector<Node> nodes_{}; // All nodes in the scene.
+		uint32_t next_node_id_{};   // The next node created will have this id.
 	};
 }

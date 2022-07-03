@@ -7,6 +7,8 @@ namespace pmk
 {
 	void Pumpkin::Initialize()
 	{
+		logger::Print("Pumpkin Engine Version %d.%d\n\n", config::PUMPKIN_VERSION_MAJOR, config::PUMPKIN_VERSION_MINOR);
+
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		window_ = glfwCreateWindow(width_, height_, "Pumpkin Engine", nullptr, nullptr);
@@ -17,10 +19,6 @@ namespace pmk
 
 	void Pumpkin::Start()
 	{
-		logger::Print("Pumpkin Engine Version %d.%d\n\n", config::PUMPKIN_VERSION_MAJOR, config::PUMPKIN_VERSION_MINOR);
-
-		Initialize();
-		scene_.ImportGLTF("../../../assets/test_gltf.gltf");
 		MainLoop();
 		CleanUp();
 	}

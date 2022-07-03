@@ -20,6 +20,8 @@ public:
 private:
 	void MainMenu();
 
+	void TreeView();
+
 	void RightPane();
 
 	void EngineViewport(ImTextureID* rendered_image_id);
