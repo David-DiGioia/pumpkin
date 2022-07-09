@@ -115,7 +115,11 @@ void EditorGui::TreeView()
 	auto& node_map{ editor_->GetNodeMap() };
 
 	EditorNode* clicked_node{ nullptr };
-	DrawTreeNode(root_node, &clicked_node);
+
+	// We don't draw the root node itself, this just exists to make it easier to do operations to all nodes recursively.
+	for (pmk::Node* node : root_node->node->GetChildren()) {
+		DrawTreeNode(&editor_->NodeToEditorNode(node), &clicked_node);
+	}
 
 	if (clicked_node) {
 		clicked_node->selected = !clicked_node->selected;
