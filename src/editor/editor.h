@@ -32,6 +32,13 @@ public:
 
 	pmk::Pumpkin* GetPumpkin();
 
+	EditorNode* GetRootNode() const;
+
+	std::unordered_map<uint32_t, EditorNode>& GetNodeMap();
+
+	// Get the EditorNode which contains the specified pmk::Node.
+	EditorNode& NodeToEditorNode(pmk::Node* node);
+
 	// Import the whole GLTF hierarchy, adding all nodes to scene.
 	// Note that Blender doesn't export cameras or lights.
 	//

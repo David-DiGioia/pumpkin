@@ -64,6 +64,21 @@ pmk::Pumpkin* Editor::GetPumpkin()
 	return pumpkin_;
 }
 
+EditorNode* Editor::GetRootNode() const
+{
+	return root_node_;
+}
+
+std::unordered_map<uint32_t, EditorNode>& Editor::GetNodeMap()
+{
+	return node_map_;
+}
+
+EditorNode& Editor::NodeToEditorNode(pmk::Node* node)
+{
+	return node_map_[node->node_id];
+}
+
 void Editor::ImportGLTF(const std::string& path)
 {
 	std::string prefix{ "../../../assets/" };
@@ -75,7 +90,7 @@ void Editor::ImportGLTF(const std::string& path)
 	// Make a wrapper EditorNode for each imported pmk::Node.
 	while (i < nodes.size())
 	{
-		node_map_[nodes[i].node_id] = EditorNode{ &nodes[i], false };
+		node_map_[nodes[i]->node_id] = EditorNode{ nodes[i], false };
 		++i;
 	}
 }

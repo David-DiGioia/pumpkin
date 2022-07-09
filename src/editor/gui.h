@@ -7,6 +7,7 @@
 #include "imgui.h"
 
 class Editor;
+class EditorNode;
 
 class EditorGui
 {
@@ -19,6 +20,12 @@ public:
 
 private:
 	void MainMenu();
+
+	// Recursive function for drawing tree view.
+	//
+	// root:             The node to draw, along with its subtree.
+	// out_node_clicked: Pointer to whichever node was clicked this frame, or nullptr.
+	void DrawTreeNode(EditorNode* root, EditorNode** out_node_clicked);
 
 	void TreeView();
 

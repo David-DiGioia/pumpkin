@@ -52,6 +52,8 @@ namespace pmk
 	public:
 		void Initialize(renderer::VulkanRenderer* renderer);
 
+		void CleanUp();
+
 		// Import the whole GLTF hierarchy, adding all nodes to scene.
 		// Note that Blender doesn't export cameras or lights.
 		void ImportGLTF(const std::string& path);
@@ -63,9 +65,9 @@ namespace pmk
 
 		Camera& GetCamera();
 
-		Node CreateNode();
+		Node* CreateNode();
 
-		std::vector<Node>& GetNodes();
+		std::vector<Node*>& GetNodes();
 
 		Node* GetRootNode() const;
 
@@ -73,7 +75,7 @@ namespace pmk
 		Camera camera_{};
 		renderer::VulkanRenderer* renderer_{};
 		Node* root_node_{};
-		std::vector<Node> nodes_{}; // All nodes in the scene.
+		std::vector<Node*> nodes_{}; // All nodes in the scene. We heap allocate the nodes to avoid dangling pointers when nodes_ resizes.
 		uint32_t next_node_id_{};   // The next node created will have this id.
 	};
 }

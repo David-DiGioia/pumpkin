@@ -32,6 +32,12 @@ namespace pmk
 
 	void Node::SetParent(Node* parent)
 	{
+		// No longer child of old parent.
+		if (parent_) {
+			parent_->children_.erase(this);
+		}
+
+		// Make child of new parent.
 		parent_ = parent;
 		if (parent) {
 			parent->children_.insert(this);
@@ -42,6 +48,12 @@ namespace pmk
 	{
 		if (child)
 		{
+			// No longer child of old parent.
+			if (child->parent_) {
+				child->parent_->children_.erase(child);
+			}
+
+			// Make child of this parent.
 			children_.insert(child);
 			child->parent_ = this;
 		}
@@ -52,8 +64,16 @@ namespace pmk
 		renderer_ = renderer;
 
 		// Every node will be a descendent of the root node.
-		nodes_.push_back(CreateNode());
-		root_node_ = &nodes_.back();
+		root_node_ = CreateNode();
+	}
+
+	void Scene::CleanUp()
+	{
+		for (Node* node : nodes_) {
+			delete node;
+		}
+		nodes_.clear();
+		root_node_ = nullptr;
 	}
 
 	void Scene::ImportGLTF(const std::string& path)
@@ -85,47 +105,45 @@ namespace pmk
 		nodes_.reserve(nodes_.size() + model.nodes.size());
 		for (tinygltf::Node gltf_node : model.nodes)
 		{
-			Node node{ CreateNode() };
+			Node* node{ CreateNode() };
 
 			if (gltf_node.mesh >= 0)
 			{
-				node.render_object = renderer_->CreateRenderObject(gltf_node.mesh);
+				node->render_object = renderer_->CreateRenderObject(gltf_node.mesh);
 
 				if (!gltf_node.translation.empty()) {
-					node.position = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };
+					node->position = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };
 				}
 
 				if (!gltf_node.scale.empty()) {
-					node.scale = glm::vec3{ (float)gltf_node.scale[0], (float)gltf_node.scale[1], (float)gltf_node.scale[2] };
+					node->scale = glm::vec3{ (float)gltf_node.scale[0], (float)gltf_node.scale[1], (float)gltf_node.scale[2] };
 				}
 
 				if (!gltf_node.rotation.empty()) {
-					node.rotation = glm::quat{ (float)gltf_node.rotation[0], (float)gltf_node.rotation[1], (float)gltf_node.rotation[2], (float)gltf_node.rotation[3] };
+					node->rotation = glm::quat{ (float)gltf_node.rotation[0], (float)gltf_node.rotation[1], (float)gltf_node.rotation[2], (float)gltf_node.rotation[3] };
 				}
 
 				for (int child_idx : gltf_node.children) {
-					node.AddChild(&nodes_[child_idx]);
+					node->AddChild(nodes_[child_idx]);
 				}
 			}
-
-			nodes_.emplace_back(node);
 		}
 	}
 
 	void Scene::UploadRenderObjects()
 	{
-		for (Node& node : nodes_)
+		for (Node* node : nodes_)
 		{
 			// Not every node has a render object.
-			if (node.render_object == renderer::NULL_HANDLE) {
+			if (node->render_object == renderer::NULL_HANDLE) {
 				continue;
 			}
 
-			glm::mat4 scale_mat{ glm::scale(node.scale) };
-			glm::mat4 rotation_mat{ glm::toMat4(node.rotation) };
-			glm::mat4 translate_mat{ glm::translate(node.position) };
+			glm::mat4 scale_mat{ glm::scale(node->scale) };
+			glm::mat4 rotation_mat{ glm::toMat4(node->rotation) };
+			glm::mat4 translate_mat{ glm::translate(node->position) };
 
-			renderer_->SetRenderObjectTransform(node.render_object, translate_mat * rotation_mat * scale_mat);
+			renderer_->SetRenderObjectTransform(node->render_object, translate_mat * rotation_mat * scale_mat);
 		}
 	}
 
@@ -139,12 +157,15 @@ namespace pmk
 		return camera_;
 	}
 
-	Node Scene::CreateNode()
+	Node* Scene::CreateNode()
 	{
-		return Node(next_node_id_++);
+		Node* node_ptr{ new Node(next_node_id_++) };
+		node_ptr->SetParent(root_node_);
+		nodes_.push_back(node_ptr);
+		return node_ptr;
 	}
 
-	std::vector<Node>& Scene::GetNodes()
+	std::vector<Node*>& Scene::GetNodes()
 	{
 		return nodes_;
 	}

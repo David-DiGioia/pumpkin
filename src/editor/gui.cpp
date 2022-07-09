@@ -71,6 +71,35 @@ void EditorGui::MainMenu()
 	}
 }
 
+void EditorGui::DrawTreeNode(EditorNode* root, EditorNode** out_node_clicked)
+{
+	ImGuiTreeNodeFlags node_flags{ ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth };
+
+	if (root->selected) {
+		node_flags |= ImGuiTreeNodeFlags_Selected;
+	}
+
+	bool is_leaf{ root->node->GetChildren().empty() };
+
+	if (is_leaf) {
+		node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+	}
+
+	bool node_open{ ImGui::TreeNodeEx((void*)(intptr_t)root->node->node_id, node_flags, "Node %d", root->node->node_id) };
+
+	if (!(*out_node_clicked) && ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+		*out_node_clicked = root;
+	}
+
+	if (!is_leaf && node_open)
+	{
+		for (pmk::Node* node : root->node->GetChildren()) {
+			DrawTreeNode(&editor_->NodeToEditorNode(node), out_node_clicked);
+		}
+		ImGui::TreePop();
+	}
+}
+
 void EditorGui::TreeView()
 {
 	if (!ImGui::Begin("Tree view"))
@@ -82,13 +111,26 @@ void EditorGui::TreeView()
 
 	ImGuiTreeNodeFlags base_flags{ ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth };
 
+	EditorNode* root_node{ editor_->GetRootNode() };
+	auto& node_map{ editor_->GetNodeMap() };
+
+	EditorNode* clicked_node{ nullptr };
+	DrawTreeNode(root_node, &clicked_node);
+
+	if (clicked_node) {
+		clicked_node->selected = !clicked_node->selected;
+	}
+
+	ImGui::End();
+
+	/*
 	// 'selection_mask' is dumb representation of what may be user-side selection state.
 	//  You may retain selection state inside or outside your objects in whatever format you see fit.
 	// 'node_clicked' is temporary storage of what node we have clicked to process selection at the end
 	/// of the loop. May be a pointer to your own node type, etc.
 	static int selection_mask = (1 << 2);
 	int node_clicked = -1;
-	for (int i = 0; i < 6; i++)
+	for (auto& iter : node_map)
 	{
 		// Disable the default "open on single-click behavior" + set Selected flag according to our selection.
 		// To alter selection we use IsItemClicked() && !IsItemToggledOpen(), so clicking on an arrow doesn't alter selection.
@@ -130,6 +172,7 @@ void EditorGui::TreeView()
 	}
 
 	ImGui::End();
+	*/
 }
 
 void EditorGui::RightPane()

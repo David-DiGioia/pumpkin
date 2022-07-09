@@ -49,6 +49,7 @@ namespace pmk
 
 	void Pumpkin::CleanUp()
 	{
+		scene_.CleanUp();
 		renderer_.CleanUp();
 		glfwDestroyWindow(window_);
 		glfwTerminate();
