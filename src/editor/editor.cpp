@@ -19,7 +19,7 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	gui_.Initialize(this);
 
 	// Set editor root node to match Pumpkin's scene root node.
-	node_map_[scene.GetRootNode()->node_id] = new EditorNode{ scene.GetRootNode(), false };
+	node_map_[scene.GetRootNode()->node_id] = new EditorNode{ scene.GetRootNode() };
 	root_node_ = node_map_[scene.GetRootNode()->node_id];
 }
 
@@ -80,6 +80,40 @@ std::unordered_map<uint32_t, EditorNode*>& Editor::GetNodeMap()
 	return node_map_;
 }
 
+void Editor::SetNodeSelection(EditorNode* node, bool selected)
+{
+	if (selected) {
+		SelectNode(node);
+	}
+	else {
+		DeselectNode(node);
+	}
+}
+
+void Editor::ToggleNodeSelection(EditorNode* node)
+{
+	SetNodeSelection(node, !IsNodeSelected(node));
+}
+
+void Editor::SelectNode(EditorNode* node)
+{
+	selected_nodes_.insert(node);
+	active_selection_node_ = node;
+}
+
+void Editor::DeselectNode(EditorNode* node)
+{
+	selected_nodes_.erase(node);
+	if (active_selection_node_ == node) {
+		active_selection_node_ = nullptr;
+	}
+}
+
+bool Editor::IsNodeSelected(EditorNode* node)
+{
+	return selected_nodes_.find(node) != selected_nodes_.end();
+}
+
 EditorNode* Editor::NodeToEditorNode(pmk::Node* node)
 {
 	return node_map_[node->node_id];
@@ -96,7 +130,7 @@ void Editor::ImportGLTF(const std::string& path)
 	// Make a wrapper EditorNode for each imported pmk::Node.
 	while (i < nodes.size())
 	{
-		node_map_[nodes[i]->node_id] = new EditorNode{ nodes[i], false };
+		node_map_[nodes[i]->node_id] = new EditorNode{ nodes[i] };
 		++i;
 	}
 }
