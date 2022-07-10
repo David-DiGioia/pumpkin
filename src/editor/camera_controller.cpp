@@ -9,15 +9,21 @@ void CameraController::Initialize(pmk::Camera* camera)
 	UpdateCamera();
 }
 
+void CameraController::Unfocus()
+{
+	// Reset focal distance.
+	focal_point_ -= focal_distance_ * GetForward();
+	focal_distance_ = 0.0f;
+
+	is_focused_ = false;
+}
+
 void CameraController::MoveRelativeToForward(const glm::vec3& relative_movement)
 {
 	glm::vec3 global_movement{ camera_->rotation * relative_movement };
 	focal_point_ += movement_speed_ * global_movement;
 
-	// Reset focal distance.
-	focal_point_ -= focal_distance_ * GetForward();
-	focal_distance_ = 0.0f;
-
+	Unfocus();
 	UpdateCamera();
 }
 
@@ -51,6 +57,22 @@ void CameraController::Rotate(float phi_delta, float theta_delta)
 glm::vec3 CameraController::GetForward() const
 {
 	return camera_->rotation * CAMERA_LOCAL_FORWARD;
+}
+
+float CameraController::GetFocalDistance() const
+{
+	return focal_distance_;
+}
+
+void CameraController::SetFocalDistance(float distance)
+{
+	focal_distance_ = distance;
+	UpdateCamera();
+}
+
+bool CameraController::IsFocused() const
+{
+	return is_focused_;
 }
 
 void CameraController::UpdateCamera()

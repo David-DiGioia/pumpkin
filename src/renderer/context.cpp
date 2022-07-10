@@ -22,7 +22,8 @@ namespace renderer
 			logger::TaggedWarning("DebugCallback", logger::TextColor::BRIGHT_BLACK, "%s\n", p_callback_data->pMessage);
 		}
 		else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-			logger::TaggedError("DebugCallback", logger::TextColor::BRIGHT_BLACK, "%s\n", p_callback_data->pMessage);
+			// Uncomment this after SDK update.
+			//logger::TaggedError("DebugCallback", logger::TextColor::BRIGHT_BLACK, "%s\n", p_callback_data->pMessage);
 		}
 
 		return VK_FALSE;

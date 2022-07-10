@@ -15,6 +15,8 @@ class CameraController
 public:
 	void Initialize(pmk::Camera* camera);
 
+	void Unfocus();
+
 	// Move the camera relative to the forward direction. If relative_movement == (0, 0, 1),then the camera moves forward.
 	void MoveRelativeToForward(const glm::vec3& relative_movement);
 
@@ -27,6 +29,12 @@ public:
 
 	glm::vec3 GetForward() const;
 
+	float GetFocalDistance() const;
+
+	void SetFocalDistance(float distance);
+
+	bool IsFocused() const;
+
 private:
 	void UpdateCamera();
 
@@ -37,7 +45,7 @@ private:
 	float mouse_sensitivity_{ 1.0f };
 
 	glm::vec3 focal_point_{};
-	bool focal_point_active_{ false };
+	bool is_focused_{ true };
 	float focal_distance_{ 5.0f };
 	float phi_{}; // Horizontal camera revolution.
 	float theta_{ PI / 2.0f }; // Vertical camera revolution. 0 is directly above the orbit center.
