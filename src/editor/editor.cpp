@@ -5,8 +5,6 @@
 
 #include "gui.h"
 
-constexpr uint32_t MAX_INSTRUMENTS{ 32 };
-
 void InitializationCallback(void* user_data)
 {
 	Editor* editor{ (Editor*)user_data };
@@ -21,8 +19,16 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	gui_.Initialize(this);
 
 	// Set editor root node to match Pumpkin's scene root node.
-	node_map_[scene.GetRootNode()->node_id] = EditorNode{ scene.GetRootNode(), false };
-	root_node_ = &node_map_[scene.GetRootNode()->node_id];
+	node_map_[scene.GetRootNode()->node_id] = new EditorNode{ scene.GetRootNode(), false };
+	root_node_ = node_map_[scene.GetRootNode()->node_id];
+}
+
+void Editor::CleanUp()
+{
+	for (auto& pair : node_map_) {
+		delete pair.second;
+	}
+	node_map_.clear();
 }
 
 // We pass rendered_image_id to the draw callback instead of at initialization because the
@@ -69,12 +75,12 @@ EditorNode* Editor::GetRootNode() const
 	return root_node_;
 }
 
-std::unordered_map<uint32_t, EditorNode>& Editor::GetNodeMap()
+std::unordered_map<uint32_t, EditorNode*>& Editor::GetNodeMap()
 {
 	return node_map_;
 }
 
-EditorNode& Editor::NodeToEditorNode(pmk::Node* node)
+EditorNode* Editor::NodeToEditorNode(pmk::Node* node)
 {
 	return node_map_[node->node_id];
 }
@@ -90,7 +96,7 @@ void Editor::ImportGLTF(const std::string& path)
 	// Make a wrapper EditorNode for each imported pmk::Node.
 	while (i < nodes.size())
 	{
-		node_map_[nodes[i]->node_id] = EditorNode{ nodes[i], false };
+		node_map_[nodes[i]->node_id] = new EditorNode{ nodes[i], false };
 		++i;
 	}
 }

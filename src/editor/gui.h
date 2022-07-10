@@ -7,7 +7,7 @@
 #include "imgui.h"
 
 class Editor;
-class EditorNode;
+struct EditorNode;
 
 class EditorGui
 {

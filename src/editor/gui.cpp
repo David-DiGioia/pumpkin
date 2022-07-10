@@ -94,7 +94,7 @@ void EditorGui::DrawTreeNode(EditorNode* root, EditorNode** out_node_clicked)
 	if (!is_leaf && node_open)
 	{
 		for (pmk::Node* node : root->node->GetChildren()) {
-			DrawTreeNode(&editor_->NodeToEditorNode(node), out_node_clicked);
+			DrawTreeNode(editor_->NodeToEditorNode(node), out_node_clicked);
 		}
 		ImGui::TreePop();
 	}
@@ -118,7 +118,7 @@ void EditorGui::TreeView()
 
 	// We don't draw the root node itself, this just exists to make it easier to do operations to all nodes recursively.
 	for (pmk::Node* node : root_node->node->GetChildren()) {
-		DrawTreeNode(&editor_->NodeToEditorNode(node), &clicked_node);
+		DrawTreeNode(editor_->NodeToEditorNode(node), &clicked_node);
 	}
 
 	if (clicked_node) {

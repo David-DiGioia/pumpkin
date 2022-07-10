@@ -9,12 +9,13 @@ int main()
 	Editor editor{};
 	pumpkin.SetImGuiCallbacksInfo(editor.GetEditorInfo());
 	pumpkin.Initialize();
-
 	editor.Initialize(&pumpkin);
 
 	editor.ImportGLTF("test_gltf.gltf"); // TODO: Proper import through editor GUI.
 
 	pumpkin.Start();
 
+	editor.CleanUp();
+	pumpkin.CleanUp();
 	return 0;
 }

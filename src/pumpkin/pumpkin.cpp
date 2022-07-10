@@ -20,7 +20,6 @@ namespace pmk
 	void Pumpkin::Start()
 	{
 		MainLoop();
-		CleanUp();
 	}
 
 	void Pumpkin::HostWork()
