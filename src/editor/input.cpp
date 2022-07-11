@@ -9,7 +9,8 @@
 
 void ProcessViewportInput(Editor* editor)
 {
-	constexpr float mouse_wheel_multiplier{ 0.1f };
+	constexpr float zoom_speed{ 0.1f };
+	constexpr float rotate_speed{ 2.0f };
 
 	CameraController& controller{ editor->GetCameraController() };
 	float delta_time{ editor->GetPumpkin()->GetDeltaTime() };
@@ -46,7 +47,7 @@ void ProcessViewportInput(Editor* editor)
 
 	if (mouse_delta != glm::vec2(0.0f, 0.0f))
 	{
-		controller.Rotate(-mouse_delta.x * delta_time, -mouse_delta.y * delta_time);
+		controller.Rotate(-mouse_delta.x * rotate_speed * delta_time, -mouse_delta.y * rotate_speed * delta_time);
 		ImGui::ResetMouseDragDelta();
 	}
 
@@ -59,7 +60,7 @@ void ProcessViewportInput(Editor* editor)
 
 		// Proportional to current distance so zooming far in/out still has reasonable speed.
 		// Add offset to current distance so maximum zoom in doesn't get stuck at 0 zoom speed.
-		float delta_dist{ (-wheel) * mouse_wheel_multiplier * (current_dist + current_dist_offset)};
+		float delta_dist{ (-wheel) * zoom_speed * (current_dist + current_dist_offset)};
 		controller.SetFocalDistance(std::max(current_dist + delta_dist, 0.0f));
 	}
 }
