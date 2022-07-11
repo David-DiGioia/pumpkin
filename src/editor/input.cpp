@@ -63,3 +63,9 @@ void ProcessViewportInput(Editor* editor)
 		controller.SetFocalDistance(std::max(current_dist + delta_dist, 0.0f));
 	}
 }
+
+void ProcessTreeViewInput(Editor* editor)
+{
+	// Handle multiselect.
+	editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
+}

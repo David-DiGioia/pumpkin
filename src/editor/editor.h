@@ -49,6 +49,9 @@ public:
 
 	bool IsNodeSelected(EditorNode* node);
 
+	// Let editor decided what happens depending on if multiselect is enabled.
+	void NodeClicked(EditorNode* node);
+
 	// Get the EditorNode which contains the specified pmk::Node.
 	EditorNode* NodeToEditorNode(pmk::Node* node);
 
@@ -57,6 +60,8 @@ public:
 	//
 	// path: The path relative to the assets folder.
 	void ImportGLTF(const std::string& path);
+
+	void SetMultiselect(bool multiselect);
 
 private:
 	friend class EditorGui;
@@ -69,4 +74,6 @@ private:
 	EditorNode* active_selection_node_{ nullptr };         // There can be multiple selected nodes but only one actively selected node.
 	std::unordered_set<EditorNode*> selected_nodes_{};     // Set of all selected nodes. Having a set makes it possible to ierate over only selected nodes.
 	std::unordered_map<uint32_t, EditorNode*> node_map_{}; // The key of this map is pmk::Node::node_id.
+
+	bool multi_select_enabled_{ false }; // Selecting a node does not deselect all other nodes when enabled.
 };

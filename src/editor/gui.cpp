@@ -121,8 +121,13 @@ void EditorGui::TreeView()
 		DrawTreeNode(editor_->NodeToEditorNode(node), &clicked_node);
 	}
 
+	// If the defocused window is clicked in, it seems the IsWindowFocused is delayed a frame before it returns true.
+	if (ImGui::IsWindowFocused() || clicked_node) {
+		ProcessTreeViewInput(editor_);
+	}
+
 	if (clicked_node) {
-		editor_->ToggleNodeSelection(clicked_node);
+		editor_->NodeClicked(clicked_node);
 	}
 
 	ImGui::End();

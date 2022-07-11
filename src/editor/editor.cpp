@@ -97,6 +97,10 @@ void Editor::ToggleNodeSelection(EditorNode* node)
 
 void Editor::SelectNode(EditorNode* node)
 {
+	if (!multi_select_enabled_) {
+		selected_nodes_.clear();
+	}
+
 	selected_nodes_.insert(node);
 	active_selection_node_ = node;
 }
@@ -112,6 +116,16 @@ void Editor::DeselectNode(EditorNode* node)
 bool Editor::IsNodeSelected(EditorNode* node)
 {
 	return selected_nodes_.find(node) != selected_nodes_.end();
+}
+
+void Editor::NodeClicked(EditorNode* node)
+{
+	if (multi_select_enabled_) {
+		ToggleNodeSelection(node);
+	}
+	else {
+		SelectNode(node);
+	}
 }
 
 EditorNode* Editor::NodeToEditorNode(pmk::Node* node)
@@ -133,4 +147,9 @@ void Editor::ImportGLTF(const std::string& path)
 		node_map_[nodes[i]->node_id] = new EditorNode{ nodes[i] };
 		++i;
 	}
+}
+
+void Editor::SetMultiselect(bool multiselect)
+{
+	multi_select_enabled_ = multiselect;
 }
