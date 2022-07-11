@@ -4,9 +4,7 @@
 #include <string>
 #include <climits>
 #include "imgui.h"
-#include "implot/implot.h"
-#include "curve_editor/curve_v122.hpp"
-#include "imsequencer/imsequencer.h"
+#include "glm/gtc/type_ptr.hpp"
 
 #include "editor.h"
 #include "pumpkin.h"
@@ -39,8 +37,8 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 
 	MainMenu();
 	TreeView();
-	RightPane();
 	ImGui::ShowDemoWindow();
+	NodeProperties();
 	EngineViewport(rendered_image_id);
 }
 
@@ -85,7 +83,7 @@ void EditorGui::DrawTreeNode(EditorNode* root, EditorNode** out_node_clicked)
 		node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 	}
 
-	bool node_open{ ImGui::TreeNodeEx((void*)(intptr_t)root->node->node_id, node_flags, "Node %d", root->node->node_id) };
+	bool node_open{ ImGui::TreeNodeEx((void*)(intptr_t)root->node->node_id, node_flags, root->GetName().c_str()) };
 
 	if (!(*out_node_clicked) && ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
 		*out_node_clicked = root;
@@ -133,16 +131,28 @@ void EditorGui::TreeView()
 	ImGui::End();
 }
 
-void EditorGui::RightPane()
+void EditorGui::NodeProperties()
 {
-	if (!ImGui::Begin("Right pane"))
+	if (!ImGui::Begin("Node properties"))
 	{
 		// Early out if the window is collapsed, as an optimization.
 		ImGui::End();
 		return;
 	}
 
-	ImGui::Text("Welcome to the Pumpkin engine!");
+	EditorNode* active_node{ editor_->active_selection_node_ };
+
+	if (active_node)
+	{
+		ImGui::InputText("Node name", active_node->GetNameBuffer(), NODE_NAME_BUFFER_SIZE);
+		ImGui::DragFloat3("Position", glm::value_ptr(active_node->node->position), 0.1f);
+		ImGui::DragFloat3("Scale", glm::value_ptr(active_node->node->scale), 0.1f);
+		auto& rot{ active_node->node->rotation };
+		ImGui::Text("%.2f  %.2f  %.2f  %.2f Rotation", rot.x, rot.y, rot.z, rot.w);
+	}
+	else {
+		ImGui::Text("No actively selected node.");
+	}
 
 	ImGui::End();
 }

@@ -11,11 +11,25 @@
 #include "gui.h"
 #include "camera_controller.h"
 
+constexpr uint32_t NODE_NAME_BUFFER_SIZE{ 64 };
+
 // Wrapper for pmk::Node that adds extra members only needed by the editor.
-struct EditorNode
+class EditorNode
 {
+public:
+	EditorNode(pmk::Node* pmk_node, const std::string& name);
+
+	EditorNode(pmk::Node* pmk_node);
+
+	~EditorNode();
+
+	std::string GetName() const;
+
+	char* GetNameBuffer() const;
+
 	pmk::Node* node;
-	std::string name;
+private:
+	char* name_buffer_;
 };
 
 class Editor

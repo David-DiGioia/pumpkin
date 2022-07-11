@@ -7,7 +7,7 @@
 #include "imgui.h"
 
 class Editor;
-struct EditorNode;
+class EditorNode;
 
 class EditorGui
 {
@@ -29,7 +29,7 @@ private:
 
 	void TreeView();
 
-	void RightPane();
+	void NodeProperties();
 
 	void EngineViewport(ImTextureID* rendered_image_id);
 

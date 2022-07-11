@@ -153,3 +153,30 @@ void Editor::SetMultiselect(bool multiselect)
 {
 	multi_select_enabled_ = multiselect;
 }
+
+EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)
+	: node{ pmk_node }
+	, name_buffer_{ new char[NODE_NAME_BUFFER_SIZE] {} }
+{
+	std::strcpy(name_buffer_, name.c_str());
+}
+
+EditorNode::EditorNode(pmk::Node* pmk_node)
+	: EditorNode(pmk_node, std::string{ "Node " } + std::to_string(pmk_node->node_id) )
+{
+}
+
+EditorNode::~EditorNode()
+{
+	delete[] name_buffer_;
+}
+
+std::string EditorNode::GetName() const
+{
+	return std::string(name_buffer_);
+}
+
+char* EditorNode::GetNameBuffer() const
+{
+	return name_buffer_;
+}
