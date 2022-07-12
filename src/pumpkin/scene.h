@@ -72,10 +72,13 @@ namespace pmk
 		Node* GetRootNode() const;
 
 	private:
+		// Recursive implementation to upload node render object data.
+		void UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform);
+
 		Camera camera_{};
 		renderer::VulkanRenderer* renderer_{};
 		Node* root_node_{};
 		std::vector<Node*> nodes_{}; // All nodes in the scene. We heap allocate the nodes to avoid dangling pointers when nodes_ resizes.
-		uint32_t next_node_id_{};   // The next node created will have this id.
+		uint32_t next_node_id_{};    // The next node created will have this id.
 	};
 }

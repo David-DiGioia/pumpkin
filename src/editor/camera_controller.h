@@ -46,7 +46,7 @@ private:
 	float movement_speed_{ 2.0f };
 	float mouse_sensitivity_{ 1.0f };
 
-	glm::vec3 focal_point_{};
+	glm::vec3 focal_point_{ 0.0f, 0.0f, 10.0f }; // Make camera initially look at origin from 10 units away.
 	bool is_focused_{ false };
 	float focal_distance_{ 0.0f };
 	float phi_{}; // Horizontal camera revolution.

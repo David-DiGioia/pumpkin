@@ -132,21 +132,24 @@ namespace pmk
 		}
 	}
 
+	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
+	{
+		glm::mat4 local_transform{ glm::translate(root->position) * glm::toMat4(root->rotation) * glm::scale(root->scale) };
+		glm::mat4 global_transform{ parent_transform * local_transform };
+
+		// Not every node has a render object.
+		if (root->render_object != renderer::NULL_HANDLE) {
+			renderer_->SetRenderObjectTransform(root->render_object, global_transform);
+		}
+
+		for (Node* child : root->children_) {
+			UploadRenderObjectsRec(child, global_transform);
+		}
+	}
+
 	void Scene::UploadRenderObjects()
 	{
-		for (Node* node : nodes_)
-		{
-			// Not every node has a render object.
-			if (node->render_object == renderer::NULL_HANDLE) {
-				continue;
-			}
-
-			glm::mat4 scale_mat{ glm::scale(node->scale) };
-			glm::mat4 rotation_mat{ glm::toMat4(node->rotation) };
-			glm::mat4 translate_mat{ glm::translate(node->position) };
-
-			renderer_->SetRenderObjectTransform(node->render_object, translate_mat * rotation_mat * scale_mat);
-		}
+		UploadRenderObjectsRec(root_node_, glm::mat4(1.0f));
 	}
 
 	void Scene::UploadCamera()
