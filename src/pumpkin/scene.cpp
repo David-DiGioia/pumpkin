@@ -102,7 +102,9 @@ namespace pmk
 
 		renderer_->LoadMeshesGLTF(model);
 
-		nodes_.reserve(nodes_.size() + model.nodes.size());
+		int starting_index{ (int)nodes_.size() };
+		nodes_.reserve(starting_index + model.nodes.size());
+
 		for (tinygltf::Node gltf_node : model.nodes)
 		{
 			Node* node{ CreateNode() };
@@ -124,7 +126,7 @@ namespace pmk
 				}
 
 				for (int child_idx : gltf_node.children) {
-					node->AddChild(nodes_[child_idx]);
+					node->AddChild(nodes_[starting_index + child_idx]);
 				}
 			}
 		}

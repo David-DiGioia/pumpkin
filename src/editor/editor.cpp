@@ -138,7 +138,10 @@ void Editor::ImportGLTF(const std::string& path)
 	std::string prefix{ "../../../assets/" };
 	auto& nodes{ pumpkin_->GetScene().GetNodes() };
 
+	// The starting index before we add more nodes.
 	uint32_t i{ (uint32_t)nodes.size() };
+
+	// Add new nodes to scene.
 	pumpkin_->GetScene().ImportGLTF(prefix + path);
 
 	// Make a wrapper EditorNode for each imported pmk::Node.
