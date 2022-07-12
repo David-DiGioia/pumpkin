@@ -77,6 +77,8 @@ public:
 
 	void SetMultiselect(bool multiselect);
 
+	EditorNode* GetActiveSelectionNode();
+
 private:
 	friend class EditorGui;
 

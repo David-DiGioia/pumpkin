@@ -42,6 +42,15 @@ void ProcessViewportInput(Editor* editor)
 		controller.MoveRelativeToForward(delta_time * move_dir);
 	}
 
+	// Focus on target on key press.
+	EditorNode* active_selection{ editor->GetActiveSelectionNode() };
+	if (ImGui::IsKeyDown(ImGuiKey_KeypadDecimal) && active_selection)
+	{
+		// TODO: Don't hardcode radius. This should be calculated from node's bounding box.
+		float radius{ 5.0f };
+		controller.Focus(active_selection->node->position, radius);
+	}
+
 	// Revolve / rotate with mouse.
 	glm::vec2 mouse_delta{ CastVec2<glm::vec2>(ImGui::GetMouseDragDelta()) };
 

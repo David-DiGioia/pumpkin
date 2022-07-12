@@ -9,6 +9,14 @@ void CameraController::Initialize(pmk::Camera* camera)
 	UpdateCamera();
 }
 
+void CameraController::Focus(const glm::vec3& target, float radius)
+{
+	focal_point_ = target;
+	focal_distance_ = radius;
+	is_focused_ = true;
+	UpdateCamera();
+}
+
 void CameraController::Unfocus()
 {
 	// Reset focal distance.
