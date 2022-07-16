@@ -37,6 +37,8 @@ public:
 
 	bool IsFocused() const;
 
+	const pmk::Camera* GetCamera() const;
+
 private:
 	void UpdateCamera();
 

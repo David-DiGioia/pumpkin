@@ -37,7 +37,7 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 
 	MainMenu();
 	TreeView();
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
 	NodeProperties();
 	EngineViewport(rendered_image_id);
 }
@@ -167,7 +167,7 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 	bool success{ ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoTitleBar) };
 	ImGui::PopStyleVar(3);
 
-	ImVec2 render_size{ ImGui::GetContentRegionAvail() };
+	const ImVec2 render_size{ ImGui::GetContentRegionAvail() };
 	// If window closes ImGui sets its size to -1. So clamp to 0.
 	uint32_t width{ (uint32_t)std::max(render_size.x, 0.0f) };
 	uint32_t height{ (uint32_t)std::max(render_size.y, 0.0f) };

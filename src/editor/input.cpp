@@ -7,8 +7,52 @@
 #include "camera_controller.h"
 #include "math_util.h"
 
+// Converts a vector with units of pixels to a vector with units of viewport height.
+glm::vec2 PixelToViewportUnits(const glm::vec2& pixel_vec)
+{
+	auto viewport_size{ ImGui::GetWindowSize() };
+	return glm::vec2{ pixel_vec.x / viewport_size.y, pixel_vec.y / viewport_size.y };
+}
+
+// Returns true if editor is actively in a transform mode (like translating a node with mouse input).
+static bool ProcessTransformInput(Editor* editor)
+{
+	// Transform keyboard shortcuts.
+	if (ImGui::IsKeyPressed(ImGuiKey_G, false) && !editor->SelectionEmpty()) {
+		editor->SetActiveTransformType(TransformType::TRANSLATE);
+	}
+	else if (ImGui::IsKeyPressed(ImGuiKey_R, false) && !editor->SelectionEmpty()) {
+		editor->SetActiveTransformType(TransformType::ROTATE);
+	}
+
+	// Handle transform input separately since it overrides other input.
+	if (editor->GetActiveTransformType() != TransformType::NONE)
+	{
+		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+			editor->ApplyTransformInput();
+		}
+		else if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+			editor->CancelTransformInput();
+		}
+		else
+		{
+			glm::vec2 pixel_pos{ CastVec2<glm::vec2>(ImGui::GetMousePos()) };
+			glm::vec2 viewport_pos{ PixelToViewportUnits(pixel_pos) };
+
+			editor->ProcessTransformInput(viewport_pos);
+		}
+		return true;
+	}
+
+	return false;
+}
+
 void ProcessViewportInput(Editor* editor)
 {
+	if (ProcessTransformInput(editor)) {
+		return;
+	}
+
 	constexpr float zoom_speed{ 0.1f };
 	constexpr float rotate_speed{ 2.0f };
 
@@ -69,7 +113,7 @@ void ProcessViewportInput(Editor* editor)
 
 		// Proportional to current distance so zooming far in/out still has reasonable speed.
 		// Add offset to current distance so maximum zoom in doesn't get stuck at 0 zoom speed.
-		float delta_dist{ (-wheel) * zoom_speed * (current_dist + current_dist_offset)};
+		float delta_dist{ (-wheel) * zoom_speed * (current_dist + current_dist_offset) };
 		controller.SetFocalDistance(std::max(current_dist + delta_dist, 0.0f));
 	}
 }

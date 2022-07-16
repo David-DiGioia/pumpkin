@@ -83,6 +83,11 @@ bool CameraController::IsFocused() const
 	return is_focused_;
 }
 
+const pmk::Camera* CameraController::GetCamera() const
+{
+	return camera_;
+}
+
 void CameraController::UpdateCamera()
 {
 	// This is matrix multiplication Y * X.

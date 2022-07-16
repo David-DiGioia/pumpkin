@@ -1,6 +1,7 @@
 #include "editor.h"
 
 #include <string>
+#include <math.h>
 #include "imgui.h"
 
 #include "gui.h"
@@ -118,6 +119,11 @@ bool Editor::IsNodeSelected(EditorNode* node)
 	return selected_nodes_.find(node) != selected_nodes_.end();
 }
 
+bool Editor::SelectionEmpty() const
+{
+	return selected_nodes_.empty();
+}
+
 void Editor::NodeClicked(EditorNode* node)
 {
 	if (multi_select_enabled_) {
@@ -162,6 +168,83 @@ EditorNode* Editor::GetActiveSelectionNode()
 	return active_selection_node_;
 }
 
+TransformType Editor::GetActiveTransformType() const
+{
+	return transform_info_.type;
+}
+
+void Editor::SetActiveTransformType(TransformType state)
+{
+	transform_info_ = TransformInfo{}; // Reset transform info.
+	transform_info_.type = state;
+
+	if (state != TransformType::NONE) {
+		CacheOriginalTransforms();
+	}
+}
+
+void Editor::CacheOriginalTransforms()
+{
+	transform_info_.original_transforms.clear();
+
+	for (EditorNode* node : selected_nodes_) {
+		transform_info_.original_transforms[node] = Transform{ node->node->position, node->node->scale, node->node->rotation };
+	}
+}
+
+void Editor::ProcessTransformInput(const glm::vec2& mouse_pos)
+{
+	// Save starting position of mouse so we can calculate delta.
+	if (transform_info_.mouse_start_pos == glm::vec2{ -1.0f, -1.0f }) {
+		transform_info_.mouse_start_pos = mouse_pos;
+	}
+
+	glm::vec2 mouse_delta{ mouse_pos - transform_info_.mouse_start_pos };
+
+	switch (transform_info_.type)
+	{
+	case TransformType::TRANSLATE:
+
+		for (EditorNode* node : selected_nodes_)
+		{
+			// Distance from the camera to the plane of the camera frustum that the node lies on.
+			float node_plane_dist{ glm::dot(controller_.GetForward(), node->node->position - controller_.GetCamera()->position) };
+			// Distance to the plane of camera frustum with height of 1.
+			float one_height_dist{ 1.0f / (2.0f * std::tanf(glm::radians(controller_.GetCamera()->fov / 2.0f))) };
+			// This scales screen_delta to get world space offset that moves node specified ratio across screen.
+			float movement_multiplier{ node_plane_dist / one_height_dist };
+
+			glm::vec2 local_displacement{ movement_multiplier * mouse_delta.x, -movement_multiplier * mouse_delta.y }; // Negate y since negative screenspace y means up.
+			glm::vec3 global_displacement{ (glm::vec3)(controller_.GetCamera()->rotation * glm::vec4{local_displacement.x, local_displacement.y, 0.0f, 1.0f}) };
+
+			node->node->position = transform_info_.original_transforms[node].position + global_displacement;
+		}
+
+		break;
+	}
+}
+
+void Editor::ApplyTransformInput()
+{
+}
+
+void Editor::CancelTransformInput()
+{
+}
+
+glm::vec3 Editor::GetSelectedNodesAveragePosition() const
+{
+	if (selected_nodes_.empty()) {
+		return glm::vec3{};
+	}
+
+	glm::vec3 sum{};
+	for (EditorNode* node : selected_nodes_) {
+		sum += node->node->position;
+	}
+	return sum / (float)selected_nodes_.size();
+}
+
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)
 	: node{ pmk_node }
 	, name_buffer_{ new char[NODE_NAME_BUFFER_SIZE] {} }
@@ -170,7 +253,7 @@ EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)
 }
 
 EditorNode::EditorNode(pmk::Node* pmk_node)
-	: EditorNode(pmk_node, std::string{ "Node " } + std::to_string(pmk_node->node_id) )
+	: EditorNode(pmk_node, std::string{ "Node " } + std::to_string(pmk_node->node_id))
 {
 }
 

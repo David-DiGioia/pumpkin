@@ -13,6 +13,28 @@
 
 constexpr uint32_t NODE_NAME_BUFFER_SIZE{ 64 };
 
+enum class TransformType {
+	NONE,
+	TRANSLATE,
+	ROTATE,
+	SCALE,
+};
+
+enum class TransformLock {
+	NONE,
+	X,
+	Y,
+	Z,
+	XY,
+	XZ,
+	YZ,
+};
+
+enum class TransformSpace {
+	GLOBAL,
+	LOCAL,
+};
+
 // Wrapper for pmk::Node that adds extra members only needed by the editor.
 class EditorNode
 {
@@ -30,6 +52,24 @@ public:
 	pmk::Node* node;
 private:
 	char* name_buffer_;
+};
+
+struct Transform
+{
+	glm::vec3 position{};
+	glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
+	glm::quat rotation{};
+};
+
+struct TransformInfo
+{
+	TransformType type{ TransformType::NONE };
+	TransformLock lock{ TransformLock::NONE };
+	TransformSpace space{ TransformSpace::GLOBAL };
+	glm::vec2 mouse_start_pos{ -1.0f, -1.0f };
+
+	// Save a copy of the selected nodes' original transforms, since we transform relative to them each frame, and may want to restore them.
+	std::unordered_map <EditorNode*, Transform> original_transforms{};
 };
 
 class Editor
@@ -63,6 +103,8 @@ public:
 
 	bool IsNodeSelected(EditorNode* node);
 
+	bool SelectionEmpty() const;
+
 	// Let editor decided what happens depending on if multiselect is enabled.
 	void NodeClicked(EditorNode* node);
 
@@ -79,7 +121,26 @@ public:
 
 	EditorNode* GetActiveSelectionNode();
 
+	// If a node is actively being transformed via hotkeys, this will tell you the type of transformation it's undergoing.
+	TransformType GetActiveTransformType() const;
+
+	void SetActiveTransformType(TransformType state);
+
+	// Process the transform input while the transform state is not TransformState::NONE. This gives live update from user input.
+	// 
+	// mouse_pos: The mouse position using units of viewport height.
+	void ProcessTransformInput(const glm::vec2& mouse_pos);
+
+	void ApplyTransformInput();
+
+	void CancelTransformInput();
+
 private:
+	// Temporarily save original transforms of selected objects before we modify them.
+	void CacheOriginalTransforms();
+
+	glm::vec3 GetSelectedNodesAveragePosition() const;
+
 	friend class EditorGui;
 
 	pmk::Pumpkin* pumpkin_{};
@@ -92,4 +153,6 @@ private:
 	std::unordered_map<uint32_t, EditorNode*> node_map_{}; // The key of this map is pmk::Node::node_id.
 
 	bool multi_select_enabled_{ false }; // Selecting a node does not deselect all other nodes when enabled.
+
+	TransformInfo transform_info_{};
 };
