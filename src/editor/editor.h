@@ -139,6 +139,9 @@ private:
 	// Temporarily save original transforms of selected objects before we modify them.
 	void CacheOriginalTransforms();
 
+	// Query if any ancestor of a node is selected (parent, parent's parent, etc).
+	bool IsNodeAncestorSelected(EditorNode* node);
+
 	glm::vec3 GetSelectedNodesAveragePosition() const;
 
 	friend class EditorGui;

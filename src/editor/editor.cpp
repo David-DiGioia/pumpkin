@@ -205,19 +205,22 @@ void Editor::ProcessTransformInput(const glm::vec2& mouse_pos)
 	{
 	case TransformType::TRANSLATE:
 
+		// Distance from the camera to the plane of the camera frustum that the node lies on.
+		float node_plane_dist{ glm::dot(controller_.GetForward(), GetSelectedNodesAveragePosition() - controller_.GetCamera()->position) };
+		// Distance to the plane of camera frustum with height of 1.
+		float one_height_dist{ 1.0f / (2.0f * std::tanf(glm::radians(controller_.GetCamera()->fov / 2.0f))) };
+		// This scales screen_delta to get world space offset that moves node specified ratio across screen.
+		float movement_multiplier{ node_plane_dist / one_height_dist };
+
+		glm::vec2 local_displacement{ movement_multiplier * mouse_delta.x, -movement_multiplier * mouse_delta.y }; // Negate y since negative screenspace y means up.
+		glm::vec3 global_displacement{ (glm::vec3)(controller_.GetCamera()->rotation * glm::vec4{local_displacement.x, local_displacement.y, 0.0f, 1.0f}) };
+
 		for (EditorNode* node : selected_nodes_)
 		{
-			// Distance from the camera to the plane of the camera frustum that the node lies on.
-			float node_plane_dist{ glm::dot(controller_.GetForward(), node->node->position - controller_.GetCamera()->position) };
-			// Distance to the plane of camera frustum with height of 1.
-			float one_height_dist{ 1.0f / (2.0f * std::tanf(glm::radians(controller_.GetCamera()->fov / 2.0f))) };
-			// This scales screen_delta to get world space offset that moves node specified ratio across screen.
-			float movement_multiplier{ node_plane_dist / one_height_dist };
-
-			glm::vec2 local_displacement{ movement_multiplier * mouse_delta.x, -movement_multiplier * mouse_delta.y }; // Negate y since negative screenspace y means up.
-			glm::vec3 global_displacement{ (glm::vec3)(controller_.GetCamera()->rotation * glm::vec4{local_displacement.x, local_displacement.y, 0.0f, 1.0f}) };
-
-			node->node->position = transform_info_.original_transforms[node].position + global_displacement;
+			// If a node's ancestor is selected then transforming both parent and child will result in double the transform of the child.
+			if (!IsNodeAncestorSelected(node)) {
+				node->node->position = transform_info_.original_transforms[node].position + global_displacement;
+			}
 		}
 
 		break;
@@ -226,10 +229,31 @@ void Editor::ProcessTransformInput(const glm::vec2& mouse_pos)
 
 void Editor::ApplyTransformInput()
 {
+	SetActiveTransformType(TransformType::NONE);
 }
 
 void Editor::CancelTransformInput()
 {
+	for (EditorNode* node : selected_nodes_)
+	{
+		node->node->position = transform_info_.original_transforms[node].position;
+		node->node->scale = transform_info_.original_transforms[node].scale;
+		node->node->rotation = transform_info_.original_transforms[node].rotation;
+	}
+
+	SetActiveTransformType(TransformType::NONE);
+}
+
+bool Editor::IsNodeAncestorSelected(EditorNode* node)
+{
+	pmk::Node* parent{ node->node->GetParent() };
+
+	if (parent) {
+		EditorNode* editor_parent{ NodeToEditorNode(parent) };
+		return IsNodeSelected(editor_parent) || IsNodeAncestorSelected(editor_parent);
+	}
+
+	return false;
 }
 
 glm::vec3 Editor::GetSelectedNodesAveragePosition() const
