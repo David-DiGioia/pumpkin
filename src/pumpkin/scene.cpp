@@ -59,6 +59,43 @@ namespace pmk
 		}
 	}
 
+	void Node::SetWorldPosition(const glm::vec3& world_position)
+	{
+		// Because (parent world space transform) * (local transform) = (world transform).
+		position = glm::inverse(parent_->GetWorldTransform()) * glm::vec4{ world_position, 1.0f };
+	}
+
+	glm::vec3 Node::GetWorldPosition() const
+	{
+		return parent_->GetWorldTransform() * glm::vec4{ position, 1.0f };
+	}
+
+	void Node::SetWorldRotation(const glm::quat& world_rotation)
+	{
+		rotation = glm::inverse(parent_->GetWorldRotation()) * world_rotation;
+	}
+
+	glm::quat Node::GetWorldRotation() const
+	{
+		if (parent_) {
+			return parent_->GetWorldRotation() * rotation;
+		}
+		return rotation;
+	}
+
+	glm::mat4 Node::GetLocalTransform() const
+	{
+		return glm::translate(position) * glm::toMat4(rotation) * glm::scale(scale);
+	}
+
+	glm::mat4 Node::GetWorldTransform() const
+	{
+		if (parent_) {
+			return parent_->GetWorldTransform() * GetLocalTransform();
+		}
+		return GetLocalTransform();
+	}
+
 	void Scene::Initialize(renderer::VulkanRenderer* renderer)
 	{
 		renderer_ = renderer;
@@ -137,16 +174,18 @@ namespace pmk
 
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
 	{
-		glm::mat4 local_transform{ glm::translate(root->position) * glm::toMat4(root->rotation) * glm::scale(root->scale) };
-		glm::mat4 global_transform{ parent_transform * local_transform };
+		glm::mat4 local_transform{ root->GetLocalTransform() };
+		// We do not use GetWorldTransform() here since it's more efficient to accumulate the transform down the tree,
+		// rather than needing to recurse back up at each step to get the world transform.
+		glm::mat4 world_transform{ parent_transform * local_transform };
 
 		// Not every node has a render object.
 		if (root->render_object != renderer::NULL_HANDLE) {
-			renderer_->SetRenderObjectTransform(root->render_object, global_transform);
+			renderer_->SetRenderObjectTransform(root->render_object, world_transform);
 		}
 
 		for (Node* child : root->children_) {
-			UploadRenderObjectsRec(child, global_transform);
+			UploadRenderObjectsRec(child, world_transform);
 		}
 	}
 

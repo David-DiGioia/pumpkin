@@ -188,9 +188,10 @@ void Editor::SetActiveTransformType(TransformType state)
 void Editor::CacheOriginalTransforms()
 {
 	transform_info_.original_transforms.clear();
+	transform_info_.average_start_pos = GetSelectedNodesAveragePosition();
 
 	for (EditorNode* node : selected_nodes_) {
-		transform_info_.original_transforms[node] = Transform{ node->node->position, node->node->scale, node->node->rotation };
+		transform_info_.original_transforms[node] = Transform{ node->node->GetWorldPosition(), node->node->scale, node->node->GetWorldRotation()};
 	}
 }
 
@@ -203,22 +204,22 @@ void Editor::ProcessTranslationInput(const glm::vec2& mouse_delta)
 	// This scales screen_delta to get world space offset that moves node specified ratio across screen.
 	float movement_multiplier{ node_plane_dist / one_height_dist };
 
-	glm::vec2 local_displacement{ movement_multiplier * mouse_delta.x, -movement_multiplier * mouse_delta.y }; // Negate y since negative screenspace y means up.
-	glm::vec3 global_displacement{ (glm::vec3)(controller_.GetCamera()->rotation * glm::vec4{local_displacement.x, local_displacement.y, 0.0f, 1.0f}) };
+	glm::vec2 screen_displacement{ movement_multiplier * mouse_delta.x, -movement_multiplier * mouse_delta.y }; // Negate y since negative screenspace y means up.
+	glm::vec3 world_displacement{ (glm::vec3)(controller_.GetCamera()->rotation * glm::vec4{screen_displacement, 0.0f, 1.0f}) };
 
 	for (EditorNode* node : selected_nodes_)
 	{
 		// If a node's ancestor is selected then transforming both parent and child will result in double the transform of the child.
 		if (!IsNodeAncestorSelected(node)) {
-			node->node->position = transform_info_.original_transforms[node].position + global_displacement;
+			//node->node->position = transform_info_.original_transforms[node].position + world_displacement;
+			node->node->SetWorldPosition(transform_info_.original_transforms[node].position + world_displacement);
 		}
 	}
 }
 
 void Editor::ProcessRotationInput(const glm::vec2& mouse_pos)
 {
-	glm::vec3 average_position{ GetSelectedNodesAveragePosition() };
-	glm::vec2 rotation_center{ WorldToScreenSpace(average_position) };
+	glm::vec2 rotation_center{ WorldToScreenSpace(transform_info_.average_start_pos) };
 	glm::vec2 center_to_start{ transform_info_.mouse_start_pos - rotation_center };
 	glm::vec2 center_to_current{ mouse_pos - rotation_center };
 
@@ -230,13 +231,15 @@ void Editor::ProcessRotationInput(const glm::vec2& mouse_pos)
 		// If a node's ancestor is selected then transforming both parent and child will result in double the transform of the child.
 		if (!IsNodeAncestorSelected(node))
 		{
-			node->node->rotation = rotation * transform_info_.original_transforms[node].rotation;
+			node->node->SetWorldRotation(rotation * transform_info_.original_transforms[node].rotation);
 
+			// Note: We use saved average start position because a) it's more efficient than recalculating it since it shouldn't change.
+			//       And b) the feedback loop accumulates floating point errors causing instability if we update the average position every frame.
 			glm::vec3 new_position{ transform_info_.original_transforms[node].position };
-			new_position -= average_position; // Convert to local space where average_position is origin.
-			new_position = rotation * new_position; // Rotate about average_position.
-			new_position += average_position; // Restore position to world space.
-			node->node->position = new_position;
+			new_position -= transform_info_.average_start_pos; // Convert to local space where average_position is origin.
+			new_position = rotation * new_position;            // Rotate about average_position.
+			new_position += transform_info_.average_start_pos; // Restore position to world space.
+			node->node->SetWorldPosition(new_position);
 		}
 	}
 }
@@ -244,6 +247,7 @@ void Editor::ProcessRotationInput(const glm::vec2& mouse_pos)
 void Editor::ProcessTransformInput(const glm::vec2& mouse_pos)
 {
 	// Save starting position of mouse so we can calculate delta.
+	// We save the mouse position here instead of during setting the active transform type, because we need mouse_pos.
 	if (transform_info_.mouse_start_pos == glm::vec2{ -1.0f, -1.0f }) {
 		transform_info_.mouse_start_pos = mouse_pos;
 	}
@@ -271,9 +275,9 @@ void Editor::CancelTransformInput()
 {
 	for (EditorNode* node : selected_nodes_)
 	{
-		node->node->position = transform_info_.original_transforms[node].position;
+		node->node->SetWorldPosition(transform_info_.original_transforms[node].position);
 		node->node->scale = transform_info_.original_transforms[node].scale;
-		node->node->rotation = transform_info_.original_transforms[node].rotation;
+		node->node->SetWorldRotation(transform_info_.original_transforms[node].rotation);
 	}
 
 	SetActiveTransformType(TransformType::NONE);
@@ -304,7 +308,7 @@ glm::vec3 Editor::GetSelectedNodesAveragePosition() const
 
 	glm::vec3 sum{};
 	for (EditorNode* node : selected_nodes_) {
-		sum += node->node->position;
+		sum += node->node->GetWorldPosition();
 	}
 	return sum / (float)selected_nodes_.size();
 }

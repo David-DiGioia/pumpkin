@@ -16,9 +16,10 @@ namespace pmk
 		const uint32_t node_id;
 		renderer::RenderObjectHandle render_object{ renderer::NULL_HANDLE };
 
+		// Each transform is in local space of parent.
 		glm::vec3 position{};
 		glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
-		glm::quat rotation{};
+		glm::quat rotation{1.0f, 0.0f, 0.0f, 0.0f};
 
 		Node* GetParent() const;
 
@@ -27,6 +28,22 @@ namespace pmk
 		void SetParent(Node* parent);
 
 		void AddChild(Node* child);
+
+		// Set the position in world space. Same as setting position directly if there is no parent.
+		void SetWorldPosition(const glm::vec3& world_position);
+
+		glm::vec3 GetWorldPosition() const;
+
+		// Set the position in world space. Same as setting rotation directly if there is no parent.
+		void SetWorldRotation(const glm::quat& world_rotation);
+
+		glm::quat GetWorldRotation() const;
+
+		glm::mat4 GetLocalTransform() const;
+
+		// This recurses up the chain of parents, so if you are doing an operation starting at the root node
+		// and recursing down, prefer to just pass the local transforms with you and accumulate to get global transforms.
+		glm::mat4 GetWorldTransform() const;
 
 	private:
 		// Make constructor private to insure node_id is assigned only from Scene.

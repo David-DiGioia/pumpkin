@@ -67,6 +67,7 @@ struct TransformInfo
 	TransformLock lock{ TransformLock::NONE };
 	TransformSpace space{ TransformSpace::GLOBAL };
 	glm::vec2 mouse_start_pos{ -1.0f, -1.0f };
+	glm::vec3 average_start_pos{};
 
 	// Save a copy of the selected nodes' original transforms, since we transform relative to them each frame, and may want to restore them.
 	std::unordered_map <EditorNode*, Transform> original_transforms{};
