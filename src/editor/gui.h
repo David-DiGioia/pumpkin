@@ -18,6 +18,12 @@ public:
 
 	void DrawGui(ImTextureID* rendered_image_id);
 
+	// Get the extent of the 3D viewport render area.
+	const renderer::Extent& GetViewportExtent() const;
+
+	// Get the extent of the window containing the 3D viewport.
+	const renderer::Extent& GetViewportWindowExtent() const;
+
 private:
 	void MainMenu();
 
@@ -36,5 +42,6 @@ private:
 	void UpdateViewportSize(const renderer::Extent& extent);
 
 	Editor* editor_{};
-	renderer::Extent viewport_extent_{};
+	renderer::Extent viewport_extent_{};        // Dimension of the 3D viewport.
+	renderer::Extent viewport_window_extent_{}; // Dimension of the window containing 3D viewport, including header etc.
 };

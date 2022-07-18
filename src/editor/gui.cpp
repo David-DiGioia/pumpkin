@@ -42,6 +42,16 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	EngineViewport(rendered_image_id);
 }
 
+const renderer::Extent& EditorGui::GetViewportExtent() const
+{
+	return viewport_extent_;
+}
+
+const renderer::Extent& EditorGui::GetViewportWindowExtent() const
+{
+	return viewport_window_extent_;
+}
+
 void MainMenuSaveDefaultLayout()
 {
 	if (ImGui::MenuItem("Save as default layout"))
@@ -195,6 +205,7 @@ void EditorGui::UpdateViewportSize(const renderer::Extent& extent)
 	if (extent != viewport_extent_)
 	{
 		viewport_extent_ = extent;
+		viewport_window_extent_ = ImGui::GetWindowSize();
 		editor_->pumpkin_->SetEditorViewportSize(extent);
 	}
 }

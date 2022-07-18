@@ -518,16 +518,12 @@ namespace renderer
 		vkUnmapMemory(context_.device, *render_object.ubo_buffer_resource.memory);
 	}
 
-	void VulkanRenderer::SetCameraMatrix(const glm::mat4& view, float fov, float near_plane)
+	void VulkanRenderer::SetCameraMatrix(const glm::mat4& projection_view)
 	{
-		Extent viewport_extent{ GetViewportExtent() };
-		glm::mat4 projection{ glm::infinitePerspective(glm::radians(fov), viewport_extent.width / (float)viewport_extent.height, near_plane) };
-		projection[1][1] *= -1; // Vulkan's y-axis is opposite that of OpenGl's.
-
 		auto& cam_buffer{ GetCurrentFrame().camera_ubo_buffer };
 		auto& cam_ubo{ GetCurrentFrame().camera_ubo };
 
-		cam_ubo.transform = projection * view;
+		cam_ubo.projection_view = projection_view;
 
 		void* data{};
 		vkMapMemory(context_.device, *cam_buffer.memory, cam_buffer.offset, cam_buffer.size, 0, &data);

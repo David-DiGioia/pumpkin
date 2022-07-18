@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <limits>
 
+struct ImVec2;
+
 namespace renderer
 {
 	// Handles.
@@ -24,6 +26,12 @@ namespace renderer
 	{
 		uint32_t width;
 		uint32_t height;
+
+		Extent();
+
+		Extent(uint32_t w, uint32_t h);
+
+		Extent(ImVec2 vec);
 
 		const Extent& operator=(const Extent& other);
 

@@ -8,10 +8,20 @@
 #include "math_util.h"
 
 // Converts a vector with units of pixels to a vector with units of viewport height.
-glm::vec2 PixelToViewportUnits(const glm::vec2& pixel_vec)
+static glm::vec2 PixelToViewportUnits(Editor* editor, const glm::vec2& pixel_vec)
 {
-	auto viewport_size{ ImGui::GetWindowSize() };
-	return glm::vec2{ pixel_vec.x / viewport_size.y, pixel_vec.y / viewport_size.y };
+	auto& viewport_size{ editor->GetGui().GetViewportExtent() };
+	return glm::vec2{ pixel_vec.x / viewport_size.height, pixel_vec.y / viewport_size.height };
+}
+
+// Get the mouse position relative to the top left corner of the 3D viewport, in units of pixels.
+static glm::vec2 GetViewportRelativeMousePos(Editor* editor)
+{
+	uint32_t header_size{ editor->GetGui().GetViewportWindowExtent().height - editor->GetGui().GetViewportExtent().height };
+	glm::vec2 window_pos{ CastVec2<glm::vec2>(ImGui::GetWindowPos()) };
+	glm::vec2 viewport_pos{ window_pos.x, window_pos.y + header_size };
+
+	return CastVec2<glm::vec2>(ImGui::GetMousePos()) - viewport_pos;
 }
 
 // Returns true if editor is actively in a transform mode (like translating a node with mouse input).
@@ -36,10 +46,8 @@ static bool ProcessTransformInput(Editor* editor)
 		}
 		else
 		{
-			glm::vec2 pixel_pos{ CastVec2<glm::vec2>(ImGui::GetMousePos()) };
-			glm::vec2 viewport_pos{ PixelToViewportUnits(pixel_pos) };
-
-			editor->ProcessTransformInput(viewport_pos);
+			glm::vec2 relative_mouse_pos{ GetViewportRelativeMousePos(editor) };
+			editor->ProcessTransformInput(PixelToViewportUnits(editor, relative_mouse_pos));
 		}
 		return true;
 	}

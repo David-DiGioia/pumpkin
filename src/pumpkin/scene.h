@@ -45,6 +45,10 @@ namespace pmk
 		float near_plane{ 0.1f };
 
 		glm::mat4 GetViewMatrix() const;
+
+		glm::mat4 GetProjectionMatrix(const renderer::Extent& viewport_extent) const;
+
+		glm::mat4 GetProjectionViewMatrix(const renderer::Extent& viewport_extent) const;
 	};
 
 	class Scene

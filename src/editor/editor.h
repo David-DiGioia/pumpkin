@@ -135,7 +135,13 @@ public:
 
 	void CancelTransformInput();
 
+	const EditorGui& GetGui() const;
+
 private:
+	void ProcessTranslationInput(const glm::vec2& mouse_delta);
+
+	void ProcessRotationInput(const glm::vec2& mouse_pos);
+
 	// Temporarily save original transforms of selected objects before we modify them.
 	void CacheOriginalTransforms();
 
@@ -143,6 +149,9 @@ private:
 	bool IsNodeAncestorSelected(EditorNode* node);
 
 	glm::vec3 GetSelectedNodesAveragePosition() const;
+
+	// Get the viewport position, with units of viewport height, where (0, 0) is the top left of the viewport.
+	glm::vec2 WorldToScreenSpace(const glm::vec3& world_pos) const;
 
 	friend class EditorGui;
 

@@ -60,7 +60,9 @@ namespace renderer
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
-		void SetCameraMatrix(const glm::mat4& view, float fov, float near_plane);
+		void SetCameraMatrix(const glm::mat4& projection_view);
+
+		Extent GetViewportExtent();
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
@@ -82,8 +84,6 @@ namespace renderer
 		void NextFrame();
 
 		FrameResources& GetCurrentFrame();
-
-		Extent GetViewportExtent();
 
 		VkImageView GetViewportImageView(uint32_t image_index);
 
@@ -111,7 +111,7 @@ namespace renderer
 
 			struct CameraUBO
 			{
-				glm::mat4 transform;
+				glm::mat4 projection_view;
 			} camera_ubo;
 
 			BufferResource camera_ubo_buffer;

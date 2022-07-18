@@ -124,6 +124,9 @@ namespace pmk
 				if (!gltf_node.rotation.empty()) {
 					node->rotation = glm::quat{ (float)gltf_node.rotation[0], (float)gltf_node.rotation[1], (float)gltf_node.rotation[2], (float)gltf_node.rotation[3] };
 				}
+				else {
+					node->rotation = glm::quat{ 1.0f, 0.0f, 0.f, 0.0f };
+				}
 
 				for (int child_idx : gltf_node.children) {
 					node->AddChild(nodes_[starting_index + child_idx]);
@@ -154,7 +157,7 @@ namespace pmk
 
 	void Scene::UploadCamera()
 	{
-		renderer_->SetCameraMatrix(camera_.GetViewMatrix(), camera_.fov, camera_.near_plane);
+		renderer_->SetCameraMatrix(camera_.GetProjectionViewMatrix(renderer_->GetViewportExtent()));
 	}
 
 	Camera& Scene::GetCamera()
@@ -183,5 +186,17 @@ namespace pmk
 	glm::mat4 Camera::GetViewMatrix() const
 	{
 		return glm::inverse(glm::translate(position) * glm::toMat4(rotation));
+	}
+
+	glm::mat4 Camera::GetProjectionMatrix(const renderer::Extent& viewport_extent) const
+	{
+		glm::mat4 projection{ glm::infinitePerspective(glm::radians(fov), viewport_extent.width / (float)viewport_extent.height, near_plane) };
+		projection[1][1] *= -1; // Vulkan's y-axis is opposite that of OpenGl's.
+		return projection;
+	}
+
+	glm::mat4 Camera::GetProjectionViewMatrix(const renderer::Extent& viewport_extent) const
+	{
+		return GetProjectionMatrix(viewport_extent) * GetViewMatrix();
 	}
 }

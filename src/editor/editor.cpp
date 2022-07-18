@@ -3,6 +3,8 @@
 #include <string>
 #include <math.h>
 #include "imgui.h"
+#include "glm/gtx/vector_angle.hpp"
+#include "glm/gtx/quaternion.hpp"
 
 #include "gui.h"
 
@@ -192,6 +194,53 @@ void Editor::CacheOriginalTransforms()
 	}
 }
 
+void Editor::ProcessTranslationInput(const glm::vec2& mouse_delta)
+{
+	// Distance from the camera to the plane of the camera frustum that the node lies on.
+	float node_plane_dist{ glm::dot(controller_.GetForward(), GetSelectedNodesAveragePosition() - controller_.GetCamera()->position) };
+	// Distance to the plane of camera frustum with height of 1.
+	float one_height_dist{ 1.0f / (2.0f * std::tanf(glm::radians(controller_.GetCamera()->fov / 2.0f))) };
+	// This scales screen_delta to get world space offset that moves node specified ratio across screen.
+	float movement_multiplier{ node_plane_dist / one_height_dist };
+
+	glm::vec2 local_displacement{ movement_multiplier * mouse_delta.x, -movement_multiplier * mouse_delta.y }; // Negate y since negative screenspace y means up.
+	glm::vec3 global_displacement{ (glm::vec3)(controller_.GetCamera()->rotation * glm::vec4{local_displacement.x, local_displacement.y, 0.0f, 1.0f}) };
+
+	for (EditorNode* node : selected_nodes_)
+	{
+		// If a node's ancestor is selected then transforming both parent and child will result in double the transform of the child.
+		if (!IsNodeAncestorSelected(node)) {
+			node->node->position = transform_info_.original_transforms[node].position + global_displacement;
+		}
+	}
+}
+
+void Editor::ProcessRotationInput(const glm::vec2& mouse_pos)
+{
+	glm::vec3 average_position{ GetSelectedNodesAveragePosition() };
+	glm::vec2 rotation_center{ WorldToScreenSpace(average_position) };
+	glm::vec2 center_to_start{ transform_info_.mouse_start_pos - rotation_center };
+	glm::vec2 center_to_current{ mouse_pos - rotation_center };
+
+	float angle{ glm::orientedAngle(glm::normalize(center_to_start), glm::normalize(center_to_current)) };
+	glm::quat rotation{ glm::angleAxis(angle, controller_.GetForward()) };
+
+	for (EditorNode* node : selected_nodes_)
+	{
+		// If a node's ancestor is selected then transforming both parent and child will result in double the transform of the child.
+		if (!IsNodeAncestorSelected(node))
+		{
+			node->node->rotation = rotation * transform_info_.original_transforms[node].rotation;
+
+			glm::vec3 new_position{ transform_info_.original_transforms[node].position };
+			new_position -= average_position; // Convert to local space where average_position is origin.
+			new_position = rotation * new_position; // Rotate about average_position.
+			new_position += average_position; // Restore position to world space.
+			node->node->position = new_position;
+		}
+	}
+}
+
 void Editor::ProcessTransformInput(const glm::vec2& mouse_pos)
 {
 	// Save starting position of mouse so we can calculate delta.
@@ -204,25 +253,11 @@ void Editor::ProcessTransformInput(const glm::vec2& mouse_pos)
 	switch (transform_info_.type)
 	{
 	case TransformType::TRANSLATE:
+		ProcessTranslationInput(mouse_delta);
+		break;
 
-		// Distance from the camera to the plane of the camera frustum that the node lies on.
-		float node_plane_dist{ glm::dot(controller_.GetForward(), GetSelectedNodesAveragePosition() - controller_.GetCamera()->position) };
-		// Distance to the plane of camera frustum with height of 1.
-		float one_height_dist{ 1.0f / (2.0f * std::tanf(glm::radians(controller_.GetCamera()->fov / 2.0f))) };
-		// This scales screen_delta to get world space offset that moves node specified ratio across screen.
-		float movement_multiplier{ node_plane_dist / one_height_dist };
-
-		glm::vec2 local_displacement{ movement_multiplier * mouse_delta.x, -movement_multiplier * mouse_delta.y }; // Negate y since negative screenspace y means up.
-		glm::vec3 global_displacement{ (glm::vec3)(controller_.GetCamera()->rotation * glm::vec4{local_displacement.x, local_displacement.y, 0.0f, 1.0f}) };
-
-		for (EditorNode* node : selected_nodes_)
-		{
-			// If a node's ancestor is selected then transforming both parent and child will result in double the transform of the child.
-			if (!IsNodeAncestorSelected(node)) {
-				node->node->position = transform_info_.original_transforms[node].position + global_displacement;
-			}
-		}
-
+	case TransformType::ROTATE:
+		ProcessRotationInput(mouse_pos);
 		break;
 	}
 }
@@ -242,6 +277,11 @@ void Editor::CancelTransformInput()
 	}
 
 	SetActiveTransformType(TransformType::NONE);
+}
+
+const EditorGui& Editor::GetGui() const
+{
+	return gui_;
 }
 
 bool Editor::IsNodeAncestorSelected(EditorNode* node)
@@ -269,11 +309,26 @@ glm::vec3 Editor::GetSelectedNodesAveragePosition() const
 	return sum / (float)selected_nodes_.size();
 }
 
+glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
+{
+	const renderer::Extent& viewport_extent{ gui_.GetViewportExtent() };
+	glm::mat4 proj_view{ controller_.GetCamera()->GetProjectionViewMatrix(viewport_extent) };
+	glm::vec4 projection{ proj_view * glm::vec4{world_pos, 1.0f} }; // Screen space center of rotation.
+	glm::vec2 viewport_pos{ (glm::vec2)(projection / projection.w) };
+
+	// Convert range of each component from [-1, 1] to [0, 1].
+	viewport_pos = 0.5f * viewport_pos + 0.5f;
+	// Adjust x range by viewport extent ratio.
+	viewport_pos.x *= viewport_extent.width / (float)viewport_extent.height;
+
+	return viewport_pos;
+}
+
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)
 	: node{ pmk_node }
 	, name_buffer_{ new char[NODE_NAME_BUFFER_SIZE] {} }
 {
-	std::strcpy(name_buffer_, name.c_str());
+	strcpy_s(name_buffer_, NODE_NAME_BUFFER_SIZE, name.c_str());
 }
 
 EditorNode::EditorNode(pmk::Node* pmk_node)
