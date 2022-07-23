@@ -28,11 +28,17 @@ static glm::vec2 GetViewportRelativeMousePos(Editor* editor)
 static bool ProcessTransformInput(Editor* editor)
 {
 	// Transform keyboard shortcuts.
-	if (ImGui::IsKeyPressed(ImGuiKey_G, false) && !editor->SelectionEmpty()) {
-		editor->SetActiveTransformType(TransformType::TRANSLATE);
-	}
-	else if (ImGui::IsKeyPressed(ImGuiKey_R, false) && !editor->SelectionEmpty()) {
-		editor->SetActiveTransformType(TransformType::ROTATE);
+	if (!editor->SelectionEmpty())
+	{
+		if (ImGui::IsKeyPressed(ImGuiKey_G, false)) {
+			editor->SetActiveTransformType(TransformType::TRANSLATE);
+		}
+		else if (ImGui::IsKeyPressed(ImGuiKey_R, false)) {
+			editor->SetActiveTransformType(TransformType::ROTATE);
+		}
+		else if (ImGui::IsKeyDown(ImGuiKey_LeftShift) && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+			editor->SetActiveTransformType(TransformType::SCALE);
+		}
 	}
 
 	// Handle transform input separately since it overrides other input.

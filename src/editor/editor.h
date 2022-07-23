@@ -143,6 +143,8 @@ private:
 
 	void ProcessRotationInput(const glm::vec2& mouse_pos);
 
+	void ProcessScaleInput(const glm::vec2& mouse_pos);
+
 	// Temporarily save original transforms of selected objects before we modify them.
 	void CacheOriginalTransforms();
 

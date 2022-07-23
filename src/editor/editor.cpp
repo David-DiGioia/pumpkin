@@ -198,7 +198,7 @@ void Editor::CacheOriginalTransforms()
 void Editor::ProcessTranslationInput(const glm::vec2& mouse_delta)
 {
 	// Distance from the camera to the plane of the camera frustum that the node lies on.
-	float node_plane_dist{ glm::dot(controller_.GetForward(), GetSelectedNodesAveragePosition() - controller_.GetCamera()->position) };
+	float node_plane_dist{ glm::dot(controller_.GetForward(), transform_info_.average_start_pos - controller_.GetCamera()->position) };
 	// Distance to the plane of camera frustum with height of 1.
 	float one_height_dist{ 1.0f / (2.0f * std::tanf(glm::radians(controller_.GetCamera()->fov / 2.0f))) };
 	// This scales screen_delta to get world space offset that moves node specified ratio across screen.
@@ -244,6 +244,30 @@ void Editor::ProcessRotationInput(const glm::vec2& mouse_pos)
 	}
 }
 
+void Editor::ProcessScaleInput(const glm::vec2& mouse_pos)
+{
+	glm::vec2 rotation_center{ WorldToScreenSpace(transform_info_.average_start_pos) };
+	float start_distance{ glm::distance(transform_info_.mouse_start_pos, rotation_center) };
+	float current_distance{ glm::distance(mouse_pos, rotation_center) };
+
+	float scale{ current_distance / start_distance };
+
+	for (EditorNode* node : selected_nodes_)
+	{
+		// If a node's ancestor is selected then transforming both parent and child will result in double the transform of the child.
+		if (!IsNodeAncestorSelected(node))
+		{
+			node->node->scale = scale * transform_info_.original_transforms[node].scale;
+
+			glm::vec3 new_position{ transform_info_.original_transforms[node].position };
+			new_position -= transform_info_.average_start_pos; // Convert to local space where average_position is origin.
+			new_position = scale * new_position;               // Scale about average_position.
+			new_position += transform_info_.average_start_pos; // Restore position to world space.
+			node->node->SetWorldPosition(new_position);
+		}
+	}
+}
+
 void Editor::ProcessTransformInput(const glm::vec2& mouse_pos)
 {
 	// Save starting position of mouse so we can calculate delta.
@@ -262,6 +286,10 @@ void Editor::ProcessTransformInput(const glm::vec2& mouse_pos)
 
 	case TransformType::ROTATE:
 		ProcessRotationInput(mouse_pos);
+		break;
+
+	case TransformType::SCALE:
+		ProcessScaleInput(mouse_pos);
 		break;
 	}
 }
