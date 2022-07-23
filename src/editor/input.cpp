@@ -113,7 +113,7 @@ void ProcessViewportInput(Editor* editor)
 	{
 		// TODO: Don't hardcode radius. This should be calculated from node's bounding box.
 		float radius{ 5.0f };
-		controller.Focus(active_selection->node->position, radius);
+		controller.Focus(editor->GetSelectedNodesAveragePosition(), radius);
 	}
 
 	// Revolve / rotate with mouse.
