@@ -74,24 +74,31 @@ void ProcessViewportInput(Editor* editor)
 	float delta_time{ editor->GetPumpkin()->GetDeltaTime() };
 	glm::vec3 move_dir{};
 
-	// Keyboard movement.
-	if (ImGui::IsKeyDown(ImGuiKey_W)) {
-		move_dir += glm::vec3{ 0.0f, 0.0f, -1.0f };
+	// Handle shift modifier.
+	if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+
 	}
-	if (ImGui::IsKeyDown(ImGuiKey_S)) {
-		move_dir += glm::vec3{ 0.0f, 0.0f, 1.0f };
-	}
-	if (ImGui::IsKeyDown(ImGuiKey_D)) {
-		move_dir += glm::vec3{ 1.0f, 0.0f, 0.0f };
-	}
-	if (ImGui::IsKeyDown(ImGuiKey_A)) {
-		move_dir += glm::vec3{ -1.0f, 0.0f, 0.0f };
-	}
-	if (ImGui::IsKeyDown(ImGuiKey_E)) {
-		move_dir += glm::vec3{ 0.0f, 1.0f, 0.0f };
-	}
-	if (ImGui::IsKeyDown(ImGuiKey_Q)) {
-		move_dir += glm::vec3{ 0.0f, -1.0f, 0.0f };
+	else
+	{
+		// Keyboard movement.
+		if (ImGui::IsKeyDown(ImGuiKey_W)) {
+			move_dir += glm::vec3{ 0.0f, 0.0f, -1.0f };
+		}
+		if (ImGui::IsKeyDown(ImGuiKey_S)) {
+			move_dir += glm::vec3{ 0.0f, 0.0f, 1.0f };
+		}
+		if (ImGui::IsKeyDown(ImGuiKey_D)) {
+			move_dir += glm::vec3{ 1.0f, 0.0f, 0.0f };
+		}
+		if (ImGui::IsKeyDown(ImGuiKey_A)) {
+			move_dir += glm::vec3{ -1.0f, 0.0f, 0.0f };
+		}
+		if (ImGui::IsKeyDown(ImGuiKey_E)) {
+			move_dir += glm::vec3{ 0.0f, 1.0f, 0.0f };
+		}
+		if (ImGui::IsKeyDown(ImGuiKey_Q)) {
+			move_dir += glm::vec3{ 0.0f, -1.0f, 0.0f };
+		}
 	}
 
 	if (move_dir != glm::vec3(0.0f, 0.0f, 0.0f))
