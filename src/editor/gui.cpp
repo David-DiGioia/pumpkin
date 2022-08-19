@@ -3,6 +3,7 @@
 #include <cmath>
 #include <string>
 #include <climits>
+#include <filesystem>
 #include "imgui.h"
 #include "glm/gtc/type_ptr.hpp"
 
@@ -29,6 +30,10 @@ void EditorGui::InitializeGui()
 	io.IniSavingRate = 0.1f; // Small number so we can save often.
 	io.WantCaptureKeyboard = true;
 	ImGui::LoadIniSettingsFromDisk(default_layout_path.c_str());
+
+	// (optional) Set browser properties.
+	file_dialogue_.SetTitle("title");
+	file_dialogue_.SetTypeFilters({ ".h", ".cpp" });
 }
 
 void EditorGui::DrawGui(ImTextureID* rendered_image_id)
@@ -37,9 +42,10 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 
 	MainMenu();
 	TreeView();
-	//ImGui::ShowDemoWindow();
+	ImGui::ShowDemoWindow();
 	NodeProperties();
 	EngineViewport(rendered_image_id);
+	FileBrowser();
 }
 
 const renderer::Extent& EditorGui::GetViewportExtent() const
@@ -198,6 +204,74 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 	}
 
 	ImGui::End();
+}
+
+void EditorGui::FileBrowser()
+{
+	if (!ImGui::Begin("File browser"))
+	{
+		// Early out if the window is collapsed, as an optimization.
+		ImGui::End();
+		return;
+	}
+
+	namespace fs = std::filesystem;
+
+	fs::path pathToShow("D:\\dev\\pumpkin_projects\\test_project\\assets");
+
+	ImGui::Text(pathToShow.string().c_str());
+
+	if (fs::exists(pathToShow) && fs::is_directory(pathToShow))
+	{
+		ImGuiStyle& style = ImGui::GetStyle();
+		float window_visible_x2 = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+		ImVec2 button_sz(120, 120);
+		int idx{ 0 };
+
+		// TODO: Use selectables grid from imgui_demo.cpp line 1323.
+		for (const fs::directory_entry& entry : fs::directory_iterator(pathToShow))
+		{
+			std::string filename{ entry.path().filename().string() };
+
+			ImGui::PushID(idx);
+			float last_button_x2 = ImGui::GetItemRectMax().x;
+			float next_button_x2 = last_button_x2 + style.ItemSpacing.x + button_sz.x; // Expected position if next button was on same line.
+			if (idx != 0 && next_button_x2 < window_visible_x2) {
+				ImGui::SameLine();
+			}
+
+			if (ImGui::IsWindowFocused()) {
+				ProcessFileBrowserInput(editor_);
+			}
+
+			if (ImGui::Selectable(filename.c_str(), editor_->IsFileSelected(entry), 0, button_sz)) {
+				editor_->FileClicked(entry);
+			}
+
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+			{
+				editor_->FileDoubleClicked(entry);
+			}
+
+			ImGui::PopID();
+			++idx;
+		}
+	}
+
+	// open file dialog when user clicks this button
+	//if (ImGui::Button("open file dialog")) {
+	//	file_dialogue.Open();
+	//}
+
+	ImGui::End();
+
+	//file_dialogue.Display();
+
+	//if (file_dialogue.HasSelected())
+	//{
+	//	logger::Print("Selected filename %s\n", file_dialogue.GetSelected().string().c_str());
+	//	file_dialogue.ClearSelected();
+	//}
 }
 
 void EditorGui::UpdateViewportSize(const renderer::Extent& extent)

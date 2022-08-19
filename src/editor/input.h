@@ -5,3 +5,5 @@
 void ProcessViewportInput(Editor* editor);
 
 void ProcessTreeViewInput(Editor* editor);
+
+void ProcessFileBrowserInput(Editor* editor);

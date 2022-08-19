@@ -286,11 +286,11 @@ namespace renderer
 
 			for (auto& render_obj : GetCurrentFrame().render_objects)
 			{
-				vkCmdBindVertexBuffers(cmd, 0, 1, &render_obj.mesh->vertices_resource.buffer, &zero_offset);
-				vkCmdBindIndexBuffer(cmd, render_obj.mesh->indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
+				vkCmdBindVertexBuffers(cmd, 0, 1, &meshes_[render_obj.mesh_idx].vertices_resource.buffer, &zero_offset);
+				vkCmdBindIndexBuffer(cmd, meshes_[render_obj.mesh_idx].indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj.ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
-				vkCmdDrawIndexed(cmd, (uint32_t)render_obj.mesh->indices.size(), 1, 0, 0, 0);
+				vkCmdDrawIndexed(cmd, (uint32_t)meshes_[render_obj.mesh_idx].indices.size(), 1, 0, 0, 0);
 			}
 
 			vkCmdEndRendering(cmd);
@@ -487,7 +487,7 @@ namespace renderer
 		for (auto& frame : frame_resources_)
 		{
 			RenderObject render_object{
-				.mesh = &meshes_[mesh_index],
+				.mesh_idx = mesh_index,
 				.vertex_type = VertexType::POSITION_NORMAL_COORD,
 
 				.uniform_buffer = {
@@ -665,5 +665,10 @@ namespace renderer
 		}
 
 		vulkan_util_.Submit();
+	}
+
+	uint32_t VulkanRenderer::MeshCount() const
+	{
+		return (uint32_t)meshes_.size();
 	}
 }

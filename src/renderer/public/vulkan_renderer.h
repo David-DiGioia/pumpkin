@@ -23,7 +23,7 @@ namespace renderer
 		// TODO: Later handle multiple primitives per mesh from GLTF file.
 		//       This occurs when a single mesh has multiple materials.
 		//       For raytracing we probably want to implement with geometry indexing.
-		Mesh* mesh;
+		uint32_t mesh_idx;
 		VertexType vertex_type;
 
 		struct UniformBuffer
@@ -53,6 +53,8 @@ namespace renderer
 		void WindowResized();
 
 		void LoadMeshesGLTF(tinygltf::Model& model);
+
+		uint32_t MeshCount() const;
 
 		// Create a render object with the buffer resource and descriptors already associated
 		// with the render object data.

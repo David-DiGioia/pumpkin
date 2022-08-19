@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <limits>
 #include <string>
+#include <filesystem>
 #include "imgui.h"
 
 #include "pumpkin.h"
@@ -109,6 +110,20 @@ public:
 	// Let editor decided what happens depending on if multiselect is enabled.
 	void NodeClicked(EditorNode* node);
 
+	void FileClicked(const std::filesystem::path& path);
+
+	void FileDoubleClicked(const std::filesystem::path& path);
+
+	bool IsFileSelected(const std::filesystem::path& path);
+
+	void SetFileSelection(const std::filesystem::path& path, bool selected);
+
+	void ToggleFileSelection(const std::filesystem::path& path);
+
+	void SelectFile(const std::filesystem::path& path);
+
+	void DeselectFile(const std::filesystem::path& path);
+
 	// Get the EditorNode which contains the specified pmk::Node.
 	EditorNode* NodeToEditorNode(pmk::Node* node);
 
@@ -116,7 +131,7 @@ public:
 	// Note that Blender doesn't export cameras or lights.
 	//
 	// path: The path relative to the assets folder.
-	void ImportGLTF(const std::string& path);
+	void ImportGLTF(const std::filesystem::path& path);
 
 	void SetMultiselect(bool multiselect);
 
@@ -167,7 +182,10 @@ private:
 	std::unordered_set<EditorNode*> selected_nodes_{};     // Set of all selected nodes. Having a set makes it possible to ierate over only selected nodes.
 	std::unordered_map<uint32_t, EditorNode*> node_map_{}; // The key of this map is pmk::Node::node_id.
 
-	bool multi_select_enabled_{ false }; // Selecting a node does not deselect all other nodes when enabled.
+	std::filesystem::path active_selection_file_{};              // The actively selected file.
+	std::unordered_set<std::filesystem::path> selected_files_{}; // Indices of all selected files in the file browser.
+
+	bool multi_select_enabled_{ false }; // Selecting a selectable does not deselect all others when enabled.
 
 	TransformInfo transform_info_{};
 };

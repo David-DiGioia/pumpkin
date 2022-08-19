@@ -3,8 +3,10 @@
 #include <cstdint>
 #include <vector>
 #include <array>
+#include <unordered_set>
 #include "pumpkin.h"
 #include "imgui.h"
+#include "imfilebrowser/imfilebrowser.h"
 
 class Editor;
 class EditorNode;
@@ -39,9 +41,12 @@ private:
 
 	void EngineViewport(ImTextureID* rendered_image_id);
 
+	void FileBrowser();
+
 	void UpdateViewportSize(const renderer::Extent& extent);
 
 	Editor* editor_{};
 	renderer::Extent viewport_extent_{};        // Dimension of the 3D viewport.
 	renderer::Extent viewport_window_extent_{}; // Dimension of the window containing 3D viewport, including header etc.
+	ImGui::FileBrowser file_dialogue_{ 0 };
 };

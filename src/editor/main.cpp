@@ -11,8 +11,6 @@ int main()
 	pumpkin.Initialize();
 	editor.Initialize(&pumpkin);
 
-	editor.ImportGLTF("test_gltf.gltf"); // TODO: Proper import through editor GUI.
-
 	pumpkin.Start();
 
 	editor.CleanUp();

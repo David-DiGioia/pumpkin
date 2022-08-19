@@ -24,6 +24,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/curve_editor/curve_v122.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/imsequencer/imsequencer.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/imsequencer/imsequencer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/imfilebrowser/imfilebrowser.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/imfilebrowser/imfilebrowser.cpp"
 )
 
 add_library(Imgui "${SOURCES}")

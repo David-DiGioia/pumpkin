@@ -144,3 +144,8 @@ void ProcessTreeViewInput(Editor* editor)
 	// Handle multiselect.
 	editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
 }
+
+void ProcessFileBrowserInput(Editor* editor)
+{
+	editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
+}

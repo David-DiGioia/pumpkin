@@ -136,21 +136,77 @@ void Editor::NodeClicked(EditorNode* node)
 	}
 }
 
+void Editor::FileClicked(const std::filesystem::path& path)
+{
+	if (multi_select_enabled_) {
+		ToggleFileSelection(path);
+	}
+	else {
+		SelectFile(path);
+	}
+}
+
+void Editor::FileDoubleClicked(const std::filesystem::path& path)
+{
+	logger::Print("File double clicked: %s\n", path.string().c_str());
+
+	if (path.extension() == ".gltf") {
+		ImportGLTF(path);
+	}
+}
+
+bool Editor::IsFileSelected(const std::filesystem::path& path)
+{
+	return selected_files_.find(path) != selected_files_.end();
+}
+
+void Editor::SetFileSelection(const std::filesystem::path& path, bool selected)
+{
+	if (selected) {
+		SelectFile(path);
+	}
+	else {
+		DeselectFile(path);
+	}
+}
+
+void Editor::ToggleFileSelection(const std::filesystem::path& path)
+{
+	SetFileSelection(path, !IsFileSelected(path));
+}
+
+void Editor::SelectFile(const std::filesystem::path& path)
+{
+	if (!multi_select_enabled_) {
+		selected_files_.clear();
+	}
+
+	selected_files_.insert(path);
+	active_selection_file_ = path;
+}
+
+void Editor::DeselectFile(const std::filesystem::path& path)
+{
+	selected_files_.erase(path);
+	if (active_selection_file_ == path) {
+		active_selection_file_ = "";
+	}
+}
+
 EditorNode* Editor::NodeToEditorNode(pmk::Node* node)
 {
 	return node_map_[node->node_id];
 }
 
-void Editor::ImportGLTF(const std::string& path)
+void Editor::ImportGLTF(const std::filesystem::path& path)
 {
-	std::string prefix{ "../../../assets/" };
 	auto& nodes{ pumpkin_->GetScene().GetNodes() };
 
 	// The starting index before we add more nodes.
 	uint32_t i{ (uint32_t)nodes.size() };
 
 	// Add new nodes to scene.
-	pumpkin_->GetScene().ImportGLTF(prefix + path);
+	pumpkin_->GetScene().ImportGLTF(path);
 
 	// Make a wrapper EditorNode for each imported pmk::Node.
 	while (i < nodes.size())
@@ -191,7 +247,7 @@ void Editor::CacheOriginalTransforms()
 	transform_info_.average_start_pos = GetSelectedNodesAveragePosition();
 
 	for (EditorNode* node : selected_nodes_) {
-		transform_info_.original_transforms[node] = Transform{ node->node->GetWorldPosition(), node->node->scale, node->node->GetWorldRotation()};
+		transform_info_.original_transforms[node] = Transform{ node->node->GetWorldPosition(), node->node->scale, node->node->GetWorldRotation() };
 	}
 }
 

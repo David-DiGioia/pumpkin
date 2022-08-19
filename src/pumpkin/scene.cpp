@@ -113,16 +113,16 @@ namespace pmk
 		root_node_ = nullptr;
 	}
 
-	void Scene::ImportGLTF(const std::string& path)
+	void Scene::ImportGLTF(const std::filesystem::path& path)
 	{
-		logger::Print("Loading glTF file: %s\n", path.c_str());
+		logger::Print("Loading glTF file: %s\n", path.string().c_str());
 
 		tinygltf::Model model;
 		tinygltf::TinyGLTF loader;
 		std::string err;
 		std::string warn;
 
-		bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path.c_str());
+		bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path.string().c_str());
 		//bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, argv[1]); // for binary glTF(.glb)
 
 		if (!warn.empty()) {
@@ -137,6 +137,7 @@ namespace pmk
 			logger::Error("Failed to parse glTF\n");
 		}
 
+		uint32_t mesh_starting_index{ renderer_->MeshCount() };
 		renderer_->LoadMeshesGLTF(model);
 
 		int starting_index{ (int)nodes_.size() };
@@ -148,7 +149,7 @@ namespace pmk
 
 			if (gltf_node.mesh >= 0)
 			{
-				node->render_object = renderer_->CreateRenderObject(gltf_node.mesh);
+				node->render_object = renderer_->CreateRenderObject(mesh_starting_index + gltf_node.mesh);
 
 				if (!gltf_node.translation.empty()) {
 					node->position = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };

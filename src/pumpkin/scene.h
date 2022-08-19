@@ -4,6 +4,7 @@
 #include <unordered_set>
 #include <array>
 #include <string>
+#include <filesystem>
 #include "glm/glm.hpp"
 #include "glm/gtx/quaternion.hpp"
 
@@ -77,7 +78,7 @@ namespace pmk
 
 		// Import the whole GLTF hierarchy, adding all nodes to scene.
 		// Note that Blender doesn't export cameras or lights.
-		void ImportGLTF(const std::string& path);
+		void ImportGLTF(const std::filesystem::path& path);
 
 		// Update all render objects transforms to reflect their containing node.
 		void UploadRenderObjects();
