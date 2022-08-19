@@ -113,7 +113,7 @@ namespace pmk
 		root_node_ = nullptr;
 	}
 
-	void Scene::ImportGLTF(const std::filesystem::path& path)
+	void Scene::ImportGLTF(const std::filesystem::path& path, std::vector<std::string>* out_names)
 	{
 		logger::Print("Loading glTF file: %s\n", path.string().c_str());
 
@@ -145,6 +145,10 @@ namespace pmk
 
 		for (tinygltf::Node gltf_node : model.nodes)
 		{
+			if (out_names) {
+				out_names->push_back(gltf_node.name);
+			}
+
 			Node* node{ CreateNode() };
 
 			if (gltf_node.mesh >= 0)

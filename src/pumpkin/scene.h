@@ -78,7 +78,9 @@ namespace pmk
 
 		// Import the whole GLTF hierarchy, adding all nodes to scene.
 		// Note that Blender doesn't export cameras or lights.
-		void ImportGLTF(const std::filesystem::path& path);
+		//
+		// out_names writes the names of the imported nodes in order, or is ignored if null.
+		void ImportGLTF(const std::filesystem::path& path, std::vector<std::string>* out_names);
 
 		// Update all render objects transforms to reflect their containing node.
 		void UploadRenderObjects();

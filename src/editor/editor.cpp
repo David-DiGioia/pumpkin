@@ -205,14 +205,19 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	// The starting index before we add more nodes.
 	uint32_t i{ (uint32_t)nodes.size() };
 
+	// We use an out variable for names since the Pumpkin project doesn't know about the editor or EditorNode.
+	uint32_t name_index{ 0 };
+	std::vector<std::string> node_names;
+
 	// Add new nodes to scene.
-	pumpkin_->GetScene().ImportGLTF(path);
+	pumpkin_->GetScene().ImportGLTF(path, &node_names);
 
 	// Make a wrapper EditorNode for each imported pmk::Node.
 	while (i < nodes.size())
 	{
-		node_map_[nodes[i]->node_id] = new EditorNode{ nodes[i] };
+		node_map_[nodes[i]->node_id] = new EditorNode{ nodes[i], node_names[name_index] };
 		++i;
+		++name_index;
 	}
 }
 
