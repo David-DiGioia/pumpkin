@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <unordered_set>
+#include <filesystem>
 #include "pumpkin.h"
 #include "imgui.h"
 #include "imfilebrowser/imfilebrowser.h"
@@ -48,5 +49,6 @@ private:
 	Editor* editor_{};
 	renderer::Extent viewport_extent_{};        // Dimension of the 3D viewport.
 	renderer::Extent viewport_window_extent_{}; // Dimension of the window containing 3D viewport, including header etc.
+	std::filesystem::path current_directory_{};
 	ImGui::FileBrowser file_dialogue_{ 0 };
 };

@@ -3,7 +3,6 @@
 #include <cmath>
 #include <string>
 #include <climits>
-#include <filesystem>
 #include "imgui.h"
 #include "glm/gtc/type_ptr.hpp"
 
@@ -34,6 +33,9 @@ void EditorGui::InitializeGui()
 	// (optional) Set browser properties.
 	file_dialogue_.SetTitle("title");
 	file_dialogue_.SetTypeFilters({ ".h", ".cpp" });
+
+	// TODO: Make this get set based on which project is loaded.
+	current_directory_ = std::filesystem::path{ "D:\\dev\\pumpkin_projects\\test_project\\assets" };
 }
 
 void EditorGui::DrawGui(ImTextureID* rendered_image_id)
@@ -217,25 +219,27 @@ void EditorGui::FileBrowser()
 
 	namespace fs = std::filesystem;
 
-	fs::path pathToShow("D:\\dev\\pumpkin_projects\\test_project\\assets");
+	if (ImGui::Button("Parent directory")) {
+		current_directory_ = current_directory_.parent_path();
+	}
 
-	ImGui::Text(pathToShow.string().c_str());
+	ImGui::SameLine();
+	ImGui::Text(current_directory_.string().c_str());
 
-	if (fs::exists(pathToShow) && fs::is_directory(pathToShow))
+	if (fs::exists(current_directory_) && fs::is_directory(current_directory_))
 	{
 		ImGuiStyle& style = ImGui::GetStyle();
 		float window_visible_x2 = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
-		ImVec2 button_sz(120, 120);
+		ImVec2 file_button_size(120, 120);
 		int idx{ 0 };
 
-		// TODO: Use selectables grid from imgui_demo.cpp line 1323.
-		for (const fs::directory_entry& entry : fs::directory_iterator(pathToShow))
+		for (const fs::directory_entry& entry : fs::directory_iterator(current_directory_))
 		{
 			std::string filename{ entry.path().filename().string() };
 
 			ImGui::PushID(idx);
 			float last_button_x2 = ImGui::GetItemRectMax().x;
-			float next_button_x2 = last_button_x2 + style.ItemSpacing.x + button_sz.x; // Expected position if next button was on same line.
+			float next_button_x2 = last_button_x2 + style.ItemSpacing.x + file_button_size.x; // Expected position if next button was on same line.
 			if (idx != 0 && next_button_x2 < window_visible_x2) {
 				ImGui::SameLine();
 			}
@@ -244,13 +248,18 @@ void EditorGui::FileBrowser()
 				ProcessFileBrowserInput(editor_);
 			}
 
-			if (ImGui::Selectable(filename.c_str(), editor_->IsFileSelected(entry), 0, button_sz)) {
+			if (ImGui::Selectable(filename.c_str(), editor_->IsFileSelected(entry), 0, file_button_size)) {
 				editor_->FileClicked(entry);
 			}
 
 			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
 			{
-				editor_->FileDoubleClicked(entry);
+				if (fs::is_directory(entry)) {
+					current_directory_ = entry;
+				}
+				else {
+					editor_->FileDoubleClicked(entry);
+				}
 			}
 
 			ImGui::PopID();

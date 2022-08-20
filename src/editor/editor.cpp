@@ -148,10 +148,11 @@ void Editor::FileClicked(const std::filesystem::path& path)
 
 void Editor::FileDoubleClicked(const std::filesystem::path& path)
 {
-	logger::Print("File double clicked: %s\n", path.string().c_str());
-
 	if (path.extension() == ".gltf") {
 		ImportGLTF(path);
+	}
+	else {
+		logger::Print("Unrecognized file format: %s\n", path.extension().string().c_str());
 	}
 }
 
