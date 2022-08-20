@@ -44,6 +44,8 @@ private:
 
 	void FileBrowser();
 
+	void CameraControls();
+
 	void UpdateViewportSize(const renderer::Extent& extent);
 
 	Editor* editor_{};

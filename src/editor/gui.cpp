@@ -48,6 +48,7 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	NodeProperties();
 	EngineViewport(rendered_image_id);
 	FileBrowser();
+	CameraControls();
 }
 
 const renderer::Extent& EditorGui::GetViewportExtent() const
@@ -281,6 +282,21 @@ void EditorGui::FileBrowser()
 	//	logger::Print("Selected filename %s\n", file_dialogue.GetSelected().string().c_str());
 	//	file_dialogue.ClearSelected();
 	//}
+}
+
+void EditorGui::CameraControls()
+{
+	if (!ImGui::Begin("Camera controls"))
+	{
+		// Early out if the window is collapsed, as an optimization.
+		ImGui::End();
+		return;
+	}
+
+	ImGui::SliderFloat("Speed", &editor_->GetCameraController().MovementSpeed(), MINIMUM_MOVEMENT_SPEED, 10000.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
+	ImGui::SliderFloat("FOV", &editor_->GetCameraController().GetCamera()->fov, 30.0f, 90.0f, "%.1f", ImGuiSliderFlags_None);
+
+	ImGui::End();
 }
 
 void EditorGui::UpdateViewportSize(const renderer::Extent& extent)

@@ -88,6 +88,16 @@ const pmk::Camera* CameraController::GetCamera() const
 	return camera_;
 }
 
+pmk::Camera* CameraController::GetCamera()
+{
+	return camera_;
+}
+
+float& CameraController::MovementSpeed()
+{
+	return movement_speed_;
+}
+
 void CameraController::UpdateCamera()
 {
 	// This is matrix multiplication Y * X.

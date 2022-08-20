@@ -39,6 +39,10 @@ public:
 
 	const pmk::Camera* GetCamera() const;
 
+	pmk::Camera* GetCamera();
+
+	float& MovementSpeed();
+
 private:
 	void UpdateCamera();
 

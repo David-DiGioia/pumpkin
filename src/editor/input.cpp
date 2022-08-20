@@ -68,6 +68,7 @@ void ProcessViewportInput(Editor* editor)
 	}
 
 	constexpr float zoom_speed{ 0.1f };
+	constexpr float movement_speed_scroll_speed{ 0.1f };
 	constexpr float rotate_speed{ 2.0f };
 
 	CameraController& controller{ editor->GetCameraController() };
@@ -125,17 +126,25 @@ void ProcessViewportInput(Editor* editor)
 		ImGui::ResetMouseDragDelta();
 	}
 
-	// Zoom with scroll wheel.
+	// Zoom/change speed with scroll wheel.
 	float wheel{ ImGui::GetIO().MouseWheel };
-	if (wheel != 0.0f && controller.IsFocused())
+	if (wheel != 0.0f)
 	{
-		float current_dist{ controller.GetFocalDistance() };
-		float current_dist_offset{ 0.2f };
+		if (controller.IsFocused())
+		{
+			float current_dist{ controller.GetFocalDistance() };
+			float current_dist_offset{ 0.2f };
 
-		// Proportional to current distance so zooming far in/out still has reasonable speed.
-		// Add offset to current distance so maximum zoom in doesn't get stuck at 0 zoom speed.
-		float delta_dist{ (-wheel) * zoom_speed * (current_dist + current_dist_offset) };
-		controller.SetFocalDistance(std::max(current_dist + delta_dist, 0.0f));
+			// Proportional to current distance so zooming far in/out still has reasonable speed.
+			// Add offset to current distance so maximum zoom in doesn't get stuck at 0 zoom speed.
+			float delta_dist{ (-wheel) * zoom_speed * (current_dist + current_dist_offset) };
+			controller.SetFocalDistance(std::max(current_dist + delta_dist, 0.0f));
+		}
+		else
+		{
+			controller.MovementSpeed() += wheel * movement_speed_scroll_speed * controller.MovementSpeed();
+			controller.MovementSpeed() = std::max(controller.MovementSpeed(), MINIMUM_MOVEMENT_SPEED);
+		}
 	}
 }
 
