@@ -18,6 +18,8 @@ constexpr uint32_t CURVE_EDITOR_POINTS{ 16 };
 void EditorGui::Initialize(Editor* editor)
 {
 	editor_ = editor;
+
+	current_directory_ = editor_->GetProjectDirectory() / ASSETS_RELATIVE_PATH;
 }
 
 void EditorGui::InitializeGui()
@@ -33,9 +35,6 @@ void EditorGui::InitializeGui()
 	// (optional) Set browser properties.
 	file_dialogue_.SetTitle("title");
 	file_dialogue_.SetTypeFilters({ ".h", ".cpp" });
-
-	// TODO: Make this get set based on which project is loaded.
-	current_directory_ = std::filesystem::path{ "D:\\dev\\pumpkin_projects\\test_project\\assets" };
 }
 
 void EditorGui::DrawGui(ImTextureID* rendered_image_id)
@@ -75,6 +74,14 @@ void MainMenuSaveDefaultLayout()
 	}
 }
 
+void MainMenuSaveProject(Editor* editor)
+{
+	if (ImGui::MenuItem("Save project"))
+	{
+		editor->SaveProject();
+	}
+}
+
 void EditorGui::MainMenu()
 {
 	if (ImGui::BeginMainMenuBar())
@@ -82,6 +89,7 @@ void EditorGui::MainMenu()
 		if (ImGui::BeginMenu("File"))
 		{
 			MainMenuSaveDefaultLayout();
+			MainMenuSaveProject(editor_);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();

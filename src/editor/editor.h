@@ -14,6 +14,8 @@
 
 constexpr uint32_t NODE_NAME_BUFFER_SIZE{ 64 };
 
+const std::filesystem::path ASSETS_RELATIVE_PATH{ "assets" };
+
 enum class TransformType {
 	NONE,
 	TRANSLATE,
@@ -124,6 +126,10 @@ public:
 
 	void DeselectFile(const std::filesystem::path& path);
 
+	std::filesystem::path GetProjectDirectory() const;
+
+	void SaveProject() const;
+
 	// Get the EditorNode which contains the specified pmk::Node.
 	EditorNode* NodeToEditorNode(pmk::Node* node);
 
@@ -182,6 +188,7 @@ private:
 	std::unordered_set<EditorNode*> selected_nodes_{};     // Set of all selected nodes. Having a set makes it possible to ierate over only selected nodes.
 	std::unordered_map<uint32_t, EditorNode*> node_map_{}; // The key of this map is pmk::Node::node_id.
 
+	std::filesystem::path project_directory_{};                  // The root directory of the user's project.
 	std::filesystem::path active_selection_file_{};              // The actively selected file.
 	std::unordered_set<std::filesystem::path> selected_files_{}; // Indices of all selected files in the file browser.
 

@@ -15,8 +15,10 @@ class EditorNode;
 class EditorGui
 {
 public:
+	// Initialize state of EditorGui, but nothing ImGui related. Called after Editor is initialized.
 	void Initialize(Editor* editor);
 
+	// Initialize everything ImGui related. Called when Pumpkin is initialized, which is before Editor is initialized.
 	void InitializeGui();
 
 	void DrawGui(ImTextureID* rendered_image_id);

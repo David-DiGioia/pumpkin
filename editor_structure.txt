@@ -1,17 +1,16 @@
 The editor project files example:
 
 MyExampleProject
-	- MyExampleProject.json
-	- Meshes
-	- Materials
-	- Scripts
+	- project_files
+		- MyExampleProject.json
+		- meshes.bin
+	- assets
+		- [user can organize assets however they like]
 
 Where the json file contains the initial state of all the nodes in the scene,
 all of the meshes/scripts/hierarchy etc associated with the scene.
 
-Building the game will make generate a C++ file that loads all the assets, as registers the C++ game scripts with the engine static library.
-Also for simplicity it will export the whole scene to a glTF file, since the editor can change the
-hierarchy of the user's original glTF files that they imported.
+Building the game will make generate a C++ file that loads all the assets, and registers the C++ game scripts with the engine static library.
 
 Example output C++ file:
 
@@ -31,14 +30,15 @@ int main()
 	Enemy enemy_01{50, 20};
 	Cloud cloud{};
 
-	std::vector<ScriptParent*> scripts{&player, &enemy_00, &enemy_01, &cloud};
+	// Each script will inherit from ScriptBase.
+	std::vector<ScriptBase*> scripts{&player, &enemy_00, &enemy_01, &cloud};
 
-	pmk.LoadScene("path/to/scene.gltf"); // All of scene starting scene hierarchy loaded.
+	pmk.LoadScene("path/to/scene.json"); // All of scene starting scene hierarchy loaded.
 	pmk.LoadOffscreenAssets("path/to/offscreen.gltf"); // All assets not initially in scene.
 
-	for (ScriptParent& script : scripts)
+	for (ScriptBase& script : scripts)
 	{
-		// Register all ScriptParent::Update/Init/FixedUpdate functions to Pumpkin to call later.
+		// Register all ScriptBase::Update/Init/FixedUpdate functions to Pumpkin to call later.
 		pmk.RegisterScript(script);
 	}
 

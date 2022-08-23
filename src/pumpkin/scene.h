@@ -26,6 +26,8 @@ namespace pmk
 
 		const std::unordered_set<Node*>& GetChildren() const;
 
+		std::unordered_set<uint32_t> GetChildrenIDs() const;
+
 		void SetParent(Node* parent);
 
 		void AddChild(Node* child);

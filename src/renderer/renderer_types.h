@@ -9,6 +9,7 @@ namespace renderer
 {
 	// Handles.
 
+	// This is an index into the render objects vector.
 	typedef uint64_t RenderObjectHandle;
 
 	constexpr uint64_t NULL_HANDLE{ std::numeric_limits<uint64_t>().max() };

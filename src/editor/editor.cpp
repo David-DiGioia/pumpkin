@@ -2,9 +2,11 @@
 
 #include <string>
 #include <math.h>
+#include <fstream>
 #include "imgui.h"
 #include "glm/gtx/vector_angle.hpp"
 #include "glm/gtx/quaternion.hpp"
+#include "nlohmann/json.hpp"
 
 #include "gui.h"
 
@@ -19,11 +21,16 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	pumpkin_ = pumpkin;
 	auto& scene{ pumpkin->GetScene() };
 	controller_.Initialize(&scene.GetCamera());
-	gui_.Initialize(this);
 
 	// Set editor root node to match Pumpkin's scene root node.
 	node_map_[scene.GetRootNode()->node_id] = new EditorNode{ scene.GetRootNode() };
 	root_node_ = node_map_[scene.GetRootNode()->node_id];
+
+	// TODO: Make user select this through GUI at startup.
+	project_directory_ = std::filesystem::path{ "D:\\dev\\pumpkin_projects\\test_project" };
+	std::filesystem::create_directory(project_directory_ / ASSETS_RELATIVE_PATH); // Creates directory if it doesn't exist.
+
+	gui_.Initialize(this);
 }
 
 void Editor::CleanUp()
@@ -192,6 +199,49 @@ void Editor::DeselectFile(const std::filesystem::path& path)
 	if (active_selection_file_ == path) {
 		active_selection_file_ = "";
 	}
+}
+
+std::filesystem::path Editor::GetProjectDirectory() const
+{
+	return project_directory_;
+}
+
+void Editor::SaveProject() const
+{
+	logger::Print("SAVING PROJECTTTTT\n");
+
+	nlohmann::json j{};
+
+	for (auto& pair : node_map_)
+	{
+		EditorNode* node{ pair.second };
+		std::string json_node_name{ "node" };
+		json_node_name += std::to_string(node->node->node_id);
+
+		glm::vec3& p{ node->node->position };
+		glm::vec3& s{ node->node->scale };
+		glm::quat& q{ node->node->rotation };
+		pmk::Node* parent{ node->node->GetParent() };
+
+		j["nodes"] += {
+			{ "name", node->GetName() },
+			{ "id", node->node->node_id },
+			{ "position", { p.x, p.y, p.z } },
+			{ "scale", { s.x, s.y, s.z } },
+			{ "rotation", { q.x, q.y, q.z, q.w } },
+			{ "render_object_index", node->node->render_object },
+			{ "parent_id", parent ? parent->node_id : std::numeric_limits<uint32_t>::max() },
+			{ "children_ids", node->node->GetChildrenIDs() },
+		};
+	}
+
+	//pumpkin_->DumpRenderData();
+
+	std::ofstream o{ "pretty2.json" };
+	std::string dump = j.dump();
+	o << std::setw(4) << j << '\n';
+
+	//o.write(dump.c_str(), dump.size());
 }
 
 EditorNode* Editor::NodeToEditorNode(pmk::Node* node)

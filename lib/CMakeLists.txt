@@ -14,6 +14,7 @@ set(RENDERER_INCLUDE_DIRS
     # Header only.
     "${CMAKE_CURRENT_SOURCE_DIR}/glm"
     "${CMAKE_CURRENT_SOURCE_DIR}/tinygltf"
+    "${CMAKE_CURRENT_SOURCE_DIR}/json"
 )
 
 # System keyword ignores warnings from these libraries.

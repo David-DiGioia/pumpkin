@@ -30,6 +30,17 @@ namespace pmk
 		return children_;
 	}
 
+	std::unordered_set<uint32_t> Node::GetChildrenIDs() const
+	{
+		std::unordered_set<uint32_t> ids{};
+
+		for (const pmk::Node* child : children_) {
+			ids.insert(child->node_id);
+		}
+
+		return ids;
+	}
+
 	void Node::SetParent(Node* parent)
 	{
 		// No longer child of old parent.
