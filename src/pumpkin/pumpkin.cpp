@@ -83,6 +83,11 @@ namespace pmk
 		return delta_time_;
 	}
 
+	void Pumpkin::DumpRenderData(nlohmann::json& j, const std::filesystem::path& binary_path) const
+	{
+		//renderer_.DumpRenderData(j, binary_path);
+	}
+
 	void Pumpkin::UpdateDeltaTime()
 	{
 		auto current_time{ std::chrono::steady_clock::now() };

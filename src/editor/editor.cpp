@@ -27,7 +27,7 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	root_node_ = node_map_[scene.GetRootNode()->node_id];
 
 	// TODO: Make user select this through GUI at startup.
-	project_directory_ = std::filesystem::path{ "D:\\dev\\pumpkin_projects\\test_project" };
+	project_directory_ = std::filesystem::path{ "D:/dev/pumpkin_projects/test_project" };
 	std::filesystem::create_directory(project_directory_ / ASSETS_RELATIVE_PATH); // Creates directory if it doesn't exist.
 
 	gui_.Initialize(this);
@@ -208,8 +208,6 @@ std::filesystem::path Editor::GetProjectDirectory() const
 
 void Editor::SaveProject() const
 {
-	logger::Print("SAVING PROJECTTTTT\n");
-
 	nlohmann::json j{};
 
 	for (auto& pair : node_map_)
@@ -235,9 +233,15 @@ void Editor::SaveProject() const
 		};
 	}
 
-	//pumpkin_->DumpRenderData();
+	auto project_data_path{ project_directory_ / PROJECT_DATA_RELATIVE_PATH };
+	std::filesystem::create_directories(project_data_path); // Make the directory if it doesn't exist.
 
-	std::ofstream o{ "pretty2.json" };
+	pumpkin_->DumpRenderData(j, project_data_path);
+
+	auto json_path{ project_data_path / "ProjectName.json" };
+	logger::Print("Saving json to %s\n", json_path.string().c_str());
+
+	std::ofstream o{ json_path };
 	std::string dump = j.dump();
 	o << std::setw(4) << j << '\n';
 

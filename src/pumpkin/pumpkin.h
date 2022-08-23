@@ -1,8 +1,10 @@
 #pragma once
 
 #include <chrono>
+#include <filesystem>
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
+#include "nlohmann/json.hpp"
 
 #include "vulkan_renderer.h"
 #include "scene.h"
@@ -29,6 +31,9 @@ namespace pmk
 		Scene& GetScene();
 
 		float GetDeltaTime() const;
+
+		// Write render data info to json, and vertex data to a binary file.
+		void DumpRenderData(nlohmann::json& j, const std::filesystem::path& binary_path) const;
 
 	private:
 		// General work the host needs to do each frame.

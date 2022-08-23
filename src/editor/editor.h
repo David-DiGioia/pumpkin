@@ -15,6 +15,7 @@
 constexpr uint32_t NODE_NAME_BUFFER_SIZE{ 64 };
 
 const std::filesystem::path ASSETS_RELATIVE_PATH{ "assets" };
+const std::filesystem::path PROJECT_DATA_RELATIVE_PATH{ "project_data" };
 
 enum class TransformType {
 	NONE,
