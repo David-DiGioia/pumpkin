@@ -5,6 +5,7 @@
 #include "volk.h"
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
+#include "nlohmann/json.hpp"
 
 #include "context.h"
 #include "swapchain.h"
@@ -66,6 +67,8 @@ namespace renderer
 
 		Extent GetViewportExtent();
 
+		void DumpRenderData(nlohmann::json& j, const std::filesystem::path& binary_path) const;
+
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
 
@@ -86,6 +89,8 @@ namespace renderer
 		void NextFrame();
 
 		FrameResources& GetCurrentFrame();
+
+		const FrameResources& GetCurrentFrame() const;
 
 		VkImageView GetViewportImageView(uint32_t image_index);
 

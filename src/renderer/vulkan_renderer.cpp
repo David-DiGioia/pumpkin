@@ -1,5 +1,6 @@
-#include "public\vulkan_renderer.h"
 #include "vulkan_renderer.h"
+
+#include <fstream>
 
 #define VOLK_IMPLEMENTATION
 #include "volk.h"
@@ -455,6 +456,11 @@ namespace renderer
 		return frame_resources_[current_frame_];
 	}
 
+	const VulkanRenderer::FrameResources& VulkanRenderer::GetCurrentFrame() const
+	{
+		return frame_resources_[current_frame_];
+	}
+
 	Extent VulkanRenderer::GetViewportExtent()
 	{
 #ifdef EDITOR_ENABLED
@@ -462,6 +468,40 @@ namespace renderer
 #else
 		return context_.GetWindowExtent();
 #endif
+	}
+
+	void VulkanRenderer::DumpRenderData(nlohmann::json& j, const std::filesystem::path& binary_path) const
+	{
+		for (const RenderObject& ro : GetCurrentFrame().render_objects)
+		{
+			j["render_objects"] += {
+				{ "mesh_index", ro.mesh_idx },
+				{ "vertex_type", ro.vertex_type },
+			};
+		}
+
+		uint32_t vertex_byte_offest{ 0 };
+		uint32_t index_byte_offset{ 0 };
+
+		std::ofstream vertex_file{ binary_path / "vertex_data.bin", std::ios::out | std::ios::binary };
+		std::ofstream index_file{ binary_path / "index_data.bin", std::ios::out | std::ios::binary };
+
+		for (const Mesh& mesh : meshes_)
+		{
+			j["meshes"] += {
+				{ "vertex_byte_offset", vertex_byte_offest },
+				{ "index_byte_offset", index_byte_offset },
+			};
+
+			vertex_file.write(reinterpret_cast<const char*>(mesh.vertices.data()), mesh.vertices.size() * sizeof(Vertex));
+			index_file.write(reinterpret_cast<const char*>(mesh.indices.data()), mesh.indices.size() * sizeof(uint16_t));
+
+			vertex_byte_offest += mesh.vertices.size() * sizeof(Vertex);
+			index_byte_offset += mesh.indices.size() * sizeof(uint16_t);
+		}
+
+		vertex_file.close();
+		index_file.close();
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)

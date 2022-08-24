@@ -244,8 +244,7 @@ void Editor::SaveProject() const
 	std::ofstream o{ json_path };
 	std::string dump = j.dump();
 	o << std::setw(4) << j << '\n';
-
-	//o.write(dump.c_str(), dump.size());
+	o.close();
 }
 
 EditorNode* Editor::NodeToEditorNode(pmk::Node* node)

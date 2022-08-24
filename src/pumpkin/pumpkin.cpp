@@ -85,7 +85,7 @@ namespace pmk
 
 	void Pumpkin::DumpRenderData(nlohmann::json& j, const std::filesystem::path& binary_path) const
 	{
-		//renderer_.DumpRenderData(j, binary_path);
+		renderer_.DumpRenderData(j, binary_path);
 	}
 
 	void Pumpkin::UpdateDeltaTime()
