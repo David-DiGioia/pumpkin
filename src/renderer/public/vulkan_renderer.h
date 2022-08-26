@@ -2,6 +2,7 @@
 
 #include <array>
 #include <vector>
+#include <filesystem>
 #include "volk.h"
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
@@ -67,7 +68,9 @@ namespace renderer
 
 		Extent GetViewportExtent();
 
-		void DumpRenderData(nlohmann::json& j, const std::filesystem::path& binary_path) const;
+		void DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path) const;
+
+		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path);
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
@@ -111,6 +114,8 @@ namespace renderer
 		void InitializeDepthImages();
 
 		void InitializeDescriptorSetLayouts();
+
+		void UploadMeshToDevice(Mesh& mesh);
 
 		struct FrameResources
 		{

@@ -220,12 +220,27 @@ namespace pmk
 		return camera_;
 	}
 
-	Node* Scene::CreateNode()
+	Node* Scene::CreateNode(uint32_t id)
 	{
-		Node* node_ptr{ new Node(next_node_id_++) };
+		Node* node_ptr{ new Node(id) };
 		node_ptr->SetParent(root_node_);
 		nodes_.push_back(node_ptr);
 		return node_ptr;
+	}
+
+	Node* Scene::CreateNode()
+	{
+		return CreateNode(next_node_id_++);
+	}
+
+	Node* Scene::CreateNodeFromID(uint32_t id)
+	{
+		return CreateNode(id);
+	}
+
+	void Scene::SetNextNodeID(uint32_t id)
+	{
+		next_node_id_ = id;
 	}
 
 	std::vector<Node*>& Scene::GetNodes()

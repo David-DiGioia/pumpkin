@@ -83,9 +83,14 @@ namespace pmk
 		return delta_time_;
 	}
 
-	void Pumpkin::DumpRenderData(nlohmann::json& j, const std::filesystem::path& binary_path) const
+	void Pumpkin::DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path) const
 	{
-		renderer_.DumpRenderData(j, binary_path);
+		renderer_.DumpRenderData(j, vertex_path, index_path);
+	}
+
+	void Pumpkin::LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path)
+	{
+		renderer_.LoadRenderData(j, vertex_path, index_path);
 	}
 
 	void Pumpkin::UpdateDeltaTime()

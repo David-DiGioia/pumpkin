@@ -7,6 +7,7 @@
 #include <string>
 #include <filesystem>
 #include "imgui.h"
+#include "nlohmann/json.hpp"
 
 #include "pumpkin.h"
 #include "gui.h"
@@ -16,6 +17,9 @@ constexpr uint32_t NODE_NAME_BUFFER_SIZE{ 64 };
 
 const std::filesystem::path ASSETS_RELATIVE_PATH{ "assets" };
 const std::filesystem::path PROJECT_DATA_RELATIVE_PATH{ "project_data" };
+const std::filesystem::path PROJECT_DATA_JSON_NAME{ "project_data.json" };
+const std::filesystem::path VERTEX_DATA_FILE_NAME{ "vertex_data.bin" };
+const std::filesystem::path INDEX_DATA_FILE_NAME{ "index_data.bin" };
 
 enum class TransformType {
 	NONE,
@@ -130,6 +134,10 @@ public:
 	std::filesystem::path GetProjectDirectory() const;
 
 	void SaveProject() const;
+
+	void LoadProject(const std::filesystem::path& proj_dir);
+
+	void LoadNodeData(const nlohmann::json& j);
 
 	// Get the EditorNode which contains the specified pmk::Node.
 	EditorNode* NodeToEditorNode(pmk::Node* node);

@@ -6,9 +6,25 @@
 #include "imgui.h"
 #include "glm/gtx/vector_angle.hpp"
 #include "glm/gtx/quaternion.hpp"
-#include "nlohmann/json.hpp"
 
 #include "gui.h"
+
+namespace jsonkey
+{
+	const std::string MAX_NODE_ID{ "max_node_id" };
+
+	const std::string NODES{ "nodes" };
+	// Nodes members
+	const std::string NAME{ "name" };
+	const std::string ID{ "id" };
+	const std::string POSITION{ "position" };
+	const std::string SCALE{ "scale" };
+	const std::string ROTATION{ "rotation" };
+	const std::string RENDER_OBJECT{ "render_object" };
+	const std::string PARENT_ID{ "parent_id" };
+	const std::string CHILDREN_IDS{ "children_ids" };
+	// End nodes members
+}
 
 void InitializationCallback(void* user_data)
 {
@@ -27,7 +43,7 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	root_node_ = node_map_[scene.GetRootNode()->node_id];
 
 	// TODO: Make user select this through GUI at startup.
-	project_directory_ = std::filesystem::path{ "D:/dev/pumpkin_projects/test_project" };
+	project_directory_ = std::filesystem::path{ "D:/dev/pumpkin_projects/TestProject" };
 	std::filesystem::create_directory(project_directory_ / ASSETS_RELATIVE_PATH); // Creates directory if it doesn't exist.
 
 	gui_.Initialize(this);
@@ -209,6 +225,7 @@ std::filesystem::path Editor::GetProjectDirectory() const
 void Editor::SaveProject() const
 {
 	nlohmann::json j{};
+	uint32_t max_node_id{ 0 };
 
 	for (auto& pair : node_map_)
 	{
@@ -221,30 +238,81 @@ void Editor::SaveProject() const
 		glm::quat& q{ node->node->rotation };
 		pmk::Node* parent{ node->node->GetParent() };
 
-		j["nodes"] += {
-			{ "name", node->GetName() },
-			{ "id", node->node->node_id },
-			{ "position", { p.x, p.y, p.z } },
-			{ "scale", { s.x, s.y, s.z } },
-			{ "rotation", { q.x, q.y, q.z, q.w } },
-			{ "render_object_index", node->node->render_object },
-			{ "parent_id", parent ? parent->node_id : std::numeric_limits<uint32_t>::max() },
-			{ "children_ids", node->node->GetChildrenIDs() },
+		j[jsonkey::NODES] = {
+			{ jsonkey::NAME, node->GetName() },
+			{ jsonkey::ID, node->node->node_id },
+			{ jsonkey::POSITION, { p.x, p.y, p.z } },
+			{ jsonkey::SCALE, { s.x, s.y, s.z } },
+			{ jsonkey::ROTATION, { q.x, q.y, q.z, q.w } },
+			{ jsonkey::SCALE, node->node->render_object },
+			{ jsonkey::PARENT_ID, parent ? parent->node_id : std::numeric_limits<uint32_t>::max() },
+			{ jsonkey::CHILDREN_IDS, node->node->GetChildrenIDs() },
 		};
+
+		if (node->node->node_id > max_node_id) {
+			max_node_id = node->node->node_id;
+		}
 	}
+
+	j[jsonkey::MAX_NODE_ID] = max_node_id;
 
 	auto project_data_path{ project_directory_ / PROJECT_DATA_RELATIVE_PATH };
 	std::filesystem::create_directories(project_data_path); // Make the directory if it doesn't exist.
 
-	pumpkin_->DumpRenderData(j, project_data_path);
+	pumpkin_->DumpRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME);
 
-	auto json_path{ project_data_path / "ProjectName.json" };
+	auto json_path{ project_data_path / PROJECT_DATA_JSON_NAME };
 	logger::Print("Saving json to %s\n", json_path.string().c_str());
 
 	std::ofstream o{ json_path };
 	std::string dump = j.dump();
 	o << std::setw(4) << j << '\n';
 	o.close();
+}
+
+void Editor::LoadProject(const std::filesystem::path& proj_dir)
+{
+	if (project_directory_ != "") {
+		//ResetProject();
+	}
+
+	project_directory_ = proj_dir;
+	auto project_data_path{ project_directory_ / PROJECT_DATA_RELATIVE_PATH };
+	std::ifstream f(project_data_path / PROJECT_DATA_JSON_NAME);
+	nlohmann::json j{ nlohmann::json::parse(f) };
+
+	LoadNodeData(j);
+	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME);
+}
+
+void Editor::LoadNodeData(const nlohmann::json& j)
+{
+	// Load basic node data.
+	for (auto& json_node : j[jsonkey::NODES])
+	{
+		pmk::Node* node{ pumpkin_->GetScene().CreateNodeFromID(json_node[jsonkey::ID]) };
+		node_map_[node->node_id] = new EditorNode{ node, json_node[jsonkey::NAME] };
+
+
+		auto& p{ json_node[jsonkey::POSITION] };
+		auto& s{ json_node[jsonkey::SCALE] };
+		auto& q{ json_node[jsonkey::ROTATION] };
+
+		node->render_object = json_node[jsonkey::RENDER_OBJECT];
+		node->position = glm::vec3{ p[0], p[1], p[2] };
+		node->scale = glm::vec3{ s[0], s[1], s[2] };
+		node->rotation = glm::quat{ q[0], q[1], q[2], q[3] };
+	}
+	pumpkin_->GetScene().SetNextNodeID(j[jsonkey::MAX_NODE_ID] + 1);
+
+	// Set node parent/child data.
+	for (auto& json_node : j[jsonkey::NODES])
+	{
+		pmk::Node* node{ node_map_[json_node[jsonkey::ID]]->node };
+		pmk::Node* parent{ node_map_[json_node[jsonkey::PARENT_ID]]->node };
+
+		node->SetParent(parent); // Parent's children are set automatically from this.
+	}
 }
 
 EditorNode* Editor::NodeToEditorNode(pmk::Node* node)

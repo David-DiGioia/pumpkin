@@ -93,6 +93,12 @@ namespace pmk
 
 		Node* CreateNode();
 
+		// This should only be used when loading an existing node hierarchy from disk. Afterwards SetNextNodeID() MUST be called.
+		Node* CreateNodeFromID(uint32_t id);
+
+		// This should only be used after loading an existing node hierarchy from dist after creating nodes with CreateNodeFromID().
+		void SetNextNodeID(uint32_t id);
+
 		std::vector<Node*>& GetNodes();
 
 		Node* GetRootNode() const;
@@ -100,6 +106,8 @@ namespace pmk
 	private:
 		// Recursive implementation to upload node render object data.
 		void UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform);
+
+		Node* CreateNode(uint32_t id);
 
 		Camera camera_{};
 		renderer::VulkanRenderer* renderer_{};

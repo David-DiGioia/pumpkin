@@ -18,6 +18,22 @@
 #include "mesh.h"
 #include "descriptor_set.h"
 
+namespace jsonkey {
+	const std::string RENDER_OBJECTS{ "render_objects" };
+	// Render object members
+	const std::string MESH_INDEX{ "mesh_index" };
+	const std::string VERTEX_TYPE{ "vertex_type" };
+	// End render object members
+
+	const std::string MESHES{ "meshes" };
+	// Mesh members
+	const std::string VERTEX_BYTE_OFFSET{ "vertex_byte_offset" };
+	const std::string VERTEX_BYTE_SIZE{ "vertex_byte_size" };
+	const std::string INDEX_BYTE_OFFSET{ "index_byte_offset" };
+	const std::string INDEX_BYTE_SIZE{ "index_byte_size" };
+	// End mesh members
+}
+
 namespace renderer
 {
 	// Camera descriptor set.
@@ -470,27 +486,29 @@ namespace renderer
 #endif
 	}
 
-	void VulkanRenderer::DumpRenderData(nlohmann::json& j, const std::filesystem::path& binary_path) const
+	void VulkanRenderer::DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path) const
 	{
 		for (const RenderObject& ro : GetCurrentFrame().render_objects)
 		{
-			j["render_objects"] += {
-				{ "mesh_index", ro.mesh_idx },
-				{ "vertex_type", ro.vertex_type },
+			j[jsonkey::RENDER_OBJECTS] += {
+				{ jsonkey::MESH_INDEX, ro.mesh_idx },
+				{ jsonkey::VERTEX_TYPE, ro.vertex_type },
 			};
 		}
 
 		uint32_t vertex_byte_offest{ 0 };
 		uint32_t index_byte_offset{ 0 };
 
-		std::ofstream vertex_file{ binary_path / "vertex_data.bin", std::ios::out | std::ios::binary };
-		std::ofstream index_file{ binary_path / "index_data.bin", std::ios::out | std::ios::binary };
+		std::ofstream vertex_file{ vertex_path, std::ios::out | std::ios::binary };
+		std::ofstream index_file{ index_path, std::ios::out | std::ios::binary };
 
 		for (const Mesh& mesh : meshes_)
 		{
-			j["meshes"] += {
-				{ "vertex_byte_offset", vertex_byte_offest },
-				{ "index_byte_offset", index_byte_offset },
+			j[jsonkey::MESHES] += {
+				{ jsonkey::VERTEX_BYTE_OFFSET, vertex_byte_offest },
+				{ jsonkey::VERTEX_BYTE_SIZE, mesh.vertices.size() * sizeof(Vertex)},
+				{ jsonkey::INDEX_BYTE_OFFSET, index_byte_offset },
+				{ jsonkey::INDEX_BYTE_SIZE, mesh.indices.size() * sizeof(uint16_t) },
 			};
 
 			vertex_file.write(reinterpret_cast<const char*>(mesh.vertices.data()), mesh.vertices.size() * sizeof(Vertex));
@@ -502,6 +520,40 @@ namespace renderer
 
 		vertex_file.close();
 		index_file.close();
+	}
+
+	void VulkanRenderer::LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path)
+	{
+		std::ifstream vertex_file{ vertex_path, std::ios::out | std::ios::binary };
+		std::ifstream index_file{ index_path, std::ios::out | std::ios::binary };
+
+		vulkan_util_.Begin();
+
+		// Load meshes.
+		for (auto& json_mesh : j[jsonkey::MESHES])
+		{
+			meshes_.emplace_back();
+			auto& mesh{ meshes_.back() };
+
+			// Load vertices.
+			mesh.vertices.resize(json_mesh[jsonkey::VERTEX_BYTE_SIZE] / sizeof(Vertex));
+			vertex_file.seekg((size_t)json_mesh[jsonkey::VERTEX_BYTE_OFFSET]);
+			vertex_file.read(reinterpret_cast<char*>(mesh.vertices.data()), json_mesh[jsonkey::VERTEX_BYTE_SIZE]);
+
+			// Load indices.
+			mesh.indices.resize(json_mesh[jsonkey::INDEX_BYTE_SIZE] / sizeof(uint16_t));
+			index_file.seekg((size_t)json_mesh[jsonkey::INDEX_BYTE_OFFSET]);
+			index_file.read(reinterpret_cast<char*>(mesh.indices.data()), json_mesh[jsonkey::INDEX_BYTE_SIZE]);
+
+			UploadMeshToDevice(mesh);
+		}
+
+		vulkan_util_.Submit();
+
+		// Load render objects.
+		for (auto& json_ro : j[jsonkey::RENDER_OBJECTS]) {
+			CreateRenderObject(json_ro[jsonkey::MESH_INDEX]);
+		}
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
@@ -695,16 +747,21 @@ namespace renderer
 			LoadVerticesGLTF(model, tinygltf_mesh, &mesh.vertices);
 			LoadIndicesGLTF(model, tinygltf_mesh, &mesh.indices);
 
-			mesh.vertices_resource = allocator_.CreateBufferResource(mesh.vertices.size() * sizeof(Vertex),
-				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			vulkan_util_.TransferBufferToDevice(mesh.vertices, mesh.vertices_resource);
-
-			mesh.indices_resource = allocator_.CreateBufferResource(mesh.indices.size() * sizeof(uint16_t),
-				VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			vulkan_util_.TransferBufferToDevice(mesh.indices, mesh.indices_resource);
+			UploadMeshToDevice(mesh);
 		}
 
 		vulkan_util_.Submit();
+	}
+
+	void VulkanRenderer::UploadMeshToDevice(Mesh& mesh)
+	{
+		mesh.vertices_resource = allocator_.CreateBufferResource(mesh.vertices.size() * sizeof(Vertex),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		vulkan_util_.TransferBufferToDevice(mesh.vertices, mesh.vertices_resource);
+
+		mesh.indices_resource = allocator_.CreateBufferResource(mesh.indices.size() * sizeof(uint16_t),
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		vulkan_util_.TransferBufferToDevice(mesh.indices, mesh.indices_resource);
 	}
 
 	uint32_t VulkanRenderer::MeshCount() const
