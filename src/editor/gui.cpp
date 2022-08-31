@@ -13,13 +13,17 @@
 
 const std::string default_layout_path{ "default_imgui_layout.ini" };
 
-constexpr uint32_t CURVE_EDITOR_POINTS{ 16 };
+constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
 
 void EditorGui::Initialize(Editor* editor)
 {
 	editor_ = editor;
+	popup_name_buffer_ = new char[PROJECT_NAME_BUFFER_SIZE] {};
+}
 
-	current_directory_ = editor_->GetProjectDirectory() / ASSETS_RELATIVE_PATH;
+void EditorGui::CleanUp()
+{
+	delete[] popup_name_buffer_;
 }
 
 void EditorGui::InitializeGui()
@@ -31,16 +35,13 @@ void EditorGui::InitializeGui()
 	io.IniSavingRate = 0.1f; // Small number so we can save often.
 	io.WantCaptureKeyboard = true;
 	ImGui::LoadIniSettingsFromDisk(default_layout_path.c_str());
-
-	// (optional) Set browser properties.
-	file_dialogue_.SetTitle("title");
-	file_dialogue_.SetTypeFilters({ ".h", ".cpp" });
 }
 
 void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 {
 	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
+	CheckProjectSelectionPopup();
 	MainMenu();
 	TreeView();
 	ImGui::ShowDemoWindow();
@@ -48,6 +49,22 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	EngineViewport(rendered_image_id);
 	FileBrowser();
 	CameraControls();
+}
+
+void EditorGui::CheckProjectSelectionPopup()
+{
+	const char* popup_name{ "Open project" };
+
+	if (open_project_selection_popup_) {
+		ImGui::OpenPopup(popup_name);
+		open_project_selection_popup_ = false;
+	}
+
+	if (ImGui::BeginPopupModal(popup_name))
+	{
+		ProjectSelectionPopup();
+		ImGui::EndPopup();
+	}
 }
 
 const renderer::Extent& EditorGui::GetViewportExtent() const
@@ -217,6 +234,68 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 	ImGui::End();
 }
 
+void EditorGui::ProjectSelectionPopup()
+{
+	namespace fs = std::filesystem;
+
+	ImGui::Text("New project");
+	ImGui::InputText("Project name", popup_name_buffer_, PROJECT_NAME_BUFFER_SIZE);
+	if (ImGui::Button("Create project"))
+	{
+		auto project_dir{ popup_current_directory_ / popup_name_buffer_ };
+		editor_->NewProject(project_dir);
+		current_directory_ = project_dir / ASSETS_RELATIVE_PATH;
+		ImGui::CloseCurrentPopup();
+	}
+
+	ImGui::Text("\nLoad existing project");
+	ImGui::PushID(1);
+	if (ImGui::Button("Parent directory")) {
+		popup_current_directory_ = popup_current_directory_.parent_path();
+	}
+
+	ImGui::SameLine();
+	ImGui::Text(popup_current_directory_.string().c_str());
+	ImGui::PopID();
+
+	if (fs::exists(popup_current_directory_) && fs::is_directory(popup_current_directory_))
+	{
+		int idx{ 0 };
+
+		for (const fs::directory_entry& entry : fs::directory_iterator(popup_current_directory_))
+		{
+			if (!entry.is_directory()) {
+				continue;
+			}
+
+			std::string filename{ entry.path().filename().string() };
+
+			ImGui::PushID(idx);
+
+			if (ImGui::Selectable(filename.c_str(), entry == popup_selected_file_, ImGuiSelectableFlags_DontClosePopups)) {
+				popup_selected_file_ = entry;
+			}
+
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+				popup_current_directory_ = entry;
+				popup_selected_file_ = {};
+			}
+
+			ImGui::PopID();
+			++idx;
+		}
+	}
+
+	ImGui::BeginDisabled(!popup_selected_file_.exists());
+	if (ImGui::Button("Load project")) {
+		current_directory_ = popup_selected_file_ / ASSETS_RELATIVE_PATH;
+		editor_->LoadProject(popup_selected_file_);
+		popup_selected_file_ = {};
+		ImGui::CloseCurrentPopup();
+	}
+	ImGui::EndDisabled();
+}
+
 void EditorGui::FileBrowser()
 {
 	if (!ImGui::Begin("File browser"))
@@ -228,12 +307,14 @@ void EditorGui::FileBrowser()
 
 	namespace fs = std::filesystem;
 
+	ImGui::PushID(0);
 	if (ImGui::Button("Parent directory")) {
 		current_directory_ = current_directory_.parent_path();
 	}
 
 	ImGui::SameLine();
 	ImGui::Text(current_directory_.string().c_str());
+	ImGui::PopID();
 
 	if (fs::exists(current_directory_) && fs::is_directory(current_directory_))
 	{
@@ -276,20 +357,7 @@ void EditorGui::FileBrowser()
 		}
 	}
 
-	// open file dialog when user clicks this button
-	//if (ImGui::Button("open file dialog")) {
-	//	file_dialogue.Open();
-	//}
-
 	ImGui::End();
-
-	//file_dialogue.Display();
-
-	//if (file_dialogue.HasSelected())
-	//{
-	//	logger::Print("Selected filename %s\n", file_dialogue.GetSelected().string().c_str());
-	//	file_dialogue.ClearSelected();
-	//}
 }
 
 void EditorGui::CameraControls()

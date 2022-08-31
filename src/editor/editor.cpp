@@ -9,6 +9,8 @@
 
 #include "gui.h"
 
+const std::string ROOT_NODE_NAME{ "__root__" };
+
 namespace jsonkey
 {
 	const std::string MAX_NODE_ID{ "max_node_id" };
@@ -39,12 +41,12 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	controller_.Initialize(&scene.GetCamera());
 
 	// Set editor root node to match Pumpkin's scene root node.
-	node_map_[scene.GetRootNode()->node_id] = new EditorNode{ scene.GetRootNode() };
+	node_map_[scene.GetRootNode()->node_id] = new EditorNode{ scene.GetRootNode(), ROOT_NODE_NAME };
 	root_node_ = node_map_[scene.GetRootNode()->node_id];
 
 	// TODO: Make user select this through GUI at startup.
-	project_directory_ = std::filesystem::path{ "D:/dev/pumpkin_projects/TestProject" };
-	std::filesystem::create_directory(project_directory_ / ASSETS_RELATIVE_PATH); // Creates directory if it doesn't exist.
+	//project_directory_ = std::filesystem::path{ "D:/dev/pumpkin_projects/TestProject" };
+	//std::filesystem::create_directory(project_directory_ / ASSETS_RELATIVE_PATH); // Creates directory if it doesn't exist.
 
 	gui_.Initialize(this);
 }
@@ -55,6 +57,8 @@ void Editor::CleanUp()
 		delete pair.second;
 	}
 	node_map_.clear();
+
+	gui_.CleanUp();
 }
 
 // We pass rendered_image_id to the draw callback instead of at initialization because the
@@ -238,13 +242,13 @@ void Editor::SaveProject() const
 		glm::quat& q{ node->node->rotation };
 		pmk::Node* parent{ node->node->GetParent() };
 
-		j[jsonkey::NODES] = {
+		j[jsonkey::NODES] += {
 			{ jsonkey::NAME, node->GetName() },
 			{ jsonkey::ID, node->node->node_id },
 			{ jsonkey::POSITION, { p.x, p.y, p.z } },
 			{ jsonkey::SCALE, { s.x, s.y, s.z } },
 			{ jsonkey::ROTATION, { q.x, q.y, q.z, q.w } },
-			{ jsonkey::SCALE, node->node->render_object },
+			{ jsonkey::RENDER_OBJECT, node->node->render_object },
 			{ jsonkey::PARENT_ID, parent ? parent->node_id : std::numeric_limits<uint32_t>::max() },
 			{ jsonkey::CHILDREN_IDS, node->node->GetChildrenIDs() },
 		};
@@ -270,9 +274,15 @@ void Editor::SaveProject() const
 	o.close();
 }
 
+void Editor::NewProject(const std::filesystem::path& proj_dir)
+{
+	std::filesystem::create_directories(proj_dir / ASSETS_RELATIVE_PATH); // Make the directory if it doesn't exist.
+	project_directory_ = proj_dir;
+}
+
 void Editor::LoadProject(const std::filesystem::path& proj_dir)
 {
-	if (project_directory_ != "") {
+	if (!project_directory_.empty()) {
 		//ResetProject();
 	}
 
@@ -290,9 +300,12 @@ void Editor::LoadNodeData(const nlohmann::json& j)
 	// Load basic node data.
 	for (auto& json_node : j[jsonkey::NODES])
 	{
+		if (json_node[jsonkey::ID] == 0) {
+			continue;
+		}
+
 		pmk::Node* node{ pumpkin_->GetScene().CreateNodeFromID(json_node[jsonkey::ID]) };
 		node_map_[node->node_id] = new EditorNode{ node, json_node[jsonkey::NAME] };
-
 
 		auto& p{ json_node[jsonkey::POSITION] };
 		auto& s{ json_node[jsonkey::SCALE] };
@@ -301,16 +314,19 @@ void Editor::LoadNodeData(const nlohmann::json& j)
 		node->render_object = json_node[jsonkey::RENDER_OBJECT];
 		node->position = glm::vec3{ p[0], p[1], p[2] };
 		node->scale = glm::vec3{ s[0], s[1], s[2] };
-		node->rotation = glm::quat{ q[0], q[1], q[2], q[3] };
+		node->rotation = glm::quat{ q[3], q[0], q[1], q[2] };
 	}
 	pumpkin_->GetScene().SetNextNodeID(j[jsonkey::MAX_NODE_ID] + 1);
 
 	// Set node parent/child data.
 	for (auto& json_node : j[jsonkey::NODES])
 	{
+		if (json_node[jsonkey::PARENT_ID] == std::numeric_limits<uint32_t>::max()) {
+			continue;
+		}
+
 		pmk::Node* node{ node_map_[json_node[jsonkey::ID]]->node };
 		pmk::Node* parent{ node_map_[json_node[jsonkey::PARENT_ID]]->node };
-
 		node->SetParent(parent); // Parent's children are set automatically from this.
 	}
 }
@@ -503,7 +519,8 @@ bool Editor::IsNodeAncestorSelected(EditorNode* node)
 {
 	pmk::Node* parent{ node->node->GetParent() };
 
-	if (parent) {
+	if (parent)
+	{
 		EditorNode* editor_parent{ NodeToEditorNode(parent) };
 		return IsNodeSelected(editor_parent) || IsNodeAncestorSelected(editor_parent);
 	}

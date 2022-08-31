@@ -7,7 +7,6 @@
 #include <filesystem>
 #include "pumpkin.h"
 #include "imgui.h"
-#include "imfilebrowser/imfilebrowser.h"
 
 class Editor;
 class EditorNode;
@@ -18,10 +17,14 @@ public:
 	// Initialize state of EditorGui, but nothing ImGui related. Called after Editor is initialized.
 	void Initialize(Editor* editor);
 
+	void CleanUp();
+
 	// Initialize everything ImGui related. Called when Pumpkin is initialized, which is before Editor is initialized.
 	void InitializeGui();
 
 	void DrawGui(ImTextureID* rendered_image_id);
+
+	void CheckProjectSelectionPopup();
 
 	// Get the extent of the 3D viewport render area.
 	const renderer::Extent& GetViewportExtent() const;
@@ -46,6 +49,8 @@ private:
 
 	void FileBrowser();
 
+	void ProjectSelectionPopup();
+
 	void CameraControls();
 
 	void UpdateViewportSize(const renderer::Extent& extent);
@@ -54,5 +59,9 @@ private:
 	renderer::Extent viewport_extent_{};        // Dimension of the 3D viewport.
 	renderer::Extent viewport_window_extent_{}; // Dimension of the window containing 3D viewport, including header etc.
 	std::filesystem::path current_directory_{};
-	ImGui::FileBrowser file_dialogue_{ 0 };
+
+	std::filesystem::path popup_current_directory_{ "D:\\dev\\pumpkin_projects" };
+	std::filesystem::directory_entry popup_selected_file_{};
+	bool open_project_selection_popup_{ true };
+	char* popup_name_buffer_;
 };
