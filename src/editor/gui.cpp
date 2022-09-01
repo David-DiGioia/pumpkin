@@ -234,6 +234,23 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 	ImGui::End();
 }
 
+bool IsPumpkinProject(const std::filesystem::directory_entry& dir)
+{
+	auto pmk_dir = dir / PROJECT_DATA_RELATIVE_PATH;
+
+	if (!std::filesystem::exists(pmk_dir) || !std::filesystem::is_directory(pmk_dir)) {
+		return false;
+	}
+
+	for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(pmk_dir))
+	{
+		if (entry.path().filename() == PROJECT_DATA_JSON_NAME) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void EditorGui::ProjectSelectionPopup()
 {
 	namespace fs = std::filesystem;
@@ -272,13 +289,24 @@ void EditorGui::ProjectSelectionPopup()
 
 			ImGui::PushID(idx);
 
-			if (ImGui::Selectable(filename.c_str(), entry == popup_selected_file_, ImGuiSelectableFlags_DontClosePopups)) {
+			if (ImGui::Selectable(filename.c_str(), entry == popup_selected_file_, ImGuiSelectableFlags_DontClosePopups))
+			{
 				popup_selected_file_ = entry;
+				pumpkin_proj_selected_ = IsPumpkinProject(entry);
 			}
 
-			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-				popup_current_directory_ = entry;
-				popup_selected_file_ = {};
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+			{
+				if (IsPumpkinProject(entry))
+				{
+					LoadProject();
+					ImGui::CloseCurrentPopup();
+				}
+				else
+				{
+					popup_current_directory_ = entry;
+					popup_selected_file_ = {};
+				}
 			}
 
 			ImGui::PopID();
@@ -286,11 +314,10 @@ void EditorGui::ProjectSelectionPopup()
 		}
 	}
 
-	ImGui::BeginDisabled(!popup_selected_file_.exists());
-	if (ImGui::Button("Load project")) {
-		current_directory_ = popup_selected_file_ / ASSETS_RELATIVE_PATH;
-		editor_->LoadProject(popup_selected_file_);
-		popup_selected_file_ = {};
+	ImGui::BeginDisabled(!pumpkin_proj_selected_);
+	if (ImGui::Button("Load project"))
+	{
+		LoadProject();
 		ImGui::CloseCurrentPopup();
 	}
 	ImGui::EndDisabled();
@@ -383,4 +410,12 @@ void EditorGui::UpdateViewportSize(const renderer::Extent& extent)
 		viewport_window_extent_ = ImGui::GetWindowSize();
 		editor_->pumpkin_->SetEditorViewportSize(extent);
 	}
+}
+
+void EditorGui::LoadProject()
+{
+	current_directory_ = popup_selected_file_ / ASSETS_RELATIVE_PATH;
+	editor_->LoadProject(popup_selected_file_);
+	popup_selected_file_ = {};
+	pumpkin_proj_selected_ = false;
 }

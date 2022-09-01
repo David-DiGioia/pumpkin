@@ -55,6 +55,8 @@ private:
 
 	void UpdateViewportSize(const renderer::Extent& extent);
 
+	void LoadProject();
+
 	Editor* editor_{};
 	renderer::Extent viewport_extent_{};        // Dimension of the 3D viewport.
 	renderer::Extent viewport_window_extent_{}; // Dimension of the window containing 3D viewport, including header etc.
@@ -64,4 +66,6 @@ private:
 	std::filesystem::directory_entry popup_selected_file_{};
 	bool open_project_selection_popup_{ true };
 	char* popup_name_buffer_;
+	bool pumpkin_proj_selected_{ false };
+
 };

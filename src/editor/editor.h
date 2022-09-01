@@ -16,8 +16,8 @@
 constexpr uint32_t NODE_NAME_BUFFER_SIZE{ 64 };
 
 const std::filesystem::path ASSETS_RELATIVE_PATH{ "assets" };
-const std::filesystem::path PROJECT_DATA_RELATIVE_PATH{ "project_data" };
-const std::filesystem::path PROJECT_DATA_JSON_NAME{ "project_data.json" };
+const std::filesystem::path PROJECT_DATA_RELATIVE_PATH{ "pumpkin_project" };
+const std::filesystem::path PROJECT_DATA_JSON_NAME{ "pumpkin_project.json" };
 const std::filesystem::path VERTEX_DATA_FILE_NAME{ "vertex_data.bin" };
 const std::filesystem::path INDEX_DATA_FILE_NAME{ "index_data.bin" };
 
