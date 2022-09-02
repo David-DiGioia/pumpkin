@@ -42,7 +42,9 @@ namespace renderer
 		BufferResource indices_resource{};
 	};
 
-	void LoadVerticesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<Vertex>* out_vertices);
+	// Return hash of this mesh's vertices.
+	uint64_t LoadVerticesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<Vertex>* out_vertices);
 
-	void LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<uint16_t>* out_indices);
+	// Returns hash of this mesh's indices.
+	uint64_t LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<uint16_t>* out_indices);
 }

@@ -20,18 +20,25 @@
 
 namespace jsonkey {
 	const std::string RENDER_OBJECTS{ "render_objects" };
-	// Render object members
+	// Render object members.
 	const std::string MESH_INDEX{ "mesh_index" };
 	const std::string VERTEX_TYPE{ "vertex_type" };
-	// End render object members
+	// End render object members.
 
 	const std::string MESHES{ "meshes" };
-	// Mesh members
+	// Mesh members.
 	const std::string VERTEX_BYTE_OFFSET{ "vertex_byte_offset" };
 	const std::string VERTEX_BYTE_SIZE{ "vertex_byte_size" };
 	const std::string INDEX_BYTE_OFFSET{ "index_byte_offset" };
 	const std::string INDEX_BYTE_SIZE{ "index_byte_size" };
-	// End mesh members
+	// End mesh members.
+
+	const std::string MESH_HASH_MAP{ "mesh_hash_map" };
+	// Mesh hash map members.
+	const std::string VERTEX_HASH{ "vertex_hash" };
+	const std::string INDEX_HASH{ "index_hash" };
+	const std::string HASH_MAP_MESH_INDEX{ "hash_map_mesh_index" };
+	// End mesh hash map members.
 }
 
 namespace renderer
@@ -488,6 +495,17 @@ namespace renderer
 
 	void VulkanRenderer::DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path) const
 	{
+		// Save mesh hash map.
+		for (const auto& pair : mesh_hash_map_)
+		{
+			j[jsonkey::MESH_HASH_MAP] += {
+				{ jsonkey::VERTEX_HASH, pair.first },
+				{ jsonkey::INDEX_HASH, pair.second.first },
+				{ jsonkey::HASH_MAP_MESH_INDEX, pair.second.second },
+			};
+		}
+
+		// Save render objects.
 		for (const RenderObject& ro : GetCurrentFrame().render_objects)
 		{
 			j[jsonkey::RENDER_OBJECTS] += {
@@ -502,11 +520,12 @@ namespace renderer
 		std::ofstream vertex_file{ vertex_path, std::ios::out | std::ios::binary };
 		std::ofstream index_file{ index_path, std::ios::out | std::ios::binary };
 
+		// Save meshes.
 		for (const Mesh& mesh : meshes_)
 		{
 			j[jsonkey::MESHES] += {
 				{ jsonkey::VERTEX_BYTE_OFFSET, vertex_byte_offest },
-				{ jsonkey::VERTEX_BYTE_SIZE, mesh.vertices.size() * sizeof(Vertex)},
+				{ jsonkey::VERTEX_BYTE_SIZE, mesh.vertices.size() * sizeof(Vertex) },
 				{ jsonkey::INDEX_BYTE_OFFSET, index_byte_offset },
 				{ jsonkey::INDEX_BYTE_SIZE, mesh.indices.size() * sizeof(uint16_t) },
 			};
@@ -554,6 +573,15 @@ namespace renderer
 		for (auto& json_ro : j[jsonkey::RENDER_OBJECTS]) {
 			CreateRenderObject(json_ro[jsonkey::MESH_INDEX]);
 		}
+
+		// Load mesh hash map.
+		for (auto& json_hash_val : j[jsonkey::MESH_HASH_MAP])
+		{
+			mesh_hash_map_[json_hash_val[jsonkey::VERTEX_HASH]] = {
+				json_hash_val[jsonkey::INDEX_HASH],
+				json_hash_val[jsonkey::HASH_MAP_MESH_INDEX],
+			};
+		}
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
@@ -596,7 +624,7 @@ namespace renderer
 			frame.render_objects.push_back(render_object);
 		}
 
-		return (RenderObjectHandle)mesh_index;
+		return (RenderObjectHandle)(frame_resources_[0].render_objects.size() - 1);
 	}
 
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
@@ -735,22 +763,34 @@ namespace renderer
 		// Maybe todo: Transition image with image barrier for being a depth image?
 	}
 
-	void VulkanRenderer::LoadMeshesGLTF(tinygltf::Model& model)
+	std::vector<int> VulkanRenderer::LoadMeshesGLTF(tinygltf::Model& model)
 	{
+		std::vector<int> duplicate_indices{};
+		duplicate_indices.reserve(model.meshes.size());
 		vulkan_util_.Begin();
 
 		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
 		{
-			meshes_.emplace_back();
-			auto& mesh{ meshes_.back() };
+			Mesh mesh{};
 
-			LoadVerticesGLTF(model, tinygltf_mesh, &mesh.vertices);
-			LoadIndicesGLTF(model, tinygltf_mesh, &mesh.indices);
+			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, &mesh.vertices) };
+			uint64_t index_hash{ LoadIndicesGLTF(model, tinygltf_mesh, &mesh.indices) };
 
-			UploadMeshToDevice(mesh);
+			// Check if this mesh has been loaded before, and only add to meshes_ if it hasn't
+			auto it{ mesh_hash_map_.find(vertex_hash) }; // This is a nested pair (vertex_hash, (index_hash, mesh_index)).
+			if (it != mesh_hash_map_.end() && it->second.first == index_hash) {
+				duplicate_indices.push_back(it->second.second); // Save the index into meshes_ where this mesh has been loaded before.
+			}
+			else
+			{
+				mesh_hash_map_[vertex_hash] = std::pair<uint64_t, uint32_t>{ index_hash, (uint32_t)meshes_.size() };
+				UploadMeshToDevice(mesh);
+				meshes_.push_back(mesh);
+				duplicate_indices.push_back(-1); // -1 indicates this mesh has not been loaded before.
+			}
 		}
-
 		vulkan_util_.Submit();
+		return duplicate_indices;
 	}
 
 	void VulkanRenderer::UploadMeshToDevice(Mesh& mesh)

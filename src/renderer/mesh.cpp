@@ -19,13 +19,22 @@ namespace renderer
 		};
 	}
 
-	void LoadVerticesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<Vertex>* out_vertices)
+	uint64_t HashVertex(const Vertex& v, uint32_t i)
+	{
+		uint64_t pos_sum{ (uint64_t)((i + 13) * (v.position.x + v.position.y + v.position.z)) };
+		uint64_t norm_sum{ (uint64_t)((3 * i + 23) * (v.normal.x + v.normal.y + v.normal.z)) };
+		return pos_sum ^ norm_sum;
+	}
+
+	uint64_t LoadVerticesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<Vertex>* out_vertices)
 	{
 		auto& primitive{ tinygltf_mesh.primitives[0] };
 
 		tinygltf::Accessor& pos_accesor = model.accessors[primitive.attributes["POSITION"]];
 		tinygltf::Accessor& norm_accesor = model.accessors[primitive.attributes["NORMAL"]];
 		tinygltf::Accessor& coord_accesor = model.accessors[primitive.attributes["TEXCOORD_0"]];
+
+		uint64_t hash{ 4589709 };
 
 		out_vertices->resize(pos_accesor.count);
 		for (size_t i = 0; i < out_vertices->size(); i++)
@@ -106,10 +115,13 @@ namespace renderer
 			{
 				logger::Error("glTF tex coord accessor type mismatch.\n");
 			}
+
+			hash ^= HashVertex((*out_vertices)[i], i);
 		}
+		return hash;
 	}
 
-	void LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<uint16_t>* out_indices)
+	uint64_t LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<uint16_t>* out_indices)
 	{
 		int accessor_idx = tinygltf_mesh.primitives[0].indices;
 
@@ -128,8 +140,14 @@ namespace renderer
 
 		uint16_t* data = (uint16_t*)(buffer.data.data() + buffer_view.byteOffset);
 
-		for (uint32_t i = 0; i < idx_count; i++) {
-			out_indices->push_back(*(data + i));
+		uint64_t hash{ 8501276 };
+
+		for (uint32_t i = 0; i < idx_count; i++)
+		{
+			uint16_t idx{ *(data + i) };
+			out_indices->push_back(idx);
+			hash ^= idx * (i + 47);
 		}
+		return hash;
 	}
 }

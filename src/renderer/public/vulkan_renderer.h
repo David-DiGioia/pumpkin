@@ -54,7 +54,8 @@ namespace renderer
 
 		void WindowResized();
 
-		void LoadMeshesGLTF(tinygltf::Model& model);
+		// Returns list where ith entry corresponds to model.meshes[i], -1 if it's a new mesh, or index into meshes_ if it's been loaded before.
+		std::vector<int> LoadMeshesGLTF(tinygltf::Model& model);
 
 		uint32_t MeshCount() const;
 
@@ -154,6 +155,7 @@ namespace renderer
 		VulkanUtil vulkan_util_{};
 
 		std::vector<Mesh> meshes_{}; // All meshes referenced by render objects.
+		std::unordered_map<uint64_t, std::pair<uint64_t, uint32_t>> mesh_hash_map_{}; // To prevent duplicating vertex data when loading same file multiple times. (vertex_hash, (index_hash, mesh_idx)).
 		DescriptorSetLayoutResource camera_layout_resource_{};
 		DescriptorSetLayoutResource render_object_layout_resource_{};
 

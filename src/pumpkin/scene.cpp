@@ -149,11 +149,12 @@ namespace pmk
 		}
 
 		uint32_t mesh_starting_index{ renderer_->MeshCount() };
-		renderer_->LoadMeshesGLTF(model);
+		std::vector<int> duplicate_indices{ renderer_->LoadMeshesGLTF(model) };
 
 		int starting_index{ (int)nodes_.size() };
 		nodes_.reserve(starting_index + model.nodes.size());
 
+		uint32_t i{ 0 };
 		for (tinygltf::Node gltf_node : model.nodes)
 		{
 			if (out_names) {
@@ -164,7 +165,9 @@ namespace pmk
 
 			if (gltf_node.mesh >= 0)
 			{
-				node->render_object = renderer_->CreateRenderObject(mesh_starting_index + gltf_node.mesh);
+				// If not -1, this indicates this mesh has been loaded already, so we give the render object the index of the existing mesh.
+				uint32_t mesh_idx{ duplicate_indices[i] == -1 ? mesh_starting_index + gltf_node.mesh : (uint32_t)duplicate_indices[i] };
+				node->render_object = renderer_->CreateRenderObject(mesh_idx);
 
 				if (!gltf_node.translation.empty()) {
 					node->position = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };
@@ -185,6 +188,7 @@ namespace pmk
 					node->AddChild(nodes_[starting_index + child_idx]);
 				}
 			}
+			++i;
 		}
 	}
 
