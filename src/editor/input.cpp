@@ -25,7 +25,7 @@ static glm::vec2 GetViewportRelativeMousePos(Editor* editor)
 }
 
 // Returns true if editor is actively in a transform mode (like translating a node with mouse input).
-static bool ProcessTransformInput(Editor* editor)
+bool ProcessTransformInput(Editor* editor)
 {
 	// Transform keyboard shortcuts.
 	if (!editor->SelectionEmpty())
@@ -49,6 +49,15 @@ static bool ProcessTransformInput(Editor* editor)
 		}
 		else if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
 			editor->CancelTransformInput();
+		}
+		else if (ImGui::IsKeyPressed(ImGuiKey_X)) {
+			editor->SetTransformLock(TransformLockFlags::Y | TransformLockFlags::Z);
+		}
+		else if (ImGui::IsKeyPressed(ImGuiKey_Y)) {
+			editor->SetTransformLock(TransformLockFlags::X | TransformLockFlags::Z);
+		}
+		else if (ImGui::IsKeyPressed(ImGuiKey_Z)) {
+			editor->SetTransformLock(TransformLockFlags::X | TransformLockFlags::Y);
 		}
 		else
 		{
@@ -126,7 +135,7 @@ void ProcessViewportInput(Editor* editor)
 		ImGui::ResetMouseDragDelta();
 	}
 
-	// Zoom/change speed with scroll wheel.
+	// Zoom / change speed with scroll wheel.
 	float wheel{ ImGui::GetIO().MouseWheel };
 	if (wheel != 0.0f)
 	{

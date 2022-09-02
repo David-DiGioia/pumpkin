@@ -385,6 +385,11 @@ void Editor::SetActiveTransformType(TransformType state)
 	}
 }
 
+void Editor::SetTransformLock(TransformLockFlags lock)
+{
+	transform_info_.lock = lock;
+}
+
 void Editor::CacheOriginalTransforms()
 {
 	transform_info_.original_transforms.clear();
@@ -407,11 +412,15 @@ void Editor::ProcessTranslationInput(const glm::vec2& mouse_delta)
 	glm::vec2 screen_displacement{ movement_multiplier * mouse_delta.x, -movement_multiplier * mouse_delta.y }; // Negate y since negative screenspace y means up.
 	glm::vec3 world_displacement{ (glm::vec3)(controller_.GetCamera()->rotation * glm::vec4{screen_displacement, 0.0f, 1.0f}) };
 
+	// Handle axis locking.
+	world_displacement.x = (transform_info_.lock & TransformLockFlags::X) != TransformLockFlags::NONE ? 0.0f : world_displacement.x;
+	world_displacement.y = (transform_info_.lock & TransformLockFlags::Y) != TransformLockFlags::NONE ? 0.0f : world_displacement.y;
+	world_displacement.z = (transform_info_.lock & TransformLockFlags::Z) != TransformLockFlags::NONE ? 0.0f : world_displacement.z;
+
 	for (EditorNode* node : selected_nodes_)
 	{
 		// If a node's ancestor is selected then transforming both parent and child will result in double the transform of the child.
 		if (!IsNodeAncestorSelected(node)) {
-			//node->node->position = transform_info_.original_transforms[node].position + world_displacement;
 			node->node->SetWorldPosition(transform_info_.original_transforms[node].position + world_displacement);
 		}
 	}
@@ -424,7 +433,23 @@ void Editor::ProcessRotationInput(const glm::vec2& mouse_pos)
 	glm::vec2 center_to_current{ mouse_pos - rotation_center };
 
 	float angle{ glm::orientedAngle(glm::normalize(center_to_start), glm::normalize(center_to_current)) };
-	glm::quat rotation{ glm::angleAxis(angle, controller_.GetForward()) };
+
+	// Handle axis locking.
+	glm::vec3 axis{ controller_.GetForward() };
+	switch (transform_info_.lock)
+	{
+	case TransformLockFlags::Y | TransformLockFlags::Z: // Rotate about x.
+		axis = glm::vec3{ 1.0f, 0.0f, 0.0f };
+		break;
+	case TransformLockFlags::X | TransformLockFlags::Z:  // Rotate about y.
+		axis = glm::vec3{ 0.0f, 1.0f, 0.0f };
+		break;
+	case TransformLockFlags::X | TransformLockFlags::Y:  // Rotate about z.
+		axis = glm::vec3{ 0.0f, 0.0f, 1.0f };
+		break;
+	}
+
+	glm::quat rotation{ glm::angleAxis(angle, axis) };
 
 	for (EditorNode* node : selected_nodes_)
 	{
@@ -451,17 +476,22 @@ void Editor::ProcessScaleInput(const glm::vec2& mouse_pos)
 	float current_distance{ glm::distance(mouse_pos, rotation_center) };
 
 	float scale{ current_distance / start_distance };
+	glm::vec3 scale_vec{
+		(transform_info_.lock & TransformLockFlags::X) != TransformLockFlags::NONE ? 1.0f : scale,
+		(transform_info_.lock & TransformLockFlags::Y) != TransformLockFlags::NONE ? 1.0f : scale,
+		(transform_info_.lock & TransformLockFlags::Z) != TransformLockFlags::NONE ? 1.0f : scale,
+	};
 
 	for (EditorNode* node : selected_nodes_)
 	{
 		// If a node's ancestor is selected then transforming both parent and child will result in double the transform of the child.
 		if (!IsNodeAncestorSelected(node))
 		{
-			node->node->scale = scale * transform_info_.original_transforms[node].scale;
+			node->node->scale = scale_vec * transform_info_.original_transforms[node].scale;
 
 			glm::vec3 new_position{ transform_info_.original_transforms[node].position };
 			new_position -= transform_info_.average_start_pos; // Convert to local space where average_position is origin.
-			new_position = scale * new_position;               // Scale about average_position.
+			new_position = scale_vec * new_position;           // Scale about average_position.
 			new_position += transform_info_.average_start_pos; // Restore position to world space.
 			node->node->SetWorldPosition(new_position);
 		}

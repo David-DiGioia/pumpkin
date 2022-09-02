@@ -28,15 +28,24 @@ enum class TransformType {
 	SCALE,
 };
 
-enum class TransformLock {
-	NONE,
-	X,
-	Y,
-	Z,
-	XY,
-	XZ,
-	YZ,
+enum class TransformLockFlags {
+	NONE = 0x00u,
+	X = 0x01u,
+	Y = 0x02u,
+	Z = 0x04u,
 };
+
+// Enable bitwise ORing transform flags together.
+constexpr inline TransformLockFlags operator|(TransformLockFlags a, TransformLockFlags b)
+{
+	return static_cast<TransformLockFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
+// Enable bitwise ANDing transform flags together.
+constexpr inline TransformLockFlags operator&(TransformLockFlags a, TransformLockFlags b)
+{
+	return static_cast<TransformLockFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
 
 enum class TransformSpace {
 	GLOBAL,
@@ -72,7 +81,7 @@ struct Transform
 struct TransformInfo
 {
 	TransformType type{ TransformType::NONE };
-	TransformLock lock{ TransformLock::NONE };
+	TransformLockFlags lock{ TransformLockFlags::NONE };
 	TransformSpace space{ TransformSpace::GLOBAL };
 	glm::vec2 mouse_start_pos{ -1.0f, -1.0f };
 	glm::vec3 average_start_pos{};
@@ -158,6 +167,8 @@ public:
 	TransformType GetActiveTransformType() const;
 
 	void SetActiveTransformType(TransformType state);
+
+	void SetTransformLock(TransformLockFlags lock);
 
 	// Process the transform input while the transform state is not TransformState::NONE. This gives live update from user input.
 	// 
