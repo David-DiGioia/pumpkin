@@ -257,6 +257,7 @@ void EditorGui::ProjectSelectionPopup()
 
 	ImGui::Text("New project");
 	ImGui::InputText("Project name", popup_name_buffer_, PROJECT_NAME_BUFFER_SIZE);
+	ImGui::BeginDisabled(popup_name_buffer_[0] == '\0'); // Disable empty string.
 	if (ImGui::Button("Create project"))
 	{
 		auto project_dir{ popup_current_directory_ / popup_name_buffer_ };
@@ -264,6 +265,7 @@ void EditorGui::ProjectSelectionPopup()
 		current_directory_ = project_dir / ASSETS_RELATIVE_PATH;
 		ImGui::CloseCurrentPopup();
 	}
+	ImGui::EndDisabled();
 
 	ImGui::Text("\nLoad existing project");
 	ImGui::PushID(1);
