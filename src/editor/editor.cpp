@@ -278,6 +278,7 @@ void Editor::NewProject(const std::filesystem::path& proj_dir)
 {
 	std::filesystem::create_directories(proj_dir / ASSETS_RELATIVE_PATH); // Make the directory if it doesn't exist.
 	project_directory_ = proj_dir;
+	SaveProject(); // Save so the empty project can be loaded again if user doesn't ever save this project.
 }
 
 void Editor::LoadProject(const std::filesystem::path& proj_dir)

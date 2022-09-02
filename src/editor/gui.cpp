@@ -275,6 +275,8 @@ void EditorGui::ProjectSelectionPopup()
 	ImGui::Text(popup_current_directory_.string().c_str());
 	ImGui::PopID();
 
+	ImGui::BeginChild("Project selection child", ImVec2(ImGui::GetContentRegionAvail().x, 200), false, 0);
+
 	if (fs::exists(popup_current_directory_) && fs::is_directory(popup_current_directory_))
 	{
 		int idx{ 0 };
@@ -314,6 +316,8 @@ void EditorGui::ProjectSelectionPopup()
 		}
 	}
 
+	ImGui::EndChild();
+
 	ImGui::BeginDisabled(!pumpkin_proj_selected_);
 	if (ImGui::Button("Load project"))
 	{
@@ -342,6 +346,8 @@ void EditorGui::FileBrowser()
 	ImGui::SameLine();
 	ImGui::Text(current_directory_.string().c_str());
 	ImGui::PopID();
+
+	ImGui::BeginChild("File browser child", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y), true, 0);
 
 	if (fs::exists(current_directory_) && fs::is_directory(current_directory_))
 	{
@@ -384,6 +390,7 @@ void EditorGui::FileBrowser()
 		}
 	}
 
+	ImGui::EndChild();
 	ImGui::End();
 }
 
