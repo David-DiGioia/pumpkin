@@ -178,7 +178,7 @@ namespace pmk
 				}
 
 				if (!gltf_node.rotation.empty()) {
-					node->rotation = glm::quat{ (float)gltf_node.rotation[0], (float)gltf_node.rotation[1], (float)gltf_node.rotation[2], (float)gltf_node.rotation[3] };
+					node->rotation = glm::quat{ (float)gltf_node.rotation[3], (float)gltf_node.rotation[0], (float)gltf_node.rotation[1], (float)gltf_node.rotation[2] };
 				}
 				else {
 					node->rotation = glm::quat{ 1.0f, 0.0f, 0.f, 0.0f };

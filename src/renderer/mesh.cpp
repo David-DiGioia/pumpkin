@@ -26,128 +26,145 @@ namespace renderer
 		return pos_sum ^ norm_sum;
 	}
 
-	uint64_t LoadVerticesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<Vertex>* out_vertices)
+	uint64_t LoadVerticesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, Mesh* out_mesh)
 	{
-		auto& primitive{ tinygltf_mesh.primitives[0] };
-
-		tinygltf::Accessor& pos_accesor = model.accessors[primitive.attributes["POSITION"]];
-		tinygltf::Accessor& norm_accesor = model.accessors[primitive.attributes["NORMAL"]];
-		tinygltf::Accessor& coord_accesor = model.accessors[primitive.attributes["TEXCOORD_0"]];
-
 		uint64_t hash{ 4589709 };
+		uint32_t geo_idx{ 0 };
 
-		out_vertices->resize(pos_accesor.count);
-		for (size_t i = 0; i < out_vertices->size(); i++)
+		for (tinygltf::Primitive& primitive : tinygltf_mesh.primitives)
 		{
-			// Positions.
-			if (pos_accesor.type == TINYGLTF_TYPE_VEC3)
+			tinygltf::Accessor& pos_accesor{ model.accessors[primitive.attributes["POSITION"]] };
+			tinygltf::Accessor& norm_accesor{ model.accessors[primitive.attributes["NORMAL"]] };
+			auto tex_coord_itr{ primitive.attributes.find("TEXCOORD_0") };
+
+			out_mesh->geometries[geo_idx].vertices.resize(pos_accesor.count);
+			for (size_t i = 0; i < out_mesh->geometries[geo_idx].vertices.size(); i++)
 			{
-				if (pos_accesor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+				// Positions.
+				if (pos_accesor.type == TINYGLTF_TYPE_VEC3)
 				{
-					int buffer_view_idx{ pos_accesor.bufferView };
-					auto& buffer_view{ model.bufferViews[buffer_view_idx] };
-					int buffer_idx{ buffer_view.buffer };
-					auto& buffer{ model.buffers[buffer_idx] };
+					if (pos_accesor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+					{
+						int buffer_view_idx{ pos_accesor.bufferView };
+						auto& buffer_view{ model.bufferViews[buffer_view_idx] };
+						int buffer_idx{ buffer_view.buffer };
+						auto& buffer{ model.buffers[buffer_idx] };
 
-					float* data = (float*)(buffer.data.data() + buffer_view.byteOffset);
+						float* data = (float*)(buffer.data.data() + buffer_view.byteOffset);
 
-					(*out_vertices)[i].position[0] = *(data + (i * 3) + 0);
-					(*out_vertices)[i].position[1] = *(data + (i * 3) + 1);
-					(*out_vertices)[i].position[2] = *(data + (i * 3) + 2);
+						out_mesh->geometries[geo_idx].vertices[i].position[0] = *(data + (i * 3) + 0);
+						out_mesh->geometries[geo_idx].vertices[i].position[1] = *(data + (i * 3) + 1);
+						out_mesh->geometries[geo_idx].vertices[i].position[2] = *(data + (i * 3) + 2);
+					}
+					else
+					{
+						logger::Error("glTF position component type mismatch.\n");
+					}
 				}
 				else
 				{
-					logger::Error("glTF position component type mismatch.\n");
+					logger::Error("glTF position accessor type mismatch.\n");
 				}
-			}
-			else
-			{
-				logger::Error("glTF position accessor type mismatch.\n");
-			}
 
-			// Normals.
-			if (norm_accesor.type == TINYGLTF_TYPE_VEC3)
-			{
-				if (norm_accesor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+				// Normals.
+				if (norm_accesor.type == TINYGLTF_TYPE_VEC3)
 				{
-					int buffer_view_idx{ norm_accesor.bufferView };
-					auto& buffer_view{ model.bufferViews[buffer_view_idx] };
-					int buffer_idx{ buffer_view.buffer };
-					auto& buffer{ model.buffers[buffer_idx] };
+					if (norm_accesor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+					{
+						int buffer_view_idx{ norm_accesor.bufferView };
+						auto& buffer_view{ model.bufferViews[buffer_view_idx] };
+						int buffer_idx{ buffer_view.buffer };
+						auto& buffer{ model.buffers[buffer_idx] };
 
-					float* data = (float*)(buffer.data.data() + buffer_view.byteOffset);
+						float* data = (float*)(buffer.data.data() + buffer_view.byteOffset);
 
-					(*out_vertices)[i].normal[0] = *(data + (i * 3) + 0);
-					(*out_vertices)[i].normal[1] = *(data + (i * 3) + 1);
-					(*out_vertices)[i].normal[2] = *(data + (i * 3) + 2);
+						out_mesh->geometries[geo_idx].vertices[i].normal[0] = *(data + (i * 3) + 0);
+						out_mesh->geometries[geo_idx].vertices[i].normal[1] = *(data + (i * 3) + 1);
+						out_mesh->geometries[geo_idx].vertices[i].normal[2] = *(data + (i * 3) + 2);
+					}
+					else
+					{
+						logger::Error("glTF normal component type mismatch.\n");
+					}
 				}
 				else
 				{
-					logger::Error("glTF normal component type mismatch.\n");
+					logger::Error("glTF normal accessor type mismatch.\n");
 				}
-			}
-			else
-			{
-				logger::Error("glTF normal accessor type mismatch.\n");
-			}
 
-			// TEX COORD.
-			if (coord_accesor.type == TINYGLTF_TYPE_VEC2)
-			{
-				if (coord_accesor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+				// TEX COORD.
+				if (tex_coord_itr != primitive.attributes.end())
 				{
-					int buffer_view_idx{ coord_accesor.bufferView };
-					auto& buffer_view{ model.bufferViews[buffer_view_idx] };
-					int buffer_idx{ buffer_view.buffer };
-					auto& buffer{ model.buffers[buffer_idx] };
+					tinygltf::Accessor& coord_accesor = model.accessors[tex_coord_itr->second];
 
-					float* data = (float*)(buffer.data.data() + buffer_view.byteOffset);
+					if (coord_accesor.type == TINYGLTF_TYPE_VEC2)
+					{
+						if (coord_accesor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+						{
+							int buffer_view_idx{ coord_accesor.bufferView };
+							auto& buffer_view{ model.bufferViews[buffer_view_idx] };
+							int buffer_idx{ buffer_view.buffer };
+							auto& buffer{ model.buffers[buffer_idx] };
 
-					(*out_vertices)[i].tex_coord[0] = *(data + (i * 2) + 0);
-					(*out_vertices)[i].tex_coord[1] = *(data + (i * 2) + 1);
+							float* data = (float*)(buffer.data.data() + buffer_view.byteOffset);
+
+							out_mesh->geometries[geo_idx].vertices[i].tex_coord[0] = *(data + (i * 2) + 0);
+							out_mesh->geometries[geo_idx].vertices[i].tex_coord[1] = *(data + (i * 2) + 1);
+						}
+						else
+						{
+							logger::Error("glTF tex coord component type mismatch.\n");
+						}
+					}
+					else
+					{
+						logger::Error("glTF tex coord accessor type mismatch.\n");
+					}
 				}
-				else
-				{
-					logger::Error("glTF tex coord component type mismatch.\n");
-				}
-			}
-			else
-			{
-				logger::Error("glTF tex coord accessor type mismatch.\n");
+
+				hash ^= HashVertex(out_mesh->geometries[geo_idx].vertices[i], i);
 			}
 
-			hash ^= HashVertex((*out_vertices)[i], i);
+			++geo_idx;
 		}
+
 		return hash;
 	}
 
-	uint64_t LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<uint16_t>* out_indices)
+	uint64_t LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, Mesh* out_mesh)
 	{
-		int accessor_idx = tinygltf_mesh.primitives[0].indices;
-
-		int buffer_view_idx = model.accessors[accessor_idx].bufferView;
-		auto& buffer_view = model.bufferViews[buffer_view_idx];
-		int buffer_idx = buffer_view.buffer;
-		auto& buffer = model.buffers[buffer_idx];
-
-		int component_type = model.accessors[accessor_idx].componentType;
-		if (component_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
-			logger::Error("glTF index component type mismatch.");
-		}
-
-		uint32_t idx_count{ (uint32_t)model.accessors[accessor_idx].count };
-		out_indices->reserve(idx_count);
-
-		uint16_t* data = (uint16_t*)(buffer.data.data() + buffer_view.byteOffset);
-
 		uint64_t hash{ 8501276 };
+		uint32_t geo_idx{ 0 };
 
-		for (uint32_t i = 0; i < idx_count; i++)
+		for (tinygltf::Primitive& primitive : tinygltf_mesh.primitives)
 		{
-			uint16_t idx{ *(data + i) };
-			out_indices->push_back(idx);
-			hash ^= idx * (i + 47);
+			int accessor_idx = primitive.indices;
+
+			int buffer_view_idx = model.accessors[accessor_idx].bufferView;
+			auto& buffer_view = model.bufferViews[buffer_view_idx];
+			int buffer_idx = buffer_view.buffer;
+			auto& buffer = model.buffers[buffer_idx];
+
+			int component_type = model.accessors[accessor_idx].componentType;
+			if (component_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+				logger::Error("glTF index component type mismatch.");
+			}
+
+			uint32_t idx_count{ (uint32_t)model.accessors[accessor_idx].count };
+			out_mesh->geometries[geo_idx].indices.reserve(idx_count);
+
+			uint16_t* data = (uint16_t*)(buffer.data.data() + buffer_view.byteOffset);
+
+			for (uint32_t i = 0; i < idx_count; i++)
+			{
+				uint16_t idx{ *(data + i) };
+				out_mesh->geometries[geo_idx].indices.push_back(idx);
+				hash ^= idx * (i + 47);
+			}
+
+			++geo_idx;
 		}
+
 		return hash;
 	}
 }

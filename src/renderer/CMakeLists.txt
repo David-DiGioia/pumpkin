@@ -19,6 +19,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/descriptor_set.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer_types.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer_types.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ray_tracing.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ray_tracing.cpp"
 )
 
 add_library(Renderer "${SOURCES}")

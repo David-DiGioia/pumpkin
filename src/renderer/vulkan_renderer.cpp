@@ -27,10 +27,13 @@ namespace jsonkey {
 
 	const std::string MESHES{ "meshes" };
 	// Mesh members.
+	const std::string GEOMETRIES{ "geometries" };
+	// Geometry members.
 	const std::string VERTEX_BYTE_OFFSET{ "vertex_byte_offset" };
 	const std::string VERTEX_BYTE_SIZE{ "vertex_byte_size" };
 	const std::string INDEX_BYTE_OFFSET{ "index_byte_offset" };
 	const std::string INDEX_BYTE_SIZE{ "index_byte_size" };
+	// End geometry members.
 	// End mesh members.
 
 	const std::string MESH_HASH_MAP{ "mesh_hash_map" };
@@ -69,6 +72,7 @@ namespace renderer
 		descriptor_allocator_.Initialize(&context_);
 		InitializeDescriptorSetLayouts();
 		InitializePipelines();
+		InitializeRayTracing();
 		allocator_.Initialize(&context_);
 		vulkan_util_.Initialize(&context_, &allocator_);
 		InitializeFrameResources();
@@ -117,8 +121,11 @@ namespace renderer
 
 		for (Mesh& mesh : meshes_)
 		{
-			allocator_.DestroyBufferResource(&mesh.vertices_resource);
-			allocator_.DestroyBufferResource(&mesh.indices_resource);
+			for (Geometry& geometry : mesh.geometries)
+			{
+				allocator_.DestroyBufferResource(&geometry.vertices_resource);
+				allocator_.DestroyBufferResource(&geometry.indices_resource);
+			}
 		}
 
 		// Destroying command pool frees all command buffers allocated from it.
@@ -156,6 +163,10 @@ namespace renderer
 		};
 
 		graphics_pipeline_.Initialize(&context_, &swapchain_, set_layouts, GetDepthImageFormat());
+	}
+
+	void VulkanRenderer::InitializeRayTracing()
+	{
 	}
 
 	VkFormat VulkanRenderer::GetDepthImageFormat() const
@@ -310,11 +321,15 @@ namespace renderer
 
 			for (auto& render_obj : GetCurrentFrame().render_objects)
 			{
-				vkCmdBindVertexBuffers(cmd, 0, 1, &meshes_[render_obj.mesh_idx].vertices_resource.buffer, &zero_offset);
-				vkCmdBindIndexBuffer(cmd, meshes_[render_obj.mesh_idx].indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj.ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
-				vkCmdDrawIndexed(cmd, (uint32_t)meshes_[render_obj.mesh_idx].indices.size(), 1, 0, 0, 0);
+
+				for (auto& geometry : meshes_[render_obj.mesh_idx].geometries)
+				{
+					vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
+					vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
+					vkCmdDrawIndexed(cmd, (uint32_t)geometry.indices.size(), 1, 0, 0, 0);
+				}
 			}
 
 			vkCmdEndRendering(cmd);
@@ -523,18 +538,21 @@ namespace renderer
 		// Save meshes.
 		for (const Mesh& mesh : meshes_)
 		{
-			j[jsonkey::MESHES] += {
-				{ jsonkey::VERTEX_BYTE_OFFSET, vertex_byte_offest },
-				{ jsonkey::VERTEX_BYTE_SIZE, mesh.vertices.size() * sizeof(Vertex) },
-				{ jsonkey::INDEX_BYTE_OFFSET, index_byte_offset },
-				{ jsonkey::INDEX_BYTE_SIZE, mesh.indices.size() * sizeof(uint16_t) },
-			};
+			for (const Geometry& geometry : mesh.geometries)
+			{
+				j[jsonkey::MESHES][jsonkey::GEOMETRIES] += {
+					{ jsonkey::VERTEX_BYTE_OFFSET, vertex_byte_offest },
+					{ jsonkey::VERTEX_BYTE_SIZE, geometry.vertices.size() * sizeof(Vertex) },
+					{ jsonkey::INDEX_BYTE_OFFSET, index_byte_offset },
+					{ jsonkey::INDEX_BYTE_SIZE, geometry.indices.size() * sizeof(uint16_t) },
+				};
 
-			vertex_file.write(reinterpret_cast<const char*>(mesh.vertices.data()), mesh.vertices.size() * sizeof(Vertex));
-			index_file.write(reinterpret_cast<const char*>(mesh.indices.data()), mesh.indices.size() * sizeof(uint16_t));
+				vertex_file.write(reinterpret_cast<const char*>(geometry.vertices.data()), geometry.vertices.size() * sizeof(Vertex));
+				index_file.write(reinterpret_cast<const char*>(geometry.indices.data()), geometry.indices.size() * sizeof(uint16_t));
 
-			vertex_byte_offest += mesh.vertices.size() * sizeof(Vertex);
-			index_byte_offset += mesh.indices.size() * sizeof(uint16_t);
+				vertex_byte_offest += geometry.vertices.size() * sizeof(Vertex);
+				index_byte_offset += geometry.indices.size() * sizeof(uint16_t);
+			}
 		}
 
 		vertex_file.close();
@@ -554,16 +572,22 @@ namespace renderer
 			meshes_.emplace_back();
 			auto& mesh{ meshes_.back() };
 
-			// Load vertices.
-			mesh.vertices.resize(json_mesh[jsonkey::VERTEX_BYTE_SIZE] / sizeof(Vertex));
-			vertex_file.seekg((size_t)json_mesh[jsonkey::VERTEX_BYTE_OFFSET]);
-			vertex_file.read(reinterpret_cast<char*>(mesh.vertices.data()), json_mesh[jsonkey::VERTEX_BYTE_SIZE]);
+			for (auto& json_geometry : json_mesh[jsonkey::GEOMETRIES])
+			{
+				mesh.geometries.emplace_back();
+				auto& geometry{ mesh.geometries.back() };
 
-			// Load indices.
-			mesh.indices.resize(json_mesh[jsonkey::INDEX_BYTE_SIZE] / sizeof(uint16_t));
-			index_file.seekg((size_t)json_mesh[jsonkey::INDEX_BYTE_OFFSET]);
-			index_file.read(reinterpret_cast<char*>(mesh.indices.data()), json_mesh[jsonkey::INDEX_BYTE_SIZE]);
+				// Load vertices.
+				geometry.vertices.resize(json_geometry[jsonkey::VERTEX_BYTE_SIZE] / sizeof(Vertex));
+				vertex_file.seekg((size_t)json_geometry[jsonkey::VERTEX_BYTE_OFFSET]);
+				vertex_file.read(reinterpret_cast<char*>(geometry.vertices.data()), json_geometry[jsonkey::VERTEX_BYTE_SIZE]);
 
+				// Load indices.
+				geometry.indices.resize(json_geometry[jsonkey::INDEX_BYTE_SIZE] / sizeof(uint16_t));
+				index_file.seekg((size_t)json_geometry[jsonkey::INDEX_BYTE_OFFSET]);
+				index_file.read(reinterpret_cast<char*>(geometry.indices.data()), json_geometry[jsonkey::INDEX_BYTE_SIZE]);
+
+			}
 			UploadMeshToDevice(mesh);
 		}
 
@@ -772,9 +796,10 @@ namespace renderer
 		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
 		{
 			Mesh mesh{};
+			mesh.geometries.resize(tinygltf_mesh.primitives.size());
 
-			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, &mesh.vertices) };
-			uint64_t index_hash{ LoadIndicesGLTF(model, tinygltf_mesh, &mesh.indices) };
+			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, &mesh) };
+			uint64_t index_hash{ LoadIndicesGLTF(model, tinygltf_mesh, &mesh) };
 
 			// Check if this mesh has been loaded before, and only add to meshes_ if it hasn't
 			auto it{ mesh_hash_map_.find(vertex_hash) }; // This is a nested pair (vertex_hash, (index_hash, mesh_index)).
@@ -795,13 +820,16 @@ namespace renderer
 
 	void VulkanRenderer::UploadMeshToDevice(Mesh& mesh)
 	{
-		mesh.vertices_resource = allocator_.CreateBufferResource(mesh.vertices.size() * sizeof(Vertex),
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		vulkan_util_.TransferBufferToDevice(mesh.vertices, mesh.vertices_resource);
+		for (Geometry& geometry : mesh.geometries)
+		{
+			geometry.vertices_resource = allocator_.CreateBufferResource(geometry.vertices.size() * sizeof(Vertex),
+				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			vulkan_util_.TransferBufferToDevice(geometry.vertices, geometry.vertices_resource);
 
-		mesh.indices_resource = allocator_.CreateBufferResource(mesh.indices.size() * sizeof(uint16_t),
-			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		vulkan_util_.TransferBufferToDevice(mesh.indices, mesh.indices_resource);
+			geometry.indices_resource = allocator_.CreateBufferResource(geometry.indices.size() * sizeof(uint16_t),
+				VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			vulkan_util_.TransferBufferToDevice(geometry.indices, geometry.indices_resource);
+		}
 	}
 
 	uint32_t VulkanRenderer::MeshCount() const

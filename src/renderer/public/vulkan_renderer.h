@@ -17,6 +17,7 @@
 #include "descriptor_set.h"
 #include "imgui_backend.h"
 #include "renderer_types.h"
+#include "ray_tracing.h"
 
 namespace renderer
 {
@@ -104,6 +105,8 @@ namespace renderer
 
 		void InitializePipelines();
 
+		void InitializeRayTracing();
+
 		void InitializeFrameResources();
 
 		void InitializeCommandBuffers();
@@ -153,6 +156,7 @@ namespace renderer
 		Allocator allocator_{};
 		DescriptorAllocator descriptor_allocator_{};
 		VulkanUtil vulkan_util_{};
+		RayTracingContext rt_context_{};
 
 		std::vector<Mesh> meshes_{}; // All meshes referenced by render objects.
 		std::unordered_map<uint64_t, std::pair<uint64_t, uint32_t>> mesh_hash_map_{}; // To prevent duplicating vertex data when loading same file multiple times. (vertex_hash, (index_hash, mesh_idx)).

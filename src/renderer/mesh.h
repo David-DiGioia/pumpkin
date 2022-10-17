@@ -33,7 +33,7 @@ namespace renderer
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};
 
-	struct Mesh
+	struct Geometry
 	{
 		std::vector<Vertex> vertices{};
 		std::vector<uint16_t> indices{};
@@ -42,9 +42,18 @@ namespace renderer
 		BufferResource indices_resource{};
 	};
 
+	struct Mesh
+	{
+		std::vector<Geometry> geometries{};
+	};
+
 	// Return hash of this mesh's vertices.
-	uint64_t LoadVerticesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<Vertex>* out_vertices);
+	//
+	// out_mesh must already have Mesh::geometries resized to number of primitives in gltf mesh.
+	uint64_t LoadVerticesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, Mesh* out_mesh);
 
 	// Returns hash of this mesh's indices.
-	uint64_t LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, std::vector<uint16_t>* out_indices);
+	//
+	// out_mesh must already have Mesh::geometries resized to number of primitives in gltf mesh.
+	uint64_t LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, Mesh* out_mesh);
 }
