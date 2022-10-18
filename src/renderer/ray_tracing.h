@@ -7,6 +7,9 @@ namespace renderer
 {
 	class RayTracingContext
 	{
+	public:
+		void Initialize();
+
 		void AddBlas();
 
 		void BuildBlases();

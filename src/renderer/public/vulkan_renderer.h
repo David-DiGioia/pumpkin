@@ -23,9 +23,6 @@ namespace renderer
 {
 	struct RenderObject
 	{
-		// TODO: Later handle multiple primitives per mesh from GLTF file.
-		//       This occurs when a single mesh has multiple materials.
-		//       For raytracing we probably want to implement with geometry indexing.
 		uint32_t mesh_idx;
 		VertexType vertex_type;
 

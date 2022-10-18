@@ -167,6 +167,7 @@ namespace renderer
 
 	void VulkanRenderer::InitializeRayTracing()
 	{
+		rt_context_.Initialize();
 	}
 
 	VkFormat VulkanRenderer::GetDepthImageFormat() const
@@ -538,9 +539,11 @@ namespace renderer
 		// Save meshes.
 		for (const Mesh& mesh : meshes_)
 		{
+			nlohmann::json json_mesh{};
+
 			for (const Geometry& geometry : mesh.geometries)
 			{
-				j[jsonkey::MESHES][jsonkey::GEOMETRIES] += {
+				json_mesh[jsonkey::GEOMETRIES] += {
 					{ jsonkey::VERTEX_BYTE_OFFSET, vertex_byte_offest },
 					{ jsonkey::VERTEX_BYTE_SIZE, geometry.vertices.size() * sizeof(Vertex) },
 					{ jsonkey::INDEX_BYTE_OFFSET, index_byte_offset },
@@ -553,6 +556,8 @@ namespace renderer
 				vertex_byte_offest += geometry.vertices.size() * sizeof(Vertex);
 				index_byte_offset += geometry.indices.size() * sizeof(uint16_t);
 			}
+
+			j[jsonkey::MESHES] += json_mesh;
 		}
 
 		vertex_file.close();
