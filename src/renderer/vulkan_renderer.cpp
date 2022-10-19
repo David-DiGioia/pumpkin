@@ -72,10 +72,10 @@ namespace renderer
 		descriptor_allocator_.Initialize(&context_);
 		InitializeDescriptorSetLayouts();
 		InitializePipelines();
-		InitializeRayTracing();
 		allocator_.Initialize(&context_);
 		vulkan_util_.Initialize(&context_, &allocator_);
 		InitializeFrameResources();
+		InitializeRayTracing();
 
 #ifdef EDITOR_ENABLED
 		imgui_backend_.Initialize(this);
@@ -167,7 +167,7 @@ namespace renderer
 
 	void VulkanRenderer::InitializeRayTracing()
 	{
-		rt_context_.Initialize();
+		rt_context_.Initialize(&context_, &allocator_);
 	}
 
 	VkFormat VulkanRenderer::GetDepthImageFormat() const
@@ -574,13 +574,11 @@ namespace renderer
 		// Load meshes.
 		for (auto& json_mesh : j[jsonkey::MESHES])
 		{
-			meshes_.emplace_back();
-			auto& mesh{ meshes_.back() };
+			auto& mesh{ meshes_.emplace_back() };
 
 			for (auto& json_geometry : json_mesh[jsonkey::GEOMETRIES])
 			{
-				mesh.geometries.emplace_back();
-				auto& geometry{ mesh.geometries.back() };
+				auto& geometry{ mesh.geometries.emplace_back() };
 
 				// Load vertices.
 				geometry.vertices.resize(json_geometry[jsonkey::VERTEX_BYTE_SIZE] / sizeof(Vertex));
@@ -594,6 +592,7 @@ namespace renderer
 
 			}
 			UploadMeshToDevice(mesh);
+			rt_context_.AddBlas(mesh);
 		}
 
 		vulkan_util_.Submit();
@@ -816,6 +815,7 @@ namespace renderer
 				mesh_hash_map_[vertex_hash] = std::pair<uint64_t, uint32_t>{ index_hash, (uint32_t)meshes_.size() };
 				UploadMeshToDevice(mesh);
 				meshes_.push_back(mesh);
+				rt_context_.AddBlas(mesh);
 				duplicate_indices.push_back(-1); // -1 indicates this mesh has not been loaded before.
 			}
 		}
