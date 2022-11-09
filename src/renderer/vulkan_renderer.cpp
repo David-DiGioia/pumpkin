@@ -569,7 +569,7 @@ namespace renderer
 		std::ifstream vertex_file{ vertex_path, std::ios::out | std::ios::binary };
 		std::ifstream index_file{ index_path, std::ios::out | std::ios::binary };
 
-		vulkan_util_.Begin();
+		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 
 		// Load meshes.
 		for (auto& json_mesh : j[jsonkey::MESHES])
@@ -592,9 +592,10 @@ namespace renderer
 
 			}
 			UploadMeshToDevice(mesh);
-			rt_context_.AddBlas(mesh);
+			mesh.blas = rt_context_.QueueBlas(mesh.geometries);
 		}
 
+		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
 
 		// Load render objects.
@@ -609,6 +610,27 @@ namespace renderer
 				json_hash_val[jsonkey::INDEX_HASH],
 				json_hash_val[jsonkey::HASH_MAP_MESH_INDEX],
 			};
+		}
+	}
+
+	void VulkanRenderer::BuildTlasAndUpdateBlases()
+	{
+		// Delete the temporary buffers from the last frame.
+		rt_context_.DeleteTemporaryBuffers();
+
+		std::vector<VkAccelerationStructureInstanceKHR> vk_instances{};
+
+		for (const RenderObject& render_object : GetCurrentFrame().render_objects) {
+			vk_instances.push_back(RenderObjectToVulkanInstance(render_object));
+		}
+
+		// TODO: Will need to store this TLAS to once we start tracing rays.
+		AccelerationStructure* tlas{ rt_context_.QueueTlas(vk_instances) };
+
+		// TODO: Update any BLASes that need to be updated here.
+
+		if (!vk_instances.empty()) {
+			rt_context_.CmdBuildQueuedTlases(GetCurrentFrame().command_buffer);
 		}
 	}
 
@@ -795,7 +817,8 @@ namespace renderer
 	{
 		std::vector<int> duplicate_indices{};
 		duplicate_indices.reserve(model.meshes.size());
-		vulkan_util_.Begin();
+		
+		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 
 		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
 		{
@@ -815,11 +838,14 @@ namespace renderer
 				mesh_hash_map_[vertex_hash] = std::pair<uint64_t, uint32_t>{ index_hash, (uint32_t)meshes_.size() };
 				UploadMeshToDevice(mesh);
 				meshes_.push_back(mesh);
-				rt_context_.AddBlas(mesh);
+				mesh.blas = rt_context_.QueueBlas(mesh.geometries);
 				duplicate_indices.push_back(-1); // -1 indicates this mesh has not been loaded before.
 			}
 		}
+
+		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
+
 		return duplicate_indices;
 	}
 
@@ -828,13 +854,32 @@ namespace renderer
 		for (Geometry& geometry : mesh.geometries)
 		{
 			geometry.vertices_resource = allocator_.CreateBufferResource(geometry.vertices.size() * sizeof(Vertex),
-				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			vulkan_util_.TransferBufferToDevice(geometry.vertices, geometry.vertices_resource);
 
 			geometry.indices_resource = allocator_.CreateBufferResource(geometry.indices.size() * sizeof(uint16_t),
-				VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+				VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			vulkan_util_.TransferBufferToDevice(geometry.indices, geometry.indices_resource);
 		}
+	}
+
+	VkAccelerationStructureInstanceKHR VulkanRenderer::RenderObjectToVulkanInstance(const RenderObject& render_object) const
+	{
+		VkAccelerationStructureDeviceAddressInfoKHR device_address_info{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+			.accelerationStructure = meshes_[render_object.mesh_idx].blas->acceleration_structure,
+		};
+
+		return VkAccelerationStructureInstanceKHR{
+			.transform = ToVulkanTransformMatrix(render_object.uniform_buffer.transform),
+			.instanceCustomIndex = 0,
+			.mask = 0xFF,
+			.instanceShaderBindingTableRecordOffset = 0,
+			.flags = 0,
+			.accelerationStructureReference = vkGetAccelerationStructureDeviceAddressKHR(context_.device, &device_address_info),
+		};
 	}
 
 	uint32_t VulkanRenderer::MeshCount() const

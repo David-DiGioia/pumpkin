@@ -159,8 +159,36 @@ namespace renderer
 
 		CheckDeviceExtensionsSupported(required_device_extensions);
 
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+			.accelerationStructure = VK_TRUE,
+			.accelerationStructureCaptureReplay = VK_FALSE,
+			.accelerationStructureIndirectBuild = VK_FALSE,
+			.accelerationStructureHostCommands = VK_FALSE,
+			.descriptorBindingAccelerationStructureUpdateAfterBind = VK_FALSE,
+		};
+
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_features{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+			.pNext = &acceleration_structure_features,
+			.rayTracingPipeline = VK_TRUE,
+			.rayTracingPipelineShaderGroupHandleCaptureReplay = VK_FALSE,
+			.rayTracingPipelineShaderGroupHandleCaptureReplayMixed = VK_FALSE,
+			.rayTracingPipelineTraceRaysIndirect = VK_FALSE,
+			.rayTraversalPrimitiveCulling = VK_FALSE,
+		};
+
+		VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+			.pNext = &ray_tracing_features,
+			.bufferDeviceAddress = VK_TRUE,
+			.bufferDeviceAddressCaptureReplay = VK_FALSE,
+			.bufferDeviceAddressMultiDevice = VK_FALSE,
+		};
+
 		VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features{
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
+			.pNext = &buffer_device_address_features,
 			.dynamicRendering = VK_TRUE,
 		};
 

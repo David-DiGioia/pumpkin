@@ -63,7 +63,24 @@ namespace renderer
 		return VK_FORMAT_UNDEFINED;
 	}
 
+	// Get the lowest number we must add to offset such that it meets alignment requirement.
+	template <typename T>
+	T GetAlignmentOffset(T offset, T alignment)
+	{
+		return (alignment - (offset % alignment)) % alignment;
+	}
+
+	template <typename T>
+	T AlignUp(T value, T alignment)
+	{
+		return value + GetAlignmentOffset(value, alignment);
+	}
+
 	void CheckResult(VkResult result, const std::string& msg);
+
+	std::string VkResultToString(VkResult result);
+
+	VkTransformMatrixKHR ToVulkanTransformMatrix(const glm::mat4& mat);
 
 	void PipelineBarrier(
 		VkCommandBuffer cmd, VkImage image,
@@ -71,6 +88,12 @@ namespace renderer
 		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
 		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
 		VkImageAspectFlags image_aspect = VK_IMAGE_ASPECT_COLOR_BIT
+	);
+
+	void PipelineBarrier(
+		VkCommandBuffer cmd, VkBuffer buffer,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
 	);
 
 	// Utility object to help with common Vulkan tasks that need a command buffer.

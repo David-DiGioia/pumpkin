@@ -71,6 +71,8 @@ namespace renderer
 
 		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path);
 
+		void BuildTlasAndUpdateBlases();
+
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
 
@@ -117,6 +119,8 @@ namespace renderer
 		void InitializeDescriptorSetLayouts();
 
 		void UploadMeshToDevice(Mesh& mesh);
+
+		VkAccelerationStructureInstanceKHR RenderObjectToVulkanInstance(const RenderObject& render_object) const;
 
 		struct FrameResources
 		{

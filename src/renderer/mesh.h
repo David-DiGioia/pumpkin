@@ -17,6 +17,8 @@
 
 namespace renderer
 {
+	struct AccelerationStructure;
+
 	enum class VertexType
 	{
 		NONE,
@@ -44,6 +46,7 @@ namespace renderer
 
 	struct Mesh
 	{
+		AccelerationStructure* blas{ nullptr };
 		std::vector<Geometry> geometries{};
 	};
 

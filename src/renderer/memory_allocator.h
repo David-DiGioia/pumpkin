@@ -39,7 +39,16 @@ namespace renderer
 
 		void CleanUp();
 
-		BufferResource CreateBufferResource(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+		BufferResource CreateBufferResource(
+			VkDeviceSize size,
+			VkBufferUsageFlags usage,
+			VkMemoryPropertyFlags properties);
+
+		BufferResource CreateAlignedBufferResource(
+			VkDeviceSize size,
+			VkDeviceSize alignment,
+			VkBufferUsageFlags usage,
+			VkMemoryPropertyFlags properties);
 
 		ImageResource CreateImageResource(
 			Extent extent,
@@ -103,6 +112,7 @@ namespace renderer
 		// Returns byte offset into device memory.
 		VkDeviceSize FindMemoryType(
 			uint64_t vulkan_handle,
+			VkDeviceSize user_alignment,
 			const VkMemoryRequirements& requirements,
 			VkMemoryPropertyFlags properties,
 			std::vector<MemoryTypeAllocations>& memory_type_allocations,
@@ -115,6 +125,7 @@ namespace renderer
 		// Returns byte offset into device memory.
 		VkDeviceSize FindMemory(
 			uint64_t vulkan_handle,
+			VkDeviceSize user_alignment,
 			const VkMemoryRequirements& requirements,
 			VkMemoryPropertyFlags properties,
 			VkDeviceMemory** out_memory

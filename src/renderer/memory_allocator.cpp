@@ -1,6 +1,7 @@
 #include "memory_allocator.h"
 
 #include <algorithm>
+#include <numeric>
 
 #include "vulkan_util.h"
 #include "logger.h"
@@ -125,6 +126,11 @@ namespace renderer
 
 	BufferResource Allocator::CreateBufferResource(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
 	{
+		return CreateAlignedBufferResource(size, 1, usage, properties);
+	}
+
+	BufferResource Allocator::CreateAlignedBufferResource(VkDeviceSize size, VkDeviceSize alignment, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
+	{
 		VkBufferCreateInfo buffer_info{
 			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			.flags = 0,
@@ -143,7 +149,7 @@ namespace renderer
 		vkGetBufferMemoryRequirements(context_->device, buffer, &memory_requirements);
 
 		VkDeviceMemory* memory{};
-		VkDeviceSize offset{ FindMemory((uint64_t)buffer, memory_requirements, properties, &memory) };
+		VkDeviceSize offset{ FindMemory((uint64_t)buffer, alignment, memory_requirements, properties, &memory) };
 
 		result = vkBindBufferMemory(context_->device, buffer, *memory, offset);
 		CheckResult(result, "Failed to bind buffer to memory.");
@@ -188,7 +194,7 @@ namespace renderer
 		vkGetImageMemoryRequirements(context_->device, image, &memory_requirements);
 
 		VkDeviceMemory* memory{};
-		VkDeviceSize offset{ FindMemory((uint64_t)image, memory_requirements, properties, &memory) };
+		VkDeviceSize offset{ FindMemory((uint64_t)image, 1, memory_requirements, properties, &memory) };
 
 		result = vkBindImageMemory(context_->device, image, *memory, offset);
 		CheckResult(result, "Failed to bind image to memory.");
@@ -297,12 +303,6 @@ namespace renderer
 		}
 	}
 
-	// Get the lowest number we must add to offset such that it meets alignment requirement.
-	VkDeviceSize GetAlignmentOffset(VkDeviceSize offset, VkDeviceSize alignment)
-	{
-		return (alignment - (offset % alignment)) % alignment;
-	}
-
 	VkDeviceSize Allocator::ExistingAllocation(uint64_t vulkan_handle, VkDeviceSize alignment_offset, VkDeviceSize required_size, Allocation* alloc, VkDeviceMemory** out_memory)
 	{
 		*out_memory = &alloc->memory;
@@ -327,9 +327,16 @@ namespace renderer
 		VkDeviceSize alloc_size{ (VkDeviceSize)(ALLOCATION_RATIO * remaining_heap_memory_[mem_type_alloc->memory_type.heapIndex]) };
 		alloc_size = std::clamp(alloc_size, required_size, max_alloc_size_);
 
+		VkMemoryAllocateFlagsInfo flags_info{
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+			.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+			.deviceMask = 0,
+		};
+
 		// Otherwise make new allocation.
 		VkMemoryAllocateInfo allocate_info{
 			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			.pNext = &flags_info,
 			.allocationSize = alloc_size,
 			.memoryTypeIndex = mem_type_alloc->memory_type_index,
 		};
@@ -358,12 +365,16 @@ namespace renderer
 
 	VkDeviceSize Allocator::FindMemoryType(
 		uint64_t vulkan_handle,
+		VkDeviceSize user_alignment,
 		const VkMemoryRequirements& requirements,
 		VkMemoryPropertyFlags properties,
 		std::vector<MemoryTypeAllocations>& memory_type_allocations,
 		VkDeviceMemory** out_memory
 	)
 	{
+		// Find the lowest alignment that both meets user alignment and Vulkan requirements.
+		VkDeviceSize alignment{ std::lcm(user_alignment, requirements.alignment) };
+
 		for (MemoryTypeAllocations& memory_type_alloc : memory_type_allocations)
 		{
 			bool has_all_properties{ (memory_type_alloc.memory_type.propertyFlags & properties) == properties };
@@ -373,7 +384,7 @@ namespace renderer
 			{
 				for (Allocation& alloc : memory_type_alloc.allocations)
 				{
-					VkDeviceSize alignment_offset{ GetAlignmentOffset(alloc.available_offset, requirements.alignment) };
+					VkDeviceSize alignment_offset{ GetAlignmentOffset(alloc.available_offset, alignment) };
 
 					// Use existing allocation if there's enough memory left.
 					if (requirements.size <= alloc.available_memory - alignment_offset) {
@@ -392,6 +403,7 @@ namespace renderer
 
 	VkDeviceSize Allocator::FindMemory(
 		uint64_t vulkan_handle,
+		VkDeviceSize user_alignment,
 		const VkMemoryRequirements& requirements,
 		VkMemoryPropertyFlags properties,
 		VkDeviceMemory** out_memory
@@ -403,13 +415,13 @@ namespace renderer
 		VkDeviceSize offset = ~0ull;
 
 		if (device_local && host_visible) {
-			offset = FindMemoryType(vulkan_handle, requirements, properties, device_host_allocations_, out_memory);
+			offset = FindMemoryType(vulkan_handle, user_alignment, requirements, properties, device_host_allocations_, out_memory);
 		}
 		else if (device_local) {
-			offset = FindMemoryType(vulkan_handle, requirements, properties, device_allocations_, out_memory);
+			offset = FindMemoryType(vulkan_handle, user_alignment, requirements, properties, device_allocations_, out_memory);
 		}
 		else if (host_visible) {
-			offset = FindMemoryType(vulkan_handle, requirements, properties, host_allocations_, out_memory);
+			offset = FindMemoryType(vulkan_handle, user_alignment, requirements, properties, host_allocations_, out_memory);
 		}
 		else {
 			logger::Error("Unsupported memory properties.");

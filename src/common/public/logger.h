@@ -42,11 +42,11 @@ namespace logger
 	{
 		// Print tag.
 		tag = "[" + tag + "]: ";
+		std::string whitespace(tag.size(), ' '); // Calculate whitespace before adding color characters.
 		tag = GetColoredText(tag, tag_color);
 		printf("%s", tag.c_str());
 
 		// Make enough whitespace to align text to right of tag.
-		std::string whitespace(tag.size() + 4, ' ');
 		whitespace = "\n" + whitespace;
 
 		// Align text to be to the right of tag without leaving trailing whitespace.
