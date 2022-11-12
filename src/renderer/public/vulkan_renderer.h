@@ -118,7 +118,7 @@ namespace renderer
 
 		void InitializeDescriptorSetLayouts();
 
-		void UploadMeshToDevice(Mesh& mesh);
+		void UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh);
 
 		VkAccelerationStructureInstanceKHR RenderObjectToVulkanInstance(const RenderObject& render_object) const;
 

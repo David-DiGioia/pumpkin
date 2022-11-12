@@ -591,7 +591,7 @@ namespace renderer
 				index_file.read(reinterpret_cast<char*>(geometry.indices.data()), json_geometry[jsonkey::INDEX_BYTE_SIZE]);
 
 			}
-			UploadMeshToDevice(mesh);
+			UploadMeshToDevice(vulkan_util_, mesh);
 			mesh.blas = rt_context_.QueueBlas(mesh.geometries);
 		}
 
@@ -836,7 +836,7 @@ namespace renderer
 			else
 			{
 				mesh_hash_map_[vertex_hash] = std::pair<uint64_t, uint32_t>{ index_hash, (uint32_t)meshes_.size() };
-				UploadMeshToDevice(mesh);
+				UploadMeshToDevice(vulkan_util_, mesh);
 				meshes_.push_back(mesh);
 				mesh.blas = rt_context_.QueueBlas(mesh.geometries);
 				duplicate_indices.push_back(-1); // -1 indicates this mesh has not been loaded before.
@@ -849,19 +849,19 @@ namespace renderer
 		return duplicate_indices;
 	}
 
-	void VulkanRenderer::UploadMeshToDevice(Mesh& mesh)
+	void VulkanRenderer::UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh)
 	{
 		for (Geometry& geometry : mesh.geometries)
 		{
 			geometry.vertices_resource = allocator_.CreateBufferResource(geometry.vertices.size() * sizeof(Vertex),
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			vulkan_util_.TransferBufferToDevice(geometry.vertices, geometry.vertices_resource);
+			vulkan_util.TransferBufferToDevice(geometry.vertices, geometry.vertices_resource);
 
 			geometry.indices_resource = allocator_.CreateBufferResource(geometry.indices.size() * sizeof(uint16_t),
 				VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			vulkan_util_.TransferBufferToDevice(geometry.indices, geometry.indices_resource);
+			vulkan_util.TransferBufferToDevice(geometry.indices, geometry.indices_resource);
 		}
 	}
 
