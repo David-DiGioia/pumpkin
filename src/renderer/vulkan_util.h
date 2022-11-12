@@ -96,6 +96,11 @@ namespace renderer
 		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
 	);
 
+	// The "big hammer" barrier described in https://www.youtube.com/watch?v=JvAIdtAZnAw at 1 hour mark.
+	// Makes all commands submitted before barrier finish execution / memory access entirely before
+	// commands after barrier are executed. This should only be used for debugging, as it's inefficient.
+	void PipelineBarrierBigHammer(VkCommandBuffer cmd);
+
 	// Utility object to help with common Vulkan tasks that need a command buffer.
 	class VulkanUtil
 	{

@@ -180,6 +180,28 @@ namespace renderer
 		);
 	}
 
+	void PipelineBarrierBigHammer(VkCommandBuffer cmd)
+	{
+		VkMemoryBarrier memory_barrier{
+			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+		};
+
+		vkCmdPipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // srcStageMask
+			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // dstStageMask
+			0,
+			1, // memoryBarrierCount
+			&memory_barrier, // pMemoryBarriers
+			0,
+			nullptr,
+			0,
+			nullptr
+		);
+	}
+
 	// Stateful ----------------------------------------------------------------------------------------------
 
 	void VulkanUtil::Initialize(Context* context, Allocator* alloc)

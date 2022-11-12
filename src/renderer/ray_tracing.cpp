@@ -52,10 +52,13 @@ namespace renderer
 
 	void RayTracingContext::CmdBuildQueuedBlases(VkCommandBuffer cmd)
 	{
+		logger::Print("Building BLASes.\n");
+
 		// Vector of arrays of geometry build range infos.
 		std::vector<std::vector<VkAccelerationStructureBuildRangeInfoKHR>> build_range_infos{};
 		std::vector<VkAccelerationStructureBuildGeometryInfoKHR> blas_build_infos{};
 		std::vector<std::vector<VkAccelerationStructureGeometryKHR>> all_vk_geometries{}; // Need to store in function scope so it isn't deallocated before build command.
+		all_vk_geometries.reserve(queued_blas_build_infos_.size()); // Needed so pointers don't become invalidated before calling build command.
 
 		for (const QueuedBlasBuildInfo& build_info : queued_blas_build_infos_)
 		{
@@ -119,7 +122,7 @@ namespace renderer
 			PipelineBarrier(cmd, build_info.blas->buffer_resource.buffer,
 				VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
 				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-		}
+		} 
 		queued_blas_build_infos_.clear();
 	}
 
