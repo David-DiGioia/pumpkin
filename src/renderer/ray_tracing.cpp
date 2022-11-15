@@ -3,6 +3,7 @@
 #include "vulkan_util.h"
 
 #include <algorithm>
+#include "mesh.h"
 
 namespace renderer
 {
@@ -26,16 +27,14 @@ namespace renderer
 		DeleteTemporaryBuffers();
 	}
 
-	AccelerationStructure* RayTracingContext::QueueBlas(const std::vector<Geometry>& geometries)
+	void RayTracingContext::QueueBlas(Mesh* mesh)
 	{
 		QueuedBlasBuildInfo build_info{
-			.blas = new AccelerationStructure{}, // This BLAS will be populated later when build command is called.
-			.geometries = &geometries,
+			.blas = &mesh->blas, // This BLAS will be populated later when build command is called.
+			.geometries = &mesh->geometries,
 		};
 
 		queued_blas_build_infos_.push_back(build_info);
-
-		return build_info.blas;
 	}
 
 	AccelerationStructure* RayTracingContext::QueueTlas(const std::vector<VkAccelerationStructureInstanceKHR>& instances)
@@ -52,7 +51,7 @@ namespace renderer
 
 	void RayTracingContext::CmdBuildQueuedBlases(VkCommandBuffer cmd)
 	{
-		logger::Print("Building BLASes.\n");
+		logger::Print("Recording commands to build BLASes.\n");
 
 		// Vector of arrays of geometry build range infos.
 		std::vector<std::vector<VkAccelerationStructureBuildRangeInfoKHR>> build_range_infos{};
@@ -100,7 +99,7 @@ namespace renderer
 			scratch_buffers_.push_back(scratch_buffer);
 
 			// We must create the BLAS before we can build it.
-			CreateAccelerationStructure(blas_build_info, build_sizes, false, build_info.blas);
+			CreateAccelerationStructure(build_sizes.accelerationStructureSize, false, build_info.blas);
 
 			blas_build_info.dstAccelerationStructure = build_info.blas->acceleration_structure;
 			blas_build_info.scratchData.deviceAddress = DeviceAddress(scratch_buffer.buffer);
@@ -178,7 +177,7 @@ namespace renderer
 			scratch_buffers_.push_back(scratch_buffer);
 
 			// We must create the BLAS before we can build it.
-			CreateAccelerationStructure(tlas_build_info, build_sizes, true, build_info.tlas);
+			CreateAccelerationStructure(build_sizes.accelerationStructureSize, true, build_info.tlas);
 
 			tlas_build_info.dstAccelerationStructure = build_info.tlas->acceleration_structure;
 			tlas_build_info.scratchData.deviceAddress = DeviceAddress(scratch_buffer.buffer);
@@ -239,9 +238,9 @@ namespace renderer
 		return vk_geometry;
 	}
 
-	void RayTracingContext::CreateAccelerationStructure(const VkAccelerationStructureBuildGeometryInfoKHR& build_info, const VkAccelerationStructureBuildSizesInfoKHR& build_sizes, bool top_level, AccelerationStructure* out_acceleration_structure) const
+	void RayTracingContext::CreateAccelerationStructure(VkDeviceSize acceleration_structure_size, bool top_level, AccelerationStructure* out_acceleration_structure) const
 	{
-		out_acceleration_structure->buffer_resource = allocator_->CreateBufferResource(build_sizes.accelerationStructureSize,
+		out_acceleration_structure->buffer_resource = allocator_->CreateBufferResource(acceleration_structure_size,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
@@ -250,7 +249,7 @@ namespace renderer
 			.createFlags = 0,
 			.buffer = out_acceleration_structure->buffer_resource.buffer,
 			.offset = 0,
-			.size = build_sizes.accelerationStructureSize,
+			.size = acceleration_structure_size,
 			.type = top_level ? VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR : VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 			.deviceAddress = {}, // Unused. For capture replay feature.
 		};
@@ -299,7 +298,9 @@ namespace renderer
 			.buffer = buffer,
 		};
 
-		return vkGetBufferDeviceAddress(context_->device, &device_address_info);
+		auto address = vkGetBufferDeviceAddress(context_->device, &device_address_info);
+		logger::Print("Device address: 0x%x\n", address);
+		return address;
 	}
 
 	BufferResource RayTracingContext::UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances)

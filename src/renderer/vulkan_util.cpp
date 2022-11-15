@@ -285,18 +285,24 @@ namespace renderer
 			.pSignalSemaphores = nullptr,
 		};
 
-		vkQueueSubmit(context_->graphics_queue, 1, &submit_info, fence_);
+		VkResult result{ vkQueueSubmit(context_->graphics_queue, 1, &submit_info, fence_) };
+		CheckResult(result, "Error submitting VulkanUtil queue.\n");
 
-		VkResult result{ vkWaitForFences(context_->device, 1, &fence_, VK_TRUE, 1'000'000'000) };
-		CheckResult(result, "Error waiting for render_fence.");
+		result = vkWaitForFences(context_->device, 1, &fence_, VK_TRUE, 1'000'000'000);
+		CheckResult(result, "Error waiting for VulkanUtil render_fence.");
 		result = vkResetFences(context_->device, 1, &fence_);
-		CheckResult(result, "Error resetting render_fence.");
+		CheckResult(result, "Error resetting VulkanUtil render_fence.");
 
 		for (BufferResource& resource : destroy_queue_) {
 			alloc_->DestroyBufferResource(&resource);
 		}
 		destroy_queue_.clear();
 
-		vkResetCommandPool(context_->device, command_pool_, 0);
+		result = vkResetCommandPool(context_->device, command_pool_, 0);
+		CheckResult(result, "Error resetting VulkanUtil command pool.");
+
+		// TODO: Eventually remove this. Right now it's the first place we get device lost.
+		result = vkDeviceWaitIdle(context_->device);
+		CheckResult(result, "Error waiting idle.");
 	}
 }

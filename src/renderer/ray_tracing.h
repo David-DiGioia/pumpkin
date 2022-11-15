@@ -5,10 +5,12 @@
 
 #include "context.h"
 #include "memory_allocator.h"
-#include "mesh.h"
 
 namespace renderer
 {
+	struct Mesh;
+	struct Geometry;
+
 	struct AccelerationStructure
 	{
 		VkAccelerationStructureKHR acceleration_structure;
@@ -22,9 +24,9 @@ namespace renderer
 
 		void CleanUp();
 
-		// Returns empty BLAS without build data that will be populated after CmdBuildQueuedBlases(...) is called.
+		// Saves address of mesh BLAS without build data that will be populated after CmdBuildQueuedBlases(...) is called.
 		// The build data will not be present in the BLAS buffer until after CmdBuildQueuedBlases(...) is called and the queue is submitted.
-		AccelerationStructure* QueueBlas(const std::vector<Geometry>& geometries);
+		void QueueBlas(Mesh* mesh);
 
 		// Returns empty TLAS without build data that will be populated after CmdBuildQueuedTlases(...) is called.
 		// The build data will not be present in the TLAS buffer until after CmdBuildQueuedTlases(...) is called and the queue is submitted.
@@ -45,7 +47,7 @@ namespace renderer
 	private:
 		VkAccelerationStructureGeometryKHR PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const;
 
-		void CreateAccelerationStructure(const VkAccelerationStructureBuildGeometryInfoKHR& build_info, const VkAccelerationStructureBuildSizesInfoKHR& build_sizes, bool top_level, AccelerationStructure* out_blas) const;
+		void CreateAccelerationStructure(VkDeviceSize acceleration_structure_size, bool top_level, AccelerationStructure* out_blas) const;
 
 		VkAccelerationStructureBuildSizesInfoKHR GetAccelerationStructureBuildSizes(const VkAccelerationStructureBuildGeometryInfoKHR& build_info, const std::vector<Geometry>& geometries) const;
 

@@ -99,6 +99,10 @@ namespace renderer
 		VkResult result{ vkDeviceWaitIdle(context_.device) };
 		CheckResult(result, "Error waiting for device to idle.");
 
+		for (Mesh* mesh : meshes_) {
+			delete mesh;
+		}
+
 #ifdef EDITOR_ENABLED
 		imgui_backend_.CleanUp();
 #endif
@@ -119,9 +123,9 @@ namespace renderer
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&render_object_layout_resource_);
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&camera_layout_resource_);
 
-		for (Mesh& mesh : meshes_)
+		for (Mesh* mesh : meshes_)
 		{
-			for (Geometry& geometry : mesh.geometries)
+			for (Geometry& geometry : mesh->geometries)
 			{
 				allocator_.DestroyBufferResource(&geometry.vertices_resource);
 				allocator_.DestroyBufferResource(&geometry.indices_resource);
@@ -325,7 +329,7 @@ namespace renderer
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj.ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
 
-				for (auto& geometry : meshes_[render_obj.mesh_idx].geometries)
+				for (auto& geometry : meshes_[render_obj.mesh_idx]->geometries)
 				{
 					vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
 					vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
@@ -537,11 +541,11 @@ namespace renderer
 		std::ofstream index_file{ index_path, std::ios::out | std::ios::binary };
 
 		// Save meshes.
-		for (const Mesh& mesh : meshes_)
+		for (const Mesh* mesh : meshes_)
 		{
 			nlohmann::json json_mesh{};
 
-			for (const Geometry& geometry : mesh.geometries)
+			for (const Geometry& geometry : mesh->geometries)
 			{
 				json_mesh[jsonkey::GEOMETRIES] += {
 					{ jsonkey::VERTEX_BYTE_OFFSET, vertex_byte_offest },
@@ -574,11 +578,12 @@ namespace renderer
 		// Load meshes.
 		for (auto& json_mesh : j[jsonkey::MESHES])
 		{
-			auto& mesh{ meshes_.emplace_back() };
+			Mesh* mesh{ new Mesh{} };
+			meshes_.push_back(mesh);
 
 			for (auto& json_geometry : json_mesh[jsonkey::GEOMETRIES])
 			{
-				auto& geometry{ mesh.geometries.emplace_back() };
+				auto& geometry{ mesh->geometries.emplace_back() };
 
 				// Load vertices.
 				geometry.vertices.resize(json_geometry[jsonkey::VERTEX_BYTE_SIZE] / sizeof(Vertex));
@@ -589,11 +594,14 @@ namespace renderer
 				geometry.indices.resize(json_geometry[jsonkey::INDEX_BYTE_SIZE] / sizeof(uint16_t));
 				index_file.seekg((size_t)json_geometry[jsonkey::INDEX_BYTE_OFFSET]);
 				index_file.read(reinterpret_cast<char*>(geometry.indices.data()), json_geometry[jsonkey::INDEX_BYTE_SIZE]);
-
 			}
-			UploadMeshToDevice(vulkan_util_, mesh);
-			mesh.blas = rt_context_.QueueBlas(mesh.geometries);
+
+			UploadMeshToDevice(vulkan_util_, *mesh);
+			rt_context_.QueueBlas(mesh);
 		}
+
+		// TODO: Pipeline barrier here for mesh buffers.
+		PipelineBarrierBigHammer(cmd);
 
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
@@ -822,11 +830,12 @@ namespace renderer
 
 		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
 		{
-			Mesh mesh{};
-			mesh.geometries.resize(tinygltf_mesh.primitives.size());
+			Mesh* mesh{ new Mesh{} };
+			meshes_.push_back(mesh);
+			mesh->geometries.resize(tinygltf_mesh.primitives.size());
 
-			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, &mesh) };
-			uint64_t index_hash{ LoadIndicesGLTF(model, tinygltf_mesh, &mesh) };
+			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, mesh) };
+			uint64_t index_hash{ LoadIndicesGLTF(model, tinygltf_mesh, mesh) };
 
 			// Check if this mesh has been loaded before, and only add to meshes_ if it hasn't
 			auto it{ mesh_hash_map_.find(vertex_hash) }; // This is a nested pair (vertex_hash, (index_hash, mesh_index)).
@@ -836,9 +845,8 @@ namespace renderer
 			else
 			{
 				mesh_hash_map_[vertex_hash] = std::pair<uint64_t, uint32_t>{ index_hash, (uint32_t)meshes_.size() };
-				UploadMeshToDevice(vulkan_util_, mesh);
-				meshes_.push_back(mesh);
-				mesh.blas = rt_context_.QueueBlas(mesh.geometries);
+				UploadMeshToDevice(vulkan_util_, *mesh);
+				rt_context_.QueueBlas(mesh);
 				duplicate_indices.push_back(-1); // -1 indicates this mesh has not been loaded before.
 			}
 		}
@@ -869,7 +877,7 @@ namespace renderer
 	{
 		VkAccelerationStructureDeviceAddressInfoKHR device_address_info{
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-			.accelerationStructure = meshes_[render_object.mesh_idx].blas->acceleration_structure,
+			.accelerationStructure = meshes_[render_object.mesh_idx]->blas.acceleration_structure,
 		};
 
 		return VkAccelerationStructureInstanceKHR{

@@ -14,11 +14,10 @@
 #pragma warning( pop )
 
 #include "memory_allocator.h"
+#include "ray_tracing.h"
 
 namespace renderer
 {
-	struct AccelerationStructure;
-
 	enum class VertexType
 	{
 		NONE,
@@ -28,26 +27,26 @@ namespace renderer
 
 	struct Vertex
 	{
-		glm::vec3 position{};
-		glm::vec3 normal{};
-		glm::vec2 tex_coord{};
+		glm::vec3 position;
+		glm::vec3 normal;
+		glm::vec2 tex_coord;
 
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};
 
 	struct Geometry
 	{
-		std::vector<Vertex> vertices{};
-		std::vector<uint16_t> indices{};
+		std::vector<Vertex> vertices;
+		std::vector<uint16_t> indices;
 
-		BufferResource vertices_resource{};
-		BufferResource indices_resource{};
+		BufferResource vertices_resource;
+		BufferResource indices_resource;
 	};
 
 	struct Mesh
 	{
-		AccelerationStructure* blas{ nullptr };
-		std::vector<Geometry> geometries{};
+		AccelerationStructure blas;
+		std::vector<Geometry> geometries;
 	};
 
 	// Return hash of this mesh's vertices.
