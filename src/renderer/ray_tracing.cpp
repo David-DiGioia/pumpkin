@@ -133,9 +133,6 @@ namespace renderer
 		{
 			instance_buffer_ = UploadInstancesToDevice(cmd, *build_info.instances);
 
-			PipelineBarrier(cmd, instance_buffer_.buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-				VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
-
 			VkAccelerationStructureGeometryKHR vk_geometry{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 				.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
@@ -311,6 +308,7 @@ namespace renderer
 
 		BufferResource staging{ allocator_->CreateBufferResource(device_buffer.size,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
+		staging_buffers_.push_back(staging);
 
 		// Copy data to staging buffer.
 		void* data{};
@@ -327,12 +325,9 @@ namespace renderer
 
 		vkCmdCopyBuffer(cmd, staging.buffer, device_buffer.buffer, 1, &buffer_copy);
 
-		// Store it to destroy after acceleration structure is built.
-		staging_buffers_.push_back(staging);
-
 		PipelineBarrier(cmd, device_buffer.buffer,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
 
 		return device_buffer;
 	}

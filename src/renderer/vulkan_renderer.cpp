@@ -99,15 +99,12 @@ namespace renderer
 		VkResult result{ vkDeviceWaitIdle(context_.device) };
 		CheckResult(result, "Error waiting for device to idle.");
 
-		for (Mesh* mesh : meshes_) {
-			delete mesh;
-		}
-
 #ifdef EDITOR_ENABLED
 		imgui_backend_.CleanUp();
 #endif
 
-		// Destroy sync objects.
+		rt_context_.CleanUp();
+
 		for (FrameResources& frame : frame_resources_)
 		{
 			vkDestroyFence(context_.device, frame.render_done_fence, nullptr);
@@ -118,19 +115,21 @@ namespace renderer
 				allocator_.DestroyBufferResource(&render_object.ubo_buffer_resource);
 			}
 			allocator_.DestroyBufferResource(&frame.camera_ubo_buffer);
+
+			if (frame.tlas)
+			{
+				vkDestroyAccelerationStructureKHR(context_.device, frame.tlas->acceleration_structure, nullptr);
+				allocator_.DestroyBufferResource(&frame.tlas->buffer_resource);
+			}
 		}
 
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&render_object_layout_resource_);
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&camera_layout_resource_);
 
-		for (Mesh* mesh : meshes_)
-		{
-			for (Geometry& geometry : mesh->geometries)
-			{
-				allocator_.DestroyBufferResource(&geometry.vertices_resource);
-				allocator_.DestroyBufferResource(&geometry.indices_resource);
-			}
+		for (Mesh* mesh : meshes_) {
+			DestroyMesh(mesh);
 		}
+		meshes_.clear();
 
 		// Destroying command pool frees all command buffers allocated from it.
 		vkDestroyCommandPool(context_.device, command_pool_, nullptr);
@@ -626,6 +625,11 @@ namespace renderer
 	void VulkanRenderer::BuildTlasAndUpdateBlases()
 	{
 		// Delete the temporary buffers from the last frame.
+		if (GetCurrentFrame().tlas)
+		{
+			vkDestroyAccelerationStructureKHR(context_.device, GetCurrentFrame().tlas->acceleration_structure, nullptr);
+			allocator_.DestroyBufferResource(&GetCurrentFrame().tlas->buffer_resource);
+		}
 		rt_context_.DeleteTemporaryBuffers();
 
 		std::vector<VkAccelerationStructureInstanceKHR> vk_instances{};
@@ -634,18 +638,16 @@ namespace renderer
 			vk_instances.push_back(RenderObjectToVulkanInstance(render_object));
 		}
 
-		// TODO: Will need to store this TLAS to once we start tracing rays.
-		AccelerationStructure* tlas{ rt_context_.QueueTlas(vk_instances) };
+		GetCurrentFrame().tlas = rt_context_.QueueTlas(vk_instances);
 
 		// TODO: Update any BLASes that need to be updated here.
 
-		VkCommandBuffer cmd{ vulkan_util_.Begin() };
-
-		if (!vk_instances.empty()) {
+		if (!vk_instances.empty())
+		{
+			VkCommandBuffer cmd{ vulkan_util_.Begin() };
 			rt_context_.CmdBuildQueuedTlases(cmd);
+			vulkan_util_.Submit();
 		}
-
-		vulkan_util_.Submit();
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
@@ -831,7 +833,7 @@ namespace renderer
 	{
 		std::vector<int> duplicate_indices{};
 		duplicate_indices.reserve(model.meshes.size());
-		
+
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 
 		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
@@ -877,6 +879,21 @@ namespace renderer
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			vulkan_util.TransferBufferToDevice(geometry.indices, geometry.indices_resource);
 		}
+	}
+
+	void VulkanRenderer::DestroyMesh(Mesh* mesh)
+	{
+		vkDestroyAccelerationStructureKHR(context_.device, mesh->blas.acceleration_structure, nullptr);
+		allocator_.DestroyBufferResource(&mesh->blas.buffer_resource);
+
+		for (Geometry& geometry : mesh->geometries)
+		{
+			allocator_.DestroyBufferResource(&geometry.vertices_resource);
+			allocator_.DestroyBufferResource(&geometry.indices_resource);
+		}
+
+		delete mesh;
+		mesh = nullptr;
 	}
 
 	VkAccelerationStructureInstanceKHR VulkanRenderer::RenderObjectToVulkanInstance(const RenderObject& render_object) const

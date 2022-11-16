@@ -120,6 +120,8 @@ namespace renderer
 
 		void UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh);
 
+		void DestroyMesh(Mesh* mesh);
+
 		VkAccelerationStructureInstanceKHR RenderObjectToVulkanInstance(const RenderObject& render_object) const;
 
 		struct FrameResources
@@ -138,6 +140,8 @@ namespace renderer
 			VkFence render_done_fence;
 			VkSemaphore image_acquired_semaphore;
 			VkSemaphore render_done_semaphore;
+
+			AccelerationStructure* tlas;
 
 			// Only used when EDITOR_ENABLED is not defined.
 			// This is not in the Swapchain class since we only need frame-in-flight number depth images.
