@@ -3,6 +3,7 @@
 #include "vulkan_util.h"
 
 #include <algorithm>
+#include "mesh.h"
 
 namespace renderer
 {
@@ -26,16 +27,14 @@ namespace renderer
 		DeleteTemporaryBuffers();
 	}
 
-	AccelerationStructure* RayTracingContext::QueueBlas(const std::vector<Geometry>& geometries)
+	void RayTracingContext::QueueBlas(Mesh* mesh)
 	{
 		QueuedBlasBuildInfo build_info{
-			.blas = new AccelerationStructure{}, // This BLAS will be populated later when build command is called.
-			.geometries = &geometries,
+			.blas = &mesh->blas, // This BLAS will be populated later when build command is called.
+			.geometries = &mesh->geometries,
 		};
 
 		queued_blas_build_infos_.push_back(build_info);
-
-		return build_info.blas;
 	}
 
 	AccelerationStructure* RayTracingContext::QueueTlas(const std::vector<VkAccelerationStructureInstanceKHR>& instances)
@@ -56,6 +55,7 @@ namespace renderer
 		std::vector<std::vector<VkAccelerationStructureBuildRangeInfoKHR>> build_range_infos{};
 		std::vector<VkAccelerationStructureBuildGeometryInfoKHR> blas_build_infos{};
 		std::vector<std::vector<VkAccelerationStructureGeometryKHR>> all_vk_geometries{}; // Need to store in function scope so it isn't deallocated before build command.
+		all_vk_geometries.reserve(queued_blas_build_infos_.size()); // Needed so pointers don't become invalidated before calling build command.
 
 		for (const QueuedBlasBuildInfo& build_info : queued_blas_build_infos_)
 		{
@@ -97,7 +97,7 @@ namespace renderer
 			scratch_buffers_.push_back(scratch_buffer);
 
 			// We must create the BLAS before we can build it.
-			CreateAccelerationStructure(blas_build_info, build_sizes, false, build_info.blas);
+			CreateAccelerationStructure(build_sizes.accelerationStructureSize, false, build_info.blas);
 
 			blas_build_info.dstAccelerationStructure = build_info.blas->acceleration_structure;
 			blas_build_info.scratchData.deviceAddress = DeviceAddress(scratch_buffer.buffer);
@@ -119,7 +119,7 @@ namespace renderer
 			PipelineBarrier(cmd, build_info.blas->buffer_resource.buffer,
 				VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
 				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-		}
+		} 
 		queued_blas_build_infos_.clear();
 	}
 
@@ -175,7 +175,7 @@ namespace renderer
 			scratch_buffers_.push_back(scratch_buffer);
 
 			// We must create the BLAS before we can build it.
-			CreateAccelerationStructure(tlas_build_info, build_sizes, true, build_info.tlas);
+			CreateAccelerationStructure(build_sizes.accelerationStructureSize, true, build_info.tlas);
 
 			tlas_build_info.dstAccelerationStructure = build_info.tlas->acceleration_structure;
 			tlas_build_info.scratchData.deviceAddress = DeviceAddress(scratch_buffer.buffer);
@@ -225,7 +225,7 @@ namespace renderer
 					.vertexData = DeviceAddress(pmk_geometry.vertices_resource.buffer),
 					.vertexStride = sizeof(Vertex),
 					.maxVertex = *std::max_element(std::begin(pmk_geometry.indices), std::end(pmk_geometry.indices)),
-					.indexType = VK_INDEX_TYPE_UINT32,
+					.indexType = VK_INDEX_TYPE_UINT16,
 					.indexData = DeviceAddress(pmk_geometry.indices_resource.buffer),
 					.transformData = {},
 				},
@@ -236,9 +236,9 @@ namespace renderer
 		return vk_geometry;
 	}
 
-	void RayTracingContext::CreateAccelerationStructure(const VkAccelerationStructureBuildGeometryInfoKHR& build_info, const VkAccelerationStructureBuildSizesInfoKHR& build_sizes, bool top_level, AccelerationStructure* out_acceleration_structure) const
+	void RayTracingContext::CreateAccelerationStructure(VkDeviceSize acceleration_structure_size, bool top_level, AccelerationStructure* out_acceleration_structure) const
 	{
-		out_acceleration_structure->buffer_resource = allocator_->CreateBufferResource(build_sizes.accelerationStructureSize,
+		out_acceleration_structure->buffer_resource = allocator_->CreateBufferResource(acceleration_structure_size,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
@@ -247,7 +247,7 @@ namespace renderer
 			.createFlags = 0,
 			.buffer = out_acceleration_structure->buffer_resource.buffer,
 			.offset = 0,
-			.size = build_sizes.accelerationStructureSize,
+			.size = acceleration_structure_size,
 			.type = top_level ? VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR : VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 			.deviceAddress = {}, // Unused. For capture replay feature.
 		};
@@ -302,7 +302,7 @@ namespace renderer
 	BufferResource RayTracingContext::UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances)
 	{
 		BufferResource device_buffer{ allocator_->CreateBufferResource(instances.size() * sizeof(VkAccelerationStructureInstanceKHR),
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
 
 		BufferResource staging{ allocator_->CreateBufferResource(device_buffer.size,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };

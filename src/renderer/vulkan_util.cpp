@@ -145,7 +145,7 @@ namespace renderer
 			nullptr,
 			0,
 			nullptr,
-			1, // imageMemoryBarrierCount
+			1,                    // imageMemoryBarrierCount
 			&image_memory_barrier // pImageMemoryBarriers
 		);
 	}
@@ -173,8 +173,54 @@ namespace renderer
 			0,
 			0,
 			nullptr,
-			1, // bufferMemoryBarrierCount
+			1,                      // bufferMemoryBarrierCount
 			&buffer_memory_barrier, //pBufferMemoryBarriers
+			0,
+			nullptr
+		);
+	}
+
+	void PipelineBarrier(VkCommandBuffer cmd,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask)
+	{
+		VkMemoryBarrier memory_barrier{
+			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+			.srcAccessMask = src_access_mask,
+			.dstAccessMask = dst_access_mask,
+		};
+
+		vkCmdPipelineBarrier(
+			cmd,
+			src_stage_mask, // srcStageMask
+			dst_stage_mask, // dstStageMask
+			0,
+			1,               // memoryBarrierCount
+			&memory_barrier, // pMemoryBarriers
+			0,
+			nullptr,
+			0,
+			nullptr
+		);
+	}
+
+	void PipelineBarrierBigHammer(VkCommandBuffer cmd)
+	{
+		VkMemoryBarrier memory_barrier{
+			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+		};
+
+		vkCmdPipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // srcStageMask
+			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // dstStageMask
+			0,
+			1, // memoryBarrierCount
+			&memory_barrier, // pMemoryBarriers
+			0,
+			nullptr,
 			0,
 			nullptr
 		);
@@ -263,18 +309,24 @@ namespace renderer
 			.pSignalSemaphores = nullptr,
 		};
 
-		vkQueueSubmit(context_->graphics_queue, 1, &submit_info, fence_);
+		VkResult result{ vkQueueSubmit(context_->graphics_queue, 1, &submit_info, fence_) };
+		CheckResult(result, "Error submitting VulkanUtil queue.\n");
 
-		VkResult result{ vkWaitForFences(context_->device, 1, &fence_, VK_TRUE, 1'000'000'000) };
-		CheckResult(result, "Error waiting for render_fence.");
+		result = vkWaitForFences(context_->device, 1, &fence_, VK_TRUE, 1'000'000'000);
+		CheckResult(result, "Error waiting for VulkanUtil render_fence.");
 		result = vkResetFences(context_->device, 1, &fence_);
-		CheckResult(result, "Error resetting render_fence.");
+		CheckResult(result, "Error resetting VulkanUtil render_fence.");
 
 		for (BufferResource& resource : destroy_queue_) {
 			alloc_->DestroyBufferResource(&resource);
 		}
 		destroy_queue_.clear();
 
-		vkResetCommandPool(context_->device, command_pool_, 0);
+		result = vkResetCommandPool(context_->device, command_pool_, 0);
+		CheckResult(result, "Error resetting VulkanUtil command pool.");
+
+		// TODO: Eventually remove this. Right now it's the first place we get device lost.
+		result = vkDeviceWaitIdle(context_->device);
+		CheckResult(result, "Error waiting idle.");
 	}
 }
