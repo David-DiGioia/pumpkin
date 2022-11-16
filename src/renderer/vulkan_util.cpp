@@ -145,7 +145,7 @@ namespace renderer
 			nullptr,
 			0,
 			nullptr,
-			1, // imageMemoryBarrierCount
+			1,                    // imageMemoryBarrierCount
 			&image_memory_barrier // pImageMemoryBarriers
 		);
 	}
@@ -173,8 +173,32 @@ namespace renderer
 			0,
 			0,
 			nullptr,
-			1, // bufferMemoryBarrierCount
+			1,                      // bufferMemoryBarrierCount
 			&buffer_memory_barrier, //pBufferMemoryBarriers
+			0,
+			nullptr
+		);
+	}
+
+	void PipelineBarrier(VkCommandBuffer cmd,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask)
+	{
+		VkMemoryBarrier memory_barrier{
+			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+			.srcAccessMask = src_access_mask,
+			.dstAccessMask = dst_access_mask,
+		};
+
+		vkCmdPipelineBarrier(
+			cmd,
+			src_stage_mask, // srcStageMask
+			dst_stage_mask, // dstStageMask
+			0,
+			1,               // memoryBarrierCount
+			&memory_barrier, // pMemoryBarriers
+			0,
+			nullptr,
 			0,
 			nullptr
 		);

@@ -37,9 +37,6 @@ namespace renderer
 		// Includes pipeline barriers for BLAS buffers.
 		void CmdBuildQueuedBlases(VkCommandBuffer cmd);
 
-		// TODO: Delete. This is for debug purposes.
-		void HCCmdBuildQueuedBlases(VkCommandBuffer cmd);
-
 		// Creates the TLAS objects populating the empty TLASes returned from QueueTlas(...) and writes the build
 		// commands into the command buffer.
 		// Includes pipeline barriers for TLAS buffers.

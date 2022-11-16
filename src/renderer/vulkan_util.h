@@ -96,6 +96,12 @@ namespace renderer
 		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
 	);
 
+	void PipelineBarrier(
+		VkCommandBuffer cmd,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+	);
+
 	// The "big hammer" barrier described in https://www.youtube.com/watch?v=JvAIdtAZnAw at 1 hour mark.
 	// Makes all commands submitted before barrier finish execution / memory access entirely before
 	// commands after barrier are executed. This should only be used for debugging, as it's inefficient.

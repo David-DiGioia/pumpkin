@@ -600,10 +600,12 @@ namespace renderer
 			rt_context_.QueueBlas(mesh);
 		}
 
-		// TODO: Pipeline barrier here for mesh buffers.
-		PipelineBarrierBigHammer(cmd);
+		// Use less fine-grained memory barrier (instead of buffer memory barrier) since there's a buffer for each geometry,
+		// and that would be a lot of pipeline barriers.
+		PipelineBarrier(cmd, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
 
-		rt_context_.HCCmdBuildQueuedBlases(cmd);
+		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
 
 		// Load render objects.
