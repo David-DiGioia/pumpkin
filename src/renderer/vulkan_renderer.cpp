@@ -603,7 +603,7 @@ namespace renderer
 		// TODO: Pipeline barrier here for mesh buffers.
 		PipelineBarrierBigHammer(cmd);
 
-		rt_context_.CmdBuildQueuedBlases(cmd);
+		rt_context_.HCCmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
 
 		// Load render objects.

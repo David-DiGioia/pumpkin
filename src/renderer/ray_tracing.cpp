@@ -125,6 +125,146 @@ namespace renderer
 		queued_blas_build_infos_.clear();
 	}
 
+	void RayTracingContext::HCCmdBuildQueuedBlases(VkCommandBuffer cmd)
+	{
+		logger::Print("Recording hard-coded commands to build BLASes.\n");
+
+		struct HCVertex
+		{
+			float pos[3];
+		};
+		std::vector<HCVertex> vertices = {
+			{{1.0f, 1.0f, 0.0f}},
+			{{-1.0f, 1.0f, 0.0f}},
+			{{0.0f, -1.0f, 0.0f}} };
+		std::vector<uint32_t> indices = { 0, 1, 2 };
+
+		auto vertex_buffer_size = vertices.size() * sizeof(HCVertex);
+		auto index_buffer_size = indices.size() * sizeof(uint32_t);
+
+		const VkBufferUsageFlags buffer_usage_flags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+		BufferResource vertex_buffer = allocator_->CreateBufferResource(vertex_buffer_size, buffer_usage_flags,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		void* data{};
+		vkMapMemory(context_->device, *vertex_buffer.memory, vertex_buffer.offset, vertex_buffer.size, 0, &data);
+		memcpy(data, vertices.data(), vertex_buffer_size);
+		vkUnmapMemory(context_->device, *vertex_buffer.memory);
+
+		BufferResource index_buffer = allocator_->CreateBufferResource(index_buffer_size, buffer_usage_flags,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		vkMapMemory(context_->device, *index_buffer.memory, index_buffer.offset, index_buffer.size, 0, &data);
+		memcpy(data, indices.data(), index_buffer_size);
+		vkUnmapMemory(context_->device, *index_buffer.memory);
+
+		VkTransformMatrixKHR transform_matrix = {
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f };
+
+		BufferResource transform_matrix_buffer = allocator_->CreateBufferResource(sizeof(transform_matrix), buffer_usage_flags,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		vkMapMemory(context_->device, *transform_matrix_buffer.memory, transform_matrix_buffer.offset, transform_matrix_buffer.size, 0, &data);
+		memcpy(data, vertices.data(), sizeof(transform_matrix));
+		vkUnmapMemory(context_->device, *transform_matrix_buffer.memory);
+
+		VkDeviceOrHostAddressConstKHR vertex_data_device_address{};
+		VkDeviceOrHostAddressConstKHR index_data_device_address{};
+		VkDeviceOrHostAddressConstKHR transform_matrix_device_address{};
+
+		vertex_data_device_address.deviceAddress = DeviceAddress(vertex_buffer.buffer);
+		index_data_device_address.deviceAddress = DeviceAddress(index_buffer.buffer);
+		transform_matrix_device_address.deviceAddress = DeviceAddress(transform_matrix_buffer.buffer);
+
+		VkAccelerationStructureGeometryKHR acceleration_structure_geometry{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+			.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+			.geometry = {
+				.triangles = {
+					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+					.vertexData = vertex_data_device_address,
+					.vertexStride = sizeof(HCVertex),
+					.maxVertex = 3,
+					.indexType = VK_INDEX_TYPE_UINT32,
+					.indexData = index_data_device_address,
+					.transformData = transform_matrix_device_address,
+				},
+			},
+			.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+		};
+
+		VkAccelerationStructureBuildGeometryInfoKHR acceleration_structure_build_geometry_info{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+			.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+			.geometryCount = 1,
+			.pGeometries = &acceleration_structure_geometry,
+		};
+
+		const uint32_t primitive_count = 1;
+
+		VkAccelerationStructureBuildSizesInfoKHR acceleration_structure_build_sizes_info{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
+		};
+
+		vkGetAccelerationStructureBuildSizesKHR(
+			context_->device,
+			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&acceleration_structure_build_geometry_info,
+			&primitive_count,
+			&acceleration_structure_build_sizes_info);
+
+		AccelerationStructure bottom_level_acceleration_structure{};
+		bottom_level_acceleration_structure.buffer_resource = allocator_->CreateBufferResource(
+			acceleration_structure_build_sizes_info.accelerationStructureSize,
+			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		VkAccelerationStructureCreateInfoKHR acceleration_structure_create_info{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+			.buffer = bottom_level_acceleration_structure.buffer_resource.buffer,
+			.size = acceleration_structure_build_sizes_info.accelerationStructureSize,
+			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+		};
+
+		vkCreateAccelerationStructureKHR(context_->device, &acceleration_structure_create_info, nullptr, &bottom_level_acceleration_structure.acceleration_structure);
+	
+		// The actual build process starts here
+
+		BufferResource scratch_buffer{ allocator_->CreateAlignedBufferResource(
+						acceleration_structure_build_sizes_info.buildScratchSize, acceleration_structure_properties_.minAccelerationStructureScratchOffsetAlignment,
+						VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+						VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
+
+		VkAccelerationStructureBuildGeometryInfoKHR acceleration_build_geometry_info{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+			.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+			.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+			.dstAccelerationStructure = bottom_level_acceleration_structure.acceleration_structure,
+			.geometryCount = 1,
+			.pGeometries = &acceleration_structure_geometry,
+			.scratchData = {
+				.deviceAddress = DeviceAddress(scratch_buffer.buffer),
+			},
+		};
+
+		VkAccelerationStructureBuildRangeInfoKHR acceleration_structure_build_range_info{
+			.primitiveCount = 1,
+			.primitiveOffset = 0,
+			.firstVertex = 0,
+			.transformOffset = 0,
+		};
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR*> acceleration_build_structure_range_infos{ &acceleration_structure_build_range_info };
+
+		vkCmdBuildAccelerationStructuresKHR(
+			cmd,
+			1,
+			&acceleration_build_geometry_info,
+			acceleration_build_structure_range_infos.data());
+}
+
 	void RayTracingContext::CmdBuildQueuedTlases(VkCommandBuffer cmd)
 	{
 		// Since each TLAS only has 1 geometry, we don't need a vector of vectors for build range infos.
