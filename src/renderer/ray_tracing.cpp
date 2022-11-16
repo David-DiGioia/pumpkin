@@ -117,9 +117,9 @@ namespace renderer
 		for (const QueuedBlasBuildInfo& build_info : queued_blas_build_infos_)
 		{
 			PipelineBarrier(cmd, build_info.blas->buffer_resource.buffer,
-				VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
-				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-		} 
+				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+				VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+		}
 		queued_blas_build_infos_.clear();
 	}
 
@@ -132,6 +132,9 @@ namespace renderer
 		for (const QueuedTlasBuildInfo& build_info : queued_tlas_build_infos_)
 		{
 			instance_buffer_ = UploadInstancesToDevice(cmd, *build_info.instances);
+
+			PipelineBarrier(cmd, instance_buffer_.buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+				VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
 
 			VkAccelerationStructureGeometryKHR vk_geometry{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -169,7 +172,8 @@ namespace renderer
 
 			VkAccelerationStructureBuildSizesInfoKHR build_sizes{ GetAccelerationStructureBuildSizes(tlas_build_info, (uint32_t)build_info.instances->size()) };
 
-			BufferResource scratch_buffer{ allocator_->CreateBufferResource(build_sizes.buildScratchSize,
+			BufferResource scratch_buffer{ allocator_->CreateAlignedBufferResource(
+				build_sizes.buildScratchSize, acceleration_structure_properties_.minAccelerationStructureScratchOffsetAlignment,
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
 			scratch_buffers_.push_back(scratch_buffer);
@@ -184,7 +188,7 @@ namespace renderer
 		}
 
 		vkCmdBuildAccelerationStructuresKHR(cmd, tlas_build_infos.size(), tlas_build_infos.data(), build_range_infos.data());
-	
+
 		for (const QueuedTlasBuildInfo& build_info : queued_tlas_build_infos_)
 		{
 			PipelineBarrier(cmd, build_info.tlas->buffer_resource.buffer,
@@ -302,7 +306,8 @@ namespace renderer
 	BufferResource RayTracingContext::UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances)
 	{
 		BufferResource device_buffer{ allocator_->CreateBufferResource(instances.size() * sizeof(VkAccelerationStructureInstanceKHR),
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
+			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
 
 		BufferResource staging{ allocator_->CreateBufferResource(device_buffer.size,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
@@ -326,8 +331,8 @@ namespace renderer
 		staging_buffers_.push_back(staging);
 
 		PipelineBarrier(cmd, device_buffer.buffer,
-			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
 		return device_buffer;
 	}

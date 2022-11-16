@@ -85,21 +85,21 @@ namespace renderer
 	void PipelineBarrier(
 		VkCommandBuffer cmd, VkImage image,
 		VkImageLayout old_layout, VkImageLayout new_layout,
-		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
 		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
 		VkImageAspectFlags image_aspect = VK_IMAGE_ASPECT_COLOR_BIT
 	);
 
 	void PipelineBarrier(
 		VkCommandBuffer cmd, VkBuffer buffer,
-		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask
 	);
 
 	void PipelineBarrier(
 		VkCommandBuffer cmd,
-		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask
 	);
 
 	// The "big hammer" barrier described in https://www.youtube.com/watch?v=JvAIdtAZnAw at 1 hour mark.
@@ -141,8 +141,8 @@ namespace renderer
 		void PipelineBarrier(
 			VkImage image,
 			VkImageLayout old_layout, VkImageLayout new_layout,
-			VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
 			VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+			VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
 			VkImageAspectFlags image_aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		);
 

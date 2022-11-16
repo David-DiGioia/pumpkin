@@ -113,8 +113,8 @@ namespace renderer
 	void PipelineBarrier(
 		VkCommandBuffer cmd, VkImage image,
 		VkImageLayout old_layout, VkImageLayout new_layout,
-		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
 		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
 		VkImageAspectFlags image_aspect
 	)
 	{
@@ -152,8 +152,8 @@ namespace renderer
 
 	void PipelineBarrier(
 		VkCommandBuffer cmd, VkBuffer buffer,
-		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask)
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask)
 	{
 		VkBufferMemoryBarrier buffer_memory_barrier{
 			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
@@ -181,8 +181,8 @@ namespace renderer
 	}
 
 	void PipelineBarrier(VkCommandBuffer cmd,
-		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask)
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask)
 	{
 		VkMemoryBarrier memory_barrier{
 			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -263,12 +263,12 @@ namespace renderer
 	void VulkanUtil::PipelineBarrier(
 		VkImage image,
 		VkImageLayout old_layout, VkImageLayout new_layout,
-		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
 		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
 		VkImageAspectFlags image_aspect
 	)
 	{
-		renderer::PipelineBarrier(cmd_, image, old_layout, new_layout, src_access_mask, dst_access_mask, src_stage_mask, dst_stage_mask, image_aspect);
+		renderer::PipelineBarrier(cmd_, image, old_layout, new_layout, src_stage_mask, dst_stage_mask, src_access_mask, dst_access_mask, image_aspect);
 	}
 
 	void VulkanUtil::CleanUp()

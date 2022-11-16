@@ -42,7 +42,7 @@ namespace pmk
 			HostWork();
 			renderer_.WaitForLastFrame();
 			HostRenderWork();
-			//renderer_.BuildTlasAndUpdateBlases();
+			renderer_.BuildTlasAndUpdateBlases();
 			renderer_.Render();
 		}
 	}

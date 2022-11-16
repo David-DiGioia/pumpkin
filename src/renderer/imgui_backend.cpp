@@ -123,8 +123,8 @@ namespace renderer
 			renderer_->vulkan_util_.Begin();
 			renderer_->vulkan_util_.PipelineBarrier(resource.depth_image_.image,
 				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-				0, 0,
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				0, 0,
 				VK_IMAGE_ASPECT_DEPTH_BIT);
 			renderer_->vulkan_util_.Submit();
 		}

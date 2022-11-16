@@ -309,8 +309,8 @@ namespace renderer
 			PipelineBarrier(
 				cmd, imgui_backend_.GetViewportImage().image,
 				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
 			);
 		}
 #endif
@@ -348,8 +348,8 @@ namespace renderer
 			PipelineBarrier(
 				cmd, imgui_backend_.GetViewportImage().image,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT
 			);
 		}
 
@@ -602,8 +602,8 @@ namespace renderer
 
 		// Use less fine-grained memory barrier (instead of buffer memory barrier) since there's a buffer for each geometry,
 		// and that would be a lot of pipeline barriers.
-		PipelineBarrier(cmd, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
+		PipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
 
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
@@ -639,9 +639,13 @@ namespace renderer
 
 		// TODO: Update any BLASes that need to be updated here.
 
+		VkCommandBuffer cmd{ vulkan_util_.Begin() };
+
 		if (!vk_instances.empty()) {
-			rt_context_.CmdBuildQueuedTlases(GetCurrentFrame().command_buffer);
+			rt_context_.CmdBuildQueuedTlases(cmd);
 		}
+
+		vulkan_util_.Submit();
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
