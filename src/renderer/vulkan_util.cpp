@@ -241,6 +241,7 @@ namespace renderer
 
 		auto result{ vkCreateCommandPool(context_->device, &command_pool_info, nullptr, &command_pool_) };
 		CheckResult(result, "Failed to create command pool.");
+		NameObject(context_->device, command_pool_, "Vulkan_Util_Command_pool");
 
 		VkCommandBufferAllocateInfo alloc_info{
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -258,6 +259,7 @@ namespace renderer
 		};
 
 		vkCreateFence(context_->device, &fence_info, nullptr, &fence_);
+		NameObject(context_->device, fence_, "Vulkan_Util_Fence");
 	}
 
 	void VulkanUtil::PipelineBarrier(

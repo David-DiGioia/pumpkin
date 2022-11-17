@@ -167,4 +167,16 @@ namespace renderer
 
 		return hash;
 	}
+
+	std::string NameMesh(const std::vector<Geometry>& geometries)
+	{
+		uint32_t triangle_count{ 0 };
+		for (const Geometry& geometry : geometries) {
+			triangle_count += (uint32_t)(geometry.indices.size() / 3);
+		}
+
+		std::string name{ "Mesh_" };
+		name += std::to_string(geometries.size()) + "_Geometries_" + std::to_string(triangle_count) + "_Triangles";
+		return name;
+	}
 }

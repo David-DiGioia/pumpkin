@@ -18,49 +18,24 @@
 
 namespace renderer
 {
-	template <typename T>
-	VkFormat GetVulkanFormat()
+	void CheckResult(VkResult result, const std::string& msg);
+
+	std::string VkResultToString(VkResult result);
+
+	VkTransformMatrixKHR ToVulkanTransformMatrix(const glm::mat4& mat);
+
+	template<typename T>
+	void NameObject(VkDevice device, T handle, const std::string& name)
 	{
-		if (std::is_same<glm::vec4, T>::value) {
-			return VK_FORMAT_R32G32B32A32_SFLOAT;
-		}
-		else if (std::is_same<glm::vec3, T>::value) {
-			return VK_FORMAT_R32G32B32_SFLOAT;
-		}
-		else if (std::is_same<glm::vec2, T>::value) {
-			return VK_FORMAT_R32G32_SFLOAT;
-		}
-		else if (std::is_same<float, T>::value) {
-			return VK_FORMAT_R32_SFLOAT;
-		}
-		else if (std::is_same<glm::ivec4, T>::value) {
-			return VK_FORMAT_R32G32B32A32_SINT;
-		}
-		else if (std::is_same<glm::ivec3, T>::value) {
-			return VK_FORMAT_R32G32B32_SINT;
-		}
-		else if (std::is_same<glm::ivec2, T>::value) {
-			return VK_FORMAT_R32G32_SINT;
-		}
-		else if (std::is_same<int, T>::value) {
-			return VK_FORMAT_R32_SINT;
-		}
-		else if (std::is_same<glm::uvec4, T>::value) {
-			return VK_FORMAT_R32G32B32A32_UINT;
-		}
-		else if (std::is_same<glm::uvec3, T>::value) {
-			return VK_FORMAT_R32G32B32_UINT;
-		}
-		else if (std::is_same<glm::uvec2, T>::value) {
-			return VK_FORMAT_R32G32_UINT;
-		}
-		else if (std::is_same<uint32_t, T>::value) {
-			return VK_FORMAT_R32_UINT;
-		}
+		VkDebugUtilsObjectNameInfoEXT object_name_info{
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+			.objectType = GetVulkanObjectType<T>(),
+			.objectHandle = (uint64_t)handle,
+			.pObjectName = name.c_str(),
+		};
 
-		logger::Error("Unknown Vulkan format requested.");
-
-		return VK_FORMAT_UNDEFINED;
+		VkResult result{ vkSetDebugUtilsObjectNameEXT(device, &object_name_info) };
+		CheckResult(result, "Error setting debug util object name.");
 	}
 
 	// Get the lowest number we must add to offset such that it meets alignment requirement.
@@ -75,12 +50,6 @@ namespace renderer
 	{
 		return value + GetAlignmentOffset(value, alignment);
 	}
-
-	void CheckResult(VkResult result, const std::string& msg);
-
-	std::string VkResultToString(VkResult result);
-
-	VkTransformMatrixKHR ToVulkanTransformMatrix(const glm::mat4& mat);
 
 	void PipelineBarrier(
 		VkCommandBuffer cmd, VkImage image,
@@ -119,6 +88,7 @@ namespace renderer
 		{
 			BufferResource staging{ alloc_->CreateBufferResource(host_buffer.size() * sizeof(T),
 				VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
+			NameObject(context_->device, staging.buffer, std::string{ "Vulkan_Util_Transfer_Staging_Buffer" });
 
 			// Copy data to staging buffer.
 			void* data{};
@@ -163,4 +133,168 @@ namespace renderer
 		std::vector<BufferResource> destroy_queue_{}; // Staging buffers are destroyed after each submit.
 		VkFence fence_{};
 	};
+
+	template <typename T>
+	VkFormat GetVulkanFormat()
+	{
+		if (std::is_same<glm::vec4, T>::value) {
+			return VK_FORMAT_R32G32B32A32_SFLOAT;
+		}
+		else if (std::is_same<glm::vec3, T>::value) {
+			return VK_FORMAT_R32G32B32_SFLOAT;
+		}
+		else if (std::is_same<glm::vec2, T>::value) {
+			return VK_FORMAT_R32G32_SFLOAT;
+		}
+		else if (std::is_same<float, T>::value) {
+			return VK_FORMAT_R32_SFLOAT;
+		}
+		else if (std::is_same<glm::ivec4, T>::value) {
+			return VK_FORMAT_R32G32B32A32_SINT;
+		}
+		else if (std::is_same<glm::ivec3, T>::value) {
+			return VK_FORMAT_R32G32B32_SINT;
+		}
+		else if (std::is_same<glm::ivec2, T>::value) {
+			return VK_FORMAT_R32G32_SINT;
+		}
+		else if (std::is_same<int, T>::value) {
+			return VK_FORMAT_R32_SINT;
+		}
+		else if (std::is_same<glm::uvec4, T>::value) {
+			return VK_FORMAT_R32G32B32A32_UINT;
+		}
+		else if (std::is_same<glm::uvec3, T>::value) {
+			return VK_FORMAT_R32G32B32_UINT;
+		}
+		else if (std::is_same<glm::uvec2, T>::value) {
+			return VK_FORMAT_R32G32_UINT;
+		}
+		else if (std::is_same<uint32_t, T>::value) {
+			return VK_FORMAT_R32_UINT;
+		}
+	}
+
+	template <typename T>
+	VkObjectType GetVulkanObjectType()
+	{
+		if (std::is_same<VkInstance, T>::value) {
+			return VK_OBJECT_TYPE_INSTANCE;
+		}
+		else if (std::is_same<VkPhysicalDevice, T>::value) {
+			return VK_OBJECT_TYPE_PHYSICAL_DEVICE;
+		}
+		else if (std::is_same<VkDevice, T>::value) {
+			return VK_OBJECT_TYPE_DEVICE;
+		}
+		else if (std::is_same<VkQueue, T>::value) {
+			return VK_OBJECT_TYPE_QUEUE;
+		}
+		else if (std::is_same<VkSemaphore, T>::value) {
+			return VK_OBJECT_TYPE_SEMAPHORE;
+		}
+		else if (std::is_same<VkCommandBuffer, T>::value) {
+			return VK_OBJECT_TYPE_COMMAND_BUFFER;
+		}
+		else if (std::is_same<VkFence, T>::value) {
+			return VK_OBJECT_TYPE_FENCE;
+		}
+		else if (std::is_same<VkDeviceMemory, T>::value) {
+			return VK_OBJECT_TYPE_DEVICE_MEMORY;
+		}
+		else if (std::is_same<VkBuffer, T>::value) {
+			return VK_OBJECT_TYPE_BUFFER;
+		}
+		else if (std::is_same<VkImage, T>::value) {
+			return VK_OBJECT_TYPE_IMAGE;
+		}
+		else if (std::is_same<VkEvent, T>::value) {
+			return VK_OBJECT_TYPE_EVENT;
+		}
+		else if (std::is_same<VkQueryPool, T>::value) {
+			return VK_OBJECT_TYPE_QUERY_POOL;
+		}
+		else if (std::is_same<VkBufferView, T>::value) {
+			return VK_OBJECT_TYPE_BUFFER_VIEW;
+		}
+		else if (std::is_same<VkImageView, T>::value) {
+			return VK_OBJECT_TYPE_IMAGE_VIEW;
+		}
+		else if (std::is_same<VkShaderModule, T>::value) {
+			return VK_OBJECT_TYPE_SHADER_MODULE;
+		}
+		else if (std::is_same<VkPipelineCache, T>::value) {
+			return VK_OBJECT_TYPE_PIPELINE_CACHE;
+		}
+		else if (std::is_same<VkPipelineLayout, T>::value) {
+			return VK_OBJECT_TYPE_PIPELINE_LAYOUT;
+		}
+		else if (std::is_same<VkRenderPass, T>::value) {
+			return VK_OBJECT_TYPE_RENDER_PASS;
+		}
+		else if (std::is_same<VkPipeline, T>::value) {
+			return VK_OBJECT_TYPE_PIPELINE;
+		}
+		else if (std::is_same<VkDescriptorSetLayout, T>::value) {
+			return VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT;
+		}
+		else if (std::is_same<VkSampler, T>::value) {
+			return VK_OBJECT_TYPE_SAMPLER;
+		}
+		else if (std::is_same<VkDescriptorPool, T>::value) {
+			return VK_OBJECT_TYPE_DESCRIPTOR_POOL;
+		}
+		else if (std::is_same<VkDescriptorSet, T>::value) {
+			return VK_OBJECT_TYPE_DESCRIPTOR_SET;
+		}
+		else if (std::is_same<VkFramebuffer, T>::value) {
+			return VK_OBJECT_TYPE_FRAMEBUFFER;
+		}
+		else if (std::is_same<VkCommandPool, T>::value) {
+			return VK_OBJECT_TYPE_COMMAND_POOL;
+		}
+		else if (std::is_same<VkSamplerYcbcrConversion, T>::value) {
+			return VK_OBJECT_TYPE_SAMPLER_YCBCR_CONVERSION;
+		}
+		else if (std::is_same<VkDescriptorUpdateTemplate, T>::value) {
+			return VK_OBJECT_TYPE_DESCRIPTOR_UPDATE_TEMPLATE;
+		}
+		else if (std::is_same<VkPrivateDataSlot, T>::value) {
+			return VK_OBJECT_TYPE_PRIVATE_DATA_SLOT;
+		}
+		else if (std::is_same<VkSurfaceKHR, T>::value) {
+			return VK_OBJECT_TYPE_SURFACE_KHR;
+		}
+		else if (std::is_same<VkSwapchainKHR, T>::value) {
+			return VK_OBJECT_TYPE_SWAPCHAIN_KHR;
+		}
+		else if (std::is_same<VkDisplayKHR, T>::value) {
+			return VK_OBJECT_TYPE_DISPLAY_KHR;
+		}
+		else if (std::is_same<VkDisplayModeKHR, T>::value) {
+			return VK_OBJECT_TYPE_DISPLAY_MODE_KHR;
+		}
+		else if (std::is_same<VkDebugReportCallbackEXT, T>::value) {
+			return VK_OBJECT_TYPE_DEBUG_REPORT_CALLBACK_EXT;
+		}
+		else if (std::is_same<VkDebugUtilsMessengerEXT, T>::value) {
+			return VK_OBJECT_TYPE_DEBUG_UTILS_MESSENGER_EXT;
+		}
+		else if (std::is_same<VkAccelerationStructureKHR, T>::value) {
+			return VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR;
+		}
+		else if (std::is_same<VkValidationCacheEXT, T>::value) {
+			return VK_OBJECT_TYPE_VALIDATION_CACHE_EXT;
+		}
+		else if (std::is_same<VkDeferredOperationKHR, T>::value) {
+			return VK_OBJECT_TYPE_DEFERRED_OPERATION_KHR;
+		}
+		else if (std::is_same<VkMicromapEXT, T>::value) {
+			return VK_OBJECT_TYPE_MICROMAP_EXT;
+		}
+
+		logger::Error("Unknown Vulkan object type requested.");
+
+		return VK_OBJECT_TYPE_UNKNOWN;
+	}
 }

@@ -58,4 +58,6 @@ namespace renderer
 	//
 	// out_mesh must already have Mesh::geometries resized to number of primitives in gltf mesh.
 	uint64_t LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, Mesh* out_mesh);
+
+	std::string NameMesh(const std::vector<Geometry>& geometries);
 }

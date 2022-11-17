@@ -95,9 +95,13 @@ namespace renderer
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
 			scratch_buffers_.push_back(scratch_buffer);
+			std::string blas_name{ std::string{"Blas_"} + NameMesh(*build_info.geometries) };
+			NameObject(context_->device, scratch_buffer.buffer, blas_name + "_Scratch_Buffer");
 
 			// We must create the BLAS before we can build it.
 			CreateAccelerationStructure(build_sizes.accelerationStructureSize, false, build_info.blas);
+			NameObject(context_->device, build_info.blas->acceleration_structure, blas_name);
+			NameObject(context_->device, build_info.blas->buffer_resource.buffer, blas_name + "_Buffer");
 
 			blas_build_info.dstAccelerationStructure = build_info.blas->acceleration_structure;
 			blas_build_info.scratchData.deviceAddress = DeviceAddress(scratch_buffer.buffer);
@@ -174,9 +178,12 @@ namespace renderer
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
 			scratch_buffers_.push_back(scratch_buffer);
+			NameObject(context_->device, scratch_buffer.buffer, "Tlas_Scratch_Buffer");
 
-			// We must create the BLAS before we can build it.
+			// We must create the TLAS before we can build it.
 			CreateAccelerationStructure(build_sizes.accelerationStructureSize, true, build_info.tlas);
+			NameObject(context_->device, build_info.tlas->acceleration_structure, "Tlas");
+			NameObject(context_->device, build_info.tlas->buffer_resource.buffer, "Tlas_Buffer");
 
 			tlas_build_info.dstAccelerationStructure = build_info.tlas->acceleration_structure;
 			tlas_build_info.scratchData.deviceAddress = DeviceAddress(scratch_buffer.buffer);
@@ -305,9 +312,11 @@ namespace renderer
 		BufferResource device_buffer{ allocator_->CreateBufferResource(instances.size() * sizeof(VkAccelerationStructureInstanceKHR),
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
+		NameObject(context_->device, device_buffer.buffer, "Ray_Tracing_Instance_Buffer");
 
 		BufferResource staging{ allocator_->CreateBufferResource(device_buffer.size,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
+		NameObject(context_->device, staging.buffer, "Ray_Tracing_Staging_Instance_Buffer");
 		staging_buffers_.push_back(staging);
 
 		// Copy data to staging buffer.

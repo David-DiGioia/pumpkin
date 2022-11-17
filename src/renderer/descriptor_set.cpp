@@ -83,6 +83,7 @@ namespace renderer
 
 		VkResult result{ vkCreateDescriptorPool(context_->device, &pool_info, nullptr, &pool_) };
 		CheckResult(result, "Failed to create descriptor pool.");
+		NameObject(context->device, pool_, "Main_Descriptor_Pool");
 	}
 
 	void DescriptorAllocator::CleanUp()
@@ -108,6 +109,7 @@ namespace renderer
 
 		VkResult result{ vkCreateDescriptorSetLayout(context_->device, &descriptor_layout_info, nullptr, &layout_resource.layout) };
 		CheckResult(result, "Failed to create descriptor set layout.");
+		NameObject(context_->device, layout_resource.layout, "Main_Descriptor_Set_Layout");
 
 		return layout_resource;
 	}

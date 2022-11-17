@@ -172,6 +172,7 @@ namespace renderer
 
 		VkResult result{ vkCreateDescriptorPool(renderer_->context_.device, &pool_info, nullptr, &descriptor_pool_) };
 		CheckResult(result, "Failed to create imgui descriptor pool.");
+		NameObject(renderer_->context_.device, descriptor_pool_, "Imgui_Descriptor_Pool");
 	}
 
 	void ImGuiBackend::InitializeImGui()

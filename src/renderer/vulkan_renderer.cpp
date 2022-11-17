@@ -675,16 +675,14 @@ namespace renderer
 			RenderObject render_object{
 				.mesh_idx = mesh_index,
 				.vertex_type = VertexType::POSITION_NORMAL_COORD,
-
 				.uniform_buffer = {
 					.transform = glm::mat4(1.0f),
 				},
-
 				.ubo_buffer_resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
 					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
-
 				.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_),
 			};
+			NameObject(context_.device, render_object.ubo_buffer_resource.buffer, std::string{ "Render_Object_Buffer_" + std::to_string(render_object.mesh_idx) });
 
 			render_object.ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object.ubo_buffer_resource);
 			frame.render_objects.push_back(render_object);
@@ -760,6 +758,7 @@ namespace renderer
 
 		VkResult result{ vkCreateCommandPool(context_.device, &pool_info, nullptr, &command_pool_) };
 		CheckResult(result, "Failed to create command pool.");
+		NameObject(context_.device, command_pool_, "Main_Command_Pool");
 
 		VkCommandBufferAllocateInfo allocate_info{
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -789,28 +788,37 @@ namespace renderer
 			.flags = 0 // Reserved.
 		};
 
+		uint32_t i{ 0 };
 		for (FrameResources& resource : frame_resources_)
 		{
 			VkResult result{ vkCreateFence(context_.device, &fence_info, nullptr, &resource.render_done_fence) };
 			CheckResult(result, "Failed to create fence.");
+			NameObject(context_.device, resource.render_done_fence, "Render_Done_Fence_" + std::to_string(i));
 
 			result = vkCreateSemaphore(context_.device, &semaphore_info, nullptr, &resource.image_acquired_semaphore);
 			CheckResult(result, "Failed to create semaphore.");
+			NameObject(context_.device, resource.image_acquired_semaphore, "Image_Acquired_Semaphore_" + std::to_string(i));
 
 			result = vkCreateSemaphore(context_.device, &semaphore_info, nullptr, &resource.render_done_semaphore);
 			CheckResult(result, "Failed to create semaphore.");
+			NameObject(context_.device, resource.render_done_semaphore, "Render_Done_Semaphore_" + std::to_string(i));
+
+			++i;
 		}
 	}
 
 	void VulkanRenderer::InitializeCameraResources()
 	{
+		uint32_t i{ 0 };
 		for (FrameResources& resource : frame_resources_)
 		{
 			resource.camera_ubo_buffer = allocator_.CreateBufferResource(sizeof(FrameResources::CameraUBO),
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+			NameObject(context_.device, resource.camera_ubo_buffer.buffer, std::string{ "Camera_UBO_Buffer_" + std::to_string(i) });
 
 			resource.camera_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(camera_layout_resource_);
 			resource.camera_descriptor_set_resource.LinkBufferToBinding(CAMERA_UBO_BINDING, resource.camera_ubo_buffer);
+			++i;
 		}
 	}
 
@@ -869,15 +877,19 @@ namespace renderer
 	{
 		for (Geometry& geometry : mesh.geometries)
 		{
+			std::string mesh_name{ NameMesh(mesh.geometries) };
+
 			geometry.vertices_resource = allocator_.CreateBufferResource(geometry.vertices.size() * sizeof(Vertex),
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			vulkan_util.TransferBufferToDevice(geometry.vertices, geometry.vertices_resource);
+			NameObject(context_.device, geometry.vertices_resource.buffer, std::string{ mesh_name + "_Vertex_Buffer"});
 
 			geometry.indices_resource = allocator_.CreateBufferResource(geometry.indices.size() * sizeof(uint16_t),
 				VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			vulkan_util.TransferBufferToDevice(geometry.indices, geometry.indices_resource);
+			NameObject(context_.device, geometry.indices_resource.buffer, std::string{ mesh_name + "_Index_Buffer" });
 		}
 	}
 

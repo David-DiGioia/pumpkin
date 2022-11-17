@@ -88,6 +88,8 @@ namespace renderer
 
 			VkResult result{ vkCreateImageView(context_->device, &image_view_info, nullptr, &image_views_[i]) };
 			CheckResult(result, "Failed to create image view.");
+			std::string name{ "Swapchain_Image_View_" };
+			NameObject(context_->device, image_views_[i], name + std::to_string(i));
 		}
 	}
 

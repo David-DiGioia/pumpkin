@@ -199,6 +199,7 @@ namespace renderer
 
 		result = vkCreateGraphicsPipelines(context_->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline);
 		CheckResult(result, "Failed to create graphics pipeline.");
+		NameObject(context_->device, pipeline, "Main_Graphics_Pipeline");
 
 		vkDestroyShaderModule(context_->device, vertex_shader, nullptr);
 		vkDestroyShaderModule(context_->device, fragment_shader, nullptr);
@@ -230,6 +231,7 @@ namespace renderer
 
 		VkResult result{ vkCreatePipelineLayout(context_->device, &layout_info, nullptr, &layout) };
 		CheckResult(result, "Failed to create pipeline layout.");
+		NameObject(context_->device, layout, "Graphics_Pipeline_Layout");
 	}
 
 	VkResult GraphicsPipeline::LoadShaderModule(const std::string& path, VkShaderModule* out_shader_module) const
@@ -267,6 +269,7 @@ namespace renderer
 		VkShaderModule shader_module;
 		VkResult result{ vkCreateShaderModule(context_->device, &module_info, nullptr, &shader_module) };
 		*out_shader_module = shader_module;
+		NameObject(context_->device, shader_module, path);
 
 		return result;
 	}
