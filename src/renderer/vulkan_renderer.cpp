@@ -638,12 +638,11 @@ namespace renderer
 			vk_instances.push_back(RenderObjectToVulkanInstance(render_object));
 		}
 
-		GetCurrentFrame().tlas = rt_context_.QueueTlas(vk_instances);
-
 		// TODO: Update any BLASes that need to be updated here.
 
 		if (!vk_instances.empty())
 		{
+			GetCurrentFrame().tlas = rt_context_.QueueTlas(vk_instances);
 			VkCommandBuffer cmd{ vulkan_util_.Begin() };
 			rt_context_.CmdBuildQueuedTlases(cmd);
 			vulkan_util_.Submit();
@@ -883,7 +882,7 @@ namespace renderer
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			vulkan_util.TransferBufferToDevice(geometry.vertices, geometry.vertices_resource);
-			NameObject(context_.device, geometry.vertices_resource.buffer, std::string{ mesh_name + "_Vertex_Buffer"});
+			NameObject(context_.device, geometry.vertices_resource.buffer, std::string{ mesh_name + "_Vertex_Buffer" });
 
 			geometry.indices_resource = allocator_.CreateBufferResource(geometry.indices.size() * sizeof(uint16_t),
 				VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
