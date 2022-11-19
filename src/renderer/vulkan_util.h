@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <filesystem>
 #include "glm/glm.hpp"
 #include "volk.h"
 
@@ -23,6 +24,10 @@ namespace renderer
 	std::string VkResultToString(VkResult result);
 
 	VkTransformMatrixKHR ToVulkanTransformMatrix(const glm::mat4& mat);
+
+	VkShaderModule LoadShaderModule(VkDevice device, const std::filesystem::path& path);
+
+	VkDeviceAddress DeviceAddress(VkDevice device, VkBuffer buffer);
 
 	template<typename T>
 	void NameObject(VkDevice device, T handle, const std::string& name)
@@ -82,30 +87,13 @@ namespace renderer
 	public:
 		void Initialize(Context* context, Allocator* alloc);
 
+		void TransferBufferToDevice(const void* host_buffer, uint32_t size, BufferResource& device_buffer);
+
 		// Use staging buffer to transfer host memory to DEVICE_LOCAL buffer.
 		template <typename T>
 		void TransferBufferToDevice(const std::vector<T>& host_buffer, BufferResource& device_buffer)
 		{
-			BufferResource staging{ alloc_->CreateBufferResource(host_buffer.size() * sizeof(T),
-				VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
-			NameObject(context_->device, staging.buffer, std::string{ "Vulkan_Util_Transfer_Staging_Buffer" });
-
-			// Copy data to staging buffer.
-			void* data{};
-			vkMapMemory(context_->device, *staging.memory, staging.offset, staging.size, 0, &data);
-			memcpy(data, host_buffer.data(), staging.size);
-			vkUnmapMemory(context_->device, *staging.memory);
-
-			// Transfer from staging to device.
-			VkBufferCopy buffer_copy{
-				.srcOffset = 0,
-				.dstOffset = 0,
-				.size = staging.size,
-			};
-
-			vkCmdCopyBuffer(cmd_, staging.buffer, device_buffer.buffer, 1, &buffer_copy);
-
-			destroy_queue_.push_back(staging);
+			TransferBufferToDevice(host_buffer.data(), host_buffer.size() * sizeof(T), device_buffer);
 		}
 
 		void PipelineBarrier(

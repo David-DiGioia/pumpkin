@@ -170,7 +170,7 @@ namespace renderer
 
 	void VulkanRenderer::InitializeRayTracing()
 	{
-		rt_context_.Initialize(&context_, &allocator_);
+		rt_context_.Initialize(&context_, &allocator_, &vulkan_util_);
 	}
 
 	VkFormat VulkanRenderer::GetDepthImageFormat() const

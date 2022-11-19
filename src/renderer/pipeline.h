@@ -22,8 +22,6 @@ namespace renderer
 	private:
 		void CreatePipelineLayout(const std::vector<DescriptorSetLayoutResource>& set_layouts);
 
-		VkResult LoadShaderModule(const std::string& filePath, VkShaderModule* outShaderModule) const;
-
 		Context* context_{};
 	};
 }

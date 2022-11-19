@@ -1,10 +1,14 @@
 #pragma once
 
 #include <vector>
+#include <filesystem>
+#include <unordered_map>
 #include "volk.h"
 
 #include "context.h"
 #include "memory_allocator.h"
+#include "renderer_constants.h"
+#include "vulkan_util.h"
 
 namespace renderer
 {
@@ -17,10 +21,70 @@ namespace renderer
 		BufferResource buffer_resource;
 	};
 
+	struct ShaderBindingTable
+	{
+		VkStridedDeviceAddressRegionKHR raygen_sbt_address;
+		VkStridedDeviceAddressRegionKHR miss_sbt_address;
+		VkStridedDeviceAddressRegionKHR hit_sbt_address;
+		VkStridedDeviceAddressRegionKHR callable_sbt_address;
+		BufferResource raygen_sbt;
+		BufferResource miss_sbt;
+		BufferResource hit_sbt;
+		// TODO: BufferResource for callable shaders.
+	};
+
+	// Utility for building the shader binding table.
+	// Step 1: Initialize and add all the shader groups.
+	// Step 2: Create the ray tracing pipeline using shader stages and groups from GetShaderStages() and GetGroups() respectively.
+	// Step 3: Pass the newly built pipeline to Build(...) to create the SBT buffers.
+	// Step 4: Pass the device addresses from ShaderBindingTable to vkCmdTraceRaysKHR(...).
+	class ShaderBindingTableBuilder
+	{
+	public:
+		void Initialize(Context* context, Allocator* allocator, VulkanUtil* vulkan_util, VkPhysicalDeviceRayTracingPipelinePropertiesKHR* rt_pipeline_properties);
+
+		void SetRaygenShader(const std::filesystem::path& spirv_path);
+
+		void AddMissShader(const std::filesystem::path& spirv_path);
+
+		void AddHitGroup(
+			const std::filesystem::path& closest_hit,
+			const std::filesystem::path& any_hit,
+			const std::filesystem::path& intersection
+		);
+
+		const std::vector<VkPipelineShaderStageCreateInfo>& GetShaderStages() const;
+
+		// Get the groups in the order (raygen_group, miss_groups, hit_groups).
+		const std::vector<VkRayTracingShaderGroupCreateInfoKHR>& GetGroups();
+
+		ShaderBindingTable Build(VkPipeline pipeline);
+
+	private:
+		// Adds hit shader or reuse previously added one if it's been added before.
+		uint32_t AddHitShader(const std::filesystem::path& shader, VkShaderStageFlagBits shader_stage_flag);
+
+		std::vector<VkPipelineShaderStageCreateInfo> shader_stages_{};
+		VkRayTracingShaderGroupCreateInfoKHR raygen_group_{};
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> miss_groups_{};
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> hit_groups_{};
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> concatenated_groups_{};
+		bool concatenated_groups_dirty_{ false };
+
+		// Pairs of (shader path, index into shader_stages_).
+		// Needed to avoid duplicate shaders if shaders are reused across hit groups.
+		std::unordered_map<std::filesystem::path, uint32_t> hit_shader_index_map_{};
+
+		Context* context_{};
+		Allocator* allocator_{};
+		VulkanUtil* vulkan_util_{};
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR* rt_pipeline_properties_{};
+	};
+
 	class RayTracingContext
 	{
 	public:
-		void Initialize(Context* context, Allocator* alloc);
+		void Initialize(Context* context, Allocator* alloc, VulkanUtil* vulkan_util);
 
 		void CleanUp();
 
@@ -42,6 +106,8 @@ namespace renderer
 		// Includes pipeline barriers for TLAS buffers.
 		void CmdBuildQueuedTlases(VkCommandBuffer cmd);
 
+		void CmdTraceRays(VkCommandBuffer cmd, uint32_t width, uint32_t height, uint32_t depth);
+
 		void DeleteTemporaryBuffers();
 
 	private:
@@ -53,9 +119,9 @@ namespace renderer
 
 		VkAccelerationStructureBuildSizesInfoKHR GetAccelerationStructureBuildSizes(const VkAccelerationStructureBuildGeometryInfoKHR& build_info, uint32_t instance_count) const;
 
-		VkDeviceAddress DeviceAddress(VkBuffer buffer) const;
-
 		BufferResource UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances);
+
+		void CreatePipelineAndShaderBindingTable();
 
 		struct QueuedBlasBuildInfo
 		{
@@ -79,8 +145,13 @@ namespace renderer
 		std::vector<BufferResource> staging_buffers_{}; // Store these so we can delete them after the acceleration structures are built.
 		BufferResource instance_buffer_{}; // Store so we can delete it after the TLAS is built.
 
+		VkPipeline rt_pipeline_{};
+		ShaderBindingTable shader_binding_table_{};
+
 		VkPhysicalDeviceAccelerationStructurePropertiesKHR acceleration_structure_properties_{};
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_pipeline_properties_{};
 		Context* context_{};
 		Allocator* allocator_{};
+		VulkanUtil* vulkan_util_{};
 	};
 }

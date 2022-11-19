@@ -1,30 +1,24 @@
 #include "pipeline.h"
 
 #include <vector>
-#include <fstream>
+#include <filesystem>
 #include "volk.h"
 
 #include "logger.h"
 #include "vulkan_util.h"
 #include "mesh.h"
+#include "renderer_constants.h"
 
 namespace renderer
 {
-	const std::string spirv_prefix{ "../shaders/" };
-
 	void GraphicsPipeline::Initialize(Context* context, Swapchain* swapchain, const std::vector<DescriptorSetLayoutResource>& set_layouts, VkFormat depth_format)
 	{
 		context_ = context;
 
 		// Shaders ----------------------------------------------------------------------------
 
-		VkShaderModule vertex_shader{};
-		VkResult result{ LoadShaderModule(spirv_prefix + "default.vert.spv", &vertex_shader) };
-		CheckResult(result, "Failed to create vertex shader.");
-
-		VkShaderModule fragment_shader{};
-		result = LoadShaderModule(spirv_prefix + "default.frag.spv", &fragment_shader);
-		CheckResult(result, "Failed to create fragment shader.");
+		VkShaderModule vertex_shader{ LoadShaderModule(context_->device, SPIRV_PREFIX / "default.vert.spv") };
+		VkShaderModule fragment_shader{ LoadShaderModule(context_->device, SPIRV_PREFIX / "default.frag.spv") };
 
 		VkPipelineShaderStageCreateInfo vertex_stage{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -197,7 +191,7 @@ namespace renderer
 			.basePipelineIndex = 0,
 		};
 
-		result = vkCreateGraphicsPipelines(context_->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline);
+		VkResult result{ vkCreateGraphicsPipelines(context_->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline) };
 		CheckResult(result, "Failed to create graphics pipeline.");
 		NameObject(context_->device, pipeline, "Main_Graphics_Pipeline");
 
@@ -232,45 +226,5 @@ namespace renderer
 		VkResult result{ vkCreatePipelineLayout(context_->device, &layout_info, nullptr, &layout) };
 		CheckResult(result, "Failed to create pipeline layout.");
 		NameObject(context_->device, layout, "Graphics_Pipeline_Layout");
-	}
-
-	VkResult GraphicsPipeline::LoadShaderModule(const std::string& path, VkShaderModule* out_shader_module) const
-	{
-		// std::ios::ate puts cursor at end of file upon opening.
-		std::ifstream file{ path, std::ios::ate | std::ios::binary };
-
-		if (!file.is_open()) {
-			logger::Error("Can't open file: %s\n", path.c_str());
-		}
-
-		// Find size of file in bytes by position of cursor.
-		size_t file_size{ (size_t)file.tellg() };
-
-		// Spirv expects the buffer to be on uint32, so make sure to
-		// reserve an int vector big enough for the entire file.
-		std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
-
-		// Put file cursor at beginning.
-		file.seekg(0);
-
-		// load the entire file into the buffer
-		file.read((char*)buffer.data(), file_size);
-
-		file.close();
-
-		// create a new shader module using the buffer we loaded
-		VkShaderModuleCreateInfo module_info{
-			.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-			.flags = 0,
-			.codeSize = buffer.size() * sizeof(uint32_t),
-			.pCode = buffer.data(),
-		};
-
-		VkShaderModule shader_module;
-		VkResult result{ vkCreateShaderModule(context_->device, &module_info, nullptr, &shader_module) };
-		*out_shader_module = shader_module;
-		NameObject(context_->device, shader_module, path);
-
-		return result;
 	}
 }

@@ -1,5 +1,7 @@
 #include "vulkan_util.h"
 
+#include <fstream>
+
 #include "logger.h"
 
 namespace renderer
@@ -108,6 +110,56 @@ namespace renderer
 		VkTransformMatrixKHR result{};
 		std::memcpy(result.matrix, &transposed, sizeof(float) * 3 * 4);
 		return result;
+	}
+
+	VkShaderModule LoadShaderModule(VkDevice device, const std::filesystem::path& path)
+	{
+		// std::ios::ate puts cursor at end of file upon opening.
+		std::ifstream file{ path, std::ios::ate | std::ios::binary };
+
+		if (!file.is_open()) {
+			logger::Error("Can't open file: %s\n", path.c_str());
+		}
+
+		// Find size of file in bytes by position of cursor.
+		size_t file_size{ (size_t)file.tellg() };
+
+		// Spirv expects the buffer to be a uint32, so make sure to
+		// reserve a vector big enough for the entire file.
+		std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
+
+		// Put file cursor at beginning.
+		file.seekg(0);
+
+		// Load the entire file into the buffer.
+		file.read((char*)buffer.data(), file_size);
+
+		file.close();
+
+		// Create a new shader module using the buffer we loaded.
+		VkShaderModuleCreateInfo module_info{
+			.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+			.flags = 0,
+			.codeSize = buffer.size() * sizeof(uint32_t),
+			.pCode = buffer.data(),
+		};
+
+		VkShaderModule shader_module;
+		VkResult result{ vkCreateShaderModule(device, &module_info, nullptr, &shader_module) };
+		CheckResult(result, "Failed to create shader module.");
+		NameObject(device, shader_module, path.string());
+
+		return shader_module;
+	}
+
+	VkDeviceAddress DeviceAddress(VkDevice device, VkBuffer buffer)
+	{
+		VkBufferDeviceAddressInfo device_address_info{
+			.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+			.buffer = buffer,
+		};
+
+		return vkGetBufferDeviceAddress(device, &device_address_info);
 	}
 
 	void PipelineBarrier(
@@ -262,6 +314,29 @@ namespace renderer
 		NameObject(context_->device, fence_, "Vulkan_Util_Fence");
 	}
 
+	void VulkanUtil::TransferBufferToDevice(const void* host_buffer, uint32_t size, BufferResource& device_buffer)
+	{
+		BufferResource staging{ alloc_->CreateBufferResource(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
+		NameObject(context_->device, staging.buffer, std::string{ "Vulkan_Util_Transfer_Staging_Buffer" });
+
+		// Copy data to staging buffer.
+		void* data{};
+		vkMapMemory(context_->device, *staging.memory, staging.offset, staging.size, 0, &data);
+		memcpy(data, host_buffer, staging.size);
+		vkUnmapMemory(context_->device, *staging.memory);
+
+		// Transfer from staging to device.
+		VkBufferCopy buffer_copy{
+			.srcOffset = 0,
+			.dstOffset = 0,
+			.size = staging.size,
+		};
+
+		vkCmdCopyBuffer(cmd_, staging.buffer, device_buffer.buffer, 1, &buffer_copy);
+
+		destroy_queue_.push_back(staging);
+	}
+
 	void VulkanUtil::PipelineBarrier(
 		VkImage image,
 		VkImageLayout old_layout, VkImageLayout new_layout,
@@ -314,6 +389,8 @@ namespace renderer
 		VkResult result{ vkQueueSubmit(context_->graphics_queue, 1, &submit_info, fence_) };
 		CheckResult(result, "Error submitting VulkanUtil queue.\n");
 
+		// TODO: Maybe at some pointer, return fence instead so it can be optionally waited on,
+		//       or the caller can use barriers to synchronize with later queue submissions.
 		result = vkWaitForFences(context_->device, 1, &fence_, VK_TRUE, 1'000'000'000);
 		CheckResult(result, "Error waiting for VulkanUtil render_fence.");
 		result = vkResetFences(context_->device, 1, &fence_);
@@ -326,9 +403,5 @@ namespace renderer
 
 		result = vkResetCommandPool(context_->device, command_pool_, 0);
 		CheckResult(result, "Error resetting VulkanUtil command pool.");
-
-		// TODO: Eventually remove this. Right now it's the first place we get device lost.
-		result = vkDeviceWaitIdle(context_->device);
-		CheckResult(result, "Error waiting idle.");
 	}
 }
