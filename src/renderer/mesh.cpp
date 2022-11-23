@@ -38,7 +38,7 @@ namespace renderer
 			auto tex_coord_itr{ primitive.attributes.find("TEXCOORD_0") };
 
 			out_mesh->geometries[geo_idx].vertices.resize(pos_accesor.count);
-			for (size_t i = 0; i < out_mesh->geometries[geo_idx].vertices.size(); i++)
+			for (uint32_t i = 0; i < out_mesh->geometries[geo_idx].vertices.size(); i++)
 			{
 				// Positions.
 				if (pos_accesor.type == TINYGLTF_TYPE_VEC3)

@@ -1,14 +1,16 @@
 #include "ray_tracing.h"
 
 #include <algorithm>
+
 #include "mesh.h"
 
 namespace renderer
 {
-	void RayTracingContext::Initialize(Context* context, Allocator* alloc, VulkanUtil* vulkan_util)
+	void RayTracingContext::Initialize(Context* context, Allocator* allocator, DescriptorAllocator* descriptor_allocator, VulkanUtil* vulkan_util)
 	{
 		context_ = context;
-		allocator_ = alloc;
+		allocator_ = allocator;
+		descriptor_allocator_ = descriptor_allocator;
 		vulkan_util_ = vulkan_util;
 		acceleration_structure_properties_.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
 		rt_pipeline_properties_.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
@@ -22,11 +24,22 @@ namespace renderer
 
 		// Get acceleration structure properties to reference throughout lifetime of RT context.
 		vkGetPhysicalDeviceProperties2(context->physical_device, &physical_device_properties);
+
+		CreatePipelineAndShaderBindingTable();
 	}
 
 	void RayTracingContext::CleanUp()
 	{
 		DeleteTemporaryBuffers();
+
+		// Destroy shader binding table buffers.
+		allocator_->DestroyBufferResource(&shader_binding_table_.raygen_sbt);
+		allocator_->DestroyBufferResource(&shader_binding_table_.miss_sbt);
+		allocator_->DestroyBufferResource(&shader_binding_table_.hit_sbt);
+
+		vkDestroyPipeline(context_->device, rt_pipeline_, nullptr);
+		vkDestroyPipelineLayout(context_->device, rt_pipeline_layout_, nullptr);
+		vkDestroyDescriptorSetLayout(context_->device, rt_set_layout_resource_.layout, nullptr);
 	}
 
 	void RayTracingContext::QueueBlas(Mesh* mesh)
@@ -118,7 +131,7 @@ namespace renderer
 				return x.data();
 			});
 
-		vkCmdBuildAccelerationStructuresKHR(cmd, blas_build_infos.size(), blas_build_infos.data(), build_range_c_ptr_infos.data());
+		vkCmdBuildAccelerationStructuresKHR(cmd, (uint32_t)blas_build_infos.size(), blas_build_infos.data(), build_range_c_ptr_infos.data());
 
 		for (const QueuedBlasBuildInfo& build_info : queued_blas_build_infos_)
 		{
@@ -193,7 +206,7 @@ namespace renderer
 			tlas_build_infos.push_back(tlas_build_info);
 		}
 
-		vkCmdBuildAccelerationStructuresKHR(cmd, tlas_build_infos.size(), tlas_build_infos.data(), build_range_infos.data());
+		vkCmdBuildAccelerationStructuresKHR(cmd, (uint32_t)tlas_build_infos.size(), tlas_build_infos.data(), build_range_infos.data());
 
 		for (const QueuedTlasBuildInfo& build_info : queued_tlas_build_infos_)
 		{
@@ -354,6 +367,8 @@ namespace renderer
 		sbt_builder.AddMissShader(SPIRV_PREFIX / "default.rmiss.spv");
 		sbt_builder.AddHitGroup(SPIRV_PREFIX / "default.rchit.spv", SHADER_UNUSED_PATH, SHADER_UNUSED_PATH);
 
+		CreatePipelineLayout();
+
 		VkRayTracingPipelineCreateInfoKHR rt_pipeline_info{
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
 			.flags = 0,
@@ -365,14 +380,66 @@ namespace renderer
 			.pLibraryInfo = nullptr,
 			.pLibraryInterface = nullptr,
 			.pDynamicState = nullptr,
+			.layout = rt_pipeline_layout_,
 			.basePipelineHandle = VK_NULL_HANDLE,
 			.basePipelineIndex = {},
 		};
 
 		VkResult result{ vkCreateRayTracingPipelinesKHR(context_->device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &rt_pipeline_info, nullptr, &rt_pipeline_) };
 		CheckResult(result, "Failed to create ray tracing pipeline.");
+		NameObject(context_->device, rt_pipeline_, "Ray_Trace_Pipeline");
 
 		shader_binding_table_ = sbt_builder.Build(rt_pipeline_);
+		sbt_builder.CleanUp();
+	}
+
+	void RayTracingContext::CreatePipelineLayout()
+	{
+		VkDescriptorSetLayoutBinding tlas_binding{
+			.binding = 0,
+			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding image_buffer_binding{
+			.binding = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding camera_ubo_binding{
+			.binding = 2,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> bindings{
+			tlas_binding,
+			image_buffer_binding,
+			camera_ubo_binding,
+		};
+
+		rt_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings);
+		NameObject(context_->device, rt_set_layout_resource_.layout, "Ray_Trace_Descriptor_Set_Layout");
+
+		VkPipelineLayoutCreateInfo layout_info{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			.flags = 0,
+			.setLayoutCount = 1,
+			.pSetLayouts = &rt_set_layout_resource_.layout,
+			.pushConstantRangeCount = 0,
+			.pPushConstantRanges = nullptr,
+		};
+
+		VkResult result{ vkCreatePipelineLayout(context_->device, &layout_info, nullptr, &rt_pipeline_layout_) };
+		CheckResult(result, "Failed to create ray tracing pipeline layout.");
+		NameObject(context_->device, rt_pipeline_layout_, "Ray_Trace_Pipeline_Layout");
 	}
 
 	void ShaderBindingTableBuilder::Initialize(Context* context, Allocator* allocator, VulkanUtil* vulkan_util, VkPhysicalDeviceRayTracingPipelinePropertiesKHR* rt_pipeline_properties)
@@ -381,6 +448,13 @@ namespace renderer
 		allocator_ = allocator;
 		vulkan_util_ = vulkan_util;
 		rt_pipeline_properties_ = rt_pipeline_properties;
+	}
+
+	void ShaderBindingTableBuilder::CleanUp()
+	{
+		for (const VkPipelineShaderStageCreateInfo& stage_info : shader_stages_) {
+			vkDestroyShaderModule(context_->device, stage_info.module, nullptr);
+		}
 	}
 
 	void ShaderBindingTableBuilder::SetRaygenShader(const std::filesystem::path& spirv_path)

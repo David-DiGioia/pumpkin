@@ -170,7 +170,7 @@ namespace renderer
 
 	void VulkanRenderer::InitializeRayTracing()
 	{
-		rt_context_.Initialize(&context_, &allocator_, &vulkan_util_);
+		rt_context_.Initialize(&context_, &allocator_, &descriptor_allocator_, &vulkan_util_);
 	}
 
 	VkFormat VulkanRenderer::GetDepthImageFormat() const
@@ -556,8 +556,8 @@ namespace renderer
 				vertex_file.write(reinterpret_cast<const char*>(geometry.vertices.data()), geometry.vertices.size() * sizeof(Vertex));
 				index_file.write(reinterpret_cast<const char*>(geometry.indices.data()), geometry.indices.size() * sizeof(uint16_t));
 
-				vertex_byte_offest += geometry.vertices.size() * sizeof(Vertex);
-				index_byte_offset += geometry.indices.size() * sizeof(uint16_t);
+				vertex_byte_offest += (uint32_t)(geometry.vertices.size() * sizeof(Vertex));
+				index_byte_offset += (uint32_t)(geometry.indices.size() * sizeof(uint16_t));
 			}
 
 			j[jsonkey::MESHES] += json_mesh;
@@ -729,12 +729,14 @@ namespace renderer
 		};
 
 		camera_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(camera_bindings);
+		NameObject(context_.device, camera_layout_resource_.layout, "Camera_Descriptor_Set_Layout");
 
 		std::vector<VkDescriptorSetLayoutBinding> render_object_bindings{
 			ubo_binding,
 		};
 
 		render_object_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(render_object_bindings);
+		NameObject(context_.device, render_object_layout_resource_.layout, "Render_Object_Descriptor_Set_Layout");
 	}
 
 	void VulkanRenderer::InitializeFrameResources()

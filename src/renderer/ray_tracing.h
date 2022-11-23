@@ -7,8 +7,10 @@
 
 #include "context.h"
 #include "memory_allocator.h"
+#include "descriptor_set.h"
 #include "renderer_constants.h"
 #include "vulkan_util.h"
+#include "descriptor_set.h"
 
 namespace renderer
 {
@@ -42,6 +44,8 @@ namespace renderer
 	{
 	public:
 		void Initialize(Context* context, Allocator* allocator, VulkanUtil* vulkan_util, VkPhysicalDeviceRayTracingPipelinePropertiesKHR* rt_pipeline_properties);
+
+		void CleanUp();
 
 		void SetRaygenShader(const std::filesystem::path& spirv_path);
 
@@ -84,7 +88,7 @@ namespace renderer
 	class RayTracingContext
 	{
 	public:
-		void Initialize(Context* context, Allocator* alloc, VulkanUtil* vulkan_util);
+		void Initialize(Context* context, Allocator* allocator, DescriptorAllocator* descriptor_allocator, VulkanUtil* vulkan_util);
 
 		void CleanUp();
 
@@ -123,6 +127,8 @@ namespace renderer
 
 		void CreatePipelineAndShaderBindingTable();
 
+		void CreatePipelineLayout();
+
 		struct QueuedBlasBuildInfo
 		{
 			// Allocate BLAS when it's added to queue so we can return that to caller to associate with the mesh, even though it won't yet be built.
@@ -146,12 +152,15 @@ namespace renderer
 		BufferResource instance_buffer_{}; // Store so we can delete it after the TLAS is built.
 
 		VkPipeline rt_pipeline_{};
+		VkPipelineLayout rt_pipeline_layout_{};
+		DescriptorSetLayoutResource rt_set_layout_resource_{};
 		ShaderBindingTable shader_binding_table_{};
 
 		VkPhysicalDeviceAccelerationStructurePropertiesKHR acceleration_structure_properties_{};
 		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_pipeline_properties_{};
 		Context* context_{};
 		Allocator* allocator_{};
+		DescriptorAllocator* descriptor_allocator_{};
 		VulkanUtil* vulkan_util_{};
 	};
 }

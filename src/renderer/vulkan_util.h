@@ -93,7 +93,7 @@ namespace renderer
 		template <typename T>
 		void TransferBufferToDevice(const std::vector<T>& host_buffer, BufferResource& device_buffer)
 		{
-			TransferBufferToDevice(host_buffer.data(), host_buffer.size() * sizeof(T), device_buffer);
+			TransferBufferToDevice(host_buffer.data(), (uint32_t)host_buffer.size() * sizeof(T), device_buffer);
 		}
 
 		void PipelineBarrier(

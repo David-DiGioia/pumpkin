@@ -1,0 +1,59 @@
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(set = 0, binding = 0) uniform accelerationStructureEXT tlas;
+layout(set = 0, binding = 1, rgba8) uniform image2D image;
+
+layout(set = 0, binding = 2) uniform CameraProperties
+{
+	mat4 view_inverse;
+	mat4 proj_inverse;
+} cam;
+
+struct HitPayload
+{
+	vec3 radiance;
+	vec3 attenuation;
+	int  done;
+	vec3 ray_origin;
+	vec3 ray_direction;
+};
+
+layout(location = 0) rayPayloadEXT vec3 payload;
+
+void main()
+{
+	// Add (0.5, 0.5) offset to get center of pixel instead of corner.
+	const vec2 pixel_center = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+	// Convert coordinates to range [0, 1].
+	const vec2 uv           = pixel_center / vec2(gl_LaunchSizeEXT.xy);
+	// Convert coordinates to range [-1, 1], so that (0, 0) becomes center of image.
+	vec2       d            = uv * 2.0 - 1.0;
+
+	// Camera view inverse takes world origin to camera origin.
+	vec4 origin    = cam.view_inverse * vec4(0, 0, 0, 1);
+	// In NDC space, (d.x, d.y, 1) is what the far plane gets mapped to,
+	// so the projection inverse maps each ray back to the far plane in view space.
+	vec4 target    = cam.proj_inverse * vec4(d.x, d.y, 1, 1);
+	// Then we normalize that, and by setting w = 0, the view inverse matrix only
+	// rotates the direction vectors to match the camera while ignoring camera position.
+	vec4 direction = cam.view_inverse * vec4(normalize(target.xyz), 0);
+
+	float tmin = 0.001;
+	float tmax = 1e32;
+
+	traceRayEXT(
+		tlas,                 // topLevel
+		gl_RayFlagsOpaqueEXT, // rayFlags
+		0xFF,                 // cullMask
+		0,                    // sbtRecordOffset
+		0,                    // sbtRecordStride
+		0,                    // missIndex
+		origin.xyz,           // origin
+		tmin,                 // Tmin
+		direction.xyz,        // direction
+		tmax,                 // Tmax
+		0);                   // payload
+
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payload, 0.0));
+}
