@@ -848,7 +848,6 @@ namespace renderer
 		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
 		{
 			Mesh* mesh{ new Mesh{} };
-			meshes_.push_back(mesh);
 			mesh->geometries.resize(tinygltf_mesh.primitives.size());
 
 			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, mesh) };
@@ -856,8 +855,10 @@ namespace renderer
 
 			// Check if this mesh has been loaded before, and only add to meshes_ if it hasn't
 			auto it{ mesh_hash_map_.find(vertex_hash) }; // This is a nested pair (vertex_hash, (index_hash, mesh_index)).
-			if (it != mesh_hash_map_.end() && it->second.first == index_hash) {
+			if (it != mesh_hash_map_.end() && it->second.first == index_hash)
+			{
 				duplicate_indices.push_back(it->second.second); // Save the index into meshes_ where this mesh has been loaded before.
+				delete mesh;
 			}
 			else
 			{
@@ -865,6 +866,7 @@ namespace renderer
 				UploadMeshToDevice(vulkan_util_, *mesh);
 				rt_context_.QueueBlas(mesh);
 				duplicate_indices.push_back(-1); // -1 indicates this mesh has not been loaded before.
+				meshes_.push_back(mesh);
 			}
 		}
 

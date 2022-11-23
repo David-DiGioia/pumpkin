@@ -66,6 +66,10 @@ namespace renderer
 
 	void RayTracingContext::CmdBuildQueuedBlases(VkCommandBuffer cmd)
 	{
+		if (queued_blas_build_infos_.size() == 0) {
+			return;
+		}
+
 		// Vector of arrays of geometry build range infos.
 		std::vector<std::vector<VkAccelerationStructureBuildRangeInfoKHR>> build_range_infos{};
 		std::vector<VkAccelerationStructureBuildGeometryInfoKHR> blas_build_infos{};
@@ -230,8 +234,7 @@ namespace renderer
 			&shader_binding_table_.callable_sbt_address,
 			width,
 			height,
-			depth
-		);
+			depth);
 	}
 
 	void RayTracingContext::DeleteTemporaryBuffers()
