@@ -63,7 +63,7 @@ namespace renderer
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
-		void SetCameraMatrix(const glm::mat4& projection_view);
+		void SetCameraMatrix(const glm::mat4& view, const glm::mat4& projection);
 
 		Extent GetViewportExtent();
 
@@ -72,6 +72,8 @@ namespace renderer
 		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path);
 
 		void BuildTlasAndUpdateBlases();
+
+		uint32_t GetCurrentFrameNumber() const;
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
@@ -114,6 +116,8 @@ namespace renderer
 
 		void InitializeCameraResources();
 
+		void InitializeRayTraceImages();
+
 		void InitializeDepthImages();
 
 		void InitializeDescriptorSetLayouts();
@@ -126,15 +130,14 @@ namespace renderer
 
 		struct FrameResources
 		{
-			std::vector<RenderObject> render_objects{};
+			std::vector<RenderObject> render_objects;
 
-			struct CameraUBO
+			struct RasterizationCameraUBO
 			{
 				glm::mat4 projection_view;
 			} camera_ubo;
-
 			BufferResource camera_ubo_buffer;
-			DescriptorSetResource camera_descriptor_set_resource{};
+			DescriptorSetResource camera_descriptor_set_resource;
 
 			VkCommandBuffer command_buffer;
 			VkFence render_done_fence;
@@ -142,6 +145,8 @@ namespace renderer
 			VkSemaphore render_done_semaphore;
 
 			AccelerationStructure* tlas;
+
+			ImageResource rt_image;
 
 			// Only used when EDITOR_ENABLED is not defined.
 			// This is not in the Swapchain class since we only need frame-in-flight number depth images.

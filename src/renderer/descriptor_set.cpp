@@ -52,6 +52,30 @@ namespace renderer
 		vkUpdateDescriptorSets(device_, 1, &write_info, 0, nullptr);
 	}
 
+	void DescriptorSetResource::LinkAccelerationStructureToBinding(uint32_t binding, VkAccelerationStructureKHR acceleration_structure)
+	{
+		VkWriteDescriptorSetAccelerationStructureKHR write_descriptor_acceleration_structure{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+			.accelerationStructureCount = 1,
+			.pAccelerationStructures = &acceleration_structure,
+		};
+
+		VkWriteDescriptorSet write_info{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.pNext = &write_descriptor_acceleration_structure,
+			.dstSet = descriptor_set,
+			.dstBinding = binding,
+			.dstArrayElement = 0,
+			.descriptorCount = 1,
+			.descriptorType = layout_resource->bindings.at(binding).descriptorType,
+			.pImageInfo = nullptr,
+			.pBufferInfo = nullptr,
+			.pTexelBufferView = nullptr,
+		};
+
+		vkUpdateDescriptorSets(device_, 1, &write_info, 0, nullptr);
+	}
+
 	void DescriptorAllocator::Initialize(Context* context)
 	{
 		context_ = context;

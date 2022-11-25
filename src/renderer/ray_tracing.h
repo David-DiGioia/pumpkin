@@ -3,6 +3,7 @@
 #include <vector>
 #include <filesystem>
 #include <unordered_map>
+#include <array>
 #include "volk.h"
 
 #include "context.h"
@@ -85,10 +86,17 @@ namespace renderer
 		VkPhysicalDeviceRayTracingPipelinePropertiesKHR* rt_pipeline_properties_{};
 	};
 
+	class VulkanRenderer;
+
 	class RayTracingContext
 	{
 	public:
-		void Initialize(Context* context, Allocator* allocator, DescriptorAllocator* descriptor_allocator, VulkanUtil* vulkan_util);
+		void Initialize(Context* context,
+			VulkanRenderer* renderer,
+			Allocator* allocator,
+			DescriptorAllocator* descriptor_allocator,
+			VulkanUtil* vulkan_util,
+			const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images);
 
 		void CleanUp();
 
@@ -100,7 +108,7 @@ namespace renderer
 		// The build data will not be present in the TLAS buffer until after CmdBuildQueuedTlases(...) is called and the queue is submitted.
 		AccelerationStructure* QueueTlas(const std::vector<VkAccelerationStructureInstanceKHR>& instances);
 
-		// Creates the BLAS objects populating the empty BLASes returned from QueueBlas(...) and writes the build
+		// Creates the BLAS objects populating the empty BLASes saved from QueueBlas(...) and writes the build
 		// commands into the command buffer.
 		// Includes pipeline barriers for BLAS buffers.
 		void CmdBuildQueuedBlases(VkCommandBuffer cmd);
@@ -110,11 +118,17 @@ namespace renderer
 		// Includes pipeline barriers for TLAS buffers.
 		void CmdBuildQueuedTlases(VkCommandBuffer cmd);
 
-		void CmdTraceRays(VkCommandBuffer cmd, uint32_t width, uint32_t height, uint32_t depth);
+		void Render(VkCommandBuffer cmd);
 
 		void DeleteTemporaryBuffers();
 
+		void SetCameraMatrices(const glm::mat4& view, const glm::mat4& projection);
+
+		void SetTlas(VkAccelerationStructureKHR tlas);
+
 	private:
+		struct FrameResources;
+
 		VkAccelerationStructureGeometryKHR PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const;
 
 		void CreateAccelerationStructure(VkDeviceSize acceleration_structure_size, bool top_level, AccelerationStructure* out_blas) const;
@@ -128,6 +142,10 @@ namespace renderer
 		void CreatePipelineAndShaderBindingTable();
 
 		void CreatePipelineLayout();
+
+		void CreateDescriptorSets(const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images);
+
+		FrameResources& GetCurrentFrame();
 
 		struct QueuedBlasBuildInfo
 		{
@@ -145,6 +163,18 @@ namespace renderer
 			const std::vector<VkAccelerationStructureInstanceKHR>* instances;
 		};
 
+		struct RayTraceCameraUBO
+		{
+			glm::mat4 view_inverse;
+			glm::mat4 proj_inverse;
+		};
+
+		struct FrameResources
+		{
+			BufferResource camera_ubo_buffer;
+			DescriptorSetResource rt_descriptor_set_resource_{};
+		};
+
 		std::vector<QueuedBlasBuildInfo> queued_blas_build_infos_{}; // Info needed to build the BLASes when CmdBuildQueuedBlases(...) is called.
 		std::vector<QueuedTlasBuildInfo> queued_tlas_build_infos_{}; // Info needed to build the TLASes when CmdBuildQueuedTlases(...) is called.
 		std::vector<BufferResource> scratch_buffers_{}; // Store these so we can delete them after the acceleration structures are built.
@@ -153,14 +183,19 @@ namespace renderer
 
 		VkPipeline rt_pipeline_{};
 		VkPipelineLayout rt_pipeline_layout_{};
-		DescriptorSetLayoutResource rt_set_layout_resource_{};
+		DescriptorSetLayoutResource rt_descriptor_set_layout_resource_{};
 		ShaderBindingTable shader_binding_table_{};
+		uint32_t render_width_{};
+		uint32_t render_height_{};
 
 		VkPhysicalDeviceAccelerationStructurePropertiesKHR acceleration_structure_properties_{};
 		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_pipeline_properties_{};
 		Context* context_{};
+		VulkanRenderer* renderer_{};
 		Allocator* allocator_{};
 		DescriptorAllocator* descriptor_allocator_{};
 		VulkanUtil* vulkan_util_{};
+
+		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 	};
 }

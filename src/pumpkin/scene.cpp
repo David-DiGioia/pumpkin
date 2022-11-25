@@ -216,7 +216,7 @@ namespace pmk
 
 	void Scene::UploadCamera()
 	{
-		renderer_->SetCameraMatrix(camera_.GetProjectionViewMatrix(renderer_->GetViewportExtent()));
+		renderer_->SetCameraMatrix(camera_.GetViewMatrix(), camera_.GetProjectionMatrix(renderer_->GetViewportExtent()));
 	}
 
 	Camera& Scene::GetCamera()

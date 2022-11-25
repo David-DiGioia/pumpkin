@@ -24,6 +24,8 @@ namespace renderer
 
 		void LinkImageToBinding(uint32_t binding, const ImageResource& image_resource);
 
+		void LinkAccelerationStructureToBinding(uint32_t binding, VkAccelerationStructureKHR acceleration_structure);
+
 	private:
 		// We let the device secretly be stored by DescriptorSetResource to keep
 		// interface of LinkBufferToBinding simple, without needing to pass device.

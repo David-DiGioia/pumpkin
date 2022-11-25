@@ -75,11 +75,12 @@ namespace renderer
 		allocator_.Initialize(&context_);
 		vulkan_util_.Initialize(&context_, &allocator_);
 		InitializeFrameResources();
-		InitializeRayTracing();
 
 #ifdef EDITOR_ENABLED
 		imgui_backend_.Initialize(this);
 #endif
+
+		InitializeRayTracing();
 	}
 
 #ifdef EDITOR_ENABLED
@@ -170,7 +171,13 @@ namespace renderer
 
 	void VulkanRenderer::InitializeRayTracing()
 	{
-		rt_context_.Initialize(&context_, &allocator_, &descriptor_allocator_, &vulkan_util_);
+		std::array<ImageResource, FRAMES_IN_FLIGHT> rt_images;
+
+		for (uint32_t i{ 0 }; i < FRAMES_IN_FLIGHT; ++i) {
+			rt_images[i] = frame_resources_[i].rt_image;
+		}
+
+		rt_context_.Initialize(&context_, this, &allocator_, &descriptor_allocator_, &vulkan_util_, rt_images);
 	}
 
 	VkFormat VulkanRenderer::GetDepthImageFormat() const
@@ -408,6 +415,8 @@ namespace renderer
 			vkCmdSetScissor(cmd, 0, 1, &scissor);
 		}
 
+		rt_context_.Render(cmd);
+
 		TransitionSwapImageForRender(cmd, image_index);
 		Draw(cmd, image_index);
 		TransitionSwapImageForPresent(cmd, image_index);
@@ -418,74 +427,22 @@ namespace renderer
 
 	void VulkanRenderer::TransitionSwapImageForRender(VkCommandBuffer cmd, uint32_t image_index)
 	{
-		// TODO: Use vulkan_util.cpp stateless pipeline barrier here and in below function.
-
-		// Transition image to optimal layout for rendering to.
-		VkImageMemoryBarrier image_memory_barrier{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.image = swapchain_.GetImage(image_index),
-			.subresourceRange = {
-			  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			  .baseMipLevel = 0,
-			  .levelCount = 1,
-			  .baseArrayLayer = 0,
-			  .layerCount = 1,
-			}
-		};
-
-		vkCmdPipelineBarrier(
-			cmd,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,  // srcStageMask
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // dstStageMask
-			0,
-			0,
-			nullptr,
-			0,
-			nullptr,
-			1, // imageMemoryBarrierCount
-			&image_memory_barrier // pImageMemoryBarriers
-		);
+		PipelineBarrier(
+			cmd, swapchain_.GetImage(image_index),
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,              // Image layout.
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // Pipeline stages.
+			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,                                          // Access types.
+			VK_IMAGE_ASPECT_COLOR_BIT);                                                       // Aspect mask.
 	}
 
 	void VulkanRenderer::TransitionSwapImageForPresent(VkCommandBuffer cmd, uint32_t image_index)
 	{
-		// Transition image to optimal format for presentation.
-		VkImageMemoryBarrier image_memory_barrier{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.dstAccessMask = 0,
-			.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.image = swapchain_.GetImage(image_index),
-			.subresourceRange = {
-			  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			  .baseMipLevel = 0,
-			  .levelCount = 1,
-			  .baseArrayLayer = 0,
-			  .layerCount = 1,
-			}
-		};
-
-		vkCmdPipelineBarrier(
-			cmd,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // srcStageMask
-			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, // dstStageMask
-			VK_DEPENDENCY_BY_REGION_BIT,
-			0,
-			nullptr,
-			0,
-			nullptr,
-			1, // imageMemoryBarrierCount
-			&image_memory_barrier // pImageMemoryBarriers
-		);
+		PipelineBarrier(
+			cmd, swapchain_.GetImage(image_index),
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,           // Image layout.
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, // Pipeline stages.
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,                                             // Access types.
+			VK_IMAGE_ASPECT_COLOR_BIT);
 	}
 
 	void VulkanRenderer::NextFrame()
@@ -646,7 +603,15 @@ namespace renderer
 			VkCommandBuffer cmd{ vulkan_util_.Begin() };
 			rt_context_.CmdBuildQueuedTlases(cmd);
 			vulkan_util_.Submit();
+
+			rt_context_.SetTlas(GetCurrentFrame().tlas->acceleration_structure);
 		}
+
+	}
+
+	uint32_t VulkanRenderer::GetCurrentFrameNumber() const
+	{
+		return current_frame_;
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
@@ -701,16 +666,17 @@ namespace renderer
 		vkUnmapMemory(context_.device, *render_object.ubo_buffer_resource.memory);
 	}
 
-	void VulkanRenderer::SetCameraMatrix(const glm::mat4& projection_view)
+	void VulkanRenderer::SetCameraMatrix(const glm::mat4& view, const glm::mat4& projection)
 	{
 		auto& cam_buffer{ GetCurrentFrame().camera_ubo_buffer };
 		auto& cam_ubo{ GetCurrentFrame().camera_ubo };
 
-		cam_ubo.projection_view = projection_view;
+		cam_ubo.projection_view = projection * view;
+		rt_context_.SetCameraMatrices(view, projection);
 
 		void* data{};
 		vkMapMemory(context_.device, *cam_buffer.memory, cam_buffer.offset, cam_buffer.size, 0, &data);
-		memcpy(data, &cam_ubo, sizeof(FrameResources::CameraUBO));
+		memcpy(data, &cam_ubo, sizeof(FrameResources::RasterizationCameraUBO));
 		vkUnmapMemory(context_.device, *cam_buffer.memory);
 	}
 
@@ -744,6 +710,7 @@ namespace renderer
 		InitializeCommandBuffers();
 		InitializeSyncObjects();
 		InitializeCameraResources();
+		//InitializeRayTraceImages();
 #ifndef EDITOR_ENABLED
 		InitializeDepthImages();
 #endif
@@ -813,13 +780,25 @@ namespace renderer
 		uint32_t i{ 0 };
 		for (FrameResources& resource : frame_resources_)
 		{
-			resource.camera_ubo_buffer = allocator_.CreateBufferResource(sizeof(FrameResources::CameraUBO),
+			resource.camera_ubo_buffer = allocator_.CreateBufferResource(sizeof(FrameResources::RasterizationCameraUBO),
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 			NameObject(context_.device, resource.camera_ubo_buffer.buffer, std::string{ "Camera_UBO_Buffer_" + std::to_string(i) });
 
 			resource.camera_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(camera_layout_resource_);
 			resource.camera_descriptor_set_resource.LinkBufferToBinding(CAMERA_UBO_BINDING, resource.camera_ubo_buffer);
 			++i;
+		}
+	}
+
+	void VulkanRenderer::InitializeRayTraceImages()
+	{
+		for (FrameResources& resource : frame_resources_)
+		{
+			resource.rt_image = allocator_.CreateImageResource(
+				GetViewportExtent(),
+				VK_IMAGE_USAGE_STORAGE_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				swapchain_.GetImageFormat());
 		}
 	}
 
@@ -831,8 +810,7 @@ namespace renderer
 				GetViewportExtent(),
 				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				GetDepthImageFormat()
-			);
+				GetDepthImageFormat());
 		}
 
 		// Maybe todo: Transition image with image barrier for being a depth image?
