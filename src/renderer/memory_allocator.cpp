@@ -398,7 +398,7 @@ namespace renderer
 					VkDeviceSize alignment_offset{ GetAlignmentOffset(alloc->available_offset, alignment) };
 
 					// Use existing allocation if there's enough memory left.
-					if (requirements.size <= alloc->available_memory - alignment_offset) {
+					if (requirements.size + alignment_offset <= alloc->available_memory) {
 						return ExistingAllocation(vulkan_handle, alignment_offset, requirements.size, alloc, out_memory);
 					}
 				}
