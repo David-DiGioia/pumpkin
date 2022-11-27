@@ -16,8 +16,7 @@ namespace renderer
 		VulkanRenderer* renderer,
 		Allocator* allocator,
 		DescriptorAllocator* descriptor_allocator,
-		VulkanUtil* vulkan_util,
-		const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images)
+		VulkanUtil* vulkan_util)
 	{
 		context_ = context;
 		renderer_ = renderer;
@@ -37,7 +36,7 @@ namespace renderer
 		// Get acceleration structure properties to reference throughout lifetime of RT context.
 		vkGetPhysicalDeviceProperties2(context->physical_device, &physical_device_properties);
 
-		CreateDescriptorSets(render_images);
+		CreateDescriptorSets();
 		CreatePipelineAndShaderBindingTable();
 	}
 
@@ -258,8 +257,8 @@ namespace renderer
 			&shader_binding_table_.miss_sbt_address,
 			&shader_binding_table_.hit_sbt_address,
 			&shader_binding_table_.callable_sbt_address,
-			render_width_,
-			render_height_,
+			render_extent_.width,
+			render_extent_.height,
 			1);
 
 		// TODO: Need pipeline barrier here if we composite with rasterized image later, instead of presenting directly to swapchain.
@@ -296,6 +295,16 @@ namespace renderer
 	void RayTracingContext::SetTlas(VkAccelerationStructureKHR tlas)
 	{
 		GetCurrentFrame().rt_descriptor_set_resource_.LinkAccelerationStructureToBinding(TLAS_BINDING, tlas);
+	}
+
+	void RayTracingContext::SetRenderImages(const Extent& render_extent, const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images)
+	{
+		uint32_t i{ 0 };
+		for (FrameResources& frame : frame_resources_) {
+			frame.rt_descriptor_set_resource_.LinkImageToBinding(IMAGE_BUFFER_BINDING, render_images[i++], VK_IMAGE_LAYOUT_GENERAL);
+		}
+
+		render_extent_ = render_extent;
 	}
 
 	VkAccelerationStructureGeometryKHR RayTracingContext::PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const
@@ -458,7 +467,7 @@ namespace renderer
 		NameObject(context_->device, rt_pipeline_layout_, "Ray_Trace_Pipeline_Layout");
 	}
 
-	void RayTracingContext::CreateDescriptorSets(const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images)
+	void RayTracingContext::CreateDescriptorSets()
 	{
 		VkDescriptorSetLayoutBinding tlas_binding{
 			.binding = TLAS_BINDING,
@@ -505,8 +514,8 @@ namespace renderer
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 			NameObject(context_->device, frame.camera_ubo_buffer.buffer, "Ray_Trace_Camera_Ubo_Buffer_" + std::to_string(i));
 
-			// Don't link TLAS yet since that will be done each frame since new TLASes will be created.
-			frame.rt_descriptor_set_resource_.LinkImageToBinding(IMAGE_BUFFER_BINDING, render_images[i]);
+			// We don't link TLAS yet since that will be done each frame since new TLASes will be created.
+			// We don't link render images yet since that is done each time the viewport changes size.
 			frame.rt_descriptor_set_resource_.LinkBufferToBinding(CAMERA_UBO_BINDING, frame.camera_ubo_buffer);
 			++i;
 		}

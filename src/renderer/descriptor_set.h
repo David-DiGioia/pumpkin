@@ -22,7 +22,7 @@ namespace renderer
 
 		void LinkBufferToBinding(uint32_t binding, const BufferResource& buffer_resource);
 
-		void LinkImageToBinding(uint32_t binding, const ImageResource& image_resource);
+		void LinkImageToBinding(uint32_t binding, const ImageResource& image_resource, VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		void LinkAccelerationStructureToBinding(uint32_t binding, VkAccelerationStructureKHR acceleration_structure);
 

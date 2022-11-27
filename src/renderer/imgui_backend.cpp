@@ -40,7 +40,7 @@ namespace renderer
 
 		// Call editor's custom gui callback.
 		// The callback will update the viewport extent here if it needs to.
-		callbacks_.gui_callback((ImTextureID*)&GetCurrentFrame().render_target_descriptor_, callbacks_.user_data);
+		callbacks_.gui_callback((ImTextureID*)&GetCurrentFrame().render_target_descriptor, callbacks_.user_data);
 
 		ImGui::Render();
 	}
@@ -66,6 +66,7 @@ namespace renderer
 			{
 				DestroyFrameResources();
 				CreateFrameResources(extent);
+				renderer_->SetRayTraceImages(GetRayTraceImages());
 			}
 		}
 	}
@@ -77,12 +78,60 @@ namespace renderer
 
 	ImageResource& ImGuiBackend::GetViewportImage()
 	{
-		return GetCurrentFrame().render_image_;
+		return GetCurrentFrame().render_image;
 	}
 
 	ImageResource& ImGuiBackend::GetViewportDepthImage()
 	{
-		return GetCurrentFrame().depth_image_;
+		return GetCurrentFrame().depth_image;
+	}
+
+	std::array<ImageResource, FRAMES_IN_FLIGHT> ImGuiBackend::GetRayTraceImages()
+	{
+		std::array<ImageResource, FRAMES_IN_FLIGHT> rt_images;
+
+		uint32_t i{ 0 };
+		for (FrameResources& resource : frame_resources_)
+		{
+			rt_images[i] = resource.rt_image;
+			++i;
+		}
+
+		return rt_images;
+	}
+
+	void ImGuiBackend::TransitionImagesForRender(VkCommandBuffer cmd)
+	{
+		// If we're using the editor's image we need to transition it to be a color attachment.
+		PipelineBarrier(
+			cmd, GetCurrentFrame().render_image.image,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+		// Ray trace image is a image storage buffer which must be general layout.
+		PipelineBarrier(
+			cmd, GetCurrentFrame().rt_image.image,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			0, VK_ACCESS_SHADER_WRITE_BIT);
+	}
+
+	void ImGuiBackend::TransitionImagesForSampling(VkCommandBuffer cmd)
+	{
+		// Pipeline barrier to make sure previous rendering finishes before fragment shader.
+		// Also transitions image layout to be read from shader.
+		PipelineBarrier(
+			cmd, GetCurrentFrame().render_image.image,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+		PipelineBarrier(
+			cmd, GetCurrentFrame().rt_image.image,
+			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 	}
 
 	bool ImGuiBackend::GetViewportVisible() const
@@ -97,36 +146,48 @@ namespace renderer
 
 	void ImGuiBackend::CreateFrameResources(Extent extent)
 	{
+		uint32_t i{ 0 };
 		for (FrameResources& resource : frame_resources_)
 		{
-			resource.render_image_ = renderer_->allocator_.CreateImageResource(
+			resource.render_image = renderer_->allocator_.CreateImageResource(
 				extent,
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // Color attachment to render into, then ImGui samples from it.
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				renderer_->swapchain_.GetImageFormat()
-			);
+				renderer_->swapchain_.GetImageFormat());
+			NameObject(renderer_->context_.device, resource.render_image.image, "ImGui_Backend_Render_Image_" + std::to_string(i));
 
-			resource.depth_image_ = renderer_->allocator_.CreateImageResource(
+			resource.rt_image = renderer_->allocator_.CreateImageResource(
+				extent,
+				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				VK_FORMAT_B8G8R8A8_UNORM);
+			NameObject(renderer_->context_.device, resource.rt_image.image, "ImGui_Backend_Ray_Trace_Image_" + std::to_string(i));
+
+			resource.depth_image = renderer_->allocator_.CreateImageResource(
 				extent,
 				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				renderer_->GetDepthImageFormat(),
-				VK_IMAGE_ASPECT_DEPTH_BIT
-			);
+				VK_IMAGE_ASPECT_DEPTH_BIT);
+			NameObject(renderer_->context_.device, resource.depth_image.image, "ImGui_Backend_Depth_Image_" + std::to_string(i));
 
-			resource.render_target_descriptor_ = ImGui_ImplVulkan_AddTexture(
-				resource.render_image_.sampler,
-				resource.render_image_.image_view,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			);
+			resource.render_target_descriptor = ImGui_ImplVulkan_AddTexture(
+				resource.render_image.sampler,
+				resource.render_image.image_view,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			NameObject(renderer_->context_.device, resource.render_target_descriptor, "ImGui_Backend_Render_Target_Descriptor_" + std::to_string(i));
 
+			// Transition depth image.
 			renderer_->vulkan_util_.Begin();
-			renderer_->vulkan_util_.PipelineBarrier(resource.depth_image_.image,
+			renderer_->vulkan_util_.PipelineBarrier(
+				resource.depth_image.image,
 				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 				0, 0,
 				VK_IMAGE_ASPECT_DEPTH_BIT);
 			renderer_->vulkan_util_.Submit();
+
+			++i;
 		}
 	}
 
@@ -137,12 +198,13 @@ namespace renderer
 
 		for (FrameResources& resource : frame_resources_)
 		{
-			renderer_->allocator_.DestroyImageResource(&resource.render_image_);
-			renderer_->allocator_.DestroyImageResource(&resource.depth_image_);
+			renderer_->allocator_.DestroyImageResource(&resource.render_image);
+			renderer_->allocator_.DestroyImageResource(&resource.rt_image);
+			renderer_->allocator_.DestroyImageResource(&resource.depth_image);
 
-			result = vkFreeDescriptorSets(renderer_->context_.device, descriptor_pool_, 1, &resource.render_target_descriptor_);
+			result = vkFreeDescriptorSets(renderer_->context_.device, descriptor_pool_, 1, &resource.render_target_descriptor);
 			CheckResult(result, "Failed to free descriptor set.");
-			resource.render_target_descriptor_ = VK_NULL_HANDLE;
+			resource.render_target_descriptor = VK_NULL_HANDLE;
 		}
 	}
 

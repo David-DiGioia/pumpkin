@@ -75,12 +75,11 @@ namespace renderer
 		allocator_.Initialize(&context_);
 		vulkan_util_.Initialize(&context_, &allocator_);
 		InitializeFrameResources();
+		InitializeRayTracing();
 
 #ifdef EDITOR_ENABLED
 		imgui_backend_.Initialize(this);
 #endif
-
-		InitializeRayTracing();
 	}
 
 #ifdef EDITOR_ENABLED
@@ -157,6 +156,7 @@ namespace renderer
 		vkDeviceWaitIdle(context_.device);
 		swapchain_.CleanUp();
 		swapchain_.Initialize(&context_);
+		//InitializeRayTraceImages();
 	}
 
 	void VulkanRenderer::InitializePipelines()
@@ -171,13 +171,7 @@ namespace renderer
 
 	void VulkanRenderer::InitializeRayTracing()
 	{
-		std::array<ImageResource, FRAMES_IN_FLIGHT> rt_images;
-
-		for (uint32_t i{ 0 }; i < FRAMES_IN_FLIGHT; ++i) {
-			rt_images[i] = frame_resources_[i].rt_image;
-		}
-
-		rt_context_.Initialize(&context_, this, &allocator_, &descriptor_allocator_, &vulkan_util_, rt_images);
+		rt_context_.Initialize(&context_, this, &allocator_, &descriptor_allocator_, &vulkan_util_);
 	}
 
 	VkFormat VulkanRenderer::GetDepthImageFormat() const
@@ -309,20 +303,17 @@ namespace renderer
 #endif
 
 #ifdef EDITOR_ENABLED
-		if (!minimized)
-		{
-			// If we're using the editor's image we need to transition it to be a color attachment.
-			PipelineBarrier(
-				cmd, imgui_backend_.GetViewportImage().image,
-				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-			);
+		if (!minimized) {
+			imgui_backend_.TransitionImagesForRender(cmd);
 		}
 #endif
 
 		if (!minimized)
 		{
+			if (GetCurrentFrame().tlas) {
+				rt_context_.Render(cmd);
+			}
+
 			// First render pass. Render 3D Viewport.
 			vkCmdBeginRendering(cmd, &rendering_info);
 
@@ -347,16 +338,8 @@ namespace renderer
 		}
 
 #ifdef EDITOR_ENABLED
-		if (!minimized)
-		{
-			// Pipeline barrier to make sure previous rendering finishes before fragment shader.
-			// Also transitions image layout to be read from shader.
-			PipelineBarrier(
-				cmd, imgui_backend_.GetViewportImage().image,
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT
-			);
+		if (!minimized) {
+			imgui_backend_.TransitionImagesForSampling(cmd);
 		}
 
 		// Second render pass. Render editor GUI if the editor is enabled.
@@ -414,8 +397,6 @@ namespace renderer
 			vkCmdSetViewport(cmd, 0, 1, &viewport);
 			vkCmdSetScissor(cmd, 0, 1, &scissor);
 		}
-
-		rt_context_.Render(cmd);
 
 		TransitionSwapImageForRender(cmd, image_index);
 		Draw(cmd, image_index);
@@ -790,16 +771,34 @@ namespace renderer
 		}
 	}
 
+	/*
 	void VulkanRenderer::InitializeRayTraceImages()
 	{
+		std::array<ImageResource, FRAMES_IN_FLIGHT> rt_images;
+
+		uint32_t i{ 0 };
 		for (FrameResources& resource : frame_resources_)
 		{
+			// Destroy image if it exists.
+			allocator_.DestroyImageResource(&resource.rt_image);
+
 			resource.rt_image = allocator_.CreateImageResource(
 				GetViewportExtent(),
 				VK_IMAGE_USAGE_STORAGE_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				swapchain_.GetImageFormat());
+
+			rt_images[i] = resource.rt_image;
+			++i;
 		}
+
+		rt_context_.SetRenderImages(GetViewportExtent(), rt_images);
+	}
+	*/
+
+	void VulkanRenderer::SetRayTraceImages(const std::array<ImageResource, FRAMES_IN_FLIGHT>& rt_images)
+	{
+		rt_context_.SetRenderImages(GetViewportExtent(), rt_images);
 	}
 
 	void VulkanRenderer::InitializeDepthImages()

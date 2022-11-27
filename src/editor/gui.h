@@ -53,7 +53,7 @@ private:
 
 	void CameraControls();
 
-	void UpdateViewportSize(const renderer::Extent& extent);
+	void UpdateViewportSize();
 
 	void LoadProject();
 

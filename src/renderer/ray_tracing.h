@@ -12,6 +12,7 @@
 #include "renderer_constants.h"
 #include "vulkan_util.h"
 #include "descriptor_set.h"
+#include "renderer_types.h"
 
 namespace renderer
 {
@@ -95,8 +96,7 @@ namespace renderer
 			VulkanRenderer* renderer,
 			Allocator* allocator,
 			DescriptorAllocator* descriptor_allocator,
-			VulkanUtil* vulkan_util,
-			const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images);
+			VulkanUtil* vulkan_util);
 
 		void CleanUp();
 
@@ -126,6 +126,8 @@ namespace renderer
 
 		void SetTlas(VkAccelerationStructureKHR tlas);
 
+		void SetRenderImages(const Extent& render_extent, const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images);
+
 	private:
 		struct FrameResources;
 
@@ -143,7 +145,7 @@ namespace renderer
 
 		void CreatePipelineLayout();
 
-		void CreateDescriptorSets(const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images);
+		void CreateDescriptorSets();
 
 		FrameResources& GetCurrentFrame();
 
@@ -185,8 +187,7 @@ namespace renderer
 		VkPipelineLayout rt_pipeline_layout_{};
 		DescriptorSetLayoutResource rt_descriptor_set_layout_resource_{};
 		ShaderBindingTable shader_binding_table_{};
-		uint32_t render_width_{};
-		uint32_t render_height_{};
+		Extent render_extent_{};
 
 		VkPhysicalDeviceAccelerationStructurePropertiesKHR acceleration_structure_properties_{};
 		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_pipeline_properties_{};

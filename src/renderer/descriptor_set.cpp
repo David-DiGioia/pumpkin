@@ -29,12 +29,12 @@ namespace renderer
 		vkUpdateDescriptorSets(device_, 1, &write_info, 0, nullptr);
 	}
 
-	void DescriptorSetResource::LinkImageToBinding(uint32_t binding, const ImageResource& image_resource)
+	void DescriptorSetResource::LinkImageToBinding(uint32_t binding, const ImageResource& image_resource, VkImageLayout image_layout)
 	{
 		VkDescriptorImageInfo image_info{
 			.sampler = image_resource.sampler,
 			.imageView = image_resource.image_view,
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.imageLayout = image_layout,
 		};
 
 		VkWriteDescriptorSet write_info{

@@ -43,6 +43,12 @@ namespace renderer
 
 		ImageResource& GetViewportDepthImage();
 
+		std::array<ImageResource, FRAMES_IN_FLIGHT> GetRayTraceImages();
+
+		void TransitionImagesForRender(VkCommandBuffer cmd);
+
+		void TransitionImagesForSampling(VkCommandBuffer cmd);
+
 	private:
 		struct FrameResources;
 
@@ -59,9 +65,10 @@ namespace renderer
 		struct FrameResources
 		{
 			// We use raw descriptor set here instead of resource since ImGui creates it for us.
-			VkDescriptorSet render_target_descriptor_{};
-			ImageResource render_image_{};
-			ImageResource depth_image_{};
+			VkDescriptorSet render_target_descriptor;
+			ImageResource render_image;
+			ImageResource rt_image;
+			ImageResource depth_image;
 		};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 

@@ -211,11 +211,7 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 	bool success{ ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoTitleBar) };
 	ImGui::PopStyleVar(3);
 
-	const ImVec2 render_size{ ImGui::GetContentRegionAvail() };
-	// If window closes ImGui sets its size to -1. So clamp to 0.
-	uint32_t width{ (uint32_t)std::max(render_size.x, 0.0f) };
-	uint32_t height{ (uint32_t)std::max(render_size.y, 0.0f) };
-	UpdateViewportSize({ width, height });
+	UpdateViewportSize();
 
 	if (!success)
 	{
@@ -228,7 +224,7 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 	}
 
 	if ((viewport_extent_.width != 0) && (viewport_extent_.height != 0)) {
-		ImGui::Image(*rendered_image_id, render_size);
+		ImGui::Image(*rendered_image_id, ImGui::GetContentRegionAvail());
 	}
 
 	ImGui::End();
@@ -411,8 +407,14 @@ void EditorGui::CameraControls()
 	ImGui::End();
 }
 
-void EditorGui::UpdateViewportSize(const renderer::Extent& extent)
+void EditorGui::UpdateViewportSize()
 {
+	const ImVec2 render_size{ ImGui::GetContentRegionAvail() };
+	// If window closes ImGui sets its size to -1. So clamp to 0.
+	uint32_t width{ (uint32_t)std::max(render_size.x, 0.0f) };
+	uint32_t height{ (uint32_t)std::max(render_size.y, 0.0f) };
+	renderer::Extent extent{ width, height };
+
 	if (extent != viewport_extent_)
 	{
 		viewport_extent_ = extent;

@@ -116,7 +116,9 @@ namespace renderer
 
 		void InitializeCameraResources();
 
-		void InitializeRayTraceImages();
+		//void InitializeRayTraceImages();
+
+		void SetRayTraceImages(const std::array<ImageResource, FRAMES_IN_FLIGHT>& rt_images);
 
 		void InitializeDepthImages();
 
@@ -146,11 +148,10 @@ namespace renderer
 
 			AccelerationStructure* tlas;
 
-			ImageResource rt_image;
-
-			// Only used when EDITOR_ENABLED is not defined.
+			// Only used when EDITOR_ENABLED is not defined, since ImguiBackend has ownership over these otherwise.
 			// This is not in the Swapchain class since we only need frame-in-flight number depth images.
 			ImageResource depth_image;
+			//ImageResource rt_image;
 		};
 
 		// Even though these are only used when EDITOR_ENABLED is defined, we don't change the structs
