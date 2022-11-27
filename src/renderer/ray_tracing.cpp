@@ -49,6 +49,8 @@ namespace renderer
 		allocator_->DestroyBufferResource(&shader_binding_table_.miss_sbt);
 		allocator_->DestroyBufferResource(&shader_binding_table_.hit_sbt);
 
+		DestroyFrameResources();
+
 		vkDestroyPipeline(context_->device, rt_pipeline_, nullptr);
 		vkDestroyPipelineLayout(context_->device, rt_pipeline_layout_, nullptr);
 
@@ -524,6 +526,13 @@ namespace renderer
 	RayTracingContext::FrameResources& RayTracingContext::GetCurrentFrame()
 	{
 		return frame_resources_[renderer_->GetCurrentFrameNumber()];
+	}
+
+	void RayTracingContext::DestroyFrameResources()
+	{
+		for (FrameResources& frame : frame_resources_) {
+			allocator_->DestroyBufferResource(&frame.camera_ubo_buffer);
+		}
 	}
 
 	void ShaderBindingTableBuilder::Initialize(Context* context, Allocator* allocator, VulkanUtil* vulkan_util, VkPhysicalDeviceRayTracingPipelinePropertiesKHR* rt_pipeline_properties)

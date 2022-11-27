@@ -66,23 +66,23 @@ namespace renderer
 		struct Allocation
 		{
 			VkDeviceMemory memory;
-			VkDeviceSize available_offset; // The byte offset where unbound allocated memory starts.
-			VkDeviceSize available_memory; // How much allocated memory is left in this allocation?
+			VkDeviceSize available_offset;         // The byte offset where unbound allocated memory starts.
+			VkDeviceSize available_memory;         // How much allocated memory is left in this allocation?
 			std::set<VkDeviceSize> buffer_offsets; // Offsets of each buffer bound to this allocation.
 		};
 
-		// Associated to each bound buffer via 
+		// Associated to each bound buffer via allocation_info_map_.
 		struct BufferAllocationInfo
 		{
 			Allocation* allocation;
-			VkDeviceSize next_available_offset;
+			VkDeviceSize next_available_offset; // The byte offset marking the end of the associated buffer, where other buffers could begin.
 		};
 
 		struct MemoryTypeAllocations
 		{
 			VkMemoryType memory_type;
-			uint32_t memory_type_index; // Needed for VkMemoryAllocateInfo.
-			std::vector<Allocation> allocations;
+			uint32_t memory_type_index;           // Needed for VkMemoryAllocateInfo.
+			std::vector<Allocation*> allocations; // Vector of pointers so pointers to Allocations don't become invalidated when vector exands.
 		};
 
 		// Get info of an existing allocation for buffer to be bound to.
@@ -143,7 +143,7 @@ namespace renderer
 		std::vector<MemoryTypeAllocations> device_allocations_{};
 		std::vector<MemoryTypeAllocations> host_allocations_{};
 		std::vector<MemoryTypeAllocations> device_host_allocations_{};
-		std::vector<VkDeviceSize> remaining_heap_memory_{}; // Remaining memory corresponding to each memory heap in VkPhysicalDeviceMemoryProperties::memoryHeaps.
+		std::vector<VkDeviceSize> remaining_heap_memory_{};                        // Remaining memory corresponding to each memory heap in VkPhysicalDeviceMemoryProperties::memoryHeaps.
 		std::unordered_map<uint64_t, BufferAllocationInfo> allocation_info_map_{}; // Enables mapping buffer resources to their allocations. The key is a Vulkan handle cast to uint64_t.
 	};
 }

@@ -102,26 +102,35 @@ namespace renderer
 		// Free all DEVICE_LOCAL | HOST_VISIBLE allocations.
 		for (MemoryTypeAllocations& mem_type_allocations : device_host_allocations_)
 		{
-			for (Allocation& alloc : mem_type_allocations.allocations) {
-				vkFreeMemory(context_->device, alloc.memory, nullptr);
+			for (Allocation* alloc : mem_type_allocations.allocations)
+			{
+				vkFreeMemory(context_->device, alloc->memory, nullptr);
+				delete alloc;
 			}
 		}
+		device_host_allocations_.clear();
 
 		// Free all DEVICE_LOCAL allocations.
 		for (MemoryTypeAllocations& mem_type_allocations : device_allocations_)
 		{
-			for (Allocation& alloc : mem_type_allocations.allocations) {
-				vkFreeMemory(context_->device, alloc.memory, nullptr);
+			for (Allocation* alloc : mem_type_allocations.allocations)
+			{
+				vkFreeMemory(context_->device, alloc->memory, nullptr);
+				delete alloc;
 			}
 		}
+		device_allocations_.clear();
 
 		// Free all HOST_VISIBLE allocations.
 		for (MemoryTypeAllocations& mem_type_allocations : host_allocations_)
 		{
-			for (Allocation& alloc : mem_type_allocations.allocations) {
-				vkFreeMemory(context_->device, alloc.memory, nullptr);
+			for (Allocation* alloc : mem_type_allocations.allocations)
+			{
+				vkFreeMemory(context_->device, alloc->memory, nullptr);
+				delete alloc;
 			}
 		}
+		host_allocations_.clear();
 	}
 
 	BufferResource Allocator::CreateBufferResource(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
@@ -341,25 +350,27 @@ namespace renderer
 			.memoryTypeIndex = mem_type_alloc->memory_type_index,
 		};
 
-		Allocation& allocation{ mem_type_alloc->allocations.emplace_back() };
-		VkResult result{ vkAllocateMemory(context_->device, &allocate_info, nullptr, &allocation.memory) };
+		Allocation* allocation{ new Allocation{} };
+		VkResult result{ vkAllocateMemory(context_->device, &allocate_info, nullptr, &allocation->memory) };
 		CheckResult(result, "Failed to allocate memory.");
 
 		// No need to worry about alignment since we are return buffer at offset 0.
-		allocation.available_memory = alloc_size - required_size;
-		allocation.available_offset = required_size;
-		allocation.buffer_offsets.insert(0); // Insert 0 too since this is initial allocation.
-		allocation.buffer_offsets.insert(allocation.available_offset);
+		allocation->available_memory = alloc_size - required_size;
+		allocation->available_offset = required_size;
+		allocation->buffer_offsets.insert(0); // Insert 0 too since this is initial allocation.
+		allocation->buffer_offsets.insert(allocation->available_offset);
+
+		mem_type_alloc->allocations.push_back(allocation);
 
 		BufferAllocationInfo alloc_info{
-			.allocation = &allocation,
-			.next_available_offset = allocation.available_offset,
+			.allocation = allocation,
+			.next_available_offset = allocation->available_offset,
 		};
 
 		// Need this association when we destroy the buffer.
 		allocation_info_map_[vulkan_handle] = alloc_info;
 
-		*out_memory = &allocation.memory;
+		*out_memory = &allocation->memory;
 		return (VkDeviceSize)0; // Buffer will start at beginning of allocation.
 	}
 
@@ -382,13 +393,13 @@ namespace renderer
 
 			if (has_all_properties && meets_buffer_requirement)
 			{
-				for (Allocation& alloc : memory_type_alloc.allocations)
+				for (Allocation* alloc : memory_type_alloc.allocations)
 				{
-					VkDeviceSize alignment_offset{ GetAlignmentOffset(alloc.available_offset, alignment) };
+					VkDeviceSize alignment_offset{ GetAlignmentOffset(alloc->available_offset, alignment) };
 
 					// Use existing allocation if there's enough memory left.
-					if (requirements.size <= alloc.available_memory - alignment_offset) {
-						return ExistingAllocation(vulkan_handle, alignment_offset, requirements.size, &alloc, out_memory);
+					if (requirements.size <= alloc->available_memory - alignment_offset) {
+						return ExistingAllocation(vulkan_handle, alignment_offset, requirements.size, alloc, out_memory);
 					}
 				}
 

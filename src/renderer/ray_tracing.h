@@ -149,6 +149,8 @@ namespace renderer
 
 		FrameResources& GetCurrentFrame();
 
+		void DestroyFrameResources();
+
 		struct QueuedBlasBuildInfo
 		{
 			// Allocate BLAS when it's added to queue so we can return that to caller to associate with the mesh, even though it won't yet be built.
