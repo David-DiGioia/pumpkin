@@ -88,7 +88,7 @@ namespace renderer
 
 	std::array<ImageResource, FRAMES_IN_FLIGHT> ImGuiBackend::GetRayTraceImages()
 	{
-		std::array<ImageResource, FRAMES_IN_FLIGHT> rt_images;
+		std::array<ImageResource, FRAMES_IN_FLIGHT> rt_images{};
 
 		uint32_t i{ 0 };
 		for (FrameResources& resource : frame_resources_)
@@ -172,8 +172,8 @@ namespace renderer
 			NameObject(renderer_->context_.device, resource.depth_image.image, "ImGui_Backend_Depth_Image_" + std::to_string(i));
 
 			resource.render_target_descriptor = ImGui_ImplVulkan_AddTexture(
-				resource.render_image.sampler,
-				resource.render_image.image_view,
+				resource.rt_image.sampler,
+				resource.rt_image.image_view,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			NameObject(renderer_->context_.device, resource.render_target_descriptor, "ImGui_Backend_Render_Target_Descriptor_" + std::to_string(i));
 
