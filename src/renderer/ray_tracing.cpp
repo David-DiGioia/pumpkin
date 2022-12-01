@@ -169,7 +169,13 @@ namespace renderer
 
 		for (const QueuedTlasBuildInfo& build_info : queued_tlas_build_infos_)
 		{
-			instance_buffer_ = UploadInstancesToDevice(cmd, *build_info.instances);
+			VkDeviceAddress instance_buffer_address{ 0 };
+
+			// We still build TLAS if there are no instances so we can trace rays and execute the miss shader.
+			if (!build_info.instances->empty()) {
+				instance_buffer_ = UploadInstancesToDevice(cmd, *build_info.instances);
+				instance_buffer_address = DeviceAddress(context_->device, instance_buffer_.buffer);
+			}
 
 			VkAccelerationStructureGeometryKHR vk_geometry{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -178,7 +184,7 @@ namespace renderer
 					.instances = {
 						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
 						.arrayOfPointers = VK_FALSE,
-						.data = DeviceAddress(context_->device, instance_buffer_.buffer),
+						.data = instance_buffer_address,
 					},
 				},
 				.flags = 0,

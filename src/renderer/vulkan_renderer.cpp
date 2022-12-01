@@ -578,15 +578,12 @@ namespace renderer
 
 		// TODO: Update any BLASes that need to be updated here.
 
-		if (!vk_instances.empty())
-		{
-			GetCurrentFrame().tlas = rt_context_.QueueTlas(vk_instances);
-			VkCommandBuffer cmd{ vulkan_util_.Begin() };
-			rt_context_.CmdBuildQueuedTlases(cmd);
-			vulkan_util_.Submit();
+		GetCurrentFrame().tlas = rt_context_.QueueTlas(vk_instances);
+		VkCommandBuffer cmd{ vulkan_util_.Begin() };
+		rt_context_.CmdBuildQueuedTlases(cmd);
+		vulkan_util_.Submit();
 
-			rt_context_.SetTlas(GetCurrentFrame().tlas->acceleration_structure);
-		}
+		rt_context_.SetTlas(GetCurrentFrame().tlas->acceleration_structure);
 
 	}
 
