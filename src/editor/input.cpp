@@ -78,7 +78,7 @@ void ProcessViewportInput(Editor* editor)
 
 	constexpr float zoom_speed{ 0.1f };
 	constexpr float movement_speed_scroll_speed{ 0.1f };
-	constexpr float rotate_speed{ 2.0f };
+	constexpr float rotate_speed{ 0.003f };
 
 	CameraController& controller{ editor->GetCameraController() };
 	float delta_time{ editor->GetPumpkin()->GetDeltaTime() };
@@ -131,7 +131,9 @@ void ProcessViewportInput(Editor* editor)
 
 	if (mouse_delta != glm::vec2(0.0f, 0.0f))
 	{
-		controller.Rotate(-mouse_delta.x * rotate_speed * delta_time, -mouse_delta.y * rotate_speed * delta_time);
+		// We don't multiply by delta time since mouse delta is integer value of number of pixels moved,
+		// so often we just get the minimum of 1 pixel, so speed would become mainly determined by framerate which is undesirable.
+		controller.Rotate(-mouse_delta.x * rotate_speed, -mouse_delta.y * rotate_speed);
 		ImGui::ResetMouseDragDelta();
 	}
 
