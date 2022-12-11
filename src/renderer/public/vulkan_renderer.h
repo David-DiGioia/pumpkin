@@ -18,23 +18,10 @@
 #include "imgui_backend.h"
 #include "renderer_types.h"
 #include "ray_tracing.h"
+#include "render_object.h"
 
 namespace renderer
 {
-	struct RenderObject
-	{
-		uint32_t mesh_idx;
-		VertexType vertex_type;
-
-		struct UniformBuffer
-		{
-			glm::mat4 transform;
-		} uniform_buffer;
-
-		BufferResource ubo_buffer_resource;
-		DescriptorSetResource ubo_descriptor_set_resource;
-	};
-
 	class VulkanRenderer
 	{
 	public:
@@ -72,6 +59,8 @@ namespace renderer
 		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path);
 
 		void BuildTlasAndUpdateBlases();
+
+		Mesh* GetMesh(uint32_t mesh_index);
 
 		uint32_t GetCurrentFrameNumber() const;
 
@@ -127,8 +116,6 @@ namespace renderer
 		void UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh);
 
 		void DestroyMesh(Mesh* mesh);
-
-		VkAccelerationStructureInstanceKHR RenderObjectToVulkanInstance(const RenderObject& render_object) const;
 
 		struct FrameResources
 		{

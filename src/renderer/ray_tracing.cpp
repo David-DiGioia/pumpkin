@@ -7,9 +7,13 @@
 
 namespace renderer
 {
+	// Set 0. Frame resource set.
 	constexpr uint32_t TLAS_BINDING{ 0 };
 	constexpr uint32_t IMAGE_BUFFER_BINDING{ 1 };
 	constexpr uint32_t CAMERA_UBO_BINDING{ 2 };
+
+	// Set 1. Persistent set.
+	constexpr uint32_t OBJECT_BUFFERS_BINDING{ 0 };
 
 
 	void RayTracingContext::Initialize(Context* context,
@@ -44,17 +48,18 @@ namespace renderer
 	{
 		DeleteTemporaryBuffers();
 
-		// Destroy shader binding table buffers.
 		allocator_->DestroyBufferResource(&shader_binding_table_.raygen_sbt);
 		allocator_->DestroyBufferResource(&shader_binding_table_.miss_sbt);
 		allocator_->DestroyBufferResource(&shader_binding_table_.hit_sbt);
+		allocator_->DestroyBufferResource(&object_buffers_buffer_);
 
 		DestroyFrameResources();
 
 		vkDestroyPipeline(context_->device, rt_pipeline_, nullptr);
 		vkDestroyPipelineLayout(context_->device, rt_pipeline_layout_, nullptr);
 
-		descriptor_allocator_->DestroyDescriptorSetLayoutResource(&rt_descriptor_set_layout_resource_);
+		descriptor_allocator_->DestroyDescriptorSetLayoutResource(&frame_descriptor_set_layout_resource_);
+		descriptor_allocator_->DestroyDescriptorSetLayoutResource(&persistent_descriptor_set_layout_resource_);
 	}
 
 	void RayTracingContext::QueueBlas(Mesh* mesh)
@@ -63,16 +68,20 @@ namespace renderer
 			.blas = &mesh->blas, // This BLAS will be populated later when build command is called.
 			.geometries = &mesh->geometries,
 		};
-
 		queued_blas_build_infos_.push_back(build_info);
 	}
 
-	AccelerationStructure* RayTracingContext::QueueTlas(const std::vector<VkAccelerationStructureInstanceKHR>& instances)
+	AccelerationStructure* RayTracingContext::QueueTlas(const std::vector<RenderObject>& render_objects)
 	{
 		QueuedTlasBuildInfo build_info{
 			.tlas = new AccelerationStructure{}, // This TLAS will be populated later when build command is called.
-			.instances = &instances,
+			.instances = {},                     // Populated below.
 		};
+
+		build_info.instances.reserve(render_objects.size());
+		for (const RenderObject& render_object : render_objects) {
+			build_info.instances.push_back(RenderObjectToVulkanInstance(render_object));
+		}
 
 		queued_tlas_build_infos_.push_back(build_info);
 
@@ -172,8 +181,8 @@ namespace renderer
 			VkDeviceAddress instance_buffer_address{ 0 };
 
 			// We still build TLAS if there are no instances so we can trace rays and execute the miss shader.
-			if (!build_info.instances->empty()) {
-				instance_buffer_ = UploadInstancesToDevice(cmd, *build_info.instances);
+			if (!build_info.instances.empty()) {
+				instance_buffer_ = UploadInstancesToDevice(cmd, build_info.instances);
 				instance_buffer_address = DeviceAddress(context_->device, instance_buffer_.buffer);
 			}
 
@@ -191,7 +200,7 @@ namespace renderer
 			};
 
 			VkAccelerationStructureBuildRangeInfoKHR* range_info{ new VkAccelerationStructureBuildRangeInfoKHR{
-				.primitiveCount = (uint32_t)build_info.instances->size(),
+				.primitiveCount = (uint32_t)build_info.instances.size(),
 				.primitiveOffset = 0,
 				.firstVertex = 0,
 				.transformOffset = 0,
@@ -211,7 +220,7 @@ namespace renderer
 				.scratchData = {}, // Populate this after getting scratch buffer size.
 			};
 
-			VkAccelerationStructureBuildSizesInfoKHR build_sizes{ GetAccelerationStructureBuildSizes(tlas_build_info, (uint32_t)build_info.instances->size()) };
+			VkAccelerationStructureBuildSizesInfoKHR build_sizes{ GetAccelerationStructureBuildSizes(tlas_build_info, (uint32_t)build_info.instances.size()) };
 
 			BufferResource scratch_buffer{ allocator_->CreateAlignedBufferResource(
 				build_sizes.buildScratchSize, acceleration_structure_properties_.minAccelerationStructureScratchOffsetAlignment,
@@ -246,17 +255,41 @@ namespace renderer
 		}
 	}
 
+	VkAccelerationStructureInstanceKHR RayTracingContext::RenderObjectToVulkanInstance(const RenderObject& render_object) const
+	{
+		Mesh* mesh{ renderer_->GetMesh(render_object.mesh_idx) };
+
+		VkAccelerationStructureDeviceAddressInfoKHR device_address_info{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+			.accelerationStructure = mesh->blas.acceleration_structure,
+		};
+
+		return VkAccelerationStructureInstanceKHR{
+			.transform = ToVulkanTransformMatrix(render_object.uniform_buffer.transform),
+			.instanceCustomIndex = custom_index_map_.at(&mesh->blas), // Can't use operator[] since this function is const.
+			.mask = 0xFF,
+			.instanceShaderBindingTableRecordOffset = 0,
+			.flags = 0,
+			.accelerationStructureReference = vkGetAccelerationStructureDeviceAddressKHR(context_->device, &device_address_info),
+		};
+	}
+
 	void RayTracingContext::Render(VkCommandBuffer cmd)
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rt_pipeline_);
+
+		std::vector<VkDescriptorSet> descriptor_sets{
+			GetCurrentFrame().frame_descriptor_set_resource_.descriptor_set,
+			persistent_descriptor_set_resource_.descriptor_set
+		};
 
 		vkCmdBindDescriptorSets(
 			cmd,
 			VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
 			rt_pipeline_layout_,
 			0,
-			1,
-			&GetCurrentFrame().rt_descriptor_set_resource_.descriptor_set,
+			(uint32_t)descriptor_sets.size(),
+			descriptor_sets.data(),
 			0,
 			nullptr);
 
@@ -302,17 +335,55 @@ namespace renderer
 
 	void RayTracingContext::SetTlas(VkAccelerationStructureKHR tlas)
 	{
-		GetCurrentFrame().rt_descriptor_set_resource_.LinkAccelerationStructureToBinding(TLAS_BINDING, tlas);
+		GetCurrentFrame().frame_descriptor_set_resource_.LinkAccelerationStructureToBinding(TLAS_BINDING, tlas);
 	}
 
 	void RayTracingContext::SetRenderImages(const Extent& render_extent, const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images)
 	{
 		uint32_t i{ 0 };
 		for (FrameResources& frame : frame_resources_) {
-			frame.rt_descriptor_set_resource_.LinkImageToBinding(IMAGE_BUFFER_BINDING, render_images[i++], VK_IMAGE_LAYOUT_GENERAL);
+			frame.frame_descriptor_set_resource_.LinkImageToBinding(IMAGE_BUFFER_BINDING, render_images[i++], VK_IMAGE_LAYOUT_GENERAL);
 		}
 
 		render_extent_ = render_extent;
+	}
+
+	void RayTracingContext::UpdateObjectBuffers(const std::vector<Mesh*>& meshes)
+	{
+		// Destroy previous buffer if it exists.
+		allocator_->DestroyBufferResource(&object_buffers_buffer_);
+
+		std::vector<ObjectBuffers> object_buffers_vec{};
+		object_buffers_vec.reserve(meshes.size());
+
+		uint32_t custom_index{ 0 };
+
+		for (Mesh* mesh : meshes)
+		{
+			custom_index_map_[&mesh->blas] = custom_index;
+
+			for (Geometry& geometry : mesh->geometries)
+			{
+				ObjectBuffers& obj_buffers{ object_buffers_vec.emplace_back() };
+				obj_buffers.vertices = (uint64_t)DeviceAddress(context_->device, geometry.vertices_resource.buffer);
+				obj_buffers.indices = (uint64_t)DeviceAddress(context_->device, geometry.indices_resource.buffer);
+				++custom_index;
+			}
+		}
+
+		// Even if no meshes are loaded yet, something needs to be bound to this descriptor so we create a
+		// single dummy ObjectBuffers to bind, even though it will never be accessed.
+		if (object_buffers_vec.empty()) {
+			object_buffers_vec.push_back(ObjectBuffers{});
+		}
+
+		object_buffers_buffer_ = allocator_->CreateBufferResource(
+			object_buffers_vec.size() * sizeof(ObjectBuffers),
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_->device, object_buffers_buffer_.buffer, "Object_Buffers_Buffer");
+
+		persistent_descriptor_set_resource_.LinkBufferToBinding(OBJECT_BUFFERS_BINDING, object_buffers_buffer_);
 	}
 
 	VkAccelerationStructureGeometryKHR RayTracingContext::PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const
@@ -461,11 +532,16 @@ namespace renderer
 
 	void RayTracingContext::CreatePipelineLayout()
 	{
+		std::vector <VkDescriptorSetLayout> set_layouts{
+			frame_descriptor_set_layout_resource_.layout,
+			persistent_descriptor_set_layout_resource_.layout,
+		};
+
 		VkPipelineLayoutCreateInfo layout_info{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			.flags = 0,
-			.setLayoutCount = 1,
-			.pSetLayouts = &rt_descriptor_set_layout_resource_.layout,
+			.setLayoutCount = (uint32_t)set_layouts.size(),
+			.pSetLayouts = set_layouts.data(),
 			.pushConstantRangeCount = 0,
 			.pPushConstantRanges = nullptr,
 		};
@@ -477,6 +553,7 @@ namespace renderer
 
 	void RayTracingContext::CreateDescriptorSets()
 	{
+		// Set 0.
 		VkDescriptorSetLayoutBinding tlas_binding{
 			.binding = TLAS_BINDING,
 			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
@@ -501,20 +578,36 @@ namespace renderer
 			.pImmutableSamplers = nullptr,
 		};
 
-		std::vector<VkDescriptorSetLayoutBinding> bindings{
+		// Set 1.
+		VkDescriptorSetLayoutBinding object_buffers_binding{
+			.binding = OBJECT_BUFFERS_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> bindings_set_0{
 			tlas_binding,
 			image_buffer_binding,
 			camera_ubo_binding,
 		};
 
-		rt_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings);
-		NameObject(context_->device, rt_descriptor_set_layout_resource_.layout, "Ray_Trace_Descriptor_Set_Layout");
+		std::vector<VkDescriptorSetLayoutBinding> bindings_set_1{
+			object_buffers_binding,
+		};
+
+		frame_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_set_0);
+		NameObject(context_->device, frame_descriptor_set_layout_resource_.layout, "Ray_Trace_Frame_Descriptor_Set_Layout");
+
+		persistent_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_set_1);
+		NameObject(context_->device, persistent_descriptor_set_layout_resource_.layout, "Ray_Trace_Persistent_Descriptor_Set_Layout");
 
 		uint32_t i{ 0 };
 		for (FrameResources& frame : frame_resources_)
 		{
-			frame.rt_descriptor_set_resource_ = descriptor_allocator_->CreateDescriptorSetResource(rt_descriptor_set_layout_resource_);
-			NameObject(context_->device, frame.rt_descriptor_set_resource_.descriptor_set, "Ray_Trace_Descriptor_Set_" + std::to_string(i));
+			frame.frame_descriptor_set_resource_ = descriptor_allocator_->CreateDescriptorSetResource(frame_descriptor_set_layout_resource_);
+			NameObject(context_->device, frame.frame_descriptor_set_resource_.descriptor_set, "Ray_Trace_Frame_Descriptor_Set_" + std::to_string(i));
 
 			frame.camera_ubo_buffer = allocator_->CreateBufferResource(
 				sizeof(RayTraceCameraUBO),
@@ -524,9 +617,16 @@ namespace renderer
 
 			// We don't link TLAS yet since that will be done each frame since new TLASes will be created.
 			// We don't link render images yet since that is done each time the viewport changes size.
-			frame.rt_descriptor_set_resource_.LinkBufferToBinding(CAMERA_UBO_BINDING, frame.camera_ubo_buffer);
+			frame.frame_descriptor_set_resource_.LinkBufferToBinding(CAMERA_UBO_BINDING, frame.camera_ubo_buffer);
 			++i;
 		}
+
+		persistent_descriptor_set_resource_ = descriptor_allocator_->CreateDescriptorSetResource(persistent_descriptor_set_layout_resource_);
+		NameObject(context_->device, persistent_descriptor_set_resource_.descriptor_set, "Ray_Trace_Persistent_Descriptor_Set");
+
+		// We link object buffers each time the list of BLASes changes, but we do it once initially here with
+		// with a dummy object buffer since something needs to be bound to that slot to use the closest-hit shader.
+		UpdateObjectBuffers({});
 	}
 
 	RayTracingContext::FrameResources& RayTracingContext::GetCurrentFrame()

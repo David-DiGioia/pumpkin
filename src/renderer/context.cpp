@@ -192,7 +192,9 @@ namespace renderer
 			.dynamicRendering = VK_TRUE,
 		};
 
-		VkPhysicalDeviceFeatures features{};
+		VkPhysicalDeviceFeatures features{
+			.shaderInt64 = VK_TRUE,
+		};
 
 		VkDeviceCreateInfo device_info{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,

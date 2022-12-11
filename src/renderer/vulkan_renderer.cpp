@@ -22,7 +22,6 @@ namespace jsonkey {
 	const std::string RENDER_OBJECTS{ "render_objects" };
 	// Render object members.
 	const std::string MESH_INDEX{ "mesh_index" };
-	const std::string VERTEX_TYPE{ "vertex_type" };
 	// End render object members.
 
 	const std::string MESHES{ "meshes" };
@@ -467,7 +466,6 @@ namespace renderer
 		{
 			j[jsonkey::RENDER_OBJECTS] += {
 				{ jsonkey::MESH_INDEX, ro.mesh_idx },
-				{ jsonkey::VERTEX_TYPE, ro.vertex_type },
 			};
 		}
 
@@ -545,6 +543,8 @@ namespace renderer
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
 
+		rt_context_.UpdateObjectBuffers(meshes_);
+
 		// Load render objects.
 		for (auto& json_ro : j[jsonkey::RENDER_OBJECTS]) {
 			CreateRenderObject(json_ro[jsonkey::MESH_INDEX]);
@@ -570,21 +570,20 @@ namespace renderer
 		}
 		rt_context_.DeleteTemporaryBuffers();
 
-		std::vector<VkAccelerationStructureInstanceKHR> vk_instances{};
-
-		for (const RenderObject& render_object : GetCurrentFrame().render_objects) {
-			vk_instances.push_back(RenderObjectToVulkanInstance(render_object));
-		}
-
 		// TODO: Update any BLASes that need to be updated here.
 
-		GetCurrentFrame().tlas = rt_context_.QueueTlas(vk_instances);
+		GetCurrentFrame().tlas = rt_context_.QueueTlas(GetCurrentFrame().render_objects);
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 		rt_context_.CmdBuildQueuedTlases(cmd);
 		vulkan_util_.Submit();
 
 		rt_context_.SetTlas(GetCurrentFrame().tlas->acceleration_structure);
 
+	}
+
+	Mesh* VulkanRenderer::GetMesh(uint32_t mesh_index)
+	{
+		return meshes_[mesh_index];
 	}
 
 	uint32_t VulkanRenderer::GetCurrentFrameNumber() const
@@ -616,7 +615,6 @@ namespace renderer
 		{
 			RenderObject render_object{
 				.mesh_idx = mesh_index,
-				.vertex_type = VertexType::POSITION_NORMAL_COORD,
 				.uniform_buffer = {
 					.transform = glm::mat4(1.0f),
 				},
@@ -847,6 +845,8 @@ namespace renderer
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
 
+		rt_context_.UpdateObjectBuffers(meshes_);
+
 		return duplicate_indices;
 	}
 
@@ -883,23 +883,6 @@ namespace renderer
 
 		delete mesh;
 		mesh = nullptr;
-	}
-
-	VkAccelerationStructureInstanceKHR VulkanRenderer::RenderObjectToVulkanInstance(const RenderObject& render_object) const
-	{
-		VkAccelerationStructureDeviceAddressInfoKHR device_address_info{
-			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-			.accelerationStructure = meshes_[render_object.mesh_idx]->blas.acceleration_structure,
-		};
-
-		return VkAccelerationStructureInstanceKHR{
-			.transform = ToVulkanTransformMatrix(render_object.uniform_buffer.transform),
-			.instanceCustomIndex = 0,
-			.mask = 0xFF,
-			.instanceShaderBindingTableRecordOffset = 0,
-			.flags = 0,
-			.accelerationStructureReference = vkGetAccelerationStructureDeviceAddressKHR(context_.device, &device_address_info),
-		};
 	}
 
 	uint32_t VulkanRenderer::MeshCount() const

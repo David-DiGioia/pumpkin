@@ -19,7 +19,7 @@ struct HitPayload
 	vec3 ray_direction;
 };
 
-layout(location = 0) rayPayloadEXT vec3 payload;
+layout(location = 0) rayPayloadEXT HitPayload payload;
 
 void main()
 {
@@ -55,5 +55,5 @@ void main()
 		tmax,                 // Tmax
 		0);                   // payload
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payload, 1.0));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payload.radiance, 1.0));
 }

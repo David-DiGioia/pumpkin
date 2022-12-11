@@ -13,8 +13,8 @@ namespace renderer
 	{
 		VkBuffer buffer;
 		VkDeviceMemory* memory; // Should be shared by multiple buffers.
-		VkDeviceSize size; // Byte size of buffer.
-		VkDeviceSize offset; // Offset into memory where the buffer starts.
+		VkDeviceSize size;      // Byte size of buffer.
+		VkDeviceSize offset;    // Offset into memory where the buffer starts.
 
 		const BufferResource& operator=(const BufferResource& other);
 	};
@@ -27,7 +27,7 @@ namespace renderer
 		VkExtent2D extent;
 		VkFormat format;
 		VkDeviceMemory* memory; // Should be shared by multiple buffers.
-		VkDeviceSize offset; // Offset into memory where the image starts.
+		VkDeviceSize offset;    // Offset into memory where the image starts.
 
 		const ImageResource& operator=(const ImageResource& other);
 	};
@@ -55,8 +55,7 @@ namespace renderer
 			VkImageUsageFlags usage,
 			VkMemoryPropertyFlags properties,
 			VkFormat format,
-			VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT
-		);
+			VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT);
 
 		void DestroyBufferResource(BufferResource* buffer_resource);
 

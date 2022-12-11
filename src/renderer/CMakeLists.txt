@@ -22,6 +22,7 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/ray_tracing.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/ray_tracing.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer_constants.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/render_object.h"
 )
 
 add_library(Renderer "${SOURCES}")

@@ -3,6 +3,10 @@
 #include <cstdint>
 #include <limits>
 
+// Should not include any headers from Pumpkin, since most files include renderer_types.h.
+#include "volk.h"
+#include "glm/glm.hpp"
+
 struct ImVec2;
 
 namespace renderer

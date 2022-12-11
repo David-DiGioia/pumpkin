@@ -18,18 +18,10 @@
 
 namespace renderer
 {
-	enum class VertexType
-	{
-		NONE,
-		POSITION_ONLY,
-		POSITION_NORMAL_COORD,
-	};
-
 	struct Vertex
 	{
 		glm::vec3 position;
 		glm::vec3 normal;
-		glm::vec2 tex_coord;
 
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};

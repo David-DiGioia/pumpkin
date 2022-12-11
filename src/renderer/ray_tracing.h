@@ -13,11 +13,20 @@
 #include "vulkan_util.h"
 #include "descriptor_set.h"
 #include "renderer_types.h"
+#include "render_object.h"
 
 namespace renderer
 {
 	struct Mesh;
 	struct Geometry;
+
+	// Device addresses of object buffers cast to uint64_t to match closest-hit shader.
+	// There is one object buffer per geometry so the index will be given by custom_index + geometry_index.
+	struct ObjectBuffers
+	{
+		uint64_t vertices;
+		uint64_t indices;
+	};
 
 	struct AccelerationStructure
 	{
@@ -106,7 +115,7 @@ namespace renderer
 
 		// Returns empty TLAS without build data that will be populated after CmdBuildQueuedTlases(...) is called.
 		// The build data will not be present in the TLAS buffer until after CmdBuildQueuedTlases(...) is called and the queue is submitted.
-		AccelerationStructure* QueueTlas(const std::vector<VkAccelerationStructureInstanceKHR>& instances);
+		AccelerationStructure* QueueTlas(const std::vector<RenderObject>& render_objects);
 
 		// Creates the BLAS objects populating the empty BLASes saved from QueueBlas(...) and writes the build
 		// commands into the command buffer.
@@ -118,6 +127,8 @@ namespace renderer
 		// Includes pipeline barriers for TLAS buffers.
 		void CmdBuildQueuedTlases(VkCommandBuffer cmd);
 
+		VkAccelerationStructureInstanceKHR RenderObjectToVulkanInstance(const RenderObject& render_object) const;
+
 		void Render(VkCommandBuffer cmd);
 
 		void DeleteTemporaryBuffers();
@@ -127,6 +138,10 @@ namespace renderer
 		void SetTlas(VkAccelerationStructureKHR tlas);
 
 		void SetRenderImages(const Extent& render_extent, const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images);
+
+		// Updates the buffers containing vertex data to be accessed in closest-hit shaders. This could maybe be handled automatically
+		// when CmdBuildQueuedBlases(...) is called, but that would require keeping track of previously build meshes.
+		void UpdateObjectBuffers(const std::vector<Mesh*>& meshes);
 
 	private:
 		struct FrameResources;
@@ -164,7 +179,7 @@ namespace renderer
 			// Allocate TLAS when it's added to queue so we can return that to caller to associate with the mesh, even though it won't yet be built.
 			AccelerationStructure* tlas;
 			// The acceleration structure instances needed for the TLAS.
-			const std::vector<VkAccelerationStructureInstanceKHR>* instances;
+			std::vector<VkAccelerationStructureInstanceKHR> instances;
 		};
 
 		struct RayTraceCameraUBO
@@ -176,18 +191,22 @@ namespace renderer
 		struct FrameResources
 		{
 			BufferResource camera_ubo_buffer;
-			DescriptorSetResource rt_descriptor_set_resource_{};
+			DescriptorSetResource frame_descriptor_set_resource_{};
 		};
 
-		std::vector<QueuedBlasBuildInfo> queued_blas_build_infos_{}; // Info needed to build the BLASes when CmdBuildQueuedBlases(...) is called.
-		std::vector<QueuedTlasBuildInfo> queued_tlas_build_infos_{}; // Info needed to build the TLASes when CmdBuildQueuedTlases(...) is called.
-		std::vector<BufferResource> scratch_buffers_{}; // Store these so we can delete them after the acceleration structures are built.
-		std::vector<BufferResource> staging_buffers_{}; // Store these so we can delete them after the acceleration structures are built.
-		BufferResource instance_buffer_{}; // Store so we can delete it after the TLAS is built.
+		std::vector<QueuedBlasBuildInfo> queued_blas_build_infos_{};              // Info needed to build the BLASes when CmdBuildQueuedBlases(...) is called.
+		std::vector<QueuedTlasBuildInfo> queued_tlas_build_infos_{};              // Info needed to build the TLASes when CmdBuildQueuedTlases(...) is called.
+		std::vector<BufferResource> scratch_buffers_{};                           // Store these so we can delete them after the acceleration structures are built.
+		std::vector<BufferResource> staging_buffers_{};                           // Store these so we can delete them after the acceleration structures are built.
+		BufferResource instance_buffer_{};                                        // Store so we can delete it after the TLAS is built.
+		BufferResource object_buffers_buffer_{};                                  // Buffer containing device addresses to mesh data for each object in the scene. Not in FrameResources since it's rarely updated.
+		std::unordered_map<AccelerationStructure*, uint32_t> custom_index_map_{}; // Map of (BLAS, custom_index) so when TLAS is queued we have access to custom indices.
 
 		VkPipeline rt_pipeline_{};
 		VkPipelineLayout rt_pipeline_layout_{};
-		DescriptorSetLayoutResource rt_descriptor_set_layout_resource_{};
+		DescriptorSetLayoutResource frame_descriptor_set_layout_resource_{};
+		DescriptorSetLayoutResource persistent_descriptor_set_layout_resource_{};
+		DescriptorSetResource persistent_descriptor_set_resource_{};              // Descriptor set for resources that do not change each frame.
 		ShaderBindingTable shader_binding_table_{};
 		Extent render_extent_{};
 
