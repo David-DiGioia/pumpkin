@@ -52,6 +52,7 @@ COMPILE_SHADER("default.frag")
 COMPILE_SHADER("default.vert")
 COMPILE_SHADER("default.rgen")
 COMPILE_SHADER("default.rmiss")
+COMPILE_SHADER("shadow.rmiss")
 COMPILE_SHADER("default.rchit")
 
 add_custom_target(

@@ -29,7 +29,7 @@ struct ObjectBuffers
 hitAttributeEXT vec3 attribs;
 
 layout(location = 0) rayPayloadInEXT HitPayload payload;
-layout(location = 1) rayPayloadEXT bool shadowPayload;
+layout(location = 1) rayPayloadEXT bool is_shadowed;
 
 layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
 layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
@@ -71,6 +71,29 @@ void main()
 	float n_dot_l = dot(normal, light_direction);
 
 	vec3 diffuse = vec3(0.7, 0.2, 0.1) * max(n_dot_l, 0.3);
+
+	// Shadow ray.
+	if (n_dot_l > 0)
+	{
+		uint  flags  = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+		is_shadowed   = true;
+
+		traceRayEXT(tlas,            // topLevel
+		            flags,           // rayFlags
+		            0xFF,            // cullMask
+		            0,               // sbtRecordOffset
+		            0,               // sbtRecordStride
+		            1,               // missIndex
+		            position,        // origin
+		            0.001,           // Tmin
+		            light_direction, // direction
+		            1e32,            // Tmax
+		            1);              // payload
+
+		if (is_shadowed) {
+			diffuse = vec3(0.7, 0.2, 0.1) * 0.3;
+		}
+	}
 
 	payload.radiance = diffuse;
 }
