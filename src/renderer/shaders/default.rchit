@@ -39,10 +39,6 @@ layout(set = 1, binding = 0) buffer SceneDescription { ObjectBuffers i[]; } scen
 
 void main()
 {
-	const vec3 barycentrics = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
-	payload.radiance = barycentrics;
-
-	/*
 	// Custom index is used to store index to device address of mesh data.
 	ObjectBuffers object_resource = scene_description.i[gl_InstanceCustomIndexEXT + gl_GeometryIndexEXT];
 
@@ -76,6 +72,5 @@ void main()
 
 	vec3 diffuse = vec3(0.7, 0.2, 0.1) * max(n_dot_l, 0.3);
 
-	payload.radiance = barycentrics;
-	*/
+	payload.radiance = diffuse;
 }

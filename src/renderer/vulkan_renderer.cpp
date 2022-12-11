@@ -486,14 +486,14 @@ namespace renderer
 					{ jsonkey::VERTEX_BYTE_OFFSET, vertex_byte_offest },
 					{ jsonkey::VERTEX_BYTE_SIZE, geometry.vertices.size() * sizeof(Vertex) },
 					{ jsonkey::INDEX_BYTE_OFFSET, index_byte_offset },
-					{ jsonkey::INDEX_BYTE_SIZE, geometry.indices.size() * sizeof(uint16_t) },
+					{ jsonkey::INDEX_BYTE_SIZE, geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type) },
 				};
 
 				vertex_file.write(reinterpret_cast<const char*>(geometry.vertices.data()), geometry.vertices.size() * sizeof(Vertex));
-				index_file.write(reinterpret_cast<const char*>(geometry.indices.data()), geometry.indices.size() * sizeof(uint16_t));
+				index_file.write(reinterpret_cast<const char*>(geometry.indices.data()), geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type));
 
 				vertex_byte_offest += (uint32_t)(geometry.vertices.size() * sizeof(Vertex));
-				index_byte_offset += (uint32_t)(geometry.indices.size() * sizeof(uint16_t));
+				index_byte_offset += (uint32_t)(geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type));
 			}
 
 			j[jsonkey::MESHES] += json_mesh;
@@ -526,7 +526,7 @@ namespace renderer
 				vertex_file.read(reinterpret_cast<char*>(geometry.vertices.data()), json_geometry[jsonkey::VERTEX_BYTE_SIZE]);
 
 				// Load indices.
-				geometry.indices.resize(json_geometry[jsonkey::INDEX_BYTE_SIZE] / sizeof(uint16_t));
+				geometry.indices.resize(json_geometry[jsonkey::INDEX_BYTE_SIZE] / sizeof(decltype(Geometry::indices)::value_type));
 				index_file.seekg((size_t)json_geometry[jsonkey::INDEX_BYTE_OFFSET]);
 				index_file.read(reinterpret_cast<char*>(geometry.indices.data()), json_geometry[jsonkey::INDEX_BYTE_SIZE]);
 			}
@@ -862,7 +862,7 @@ namespace renderer
 			vulkan_util.TransferBufferToDevice(geometry.vertices, geometry.vertices_resource);
 			NameObject(context_.device, geometry.vertices_resource.buffer, std::string{ mesh_name + "_Vertex_Buffer" });
 
-			geometry.indices_resource = allocator_.CreateBufferResource(geometry.indices.size() * sizeof(uint16_t),
+			geometry.indices_resource = allocator_.CreateBufferResource(geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type),
 				VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			vulkan_util.TransferBufferToDevice(geometry.indices, geometry.indices_resource);

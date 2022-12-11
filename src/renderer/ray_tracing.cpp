@@ -379,9 +379,13 @@ namespace renderer
 
 		object_buffers_buffer_ = allocator_->CreateBufferResource(
 			object_buffers_vec.size() * sizeof(ObjectBuffers),
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		NameObject(context_->device, object_buffers_buffer_.buffer, "Object_Buffers_Buffer");
+
+		vulkan_util_->Begin();
+		vulkan_util_->TransferBufferToDevice(object_buffers_vec, object_buffers_buffer_);
+		vulkan_util_->Submit();
 
 		persistent_descriptor_set_resource_.LinkBufferToBinding(OBJECT_BUFFERS_BINDING, object_buffers_buffer_);
 	}
@@ -398,7 +402,7 @@ namespace renderer
 					.vertexData = DeviceAddress(context_->device, pmk_geometry.vertices_resource.buffer),
 					.vertexStride = sizeof(Vertex),
 					.maxVertex = *std::max_element(std::begin(pmk_geometry.indices), std::end(pmk_geometry.indices)),
-					.indexType = VK_INDEX_TYPE_UINT16,
+					.indexType = std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16,
 					.indexData = DeviceAddress(context_->device, pmk_geometry.indices_resource.buffer),
 					.transformData = {},
 				},
