@@ -96,4 +96,6 @@ void main()
 	}
 
 	payload.radiance = diffuse;
+	payload.ray_origin = position;
+	payload.ray_direction = reflect(gl_WorldRayDirectionEXT, normal);
 }

@@ -36,11 +36,13 @@ macro(COMPILE_SHADER shader_name)
     SET(GLSL "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader_name}")
     SET(SPIRV "${PROJECT_BINARY_DIR}/src/shaders/${shader_name}.spv")
 
+    # The variable CMAKE_BUILD_TYPE is only set for single-configuration setups which visual studio is not (since you can select build type in VS).
+    # So we use a generator expression to determine if we pass -g to the glsl compiler.
     add_custom_command(
         PRE_BUILD
         OUTPUT ${SPIRV}
         COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/shaders/"
-        COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} -V ${GLSL} -o ${SPIRV} --target-env spirv1.6
+        COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} -V ${GLSL} -o ${SPIRV} --target-env spirv1.6 $<$<CONFIG:Debug>:-g>
         DEPENDS ${GLSL} # If GLSL changes, this command will be run to compile them again.
     )
 
