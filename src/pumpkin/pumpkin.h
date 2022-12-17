@@ -53,7 +53,7 @@ namespace pmk
 		float delta_time_{};
 		std::chrono::steady_clock::time_point last_time_{};
 
-		uint32_t width_{ 1920 };
-		uint32_t height_{ 1080 };
+		uint32_t width_{ 1280 };
+		uint32_t height_{ 720 };
 	};
 }

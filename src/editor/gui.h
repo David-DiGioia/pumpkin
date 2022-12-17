@@ -62,7 +62,7 @@ private:
 	renderer::Extent viewport_window_extent_{}; // Dimension of the window containing 3D viewport, including header etc.
 	std::filesystem::path current_directory_{};
 
-	std::filesystem::path popup_current_directory_{ "D:\\dev\\pumpkin_projects" };
+	std::filesystem::path popup_current_directory_{ "C:\\dev\\pumpkin_projects" };
 	std::filesystem::directory_entry popup_selected_file_{};
 	bool open_project_selection_popup_{ true };
 	char* popup_name_buffer_;
