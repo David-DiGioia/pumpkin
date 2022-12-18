@@ -42,7 +42,7 @@ void main()
 	vec3 hit_value = vec3(0);
 	payload.done = 0;
 
-	for (int depth = 0; depth < 4; ++depth)
+	for (int depth = 0; depth < 1; ++depth)
 	{
 		traceRayEXT(
 			tlas,                  // topLevel
@@ -57,7 +57,7 @@ void main()
 			1e32,                  // Tmax
 			0);                    // payload
 
-		hit_value += payload.radiance * (1.0 / (depth + 1));
+		hit_value += payload.radiance;
 
 		if (payload.done == 1) {
 			break;
