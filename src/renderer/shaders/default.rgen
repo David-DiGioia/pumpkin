@@ -13,56 +13,89 @@ layout(set = 0, binding = 2) uniform RayTraceCameraUBO
 struct HitPayload
 {
 	vec3 radiance;
-	vec3 attenuation;
-	int  done;
+	uint depth;         // Needed for random seed.
+	uint sample_number; // Needed for random seed.
+	uint done;
 	vec3 ray_origin;
 	vec3 ray_direction;
 };
 
 layout(location = 0) rayPayloadEXT HitPayload payload;
 
+float HaltonSequence(uint index, uint base)
+{
+	float result = 0;
+	float reciprocal_power = 1;
+
+	while (index > 0)
+	{
+		reciprocal_power /= base;
+		result += reciprocal_power * (index % base); // Digit in specified base.
+		index /= base;                               // Dividing by base is essentially a shift right in specified base.
+	}
+
+	return result;
+}
+
+float Rand(uint seed, uint base, float lower_bound, float upper_bound)
+{
+	return HaltonSequence(seed, base) * (upper_bound - lower_bound) + lower_bound;
+}
+
 void main()
 {
-	// Add (0.5, 0.5) offset to get center of pixel instead of corner.
-	const vec2 pixel_center = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
-	// Convert coordinates to range [0, 1].
-	const vec2 uv           = pixel_center / vec2(gl_LaunchSizeEXT.xy);
-	// Convert coordinates to range [-1, 1], so that (0, 0) becomes center of image.
-	vec2       d            = uv * 2.0 - 1.0;
-
-	// Camera view inverse takes world origin to camera origin.
-	payload.ray_origin    = vec3(cam.view_inverse * vec4(0, 0, 0, 1));
-	// In NDC space, (d.x, d.y, 1) is what the far plane gets mapped to,
-	// so the projection inverse maps each ray back to the far plane in view space.
-	vec4 target    = cam.proj_inverse * vec4(d.x, d.y, 1, 1);
-	// Then we normalize that, and by setting w = 0, the view inverse matrix only
-	// rotates the direction vectors to match the camera while ignoring camera position.
-	payload.ray_direction = vec3(cam.view_inverse * vec4(normalize(target.xyz), 0));
+	uint bounces = 2;
+	uint samples = 25;
 
 	vec3 hit_value = vec3(0);
-	payload.done = 0;
 
-	for (int depth = 0; depth < 1; ++depth)
+	for (uint sample_num = 0; sample_num < samples; ++sample_num)
 	{
-		traceRayEXT(
-			tlas,                  // topLevel
-			gl_RayFlagsOpaqueEXT,  // rayFlags
-			0xFF,                  // cullMask
-			0,                     // sbtRecordOffset
-			0,                     // sbtRecordStride
-			0,                     // missIndex
-			payload.ray_origin,    // origin
-			0.001,                 // Tmin
-			payload.ray_direction, // direction
-			1e32,                  // Tmax
-			0);                    // payload
+		uint seed = (4001 * gl_LaunchIDEXT.x) ^ (1759 * gl_LaunchIDEXT.y) ^ (6449 * sample_num);
 
-		hit_value += payload.radiance;
+		// Add offset to get random location in pixel instead of corner.
+		const vec2 pixel_center = vec2(gl_LaunchIDEXT.xy) + vec2(HaltonSequence(seed, 2), HaltonSequence(seed, 3));
+		// Convert coordinates to range [0, 1].
+		const vec2 uv           = pixel_center / vec2(gl_LaunchSizeEXT.xy);
+		// Convert coordinates to range [-1, 1], so that (0, 0) becomes center of image.
+		vec2       d            = uv * 2.0 - 1.0;
 
-		if (payload.done == 1) {
-			break;
+		// Camera view inverse takes world origin to camera origin.
+		payload.ray_origin    = vec3(cam.view_inverse * vec4(0, 0, 0, 1));
+		// In NDC space, (d.x, d.y, 1) is what the far plane gets mapped to,
+		// so the projection inverse maps each ray back to the far plane in view space.
+		vec4 target    = cam.proj_inverse * vec4(d.x, d.y, 1, 1);
+		// Then we normalize that, and by setting w = 0, the view inverse matrix only
+		// rotates the direction vectors to match the camera while ignoring camera position.
+		payload.ray_direction = vec3(cam.view_inverse * vec4(normalize(target.xyz), 0));
+
+
+		payload.depth = 0;
+		payload.sample_number = sample_num;
+		payload.done = 0;
+
+		for (int depth = 0; depth < bounces + 1; ++depth)
+		{
+			traceRayEXT(
+				tlas,                  // topLevel
+				gl_RayFlagsOpaqueEXT,  // rayFlags
+				0xFF,                  // cullMask
+				0,                     // sbtRecordOffset
+				0,                     // sbtRecordStride
+				0,                     // missIndex
+				payload.ray_origin,    // origin
+				0.001,                 // Tmin
+				payload.ray_direction, // direction
+				1e32,                  // Tmax
+				0);                    // payload
+
+			hit_value += payload.radiance;
+
+			if (payload.done == 1) {
+				break;
+			}
 		}
 	}
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hit_value, 1.0));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hit_value / samples, 1.0));
 }

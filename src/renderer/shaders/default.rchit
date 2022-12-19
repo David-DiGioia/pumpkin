@@ -8,8 +8,9 @@
 struct HitPayload
 {
 	vec3 radiance;
-	vec3 attenuation;
-	int  done;
+	uint depth;         // Needed for random seed.
+	uint sample_number; // Needed for random seed.
+	uint done;
 	vec3 ray_origin;
 	vec3 ray_direction;
 };
@@ -38,6 +39,50 @@ layout(set = 0, binding = 0) uniform accelerationStructureEXT tlas;
 layout(set = 1, binding = 0) buffer SceneDescription { ObjectBuffers i[]; } scene_description;
 
 const float pi = 3.14159265359;
+
+// Halton sequence generates random seeming numbers in (0, 1) by representing the index in specified base (eg binary for base==2)
+// and putting it to the right of the decimal point and reversing the order of the digits.
+float HaltonSequence(uint index, uint base)
+{
+	float result = 0;
+	float reciprocal_power = 1;
+
+	while (index > 0)
+	{
+		reciprocal_power /= base;
+		result += reciprocal_power * (index % base); // Digit in specified base.
+		index /= base;                               // Dividing by base is essentially a shift right in specified base.
+	}
+
+	return result;
+}
+
+float Rand(uint seed, uint base, float lower_bound, float upper_bound)
+{
+	return HaltonSequence(seed, base) * (upper_bound - lower_bound) + lower_bound;
+}
+
+// Get a random point on the surface of a unit sphere from a uniform distribution.
+vec3 RandomPointOnUnitSphere(uint seed)
+{
+	// First pick the z-coordinate uniformly.
+	float z = Rand(seed, 2, -1.0, 1.0);
+	// Then the x and y coordinates will lie on a circle of this radius.
+	float radius = sqrt(1.0 - z * z);
+	// Then x any y lie on that circle at random angle theta.
+	float theta = Rand(seed, 3, 0.0, 2.0 * pi);
+	float x = radius * cos(theta);
+	float y = radius * sin(theta);
+
+	return vec3(x, y, z);
+}
+
+// Get a random point on the surface of a unit hemisphere centered on dir.
+vec3 RandomPointOnUnitHemiSphere(uint seed, vec3 dir)
+{
+	vec3 on_sphere = RandomPointOnUnitSphere(seed);
+	return dot(on_sphere, dir) < 0.0 ? -on_sphere : on_sphere;
+}
 
 float NormalDistributionGgx(float n_dot_h, float roughness)
 {
@@ -177,5 +222,10 @@ void main()
 
 	payload.radiance = emission + reflected_radiance;
 	payload.ray_origin = position;
-	payload.ray_direction = reflect(gl_WorldRayDirectionEXT, normal);
+
+	//payload.ray_direction = reflect(gl_WorldRayDirectionEXT, normal);
+	uint seed = (7867 * gl_LaunchIDEXT.x) ^ (5519 * gl_LaunchIDEXT.y) ^ (3767 * (payload.depth + 1)) ^ (449 * (payload.sample_number + 1));
+	payload.ray_direction = RandomPointOnUnitHemiSphere(seed, normal);
+
+	++payload.depth;
 }
