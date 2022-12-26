@@ -8,8 +8,9 @@
 struct HitPayload
 {
 	vec3 radiance;
-	uint depth;         // Needed for random seed.
-	uint sample_number; // Needed for random seed.
+	vec3 reflected_ratio; // Ratio of light reflected to camera.
+	uint depth;           // Needed for random seed.
+	uint sample_number;   // Needed for random seed.
 	uint done;
 	vec3 ray_origin;
 	vec3 ray_direction;
@@ -139,7 +140,7 @@ vec3 CookTorranceBrdf(vec3 n, vec3 v, vec3 l, vec3 base_color, float metallic, f
 	
 	// Conserve energy by only having diffuse color where light is not reflected by fresnel.
 	// (Not sure why distribution is not taken into account).
-	return diffuse * (vec3(1.0) - fresnel) + specular_color;
+	return n_dot_l * (diffuse * (vec3(1.0) - fresnel) + specular_color);
 }
 
 void main()
@@ -176,56 +177,21 @@ void main()
 	position = gl_ObjectToWorldEXT * vec4(position, 1.0); // Transform the position to world space.
 
 	vec3 base_color = vec3(0.7, 0.2, 0.1);
-	vec3 light_color = vec3(1.0);
 	float metallic = 0.0;
-	float roughness = 0.3;
+	float roughness = 0.8;
 	float ior = 1.53;
 	vec3 emission = vec3(0.0);
-
-	// Integrate over hemisphere.
-	vec3 sum = vec3(0.0);
-	for (int i = 0; i < 1; ++i)
-	{
-		// Hardcoded (to) light direction.
-		vec3 light_direction = normalize(vec3(1, 1, 1));
-		vec3 brdf = CookTorranceBrdf(normal, -gl_WorldRayDirectionEXT, light_direction, base_color, metallic, roughness, ior);
-		float n_dot_l = dot(normal, light_direction);
-		
-		float light_intensity = 0.0;
-
-		// Shadow ray.
-		if (n_dot_l > 0)
-		{
-			uint  flags  = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
-			is_shadowed   = true;
-
-			traceRayEXT(tlas,            // topLevel
-						flags,           // rayFlags
-						0xFF,            // cullMask
-						0,               // sbtRecordOffset
-						0,               // sbtRecordStride
-						1,               // missIndex
-						position,        // origin
-						0.001,           // Tmin
-						light_direction, // direction
-						1e32,            // Tmax
-						1);              // payload
-
-			if (!is_shadowed) {
-				light_intensity = 1.0;
-			}
-		}
-
-		sum += brdf * light_color * light_intensity * n_dot_l;
-	}
-	vec3 reflected_radiance = sum / 1.0; // Divide by number of samples in the integration.
-
-	payload.radiance = emission + reflected_radiance;
-	payload.ray_origin = position;
 
 	//payload.ray_direction = reflect(gl_WorldRayDirectionEXT, normal);
 	uint seed = (7867 * gl_LaunchIDEXT.x) ^ (5519 * gl_LaunchIDEXT.y) ^ (3767 * (payload.depth + 1)) ^ (449 * (payload.sample_number + 1));
 	payload.ray_direction = RandomPointOnUnitHemiSphere(seed, normal);
+
+	vec3 brdf = CookTorranceBrdf(normal, -gl_WorldRayDirectionEXT, payload.ray_direction, base_color, metallic, roughness, ior);
+		
+	// Add the amount of emission that makes it back to the camera.
+	payload.radiance += emission * payload.reflected_ratio;
+	payload.reflected_ratio *= brdf;
+	payload.ray_origin = position;
 
 	++payload.depth;
 }

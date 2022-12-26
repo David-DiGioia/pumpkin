@@ -13,8 +13,9 @@ layout(set = 0, binding = 2) uniform RayTraceCameraUBO
 struct HitPayload
 {
 	vec3 radiance;
-	uint depth;         // Needed for random seed.
-	uint sample_number; // Needed for random seed.
+	vec3 reflected_ratio; // Ratio of light reflected to camera.
+	uint depth;           // Needed for random seed.
+	uint sample_number;   // Needed for random seed.
 	uint done;
 	vec3 ray_origin;
 	vec3 ray_direction;
@@ -45,7 +46,7 @@ float Rand(uint seed, uint base, float lower_bound, float upper_bound)
 void main()
 {
 	uint bounces = 2;
-	uint samples = 25;
+	uint samples = 50;
 
 	vec3 hit_value = vec3(0);
 
@@ -69,7 +70,8 @@ void main()
 		// rotates the direction vectors to match the camera while ignoring camera position.
 		payload.ray_direction = vec3(cam.view_inverse * vec4(normalize(target.xyz), 0));
 
-
+		payload.radiance = vec3(0.0);
+		payload.reflected_ratio = vec3(1.0);
 		payload.depth = 0;
 		payload.sample_number = sample_num;
 		payload.done = 0;
