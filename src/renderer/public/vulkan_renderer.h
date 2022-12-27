@@ -40,7 +40,8 @@ namespace renderer
 		void WindowResized();
 
 		// Returns list where ith entry corresponds to model.meshes[i], -1 if it's a new mesh, or index into meshes_ if it's been loaded before.
-		std::vector<int> LoadMeshesGLTF(tinygltf::Model& model);
+		// If out_material_names is not null, then loaded material names will be written into it.
+		std::vector<int> LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names);
 
 		uint32_t MeshCount() const;
 
@@ -63,6 +64,8 @@ namespace renderer
 		Mesh* GetMesh(uint32_t mesh_index);
 
 		uint32_t GetCurrentFrameNumber() const;
+
+		std::vector<Material*>& GetMaterials();
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
@@ -156,7 +159,8 @@ namespace renderer
 		VulkanUtil vulkan_util_{};
 		RayTracingContext rt_context_{};
 
-		std::vector<Mesh*> meshes_{}; // All meshes referenced by render objects.
+		std::vector<Mesh*> meshes_{};        // All meshes referenced by render objects.
+		std::vector<Material*> materials_{}; // All materials referenced by geometries. Buffer resource for materials is in RayTracingContext.
 		std::unordered_map<uint64_t, std::pair<uint64_t, uint32_t>> mesh_hash_map_{}; // To prevent duplicating vertex data when loading same file multiple times. (vertex_hash, (index_hash, mesh_idx)).
 		DescriptorSetLayoutResource camera_layout_resource_{};
 		DescriptorSetLayoutResource render_object_layout_resource_{};

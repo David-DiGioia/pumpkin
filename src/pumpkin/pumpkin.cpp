@@ -79,6 +79,11 @@ namespace pmk
 		return scene_;
 	}
 
+	std::vector<renderer::Material*>& Pumpkin::GetMaterials()
+	{
+		return renderer_.GetMaterials();
+	}
+
 	float Pumpkin::GetDeltaTime() const
 	{
 		return delta_time_;

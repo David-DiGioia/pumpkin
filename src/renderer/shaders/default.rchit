@@ -22,10 +22,20 @@ struct Vertex
 	vec3 normal;
 };
 
+struct Material
+{
+	vec3 color;
+	float metallic;
+	float roughness;
+	float ior;
+	float emission;
+};
+
 struct ObjectBuffers
 {
 	uint64_t vertices;
 	uint64_t indices;
+	uint material_index;
 };
 
 hitAttributeEXT vec3 attribs;
@@ -38,6 +48,7 @@ layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT tlas;
 layout(set = 1, binding = 0) buffer SceneDescription { ObjectBuffers i[]; } scene_description;
+layout(set = 1, binding = 1) buffer Materials { Material i[]; } materials;
 
 const float pi = 3.14159265359;
 
@@ -151,6 +162,7 @@ void main()
 	// Cast the uint64_t buffer addresses (from vkGetDeviceAddress()) to the buffer references declared above.
 	Vertices vertices = Vertices(object_resource.vertices);
 	Indices indices = Indices(object_resource.indices);
+	Material mat = materials.i[object_resource.material_index];
 
 	// Indices of the triangle.
 	uvec3 ind = indices.i[gl_PrimitiveID];
@@ -176,20 +188,14 @@ void main()
 	vec3 position = v0.position * barycentrics.x + v1.position * barycentrics.y + v2.position * barycentrics.z;
 	position = gl_ObjectToWorldEXT * vec4(position, 1.0); // Transform the position to world space.
 
-	vec3 base_color = vec3(0.7, 0.2, 0.1);
-	float metallic = 0.0;
-	float roughness = 0.8;
-	float ior = 1.53;
-	vec3 emission = vec3(0.0);
-
 	//payload.ray_direction = reflect(gl_WorldRayDirectionEXT, normal);
 	uint seed = (7867 * gl_LaunchIDEXT.x) ^ (5519 * gl_LaunchIDEXT.y) ^ (3767 * (payload.depth + 1)) ^ (449 * (payload.sample_number + 1));
 	payload.ray_direction = RandomPointOnUnitHemiSphere(seed, normal);
 
-	vec3 brdf = CookTorranceBrdf(normal, -gl_WorldRayDirectionEXT, payload.ray_direction, base_color, metallic, roughness, ior);
+	vec3 brdf = CookTorranceBrdf(normal, -gl_WorldRayDirectionEXT, payload.ray_direction, mat.color, mat.metallic, mat.roughness, mat.ior);
 		
 	// Add the amount of emission that makes it back to the camera.
-	payload.radiance += emission * payload.reflected_ratio;
+	payload.radiance += mat.emission * payload.reflected_ratio;
 	payload.reflected_ratio *= brdf;
 	payload.ray_origin = position;
 

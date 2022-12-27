@@ -339,23 +339,35 @@ EditorNode* Editor::NodeToEditorNode(pmk::Node* node)
 
 void Editor::ImportGLTF(const std::filesystem::path& path)
 {
-	auto& nodes{ pumpkin_->GetScene().GetNodes() };
+	std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
+	std::vector<renderer::Material*>& materials{ pumpkin_->GetMaterials() };
 
 	// The starting index before we add more nodes.
-	uint32_t i{ (uint32_t)nodes.size() };
+	uint32_t node_idx{ (uint32_t)nodes.size() };
+	uint32_t mat_idx{ (uint32_t)materials.size() };
 
 	// We use an out variable for names since the Pumpkin project doesn't know about the editor or EditorNode.
-	uint32_t name_index{ 0 };
 	std::vector<std::string> node_names;
+	std::vector<std::string> material_names;
 
 	// Add new nodes to scene.
-	pumpkin_->GetScene().ImportGLTF(path, &node_names);
+	pumpkin_->GetScene().ImportGLTF(path, &node_names, &material_names);
 
 	// Make a wrapper EditorNode for each imported pmk::Node.
-	while (i < nodes.size())
+	uint32_t name_index{ 0 };
+	while (node_idx < nodes.size())
 	{
-		node_map_[nodes[i]->node_id] = new EditorNode{ nodes[i], node_names[name_index] };
-		++i;
+		node_map_[nodes[node_idx]->node_id] = new EditorNode{ nodes[node_idx], node_names[name_index] };
+		++node_idx;
+		++name_index;
+	}
+
+	// Make a wrapper EditorMaterial for each imported renderer::Material.
+	name_index = 0;
+	while (mat_idx < materials.size())
+	{
+		materials_.push_back(new EditorMaterial{ materials[mat_idx], material_names[name_index]});
+		++mat_idx;
 		++name_index;
 	}
 }
@@ -589,9 +601,9 @@ glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
 
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)
 	: node{ pmk_node }
-	, name_buffer_{ new char[NODE_NAME_BUFFER_SIZE] {} }
+	, name_buffer_{ new char[NAME_BUFFER_SIZE] {} }
 {
-	strcpy_s(name_buffer_, NODE_NAME_BUFFER_SIZE, name.c_str());
+	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());
 }
 
 EditorNode::EditorNode(pmk::Node* pmk_node)
@@ -610,6 +622,33 @@ std::string EditorNode::GetName() const
 }
 
 char* EditorNode::GetNameBuffer() const
+{
+	return name_buffer_;
+}
+
+EditorMaterial::EditorMaterial(renderer::Material* pmk_material, const std::string& name)
+	: material{ pmk_material}
+	, name_buffer_{ new char[NAME_BUFFER_SIZE] {} }
+{
+	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());
+}
+
+EditorMaterial::EditorMaterial(renderer::Material* pmk_material)
+	: EditorMaterial(pmk_material, std::string{ "Material" } )
+{
+}
+
+EditorMaterial::~EditorMaterial()
+{
+	delete[] name_buffer_;
+}
+
+std::string EditorMaterial::GetName() const
+{
+	return std::string(name_buffer_);
+}
+
+char* EditorMaterial::GetNameBuffer() const
 {
 	return name_buffer_;
 }

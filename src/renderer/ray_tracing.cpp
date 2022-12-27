@@ -14,6 +14,7 @@ namespace renderer
 
 	// Set 1. Persistent set.
 	constexpr uint32_t OBJECT_BUFFERS_BINDING{ 0 };
+	constexpr uint32_t MATERIAL_BUFFER_BINDING{ 1 };
 
 
 	void RayTracingContext::Initialize(Context* context,
@@ -52,6 +53,7 @@ namespace renderer
 		allocator_->DestroyBufferResource(&shader_binding_table_.miss_sbt);
 		allocator_->DestroyBufferResource(&shader_binding_table_.hit_sbt);
 		allocator_->DestroyBufferResource(&object_buffers_buffer_);
+		allocator_->DestroyBufferResource(&materials_resource_);
 
 		DestroyFrameResources();
 
@@ -367,6 +369,7 @@ namespace renderer
 				ObjectBuffers& obj_buffers{ object_buffers_vec.emplace_back() };
 				obj_buffers.vertices = (uint64_t)DeviceAddress(context_->device, geometry.vertices_resource.buffer);
 				obj_buffers.indices = (uint64_t)DeviceAddress(context_->device, geometry.indices_resource.buffer);
+				obj_buffers.material_index = geometry.material_index;
 				++custom_index;
 			}
 		}
@@ -388,6 +391,34 @@ namespace renderer
 		vulkan_util_->Submit();
 
 		persistent_descriptor_set_resource_.LinkBufferToBinding(OBJECT_BUFFERS_BINDING, object_buffers_buffer_);
+	}
+
+	void RayTracingContext::UpdateMaterialBuffer(const std::vector<Material*>& materials)
+	{
+		allocator_->DestroyBufferResource(&materials_resource_);
+
+		std::vector<Material> materials_vec{};
+		materials_vec.reserve(materials.size());
+
+		for (Material* material : materials) {
+			materials_vec.push_back(*material);
+		}
+
+		// Even if no materials are loaded yet, something needs to be bound to this descriptor so we create a
+		// single dummy Material to bind, even though it will never be accessed.
+		if (materials_vec.empty()) {
+			materials_vec.push_back(Material{});
+		}
+
+		materials_resource_ = allocator_->CreateBufferResource(materials_vec.size() * sizeof(Material),
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_->device, materials_resource_.buffer, "Material_Buffer");
+
+		vulkan_util_->Begin();
+		vulkan_util_->TransferBufferToDevice(materials_vec, materials_resource_);
+		vulkan_util_->Submit();
+
+		persistent_descriptor_set_resource_.LinkBufferToBinding(MATERIAL_BUFFER_BINDING, materials_resource_);
 	}
 
 	VkAccelerationStructureGeometryKHR RayTracingContext::PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const
@@ -592,6 +623,14 @@ namespace renderer
 			.pImmutableSamplers = nullptr,
 		};
 
+		VkDescriptorSetLayoutBinding material_buffer_binding{
+			.binding = MATERIAL_BUFFER_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+
 		std::vector<VkDescriptorSetLayoutBinding> bindings_set_0{
 			tlas_binding,
 			image_buffer_binding,
@@ -600,6 +639,7 @@ namespace renderer
 
 		std::vector<VkDescriptorSetLayoutBinding> bindings_set_1{
 			object_buffers_binding,
+			material_buffer_binding,
 		};
 
 		frame_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_set_0);
@@ -632,6 +672,7 @@ namespace renderer
 		// We link object buffers each time the list of BLASes changes, but we do it once initially here with
 		// with a dummy object buffer since something needs to be bound to that slot to use the closest-hit shader.
 		UpdateObjectBuffers({});
+		UpdateMaterialBuffer({});
 	}
 
 	RayTracingContext::FrameResources& RayTracingContext::GetCurrentFrame()

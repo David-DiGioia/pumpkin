@@ -26,10 +26,20 @@ namespace renderer
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};
 
+	struct Material
+	{
+		glm::vec3 color;
+		float metallic;
+		float roughness;
+		float ior;
+		float emission;
+	};
+
 	struct Geometry
 	{
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
+		uint32_t material_index;
 
 		BufferResource vertices_resource;
 		BufferResource indices_resource;

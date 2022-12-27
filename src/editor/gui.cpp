@@ -188,7 +188,7 @@ void EditorGui::NodeProperties()
 
 	if (active_node)
 	{
-		ImGui::InputText("Node name", active_node->GetNameBuffer(), NODE_NAME_BUFFER_SIZE);
+		ImGui::InputText("Node name", active_node->GetNameBuffer(), NAME_BUFFER_SIZE);
 		ImGui::DragFloat3("Position", glm::value_ptr(active_node->node->position), 0.1f);
 		ImGui::DragFloat3("Scale", glm::value_ptr(active_node->node->scale), 0.1f);
 		auto& rot{ active_node->node->rotation };

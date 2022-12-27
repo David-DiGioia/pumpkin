@@ -19,13 +19,18 @@ namespace renderer
 {
 	struct Mesh;
 	struct Geometry;
+	struct Material;
 
 	// Device addresses of object buffers cast to uint64_t to match closest-hit shader.
 	// There is one object buffer per geometry so the index will be given by custom_index + geometry_index.
 	struct ObjectBuffers
 	{
+		// Device addresses.
 		uint64_t vertices;
 		uint64_t indices;
+
+		// Indices.
+		uint32_t material_index;
 	};
 
 	struct AccelerationStructure
@@ -140,8 +145,10 @@ namespace renderer
 		void SetRenderImages(const Extent& render_extent, const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images);
 
 		// Updates the buffers containing vertex data to be accessed in closest-hit shaders. This could maybe be handled automatically
-		// when CmdBuildQueuedBlases(...) is called, but that would require keeping track of previously build meshes.
+		// when CmdBuildQueuedBlases(...) is called, but that would require keeping track of previously built meshes.
 		void UpdateObjectBuffers(const std::vector<Mesh*>& meshes);
+
+		void UpdateMaterialBuffer(const std::vector<Material*>& materials);
 
 	private:
 		struct FrameResources;
@@ -200,6 +207,7 @@ namespace renderer
 		std::vector<BufferResource> staging_buffers_{};                           // Store these so we can delete them after the acceleration structures are built.
 		BufferResource instance_buffer_{};                                        // Store so we can delete it after the TLAS is built.
 		BufferResource object_buffers_buffer_{};                                  // Buffer containing device addresses to mesh data for each object in the scene. Not in FrameResources since it's rarely updated.
+		BufferResource materials_resource_{};                                     // Buffer containing all ray tracing material data.
 		std::unordered_map<AccelerationStructure*, uint32_t> custom_index_map_{}; // Map of (BLAS, custom_index) so when TLAS is queued we have access to custom indices.
 
 		VkPipeline rt_pipeline_{};

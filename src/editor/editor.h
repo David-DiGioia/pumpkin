@@ -13,7 +13,7 @@
 #include "gui.h"
 #include "camera_controller.h"
 
-constexpr uint32_t NODE_NAME_BUFFER_SIZE{ 64 };
+constexpr uint32_t NAME_BUFFER_SIZE{ 64 };
 
 const std::filesystem::path ASSETS_RELATIVE_PATH{ "assets" };
 const std::filesystem::path PROJECT_DATA_RELATIVE_PATH{ "pumpkin_project" };
@@ -50,6 +50,25 @@ constexpr inline TransformLockFlags operator&(TransformLockFlags a, TransformLoc
 enum class TransformSpace {
 	GLOBAL,
 	LOCAL,
+};
+
+// Wrapper for renderer::Material that adds extra members only needed by the editor.
+class EditorMaterial
+{
+public:
+	EditorMaterial(renderer::Material* pmk_material, const std::string& name);
+
+	EditorMaterial(renderer::Material* pmk_material);
+
+	~EditorMaterial();
+
+	std::string GetName() const;
+
+	char* GetNameBuffer() const;
+
+	renderer::Material* material;
+private:
+	char* name_buffer_;
 };
 
 // Wrapper for pmk::Node that adds extra members only needed by the editor.
@@ -208,7 +227,8 @@ private:
 	EditorNode* root_node_{};                              // All other nodes are a descendent of the root node.
 	EditorNode* active_selection_node_{ nullptr };         // There can be multiple selected nodes but only one actively selected node.
 	std::unordered_set<EditorNode*> selected_nodes_{};     // Set of all selected nodes. Having a set makes it possible to ierate over only selected nodes.
-	std::unordered_map<uint32_t, EditorNode*> node_map_{}; // The key of this map is pmk::Node::node_id.
+	std::unordered_map<uint32_t, EditorNode*> node_map_{}; // The key of this map is pmk::Node::node_id. This allows finding an EditorNode from a pmk::Node.
+	std::vector<EditorMaterial*> materials_{};             // List of EditorMaterials in same order as the renderer's material list, so material index is valid here too.
 
 	std::filesystem::path project_directory_{};                  // The root directory of the user's project.
 	std::filesystem::path active_selection_file_{};              // The actively selected file.

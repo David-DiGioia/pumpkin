@@ -124,7 +124,7 @@ namespace pmk
 		root_node_ = nullptr;
 	}
 
-	void Scene::ImportGLTF(const std::filesystem::path& path, std::vector<std::string>* out_names)
+	void Scene::ImportGLTF(const std::filesystem::path& path, std::vector<std::string>* out_node_names, std::vector<std::string>* out_material_names)
 	{
 		logger::Print("Loading glTF file: %s\n", path.string().c_str());
 
@@ -149,15 +149,15 @@ namespace pmk
 		}
 
 		uint32_t mesh_starting_index{ renderer_->MeshCount() };
-		std::vector<int> duplicate_indices{ renderer_->LoadMeshesGLTF(model) };
+		std::vector<int> duplicate_indices{ renderer_->LoadMeshesAndMaterialsGLTF(model, out_material_names) };
 
 		int starting_index{ (int)nodes_.size() };
 		nodes_.reserve(starting_index + model.nodes.size());
 
 		for (tinygltf::Node gltf_node : model.nodes)
 		{
-			if (out_names) {
-				out_names->push_back(gltf_node.name);
+			if (out_node_names) {
+				out_node_names->push_back(gltf_node.name);
 			}
 
 			Node* node{ CreateNode() };

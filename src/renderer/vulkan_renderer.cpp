@@ -32,8 +32,18 @@ namespace jsonkey {
 	const std::string VERTEX_BYTE_SIZE{ "vertex_byte_size" };
 	const std::string INDEX_BYTE_OFFSET{ "index_byte_offset" };
 	const std::string INDEX_BYTE_SIZE{ "index_byte_size" };
+	const std::string MATERIAL_INDEX{ "material_index" };
 	// End geometry members.
 	// End mesh members.
+
+	const std::string MATERIALS{ "materials" };
+	// Material members.
+	const std::string COLOR{ "color" };
+	const std::string METALLIC{ "metallic" };
+	const std::string ROUGHNESS{ "roughness" };
+	const std::string IOR{ "ior" };
+	const std::string EMISSION{ "emission" };
+	// End material members.
 
 	const std::string MESH_HASH_MAP{ "mesh_hash_map" };
 	// Mesh hash map members.
@@ -41,6 +51,22 @@ namespace jsonkey {
 	const std::string INDEX_HASH{ "index_hash" };
 	const std::string HASH_MAP_MESH_INDEX{ "hash_map_mesh_index" };
 	// End mesh hash map members.
+}
+
+// Make it so glm::vec3 can be serialized with json library.
+namespace glm
+{
+	void to_json(nlohmann::json& j, const glm::vec3& v)
+	{
+		j = { { "x", v.x }, { "y", v.y }, { "z", v.z } };
+	};
+
+	void from_json(const nlohmann::json& j, glm::vec3& v)
+	{
+		v.x = j.at("x").get<float>();
+		v.y = j.at("y").get<float>();
+		v.z = j.at("z").get<float>();
+	}
 }
 
 namespace renderer
@@ -487,6 +513,7 @@ namespace renderer
 					{ jsonkey::VERTEX_BYTE_SIZE, geometry.vertices.size() * sizeof(Vertex) },
 					{ jsonkey::INDEX_BYTE_OFFSET, index_byte_offset },
 					{ jsonkey::INDEX_BYTE_SIZE, geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type) },
+					{ jsonkey::MATERIAL_INDEX, geometry.material_index },
 				};
 
 				vertex_file.write(reinterpret_cast<const char*>(geometry.vertices.data()), geometry.vertices.size() * sizeof(Vertex));
@@ -497,6 +524,18 @@ namespace renderer
 			}
 
 			j[jsonkey::MESHES] += json_mesh;
+		}
+
+		// Save materials.
+		for (const Material* material : materials_)
+		{
+			j[jsonkey::MATERIALS] += {
+				{ jsonkey::COLOR, material->color },
+				{ jsonkey::METALLIC, material->metallic },
+				{ jsonkey::ROUGHNESS, material->roughness },
+				{ jsonkey::IOR, material->ior },
+				{ jsonkey::EMISSION, material->emission },
+			};
 		}
 
 		vertex_file.close();
@@ -529,10 +568,25 @@ namespace renderer
 				geometry.indices.resize(json_geometry[jsonkey::INDEX_BYTE_SIZE] / sizeof(decltype(Geometry::indices)::value_type));
 				index_file.seekg((size_t)json_geometry[jsonkey::INDEX_BYTE_OFFSET]);
 				index_file.read(reinterpret_cast<char*>(geometry.indices.data()), json_geometry[jsonkey::INDEX_BYTE_SIZE]);
+			
+				// Load material.
+				geometry.material_index = json_geometry[jsonkey::MATERIAL_INDEX];
 			}
 
 			UploadMeshToDevice(vulkan_util_, *mesh);
 			rt_context_.QueueBlas(mesh);
+		}
+
+		// Load materials.
+		for (auto& json_material : j[jsonkey::MATERIALS])
+		{
+			auto& material{ materials_.emplace_back() };
+
+			material->color = json_material[jsonkey::COLOR];
+			material->metallic = json_material[jsonkey::METALLIC];
+			material->roughness = json_material[jsonkey::ROUGHNESS];
+			material->ior = json_material[jsonkey::IOR];
+			material->emission = json_material[jsonkey::EMISSION];
 		}
 
 		// Use less fine-grained memory barrier (instead of buffer memory barrier) since there's a buffer for each geometry,
@@ -544,6 +598,7 @@ namespace renderer
 		vulkan_util_.Submit();
 
 		rt_context_.UpdateObjectBuffers(meshes_);
+		rt_context_.UpdateMaterialBuffer(materials_);
 
 		// Load render objects.
 		for (auto& json_ro : j[jsonkey::RENDER_OBJECTS]) {
@@ -589,6 +644,11 @@ namespace renderer
 	uint32_t VulkanRenderer::GetCurrentFrameNumber() const
 	{
 		return current_frame_;
+	}
+
+	std::vector<Material*>& VulkanRenderer::GetMaterials()
+	{
+		return materials_;
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
@@ -810,13 +870,14 @@ namespace renderer
 		// Maybe todo: Transition image with image barrier for being a depth image?
 	}
 
-	std::vector<int> VulkanRenderer::LoadMeshesGLTF(tinygltf::Model& model)
+	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{
 		std::vector<int> duplicate_indices{};
 		duplicate_indices.reserve(model.meshes.size());
 
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 
+		// Load meshes.
 		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
 		{
 			Mesh* mesh{ new Mesh{} };
@@ -824,6 +885,17 @@ namespace renderer
 
 			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, mesh) };
 			uint64_t index_hash{ LoadIndicesGLTF(model, tinygltf_mesh, mesh) };
+
+			// Associate materials with geometries.
+			uint32_t i{ 0 };
+			for (tinygltf::Primitive& primitive : tinygltf_mesh.primitives)
+			{
+				mesh->geometries[i++].material_index = (uint32_t)materials_.size(); // Make index relative to newly loaded materials.
+
+				if (primitive.material != -1) {
+					mesh->geometries[i++].material_index += (uint32_t)primitive.material;
+				}
+			}
 
 			// Check if this mesh has been loaded before, and only add to meshes_ if it hasn't
 			auto it{ mesh_hash_map_.find(vertex_hash) }; // This is a nested pair (vertex_hash, (index_hash, mesh_index)).
@@ -842,10 +914,39 @@ namespace renderer
 			}
 		}
 
+		// Choose default values for material. Later maybe should take more values from gltf material.
+		Material* material{ new Material{} };
+		material->color = glm::vec3{ 0.4, 0.4, 0.4 };
+		material->metallic = 0.0f;
+		material->roughness = 0.8f;
+		material->ior = 1.53f;
+		material->emission = 0.0f;
+
+		// Load materials.
+		for (tinygltf::Material& tinygltf_material : model.materials)
+		{
+			if (out_material_names) {
+				out_material_names->push_back(tinygltf_material.name);
+			}
+
+			materials_.push_back(material);
+		}
+		
+		// If gltf file doesn't include materials, just create a default material for
+		if (model.materials.empty())
+		{
+			if (out_material_names) {
+				out_material_names->push_back("DefaultMaterial");
+			}
+
+			materials_.push_back(material);
+		}
+
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
 
 		rt_context_.UpdateObjectBuffers(meshes_);
+		rt_context_.UpdateMaterialBuffer(materials_);
 
 		return duplicate_indices;
 	}

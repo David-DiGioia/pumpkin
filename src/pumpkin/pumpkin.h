@@ -30,6 +30,8 @@ namespace pmk
 
 		Scene& GetScene();
 
+		std::vector<renderer::Material*>& GetMaterials();
+
 		float GetDeltaTime() const;
 
 		// Write render data info to json, and vertex data to a binary file.
