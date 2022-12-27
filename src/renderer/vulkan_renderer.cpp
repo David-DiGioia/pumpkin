@@ -580,13 +580,15 @@ namespace renderer
 		// Load materials.
 		for (auto& json_material : j[jsonkey::MATERIALS])
 		{
-			auto& material{ materials_.emplace_back() };
+			Material* material{ new Material{} };
 
 			material->color = json_material[jsonkey::COLOR];
 			material->metallic = json_material[jsonkey::METALLIC];
 			material->roughness = json_material[jsonkey::ROUGHNESS];
 			material->ior = json_material[jsonkey::IOR];
 			material->emission = json_material[jsonkey::EMISSION];
+
+			materials_.push_back(material);
 		}
 
 		// Use less fine-grained memory barrier (instead of buffer memory barrier) since there's a buffer for each geometry,
