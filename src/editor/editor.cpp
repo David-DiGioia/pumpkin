@@ -16,7 +16,7 @@ namespace jsonkey
 	const std::string MAX_NODE_ID{ "max_node_id" };
 
 	const std::string NODES{ "nodes" };
-	// Nodes members
+	// Nodes members.
 	const std::string NAME{ "name" };
 	const std::string ID{ "id" };
 	const std::string POSITION{ "position" };
@@ -25,7 +25,12 @@ namespace jsonkey
 	const std::string RENDER_OBJECT{ "render_object" };
 	const std::string PARENT_ID{ "parent_id" };
 	const std::string CHILDREN_IDS{ "children_ids" };
-	// End nodes members
+	// End nodes members.
+
+	const std::string MATERIALS{ "materials" };
+	// Begin editor material members.
+	const std::string MATERIAL_NAME{ "name" };
+	// End editor material members.
 }
 
 void InitializationCallback(void* user_data)
@@ -265,6 +270,12 @@ void Editor::SaveProject() const
 
 	pumpkin_->DumpRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME);
 
+	// The other material properties are saved in DumpRenderData() but the material name is specific to the editor so it's saved here.
+	uint32_t mat_idx{ 0 };
+	for (auto& json_material : j[jsonkey::MATERIALS]) {
+		json_material[jsonkey::MATERIAL_NAME] = materials_[mat_idx++]->GetName();
+	}
+
 	auto json_path{ project_data_path / PROJECT_DATA_JSON_NAME };
 	logger::Print("Saving json to %s\n", json_path.string().c_str());
 
@@ -298,9 +309,11 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 	LoadNodeData(j);
 	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME);
 
+	uint32_t json_mat_idx{ 0 };
 	while (mat_idx < materials.size())
 	{
-		materials_.push_back(new EditorMaterial{ materials[mat_idx], "Material" }); // TODO: Save/load material name to json.
+		std::string material_name{ j[jsonkey::MATERIALS][json_mat_idx++][jsonkey::MATERIAL_NAME] };
+		materials_.push_back(new EditorMaterial{ materials[mat_idx], material_name });
 		++mat_idx;
 	}
 }
@@ -375,7 +388,7 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	name_index = 0;
 	while (mat_idx < materials.size())
 	{
-		materials_.push_back(new EditorMaterial{ materials[mat_idx], material_names[name_index]});
+		materials_.push_back(new EditorMaterial{ materials[mat_idx], material_names[name_index] });
 		++materials_.back()->user_count;
 		++mat_idx;
 		++name_index;
@@ -649,14 +662,14 @@ char* EditorNode::GetNameBuffer() const
 }
 
 EditorMaterial::EditorMaterial(renderer::Material* pmk_material, const std::string& name)
-	: material{ pmk_material}
+	: material{ pmk_material }
 	, name_buffer_{ new char[NAME_BUFFER_SIZE] {} }
 {
 	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());
 }
 
 EditorMaterial::EditorMaterial(renderer::Material* pmk_material)
-	: EditorMaterial(pmk_material, std::string{ "Material" } )
+	: EditorMaterial(pmk_material, std::string{ "Material" })
 {
 }
 
