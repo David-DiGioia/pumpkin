@@ -195,7 +195,7 @@ void main()
 	vec3 brdf = CookTorranceBrdf(normal, -gl_WorldRayDirectionEXT, payload.ray_direction, mat.color.xyz, mat.metallic, mat.roughness, mat.ior);
 		
 	// Add the amount of emission that makes it back to the camera.
-	payload.radiance += mat.emission * payload.reflected_ratio;
+	payload.radiance += mat.emission * mat.color.xyz * payload.reflected_ratio;
 	payload.reflected_ratio *= brdf;
 	payload.ray_origin = position;
 
