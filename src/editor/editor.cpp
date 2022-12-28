@@ -292,8 +292,17 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 	std::ifstream f(project_data_path / PROJECT_DATA_JSON_NAME);
 	nlohmann::json j{ nlohmann::json::parse(f) };
 
+	std::vector<renderer::Material*>& materials{ pumpkin_->GetMaterials() };
+	uint32_t mat_idx{ (uint32_t)materials.size() };
+
 	LoadNodeData(j);
 	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME);
+
+	while (mat_idx < materials.size())
+	{
+		materials_.push_back(new EditorMaterial{ materials[mat_idx], "Material" }); // TODO: Save/load material name to json.
+		++mat_idx;
+	}
 }
 
 void Editor::LoadNodeData(const nlohmann::json& j)
@@ -367,6 +376,7 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	while (mat_idx < materials.size())
 	{
 		materials_.push_back(new EditorMaterial{ materials[mat_idx], material_names[name_index]});
+		++materials_.back()->user_count;
 		++mat_idx;
 		++name_index;
 	}
@@ -597,6 +607,18 @@ glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
 	viewport_pos.x *= viewport_extent.width / (float)viewport_extent.height;
 
 	return viewport_pos;
+}
+
+std::vector<EditorMaterial*> Editor::GetMaterialsFromNode(EditorNode* node)
+{
+	renderer::Mesh* mesh{ pumpkin_->GetMesh(node->node->render_object) };
+
+	std::vector<EditorMaterial*> materials{};
+	for (const renderer::Geometry& geometry : mesh->geometries) {
+		materials.push_back(materials_[geometry.material_index]);
+	}
+
+	return materials;
 }
 
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)

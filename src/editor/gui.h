@@ -67,5 +67,4 @@ private:
 	bool open_project_selection_popup_{ true };
 	char* popup_name_buffer_;
 	bool pumpkin_proj_selected_{ false };
-
 };

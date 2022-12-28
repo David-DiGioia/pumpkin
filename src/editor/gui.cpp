@@ -193,6 +193,32 @@ void EditorGui::NodeProperties()
 		ImGui::DragFloat3("Scale", glm::value_ptr(active_node->node->scale), 0.1f);
 		auto& rot{ active_node->node->rotation };
 		ImGui::Text("%.2f  %.2f  %.2f  %.2f Rotation", rot.x, rot.y, rot.z, rot.w);
+
+		std::vector<EditorMaterial*> materials{ editor_->GetMaterialsFromNode(active_node) };
+		std::vector<const char*> material_items(materials.size());
+		std::transform(materials.begin(), materials.end(), material_items.begin(), [](EditorMaterial* mat) { return mat->GetNameBuffer(); });
+
+		ImGui::Dummy(ImVec2{0.0f, 20.0f}); // Spacing.
+		static int selected_mat{ 0 };
+		ImGui::ListBox("Materials", &selected_mat, material_items.data(), material_items.size(), 4);
+
+		if (selected_mat >= 0 && selected_mat < (int)material_items.size())
+		{
+			EditorMaterial* mat{ materials[selected_mat] };
+			bool mat_changed{ false };
+
+			ImGui::Text("Active users: %d", mat->user_count);
+			ImGui::InputText("Material name", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
+			mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));
+			mat_changed |= ImGui::DragFloat("Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
+			mat_changed |= ImGui::DragFloat("Roughness", &mat->material->roughness, 0.01f, 0.001f, 0.999f);
+			mat_changed |= ImGui::DragFloat("IOR", &mat->material->ior, 0.01f, 1.0f, 2.0f);
+			mat_changed |= ImGui::DragFloat("Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
+
+			if (mat_changed) {
+				editor_->pumpkin_->UpdateMaterials();
+			}
+		}
 	}
 	else {
 		ImGui::Text("No actively selected node.");

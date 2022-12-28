@@ -643,6 +643,12 @@ namespace renderer
 		return meshes_[mesh_index];
 	}
 
+	Mesh* VulkanRenderer::GetMesh(RenderObjectHandle render_object_handle)
+	{
+		RenderObject& render_object{ GetCurrentFrame().render_objects[render_object_handle] };
+		return meshes_[render_object.mesh_idx];
+	}
+
 	uint32_t VulkanRenderer::GetCurrentFrameNumber() const
 	{
 		return current_frame_;
@@ -651,6 +657,11 @@ namespace renderer
 	std::vector<Material*>& VulkanRenderer::GetMaterials()
 	{
 		return materials_;
+	}
+
+	void VulkanRenderer::UpdateMaterials()
+	{
+		rt_context_.UpdateMaterialBuffer(materials_);
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)

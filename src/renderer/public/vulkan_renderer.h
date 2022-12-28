@@ -63,9 +63,14 @@ namespace renderer
 
 		Mesh* GetMesh(uint32_t mesh_index);
 
+		Mesh* GetMesh(RenderObjectHandle render_object_handle);
+
 		uint32_t GetCurrentFrameNumber() const;
 
 		std::vector<Material*>& GetMaterials();
+
+		// Called when no new materials are added, only the parameters are updated. So no new buffer is needed to be allocated.
+		void UpdateMaterials();
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);

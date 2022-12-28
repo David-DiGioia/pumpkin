@@ -66,9 +66,10 @@ public:
 
 	char* GetNameBuffer() const;
 
-	renderer::Material* material;
+	renderer::Material* material{};
+	uint32_t user_count{}; // Number of meshes that use this material.
 private:
-	char* name_buffer_;
+	char* name_buffer_{};
 };
 
 // Wrapper for pmk::Node that adds extra members only needed by the editor.
@@ -217,6 +218,9 @@ private:
 
 	// Get the viewport position, with units of viewport height, where (0, 0) is the top left of the viewport.
 	glm::vec2 WorldToScreenSpace(const glm::vec3& world_pos) const;
+
+	// Get all the materials in the order of the geometries associated with a node, if it has a mesh.
+	std::vector<EditorMaterial*> GetMaterialsFromNode(EditorNode* node);
 
 	friend class EditorGui;
 

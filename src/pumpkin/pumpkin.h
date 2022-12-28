@@ -30,7 +30,11 @@ namespace pmk
 
 		Scene& GetScene();
 
+		renderer::Mesh* GetMesh(renderer::RenderObjectHandle render_object);
+
 		std::vector<renderer::Material*>& GetMaterials();
+
+		void UpdateMaterials();
 
 		float GetDeltaTime() const;
 

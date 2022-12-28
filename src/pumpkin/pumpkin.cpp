@@ -79,9 +79,19 @@ namespace pmk
 		return scene_;
 	}
 
+	renderer::Mesh* Pumpkin::GetMesh(renderer::RenderObjectHandle render_object)
+	{
+		return renderer_.GetMesh(render_object);
+	}
+
 	std::vector<renderer::Material*>& Pumpkin::GetMaterials()
 	{
 		return renderer_.GetMaterials();
+	}
+
+	void Pumpkin::UpdateMaterials()
+	{
+		renderer_.UpdateMaterials();
 	}
 
 	float Pumpkin::GetDeltaTime() const

@@ -395,8 +395,6 @@ namespace renderer
 
 	void RayTracingContext::UpdateMaterialBuffer(const std::vector<Material*>& materials)
 	{
-		allocator_->DestroyBufferResource(&materials_resource_);
-
 		std::vector<Material> materials_vec{};
 		materials_vec.reserve(materials.size());
 
@@ -410,9 +408,15 @@ namespace renderer
 			materials_vec.push_back(Material{});
 		}
 
-		materials_resource_ = allocator_->CreateBufferResource(materials_vec.size() * sizeof(Material),
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		NameObject(context_->device, materials_resource_.buffer, "Material_Buffer");
+		// Only allocate a new buffer if more space is needed than with the existing buffer.
+		size_t buffer_size{ materials_vec.size() * sizeof(Material) };
+		if (buffer_size > materials_resource_.size)
+		{
+			allocator_->DestroyBufferResource(&materials_resource_);
+			materials_resource_ = allocator_->CreateBufferResource(buffer_size,
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			NameObject(context_->device, materials_resource_.buffer, "Material_Buffer");
+		}
 
 		vulkan_util_->Begin();
 		vulkan_util_->TransferBufferToDevice(materials_vec, materials_resource_);
