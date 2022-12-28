@@ -28,7 +28,7 @@ namespace renderer
 
 	struct Material
 	{
-		glm::vec3 color;
+		glm::vec4 color;
 		float metallic;
 		float roughness;
 		float ior;

@@ -24,7 +24,7 @@ struct Vertex
 
 struct Material
 {
-	vec3 color;
+	vec4 color;
 	float metallic;
 	float roughness;
 	float ior;
@@ -192,7 +192,7 @@ void main()
 	uint seed = (7867 * gl_LaunchIDEXT.x) ^ (5519 * gl_LaunchIDEXT.y) ^ (3767 * (payload.depth + 1)) ^ (449 * (payload.sample_number + 1));
 	payload.ray_direction = RandomPointOnUnitHemiSphere(seed, normal);
 
-	vec3 brdf = CookTorranceBrdf(normal, -gl_WorldRayDirectionEXT, payload.ray_direction, mat.color, mat.metallic, mat.roughness, mat.ior);
+	vec3 brdf = CookTorranceBrdf(normal, -gl_WorldRayDirectionEXT, payload.ray_direction, mat.color.xyz, mat.metallic, mat.roughness, mat.ior);
 		
 	// Add the amount of emission that makes it back to the camera.
 	payload.radiance += mat.emission * payload.reflected_ratio;

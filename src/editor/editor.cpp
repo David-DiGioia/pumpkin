@@ -293,7 +293,7 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 	nlohmann::json j{ nlohmann::json::parse(f) };
 
 	std::vector<renderer::Material*>& materials{ pumpkin_->GetMaterials() };
-	uint32_t mat_idx{ (uint32_t)materials.size() };
+	uint32_t mat_idx{ (uint32_t)materials.size() }; // Will be index of first newly loaded material.
 
 	LoadNodeData(j);
 	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME);

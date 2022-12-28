@@ -53,19 +53,20 @@ namespace jsonkey {
 	// End mesh hash map members.
 }
 
-// Make it so glm::vec3 can be serialized with json library.
+// Make it so glm::vec4 can be serialized with json library.
 namespace glm
 {
-	void to_json(nlohmann::json& j, const glm::vec3& v)
+	void to_json(nlohmann::json& j, const glm::vec4& v)
 	{
-		j = { { "x", v.x }, { "y", v.y }, { "z", v.z } };
+		j = { { "x", v.x }, { "y", v.y }, { "z", v.z }, { "w", v.w } };
 	};
 
-	void from_json(const nlohmann::json& j, glm::vec3& v)
+	void from_json(const nlohmann::json& j, glm::vec4& v)
 	{
 		v.x = j.at("x").get<float>();
 		v.y = j.at("y").get<float>();
 		v.z = j.at("z").get<float>();
+		v.w = j.at("w").get<float>();
 	}
 }
 
@@ -903,11 +904,12 @@ namespace renderer
 			uint32_t i{ 0 };
 			for (tinygltf::Primitive& primitive : tinygltf_mesh.primitives)
 			{
-				mesh->geometries[i++].material_index = (uint32_t)materials_.size(); // Make index relative to newly loaded materials.
+				mesh->geometries[i].material_index = (uint32_t)materials_.size(); // Make index relative to newly loaded materials.
 
 				if (primitive.material != -1) {
-					mesh->geometries[i++].material_index += (uint32_t)primitive.material;
+					mesh->geometries[i].material_index += (uint32_t)primitive.material;
 				}
+				++i;
 			}
 
 			// Check if this mesh has been loaded before, and only add to meshes_ if it hasn't
@@ -928,12 +930,13 @@ namespace renderer
 		}
 
 		// Choose default values for material. Later maybe should take more values from gltf material.
-		Material* material{ new Material{} };
-		material->color = glm::vec3{ 0.4, 0.4, 0.4 };
-		material->metallic = 0.0f;
-		material->roughness = 0.8f;
-		material->ior = 1.53f;
-		material->emission = 0.0f;
+		Material default_material{
+			.color = glm::vec4{ 0.4f, 0.4f, 0.4f, 1.0f },
+			.metallic = 0.0f,
+			.roughness = 0.8f,
+			.ior = 1.53f,
+			.emission = 0.0f,
+		};
 
 		// Load materials.
 		for (tinygltf::Material& tinygltf_material : model.materials)
@@ -942,7 +945,7 @@ namespace renderer
 				out_material_names->push_back(tinygltf_material.name);
 			}
 
-			materials_.push_back(material);
+			materials_.push_back(new Material{default_material});
 		}
 		
 		// If gltf file doesn't include materials, just create a default material for
@@ -952,7 +955,7 @@ namespace renderer
 				out_material_names->push_back("DefaultMaterial");
 			}
 
-			materials_.push_back(material);
+			materials_.push_back(new Material{ default_material });
 		}
 
 		rt_context_.CmdBuildQueuedBlases(cmd);
