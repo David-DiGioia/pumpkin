@@ -93,8 +93,7 @@ void MainMenuSaveDefaultLayout()
 
 void MainMenuSaveProject(Editor* editor)
 {
-	if (ImGui::MenuItem("Save project"))
-	{
+	if (ImGui::MenuItem("Save project")) {
 		editor->SaveProject();
 	}
 }
@@ -188,27 +187,49 @@ void EditorGui::NodeProperties()
 
 	if (active_node)
 	{
+		ImGui::Text("Transform");
 		ImGui::InputText("Node name", active_node->GetNameBuffer(), NAME_BUFFER_SIZE);
 		ImGui::DragFloat3("Position", glm::value_ptr(active_node->node->position), 0.1f);
 		ImGui::DragFloat3("Scale", glm::value_ptr(active_node->node->scale), 0.1f);
 		auto& rot{ active_node->node->rotation };
 		ImGui::Text("%.2f  %.2f  %.2f  %.2f Rotation", rot.x, rot.y, rot.z, rot.w);
 
-		std::vector<EditorMaterial*> materials{ editor_->GetMaterialsFromNode(active_node) };
-		std::vector<const char*> material_items(materials.size());
-		std::transform(materials.begin(), materials.end(), material_items.begin(), [](EditorMaterial* mat) { return mat->GetNameBuffer(); });
+		std::vector<uint32_t> node_materials{ editor_->GetMaterialIndicesFromNode(active_node) };
+		std::vector<const char*> node_materials_strings(node_materials.size());
+		std::transform(node_materials.begin(), node_materials.end(), node_materials_strings.begin(),
+			[=](uint32_t mat_idx) { return editor_->materials_[mat_idx]->GetNameBuffer(); });
 
-		ImGui::Dummy(ImVec2{0.0f, 20.0f}); // Spacing.
-		static int selected_mat{ 0 };
-		ImGui::ListBox("Materials", &selected_mat, material_items.data(), material_items.size(), 4);
+		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+		ImGui::Text("Material");
+		ImGui::ListBox("##MaterialList", &material_selected_geometry_index_, node_materials_strings.data(), node_materials_strings.size(), 4);
 
-		if (selected_mat >= 0 && selected_mat < (int)material_items.size())
+		if (material_selected_geometry_index_ >= 0 && material_selected_geometry_index_ < (int)node_materials_strings.size())
 		{
-			EditorMaterial* mat{ materials[selected_mat] };
-			bool mat_changed{ false };
-
+			EditorMaterial* mat{ editor_->materials_[node_materials[material_selected_geometry_index_]] };
 			ImGui::Text("Active users: %d", mat->user_count);
-			ImGui::InputText("Material name", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
+
+			// Combo box to swap selected material for a different existing material.
+			material_selected_combo_ = (int)node_materials[material_selected_geometry_index_];
+			if (ImGui::BeginCombo("##MaterialCombo", nullptr, ImGuiComboFlags_NoPreview))
+			{
+				for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
+				{
+					const bool is_selected{ material_selected_combo_ == mat_idx };
+					if (ImGui::Selectable(editor_->materials_[mat_idx]->GetNameBuffer(), is_selected)) {
+						editor_->SetNodeMaterial(active_node, material_selected_geometry_index_, mat_idx);
+					}
+
+					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
+					if (is_selected) {
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
+
+			ImGui::SameLine();
+			ImGui::InputText("##MaterialName", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
+			bool mat_changed{ false };
 			mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));
 			mat_changed |= ImGui::DragFloat("Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
 			mat_changed |= ImGui::DragFloat("Roughness", &mat->material->roughness, 0.01f, 0.001f, 0.999f);

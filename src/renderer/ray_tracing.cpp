@@ -355,6 +355,8 @@ namespace renderer
 		// Destroy previous buffer if it exists.
 		allocator_->DestroyBufferResource(&object_buffers_buffer_);
 
+		// TODO: Only recreate buffer if it's longer than the previous one.
+
 		std::vector<ObjectBuffers> object_buffers_vec{};
 		object_buffers_vec.reserve(meshes.size());
 

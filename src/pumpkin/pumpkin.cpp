@@ -94,6 +94,11 @@ namespace pmk
 		renderer_.UpdateMaterials();
 	}
 
+	void Pumpkin::UpdateObjectBuffers()
+	{
+		renderer_.UpdateObjectBuffers();
+	}
+
 	float Pumpkin::GetDeltaTime() const
 	{
 		return delta_time_;
@@ -104,9 +109,9 @@ namespace pmk
 		renderer_.DumpRenderData(j, vertex_path, index_path);
 	}
 
-	void Pumpkin::LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path)
+	void Pumpkin::LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, std::vector<int>* out_material_indices)
 	{
-		renderer_.LoadRenderData(j, vertex_path, index_path);
+		renderer_.LoadRenderData(j, vertex_path, index_path, out_material_indices);
 	}
 
 	void Pumpkin::UpdateDeltaTime()

@@ -304,17 +304,22 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 	nlohmann::json j{ nlohmann::json::parse(f) };
 
 	std::vector<renderer::Material*>& materials{ pumpkin_->GetMaterials() };
-	uint32_t mat_idx{ (uint32_t)materials.size() }; // Will be index of first newly loaded material.
+	const uint32_t material_start_idx{ (uint32_t)materials.size() }; // Will be index of first newly loaded material.
+	std::vector<int> material_indices{};
 
 	LoadNodeData(j);
-	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME);
+	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME, &material_indices);
 
-	uint32_t json_mat_idx{ 0 };
-	while (mat_idx < materials.size())
+	// Create new editor materials.
+	for (uint32_t i{ 0 };  material_start_idx + i < (uint32_t)materials.size(); ++i)
 	{
-		std::string material_name{ j[jsonkey::MATERIALS][json_mat_idx++][jsonkey::MATERIAL_NAME] };
-		materials_.push_back(new EditorMaterial{ materials[mat_idx], material_name });
-		++mat_idx;
+		std::string material_name{ j[jsonkey::MATERIALS][i][jsonkey::MATERIAL_NAME] };
+		materials_.push_back(new EditorMaterial{ materials[material_start_idx + i], material_name });
+	}
+
+	// Update the new materials user count.
+	for (int i : material_indices) {
+		++materials_[material_start_idx + i]->user_count;
 	}
 }
 
@@ -622,16 +627,23 @@ glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
 	return viewport_pos;
 }
 
-std::vector<EditorMaterial*> Editor::GetMaterialsFromNode(EditorNode* node)
+std::vector<uint32_t> Editor::GetMaterialIndicesFromNode(EditorNode* node)
 {
 	renderer::Mesh* mesh{ pumpkin_->GetMesh(node->node->render_object) };
 
-	std::vector<EditorMaterial*> materials{};
+	std::vector<uint32_t> indices{};
 	for (const renderer::Geometry& geometry : mesh->geometries) {
-		materials.push_back(materials_[geometry.material_index]);
+		indices.push_back((uint32_t)geometry.material_index);
 	}
 
-	return materials;
+	return indices;
+}
+
+void Editor::SetNodeMaterial(EditorNode* node, uint32_t geometry_index, uint32_t material_index)
+{
+	renderer::Mesh* mesh{ pumpkin_->GetMesh(node->node->render_object) };
+	mesh->geometries[geometry_index].material_index = material_index;
+	pumpkin_->UpdateObjectBuffers();
 }
 
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)

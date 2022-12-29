@@ -9,6 +9,8 @@ namespace renderer
 	{
 		uint32_t mesh_idx;
 
+		// TODO: Maybe put all the render object transforms into a single buffer and store index here.
+		//       Instead of having lots of tiny buffers.
 		struct UniformBuffer
 		{
 			glm::mat4 transform;

@@ -62,6 +62,9 @@ private:
 	renderer::Extent viewport_window_extent_{}; // Dimension of the window containing 3D viewport, including header etc.
 	std::filesystem::path current_directory_{};
 
+	int material_selected_geometry_index_{};
+	int material_selected_combo_{};
+
 	std::filesystem::path popup_current_directory_{ "C:\\dev\\pumpkin_projects" };
 	std::filesystem::directory_entry popup_selected_file_{};
 	bool open_project_selection_popup_{ true };

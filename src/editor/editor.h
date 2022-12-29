@@ -219,8 +219,10 @@ private:
 	// Get the viewport position, with units of viewport height, where (0, 0) is the top left of the viewport.
 	glm::vec2 WorldToScreenSpace(const glm::vec3& world_pos) const;
 
-	// Get all the materials in the order of the geometries associated with a node, if it has a mesh.
-	std::vector<EditorMaterial*> GetMaterialsFromNode(EditorNode* node);
+	// Get all the material indices in the order of the geometries associated with a node, if it has a mesh.
+	std::vector<uint32_t> GetMaterialIndicesFromNode(EditorNode* node);
+
+	void SetNodeMaterial(EditorNode* node, uint32_t geometry_index, uint32_t material_index);
 
 	friend class EditorGui;
 

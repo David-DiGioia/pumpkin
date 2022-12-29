@@ -543,7 +543,7 @@ namespace renderer
 		index_file.close();
 	}
 
-	void VulkanRenderer::LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path)
+	void VulkanRenderer::LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, std::vector<int>* out_material_indices)
 	{
 		std::ifstream vertex_file{ vertex_path, std::ios::out | std::ios::binary };
 		std::ifstream index_file{ index_path, std::ios::out | std::ios::binary };
@@ -572,6 +572,7 @@ namespace renderer
 			
 				// Load material.
 				geometry.material_index = json_geometry[jsonkey::MATERIAL_INDEX];
+				out_material_indices->push_back(geometry.material_index);
 			}
 
 			UploadMeshToDevice(vulkan_util_, *mesh);
@@ -663,6 +664,11 @@ namespace renderer
 	void VulkanRenderer::UpdateMaterials()
 	{
 		rt_context_.UpdateMaterialBuffer(materials_);
+	}
+
+	void VulkanRenderer::UpdateObjectBuffers()
+	{
+		rt_context_.UpdateObjectBuffers(meshes_);
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)

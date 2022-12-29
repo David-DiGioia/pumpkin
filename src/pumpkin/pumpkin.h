@@ -36,12 +36,15 @@ namespace pmk
 
 		void UpdateMaterials();
 
+		void UpdateObjectBuffers();
+
 		float GetDeltaTime() const;
 
 		// Write render data info to json, and vertex data to a binary file.
 		void DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path) const;
 
-		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path);
+		// The out_material_indices writes a list of material indices used by the newly loaded geometries, to update user count for materials.
+		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, std::vector<int>* out_material_indices);
 
 	private:
 		// General work the host needs to do each frame.

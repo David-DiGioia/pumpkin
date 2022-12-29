@@ -57,7 +57,7 @@ namespace renderer
 
 		void DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path) const;
 
-		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path);
+		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, std::vector<int>* out_material_indices);
 
 		void BuildTlasAndUpdateBlases();
 
@@ -69,8 +69,9 @@ namespace renderer
 
 		std::vector<Material*>& GetMaterials();
 
-		// Called when no new materials are added, only the parameters are updated. So no new buffer is needed to be allocated.
 		void UpdateMaterials();
+
+		void UpdateObjectBuffers();
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
