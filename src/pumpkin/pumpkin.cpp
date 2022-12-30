@@ -94,6 +94,11 @@ namespace pmk
 		renderer_.UpdateMaterials();
 	}
 
+	renderer::Material* Pumpkin::MakeMaterialUnique(uint32_t material_index)
+	{
+		return renderer_.MakeMaterialUnique(material_index);
+	}
+
 	void Pumpkin::UpdateObjectBuffers()
 	{
 		renderer_.UpdateObjectBuffers();

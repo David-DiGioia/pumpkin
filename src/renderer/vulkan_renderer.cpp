@@ -666,6 +666,14 @@ namespace renderer
 		rt_context_.UpdateMaterialBuffer(materials_);
 	}
 
+	Material* VulkanRenderer::MakeMaterialUnique(uint32_t material_index)
+	{
+		Material* new_material{ new Material{*materials_[material_index]} };
+		materials_.push_back(new_material);
+		UpdateMaterials();
+		return new_material;
+	}
+
 	void VulkanRenderer::UpdateObjectBuffers()
 	{
 		rt_context_.UpdateObjectBuffers(meshes_);

@@ -642,8 +642,19 @@ std::vector<uint32_t> Editor::GetMaterialIndicesFromNode(EditorNode* node)
 void Editor::SetNodeMaterial(EditorNode* node, uint32_t geometry_index, uint32_t material_index)
 {
 	renderer::Mesh* mesh{ pumpkin_->GetMesh(node->node->render_object) };
+	--materials_[mesh->geometries[geometry_index].material_index]->user_count;
+	++materials_[material_index]->user_count;
+
 	mesh->geometries[geometry_index].material_index = material_index;
 	pumpkin_->UpdateObjectBuffers();
+}
+
+uint32_t Editor::MakeMaterialUnique(uint32_t material_index)
+{
+	std::string old_name{ materials_[material_index]->GetName() };
+	renderer::Material* material{ pumpkin_->MakeMaterialUnique(material_index) };
+	materials_.push_back(new EditorMaterial{ material, old_name + "Copy" });
+	return (uint32_t)(materials_.size() - 1);
 }
 
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)

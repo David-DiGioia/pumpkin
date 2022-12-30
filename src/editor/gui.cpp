@@ -206,7 +206,6 @@ void EditorGui::NodeProperties()
 		if (material_selected_geometry_index_ >= 0 && material_selected_geometry_index_ < (int)node_materials_strings.size())
 		{
 			EditorMaterial* mat{ editor_->materials_[node_materials[material_selected_geometry_index_]] };
-			ImGui::Text("Active users: %d", mat->user_count);
 
 			// Combo box to swap selected material for a different existing material.
 			material_selected_combo_ = (int)node_materials[material_selected_geometry_index_];
@@ -229,6 +228,18 @@ void EditorGui::NodeProperties()
 
 			ImGui::SameLine();
 			ImGui::InputText("##MaterialName", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
+
+			if (mat->user_count > 1)
+			{
+				ImGui::SameLine();
+				std::string user_count_string{ std::to_string(mat->user_count) };
+				if (ImGui::Button(user_count_string.c_str()))
+				{
+					uint32_t mat_copy{ editor_->MakeMaterialUnique((uint32_t)material_selected_combo_) };
+					editor_->SetNodeMaterial(active_node, material_selected_geometry_index_, mat_copy);
+				}
+			}
+
 			bool mat_changed{ false };
 			mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));
 			mat_changed |= ImGui::DragFloat("Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);

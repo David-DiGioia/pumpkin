@@ -71,6 +71,8 @@ namespace renderer
 
 		void UpdateMaterials();
 
+		Material* MakeMaterialUnique(uint32_t material_index);
+
 		void UpdateObjectBuffers();
 
 #ifdef EDITOR_ENABLED

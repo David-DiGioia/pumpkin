@@ -224,6 +224,9 @@ private:
 
 	void SetNodeMaterial(EditorNode* node, uint32_t geometry_index, uint32_t material_index);
 
+	// Makes material into a single-user copy. Returns index to the newly created material.
+	uint32_t MakeMaterialUnique(uint32_t material_index);
+
 	friend class EditorGui;
 
 	pmk::Pumpkin* pumpkin_{};

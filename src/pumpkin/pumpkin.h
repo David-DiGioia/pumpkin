@@ -36,6 +36,8 @@ namespace pmk
 
 		void UpdateMaterials();
 
+		renderer::Material* MakeMaterialUnique(uint32_t material_index);
+
 		void UpdateObjectBuffers();
 
 		float GetDeltaTime() const;
