@@ -22,6 +22,7 @@ namespace jsonkey {
 	const std::string RENDER_OBJECTS{ "render_objects" };
 	// Render object members.
 	const std::string MESH_INDEX{ "mesh_index" };
+	const std::string MATERIAL_INDICES{ "material_indices" };
 	// End render object members.
 
 	const std::string MESHES{ "meshes" };
@@ -32,7 +33,6 @@ namespace jsonkey {
 	const std::string VERTEX_BYTE_SIZE{ "vertex_byte_size" };
 	const std::string INDEX_BYTE_OFFSET{ "index_byte_offset" };
 	const std::string INDEX_BYTE_SIZE{ "index_byte_size" };
-	const std::string MATERIAL_INDEX{ "material_index" };
 	// End geometry members.
 	// End mesh members.
 
@@ -493,6 +493,7 @@ namespace renderer
 		{
 			j[jsonkey::RENDER_OBJECTS] += {
 				{ jsonkey::MESH_INDEX, ro.mesh_idx },
+				{ jsonkey::MATERIAL_INDICES, ro.material_indices },
 			};
 		}
 
@@ -514,7 +515,6 @@ namespace renderer
 					{ jsonkey::VERTEX_BYTE_SIZE, geometry.vertices.size() * sizeof(Vertex) },
 					{ jsonkey::INDEX_BYTE_OFFSET, index_byte_offset },
 					{ jsonkey::INDEX_BYTE_SIZE, geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type) },
-					{ jsonkey::MATERIAL_INDEX, geometry.material_index },
 				};
 
 				vertex_file.write(reinterpret_cast<const char*>(geometry.vertices.data()), geometry.vertices.size() * sizeof(Vertex));
@@ -569,10 +569,6 @@ namespace renderer
 				geometry.indices.resize(json_geometry[jsonkey::INDEX_BYTE_SIZE] / sizeof(decltype(Geometry::indices)::value_type));
 				index_file.seekg((size_t)json_geometry[jsonkey::INDEX_BYTE_OFFSET]);
 				index_file.read(reinterpret_cast<char*>(geometry.indices.data()), json_geometry[jsonkey::INDEX_BYTE_SIZE]);
-			
-				// Load material.
-				geometry.material_index = json_geometry[jsonkey::MATERIAL_INDEX];
-				out_material_indices->push_back(geometry.material_index);
 			}
 
 			UploadMeshToDevice(vulkan_util_, *mesh);
@@ -605,8 +601,11 @@ namespace renderer
 		rt_context_.UpdateMaterialBuffer(materials_);
 
 		// Load render objects.
-		for (auto& json_ro : j[jsonkey::RENDER_OBJECTS]) {
-			CreateRenderObject(json_ro[jsonkey::MESH_INDEX]);
+		for (auto& json_ro : j[jsonkey::RENDER_OBJECTS])
+		{
+			std::vector<int> material_indices{ json_ro[jsonkey::MATERIAL_INDICES] };
+			CreateRenderObject(json_ro[jsonkey::MESH_INDEX], material_indices);
+			out_material_indices->insert(out_material_indices->end(), material_indices.begin(), material_indices.end());
 		}
 
 		// Load mesh hash map.
@@ -651,6 +650,12 @@ namespace renderer
 		return meshes_[render_object.mesh_idx];
 	}
 
+	std::vector<int>& VulkanRenderer::GetMaterialIndices(RenderObjectHandle render_object_handle)
+	{
+		RenderObject& render_object{ GetCurrentFrame().render_objects[render_object_handle] };
+		return render_object.material_indices;
+	}
+
 	uint32_t VulkanRenderer::GetCurrentFrameNumber() const
 	{
 		return current_frame_;
@@ -663,6 +668,9 @@ namespace renderer
 
 	void VulkanRenderer::UpdateMaterials()
 	{
+		// TODO: Should also pass an `std::vector<std::vector<uint32_t>> indices` of material indices where indices[i][j] is the material index of ith instance's jth geometry.
+		//       The rt_context_ will this use this to create a buffer concatenating all of these indices together, and a second buffer of device addresses into the first buffer.
+		//       The second buffer will then be bound to the rt pipeline.
 		rt_context_.UpdateMaterialBuffer(materials_);
 	}
 
@@ -697,12 +705,13 @@ namespace renderer
 #endif
 	}
 
-	RenderObjectHandle VulkanRenderer::CreateRenderObject(uint32_t mesh_index)
+	RenderObjectHandle VulkanRenderer::CreateRenderObject(uint32_t mesh_index, const std::vector<int>& material_indices)
 	{
 		for (auto& frame : frame_resources_)
 		{
 			RenderObject render_object{
 				.mesh_idx = mesh_index,
+				.material_indices = material_indices,
 				.uniform_buffer = {
 					.transform = glm::mat4(1.0f),
 				},
@@ -895,7 +904,7 @@ namespace renderer
 				GetDepthImageFormat());
 		}
 
-		// Maybe todo: Transition image with image barrier for being a depth image?
+		// Maybe TODO: Transition image with image barrier for being a depth image?
 	}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
@@ -913,18 +922,6 @@ namespace renderer
 
 			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, mesh) };
 			uint64_t index_hash{ LoadIndicesGLTF(model, tinygltf_mesh, mesh) };
-
-			// Associate materials with geometries.
-			uint32_t i{ 0 };
-			for (tinygltf::Primitive& primitive : tinygltf_mesh.primitives)
-			{
-				mesh->geometries[i].material_index = (uint32_t)materials_.size(); // Make index relative to newly loaded materials.
-
-				if (primitive.material != -1) {
-					mesh->geometries[i].material_index += (uint32_t)primitive.material;
-				}
-				++i;
-			}
 
 			// Check if this mesh has been loaded before, and only add to meshes_ if it hasn't
 			auto it{ mesh_hash_map_.find(vertex_hash) }; // This is a nested pair (vertex_hash, (index_hash, mesh_index)).
@@ -962,7 +959,7 @@ namespace renderer
 			materials_.push_back(new Material{default_material});
 		}
 		
-		// If gltf file doesn't include materials, just create a default material for
+		// If gltf file doesn't include materials, just create a default material for it.
 		if (model.materials.empty())
 		{
 			if (out_material_names) {

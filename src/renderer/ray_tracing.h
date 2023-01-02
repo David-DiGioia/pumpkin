@@ -25,12 +25,8 @@ namespace renderer
 	// There is one object buffer per geometry so the index will be given by custom_index + geometry_index.
 	struct ObjectBuffers
 	{
-		// Device addresses.
 		uint64_t vertices;
 		uint64_t indices;
-
-		// Indices.
-		uint32_t material_index;
 	};
 
 	struct AccelerationStructure

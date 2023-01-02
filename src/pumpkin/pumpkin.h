@@ -32,6 +32,8 @@ namespace pmk
 
 		renderer::Mesh* GetMesh(renderer::RenderObjectHandle render_object);
 
+		std::vector<int>& GetMaterialIndices(renderer::RenderObjectHandle render_object);
+
 		std::vector<renderer::Material*>& GetMaterials();
 
 		void UpdateMaterials();

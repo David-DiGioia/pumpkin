@@ -194,10 +194,10 @@ void EditorGui::NodeProperties()
 		auto& rot{ active_node->node->rotation };
 		ImGui::Text("%.2f  %.2f  %.2f  %.2f Rotation", rot.x, rot.y, rot.z, rot.w);
 
-		std::vector<uint32_t> node_materials{ editor_->GetMaterialIndicesFromNode(active_node) };
+		std::vector<int> node_materials{ editor_->GetMaterialIndicesFromNode(active_node) };
 		std::vector<const char*> node_materials_strings(node_materials.size());
 		std::transform(node_materials.begin(), node_materials.end(), node_materials_strings.begin(),
-			[=](uint32_t mat_idx) { return editor_->materials_[mat_idx]->GetNameBuffer(); });
+			[=](int mat_idx) { return editor_->materials_[mat_idx]->GetNameBuffer(); });
 
 		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 		ImGui::Text("Material");
@@ -208,7 +208,7 @@ void EditorGui::NodeProperties()
 			EditorMaterial* mat{ editor_->materials_[node_materials[material_selected_geometry_index_]] };
 
 			// Combo box to swap selected material for a different existing material.
-			material_selected_combo_ = (int)node_materials[material_selected_geometry_index_];
+			material_selected_combo_ = node_materials[material_selected_geometry_index_];
 			if (ImGui::BeginCombo("##MaterialCombo", nullptr, ImGuiComboFlags_NoPreview))
 			{
 				for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
@@ -229,7 +229,7 @@ void EditorGui::NodeProperties()
 			ImGui::SameLine();
 			ImGui::InputText("##MaterialName", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
 
-			if (mat->user_count > 1)
+			//if (mat->user_count > 1)
 			{
 				ImGui::SameLine();
 				std::string user_count_string{ std::to_string(mat->user_count) };

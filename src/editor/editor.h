@@ -220,12 +220,12 @@ private:
 	glm::vec2 WorldToScreenSpace(const glm::vec3& world_pos) const;
 
 	// Get all the material indices in the order of the geometries associated with a node, if it has a mesh.
-	std::vector<uint32_t> GetMaterialIndicesFromNode(EditorNode* node);
+	std::vector<int>& GetMaterialIndicesFromNode(EditorNode* node);
 
-	void SetNodeMaterial(EditorNode* node, uint32_t geometry_index, uint32_t material_index);
+	void SetNodeMaterial(EditorNode* node, uint32_t geometry_index, int material_index);
 
 	// Makes material into a single-user copy. Returns index to the newly created material.
-	uint32_t MakeMaterialUnique(uint32_t material_index);
+	uint32_t MakeMaterialUnique(int material_index);
 
 	friend class EditorGui;
 

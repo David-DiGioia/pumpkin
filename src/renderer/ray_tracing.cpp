@@ -15,6 +15,7 @@ namespace renderer
 	// Set 1. Persistent set.
 	constexpr uint32_t OBJECT_BUFFERS_BINDING{ 0 };
 	constexpr uint32_t MATERIAL_BUFFER_BINDING{ 1 };
+	constexpr uint32_t MATERIAL_INDICES_BINDING{ 2 };
 
 
 	void RayTracingContext::Initialize(Context* context,
@@ -371,7 +372,6 @@ namespace renderer
 				ObjectBuffers& obj_buffers{ object_buffers_vec.emplace_back() };
 				obj_buffers.vertices = (uint64_t)DeviceAddress(context_->device, geometry.vertices_resource.buffer);
 				obj_buffers.indices = (uint64_t)DeviceAddress(context_->device, geometry.indices_resource.buffer);
-				obj_buffers.material_index = geometry.material_index;
 				++custom_index;
 			}
 		}
@@ -637,6 +637,14 @@ namespace renderer
 			.pImmutableSamplers = nullptr,
 		};
 
+		VkDescriptorSetLayoutBinding material_indices_binding{
+			.binding = MATERIAL_INDICES_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+
 		std::vector<VkDescriptorSetLayoutBinding> bindings_set_0{
 			tlas_binding,
 			image_buffer_binding,
@@ -646,6 +654,7 @@ namespace renderer
 		std::vector<VkDescriptorSetLayoutBinding> bindings_set_1{
 			object_buffers_binding,
 			material_buffer_binding,
+			material_indices_binding,
 		};
 
 		frame_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_set_0);

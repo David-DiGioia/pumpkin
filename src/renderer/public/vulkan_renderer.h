@@ -47,7 +47,7 @@ namespace renderer
 
 		// Create a render object with the buffer resource and descriptors already associated
 		// with the render object data.
-		RenderObjectHandle CreateRenderObject(uint32_t mesh_index);
+		RenderObjectHandle CreateRenderObject(uint32_t mesh_index, const std::vector<int>& material_indices);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
@@ -64,6 +64,8 @@ namespace renderer
 		Mesh* GetMesh(uint32_t mesh_index);
 
 		Mesh* GetMesh(RenderObjectHandle render_object_handle);
+
+		std::vector<int>& GetMaterialIndices(RenderObjectHandle render_object_handle) ;
 
 		uint32_t GetCurrentFrameNumber() const;
 

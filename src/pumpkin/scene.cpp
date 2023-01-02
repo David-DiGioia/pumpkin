@@ -149,6 +149,7 @@ namespace pmk
 		}
 
 		uint32_t mesh_starting_index{ renderer_->MeshCount() };
+		uint32_t material_starting_index{ (uint32_t)renderer_->GetMaterials().size() };
 		std::vector<int> duplicate_indices{ renderer_->LoadMeshesAndMaterialsGLTF(model, out_material_names) };
 
 		int starting_index{ (int)nodes_.size() };
@@ -164,9 +165,20 @@ namespace pmk
 
 			if (gltf_node.mesh >= 0)
 			{
+				std::vector<int> material_indices{};
+				for (tinygltf::Primitive& primitive : model.meshes[gltf_node.mesh].primitives)
+				{
+					if (primitive.material != -1) {
+						material_indices.push_back(material_starting_index + primitive.material);
+					}
+					else {
+						material_indices.push_back(material_starting_index);
+					}
+				}
+
 				// If not -1, this indicates this mesh has been loaded already, so we give the render object the index of the existing mesh.
 				uint32_t mesh_idx{ duplicate_indices[gltf_node.mesh] == -1 ? mesh_starting_index + gltf_node.mesh : (uint32_t)duplicate_indices[gltf_node.mesh] };
-				node->render_object = renderer_->CreateRenderObject(mesh_idx);
+				node->render_object = renderer_->CreateRenderObject(mesh_idx, material_indices);
 
 				if (!gltf_node.translation.empty()) {
 					node->position = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };

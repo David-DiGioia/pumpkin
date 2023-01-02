@@ -35,7 +35,6 @@ struct ObjectBuffers
 {
 	uint64_t vertices;
 	uint64_t indices;
-	uint material_index;
 };
 
 hitAttributeEXT vec3 attribs;
@@ -45,10 +44,12 @@ layout(location = 1) rayPayloadEXT bool is_shadowed;
 
 layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
 layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
+layout(buffer_reference, scalar) buffer MaterialIndices { uint i[]; };
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT tlas;
 layout(set = 1, binding = 0) buffer SceneDescription { ObjectBuffers i[]; } scene_description;
 layout(set = 1, binding = 1) buffer Materials { Material i[]; } materials;
+layout(set = 1, binding = 2) buffer MaterialIndexBuffers { uint64_t i[]; } material_index_buffers;
 
 const float pi = 3.14159265359;
 
@@ -158,11 +159,15 @@ void main()
 {
 	// Custom index is used to store index to device address of mesh data.
 	ObjectBuffers object_resource = scene_description.i[gl_InstanceCustomIndexEXT + gl_GeometryIndexEXT];
+	uint64_t material_indices_address = material_index_buffers.i[gl_InstanceID];
 
 	// Cast the uint64_t buffer addresses (from vkGetDeviceAddress()) to the buffer references declared above.
 	Vertices vertices = Vertices(object_resource.vertices);
 	Indices indices = Indices(object_resource.indices);
-	Material mat = materials.i[object_resource.material_index];
+	MaterialIndices material_indices = MaterialIndices(material_indices_address);
+
+	uint material_index = material_indices.i[gl_GeometryIndexEXT];
+	Material mat = materials.i[material_index];
 
 	// Indices of the triangle.
 	uvec3 ind = indices.i[gl_PrimitiveID];

@@ -84,6 +84,11 @@ namespace pmk
 		return renderer_.GetMesh(render_object);
 	}
 
+	std::vector<int>& Pumpkin::GetMaterialIndices(renderer::RenderObjectHandle render_object)
+	{
+		return renderer_.GetMaterialIndices(render_object);
+	}
+
 	std::vector<renderer::Material*>& Pumpkin::GetMaterials()
 	{
 		return renderer_.GetMaterials();

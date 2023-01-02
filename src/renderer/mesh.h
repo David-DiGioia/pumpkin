@@ -39,7 +39,7 @@ namespace renderer
 	{
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
-		int material_index;
+		//int material_index;
 
 		BufferResource vertices_resource;
 		BufferResource indices_resource;

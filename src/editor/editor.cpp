@@ -627,29 +627,22 @@ glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
 	return viewport_pos;
 }
 
-std::vector<uint32_t> Editor::GetMaterialIndicesFromNode(EditorNode* node)
+std::vector<int>& Editor::GetMaterialIndicesFromNode(EditorNode* node)
 {
-	renderer::Mesh* mesh{ pumpkin_->GetMesh(node->node->render_object) };
-
-	std::vector<uint32_t> indices{};
-	for (const renderer::Geometry& geometry : mesh->geometries) {
-		indices.push_back((uint32_t)geometry.material_index);
-	}
-
-	return indices;
+	return pumpkin_->GetMaterialIndices(node->node->render_object);
 }
 
-void Editor::SetNodeMaterial(EditorNode* node, uint32_t geometry_index, uint32_t material_index)
+void Editor::SetNodeMaterial(EditorNode* node, uint32_t geometry_index, int material_index)
 {
-	renderer::Mesh* mesh{ pumpkin_->GetMesh(node->node->render_object) };
-	--materials_[mesh->geometries[geometry_index].material_index]->user_count;
+	std::vector<int>& material_indices{ GetMaterialIndicesFromNode(node) };
+	--materials_[material_indices[geometry_index]]->user_count;
 	++materials_[material_index]->user_count;
 
-	mesh->geometries[geometry_index].material_index = material_index;
-	pumpkin_->UpdateObjectBuffers();
+	material_indices[geometry_index] = material_index;
+	pumpkin_->UpdateMaterials();
 }
 
-uint32_t Editor::MakeMaterialUnique(uint32_t material_index)
+uint32_t Editor::MakeMaterialUnique(int material_index)
 {
 	std::string old_name{ materials_[material_index]->GetName() };
 	renderer::Material* material{ pumpkin_->MakeMaterialUnique(material_index) };
