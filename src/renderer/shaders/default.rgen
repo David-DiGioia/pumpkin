@@ -46,7 +46,7 @@ float Rand(uint seed, uint base, float lower_bound, float upper_bound)
 void main()
 {
 	uint bounces = 2;
-	uint samples = 10;
+	uint samples = 5;
 
 	vec3 hit_value = vec3(0);
 
