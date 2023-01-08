@@ -1,16 +1,8 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
+#extension GL_GOOGLE_include_directive : enable
 
-struct HitPayload
-{
-	vec3 radiance;
-	vec3 reflected_ratio; // Ratio of light reflected to camera.
-	uint depth;           // Needed for random seed.
-	uint sample_number;   // Needed for random seed.
-	uint done;
-	vec3 ray_origin;
-	vec3 ray_direction;
-};
+#include "common.glsl"
 
 layout(location = 0) rayPayloadInEXT HitPayload payload;
 

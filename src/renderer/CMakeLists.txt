@@ -50,12 +50,18 @@ macro(COMPILE_SHADER shader_name)
     list(APPEND GLSL_FILES ${GLSL})
 endmacro()
 
+macro(HEADER_SHADER shader_name)
+    SET(GLSL "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader_name}")
+    list(APPEND GLSL_FILES ${GLSL})
+endmacro()
+
 COMPILE_SHADER("default.frag")
 COMPILE_SHADER("default.vert")
 COMPILE_SHADER("default.rgen")
 COMPILE_SHADER("default.rmiss")
 COMPILE_SHADER("shadow.rmiss")
 COMPILE_SHADER("default.rchit")
+HEADER_SHADER("common.glsl")
 
 add_custom_target(
     Shaders
