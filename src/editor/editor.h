@@ -220,7 +220,7 @@ private:
 	glm::vec2 WorldToScreenSpace(const glm::vec3& world_pos) const;
 
 	// Get all the material indices in the order of the geometries associated with a node, if it has a mesh.
-	std::vector<int>& GetMaterialIndicesFromNode(EditorNode* node);
+	const std::vector<int>& GetMaterialIndicesFromNode(EditorNode* node);
 
 	void SetNodeMaterial(EditorNode* node, uint32_t geometry_index, int material_index);
 

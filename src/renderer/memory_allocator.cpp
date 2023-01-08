@@ -133,12 +133,19 @@ namespace renderer
 		host_allocations_.clear();
 	}
 
-	BufferResource Allocator::CreateBufferResource(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
+	BufferResource Allocator::CreateBufferResource(
+		VkDeviceSize size,
+		VkBufferUsageFlags usage,
+		VkMemoryPropertyFlags properties)
 	{
 		return CreateAlignedBufferResource(size, 1, usage, properties);
 	}
 
-	BufferResource Allocator::CreateAlignedBufferResource(VkDeviceSize size, VkDeviceSize alignment, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
+	BufferResource Allocator::CreateAlignedBufferResource(
+		VkDeviceSize size,
+		VkDeviceSize alignment,
+		VkBufferUsageFlags usage,
+		VkMemoryPropertyFlags properties)
 	{
 		VkBufferCreateInfo buffer_info{
 			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -171,7 +178,12 @@ namespace renderer
 		};
 	}
 
-	ImageResource Allocator::CreateImageResource(Extent extent, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkFormat format, VkImageAspectFlags aspect)
+	ImageResource Allocator::CreateImageResource(
+		Extent extent,
+		VkImageUsageFlags usage,
+		VkMemoryPropertyFlags properties,
+		VkFormat format,
+		VkImageAspectFlags aspect)
 	{
 		// Image.
 		VkImageCreateInfo image_info{
@@ -267,6 +279,19 @@ namespace renderer
 			.memory = memory,
 			.offset = offset,
 		};
+	}
+
+	void Allocator::ExpandOrReuseBuffer(
+		size_t buffer_size,
+		VkBufferUsageFlags usage_flags,
+		VkMemoryPropertyFlags memory_properties,
+		BufferResource& out_buffer_resource)
+	{
+		if (buffer_size > out_buffer_resource.size)
+		{
+			DestroyBufferResource(&out_buffer_resource);
+			out_buffer_resource = CreateBufferResource(buffer_size, usage_flags, memory_properties);
+		}
 	}
 
 	void Allocator::UpdateAllocationOffsets(uint64_t vulkan_handle)

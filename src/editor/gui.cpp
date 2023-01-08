@@ -229,7 +229,7 @@ void EditorGui::NodeProperties()
 			ImGui::SameLine();
 			ImGui::InputText("##MaterialName", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
 
-			//if (mat->user_count > 1)
+			if (mat->user_count > 1)
 			{
 				ImGui::SameLine();
 				std::string user_count_string{ std::to_string(mat->user_count) };

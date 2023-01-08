@@ -32,13 +32,15 @@ namespace pmk
 
 		renderer::Mesh* GetMesh(renderer::RenderObjectHandle render_object);
 
-		std::vector<int>& GetMaterialIndices(renderer::RenderObjectHandle render_object);
+		const std::vector<int>& GetMaterialIndices(renderer::RenderObjectHandle render_object);
 
 		std::vector<renderer::Material*>& GetMaterials();
 
 		void UpdateMaterials();
 
 		renderer::Material* MakeMaterialUnique(uint32_t material_index);
+
+		void SetMaterialIndex(renderer::RenderObjectHandle render_object, uint32_t geometry_index, int material_index);
 
 		void UpdateObjectBuffers();
 

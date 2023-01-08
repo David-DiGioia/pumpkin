@@ -354,8 +354,9 @@ namespace renderer
 
 				for (auto& geometry : meshes_[render_obj.mesh_idx]->geometries)
 				{
+					VkIndexType index_type{ std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
 					vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
-					vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, VK_INDEX_TYPE_UINT16);
+					vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, index_type);
 					vkCmdDrawIndexed(cmd, (uint32_t)geometry.indices.size(), 1, 0, 0, 0);
 				}
 			}
@@ -597,16 +598,16 @@ namespace renderer
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
 
-		rt_context_.UpdateObjectBuffers(meshes_);
-		rt_context_.UpdateMaterialBuffer(materials_);
-
 		// Load render objects.
 		for (auto& json_ro : j[jsonkey::RENDER_OBJECTS])
 		{
-			std::vector<int> material_indices{ json_ro[jsonkey::MATERIAL_INDICES] };
+			std::vector<int> material_indices{ json_ro[jsonkey::MATERIAL_INDICES].get<std::vector<int>>() };
 			CreateRenderObject(json_ro[jsonkey::MESH_INDEX], material_indices);
 			out_material_indices->insert(out_material_indices->end(), material_indices.begin(), material_indices.end());
 		}
+
+		rt_context_.UpdateObjectBuffers(meshes_);
+		rt_context_.UpdateMaterialBuffers(materials_, GetMaterialIndices());
 
 		// Load mesh hash map.
 		for (auto& json_hash_val : j[jsonkey::MESH_HASH_MAP])
@@ -650,7 +651,7 @@ namespace renderer
 		return meshes_[render_object.mesh_idx];
 	}
 
-	std::vector<int>& VulkanRenderer::GetMaterialIndices(RenderObjectHandle render_object_handle)
+	const std::vector<int>& VulkanRenderer::GetMaterialIndices(RenderObjectHandle render_object_handle)
 	{
 		RenderObject& render_object{ GetCurrentFrame().render_objects[render_object_handle] };
 		return render_object.material_indices;
@@ -668,10 +669,24 @@ namespace renderer
 
 	void VulkanRenderer::UpdateMaterials()
 	{
-		// TODO: Should also pass an `std::vector<std::vector<uint32_t>> indices` of material indices where indices[i][j] is the material index of ith instance's jth geometry.
-		//       The rt_context_ will this use this to create a buffer concatenating all of these indices together, and a second buffer of device addresses into the first buffer.
-		//       The second buffer will then be bound to the rt pipeline.
-		rt_context_.UpdateMaterialBuffer(materials_);
+		rt_context_.UpdateMaterialBuffers(materials_, GetMaterialIndices());
+	}
+
+	std::vector<const std::vector<int>*> VulkanRenderer::GetMaterialIndices()
+	{
+		std::vector<const std::vector<int>*> material_indices{};
+		for (const RenderObject& ro : GetCurrentFrame().render_objects) {
+			material_indices.push_back(&ro.material_indices);
+		}
+		return material_indices;
+	}
+
+	void VulkanRenderer::SetMaterialIndex(RenderObjectHandle render_object_handle, uint32_t geometry_index, int material_index)
+	{
+		for (FrameResources& frame_resource : frame_resources_) {
+			frame_resource.render_objects[render_object_handle].material_indices[geometry_index] = material_index;
+		}
+		UpdateMaterials();
 	}
 
 	Material* VulkanRenderer::MakeMaterialUnique(uint32_t material_index)
@@ -973,7 +988,7 @@ namespace renderer
 		vulkan_util_.Submit();
 
 		rt_context_.UpdateObjectBuffers(meshes_);
-		rt_context_.UpdateMaterialBuffer(materials_);
+		// We won't update the material buffers until after we've created render objects since we need material indices.
 
 		return duplicate_indices;
 	}

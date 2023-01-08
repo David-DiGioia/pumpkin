@@ -84,7 +84,7 @@ namespace pmk
 		return renderer_.GetMesh(render_object);
 	}
 
-	std::vector<int>& Pumpkin::GetMaterialIndices(renderer::RenderObjectHandle render_object)
+	const std::vector<int>& Pumpkin::GetMaterialIndices(renderer::RenderObjectHandle render_object)
 	{
 		return renderer_.GetMaterialIndices(render_object);
 	}
@@ -102,6 +102,11 @@ namespace pmk
 	renderer::Material* Pumpkin::MakeMaterialUnique(uint32_t material_index)
 	{
 		return renderer_.MakeMaterialUnique(material_index);
+	}
+
+	void Pumpkin::SetMaterialIndex(renderer::RenderObjectHandle render_object, uint32_t geometry_index, int material_index)
+	{
+		renderer_.SetMaterialIndex(render_object, geometry_index, material_index);
 	}
 
 	void Pumpkin::UpdateObjectBuffers()

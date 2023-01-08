@@ -200,6 +200,7 @@ namespace pmk
 				}
 			}
 		}
+		renderer_->UpdateMaterials();
 	}
 
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)

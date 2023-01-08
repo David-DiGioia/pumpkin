@@ -57,6 +57,15 @@ namespace renderer
 			VkFormat format,
 			VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT);
 
+		// Only allocate a new buffer if more space is needed than with the existing buffer.
+		// Otherwise leave device_buffer unmutated. Will create buffer if it doesn't exist yet.
+		// buffer_size is in bytes.
+		void ExpandOrReuseBuffer(
+			size_t buffer_size,
+			VkBufferUsageFlags usage_flags,
+			VkMemoryPropertyFlags memory_properties,
+			BufferResource& out_buffer_resource);
+
 		void DestroyBufferResource(BufferResource* buffer_resource);
 
 		void DestroyImageResource(ImageResource* image_resource);

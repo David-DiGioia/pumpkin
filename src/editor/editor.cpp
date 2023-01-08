@@ -380,22 +380,27 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	// Add new nodes to scene.
 	pumpkin_->GetScene().ImportGLTF(path, &node_names, &material_names);
 
-	// Make a wrapper EditorNode for each imported pmk::Node.
-	uint32_t name_index{ 0 };
-	while (node_idx < nodes.size())
-	{
-		node_map_[nodes[node_idx]->node_id] = new EditorNode{ nodes[node_idx], node_names[name_index] };
-		++node_idx;
-		++name_index;
-	}
-
 	// Make a wrapper EditorMaterial for each imported renderer::Material.
-	name_index = 0;
+	uint32_t name_index{ 0 };
 	while (mat_idx < materials.size())
 	{
 		materials_.push_back(new EditorMaterial{ materials[mat_idx], material_names[name_index] });
-		++materials_.back()->user_count;
 		++mat_idx;
+		++name_index;
+	}
+
+	// Make a wrapper EditorNode for each imported pmk::Node.
+	name_index = 0;
+	while (node_idx < nodes.size())
+	{
+		EditorNode* editor_node{ new EditorNode{ nodes[node_idx], node_names[name_index] } };
+		node_map_[nodes[node_idx]->node_id] = editor_node;
+
+		for (int material_index : GetMaterialIndicesFromNode(editor_node)) {
+			++materials_[material_index]->user_count;
+		}
+
+		++node_idx;
 		++name_index;
 	}
 }
@@ -627,19 +632,18 @@ glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
 	return viewport_pos;
 }
 
-std::vector<int>& Editor::GetMaterialIndicesFromNode(EditorNode* node)
+const std::vector<int>& Editor::GetMaterialIndicesFromNode(EditorNode* node)
 {
 	return pumpkin_->GetMaterialIndices(node->node->render_object);
 }
 
 void Editor::SetNodeMaterial(EditorNode* node, uint32_t geometry_index, int material_index)
 {
-	std::vector<int>& material_indices{ GetMaterialIndicesFromNode(node) };
+	const std::vector<int>& material_indices{ GetMaterialIndicesFromNode(node) };
 	--materials_[material_indices[geometry_index]]->user_count;
 	++materials_[material_index]->user_count;
 
-	material_indices[geometry_index] = material_index;
-	pumpkin_->UpdateMaterials();
+	pumpkin_->SetMaterialIndex(node->node->render_object, geometry_index, material_index);
 }
 
 uint32_t Editor::MakeMaterialUnique(int material_index)

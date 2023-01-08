@@ -65,13 +65,17 @@ namespace renderer
 
 		Mesh* GetMesh(RenderObjectHandle render_object_handle);
 
-		std::vector<int>& GetMaterialIndices(RenderObjectHandle render_object_handle) ;
+		const std::vector<int>& GetMaterialIndices(RenderObjectHandle render_object_handle) ;
 
 		uint32_t GetCurrentFrameNumber() const;
 
 		std::vector<Material*>& GetMaterials();
 
 		void UpdateMaterials();
+
+		std::vector<const std::vector<int>*> GetMaterialIndices();
+
+		void SetMaterialIndex(RenderObjectHandle render_object_handle, uint32_t geometry_index, int material_index);
 
 		Material* MakeMaterialUnique(uint32_t material_index);
 

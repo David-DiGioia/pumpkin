@@ -15,7 +15,7 @@ namespace renderer
 	// Set 1. Persistent set.
 	constexpr uint32_t OBJECT_BUFFERS_BINDING{ 0 };
 	constexpr uint32_t MATERIAL_BUFFER_BINDING{ 1 };
-	constexpr uint32_t MATERIAL_INDICES_BINDING{ 2 };
+	constexpr uint32_t MATERIAL_INDEX_ADDRESSES_BINDING{ 2 };
 
 
 	void RayTracingContext::Initialize(Context* context,
@@ -55,6 +55,8 @@ namespace renderer
 		allocator_->DestroyBufferResource(&shader_binding_table_.hit_sbt);
 		allocator_->DestroyBufferResource(&object_buffers_buffer_);
 		allocator_->DestroyBufferResource(&materials_resource_);
+		allocator_->DestroyBufferResource(&material_indices_resource_);
+		allocator_->DestroyBufferResource(&material_index_addresses_resource_);
 
 		DestroyFrameResources();
 
@@ -353,11 +355,6 @@ namespace renderer
 
 	void RayTracingContext::UpdateObjectBuffers(const std::vector<Mesh*>& meshes)
 	{
-		// Destroy previous buffer if it exists.
-		allocator_->DestroyBufferResource(&object_buffers_buffer_);
-
-		// TODO: Only recreate buffer if it's longer than the previous one.
-
 		std::vector<ObjectBuffers> object_buffers_vec{};
 		object_buffers_vec.reserve(meshes.size());
 
@@ -382,10 +379,9 @@ namespace renderer
 			object_buffers_vec.push_back(ObjectBuffers{});
 		}
 
-		object_buffers_buffer_ = allocator_->CreateBufferResource(
-			object_buffers_vec.size() * sizeof(ObjectBuffers),
+		allocator_->ExpandOrReuseBuffer(object_buffers_vec.size() * sizeof(ObjectBuffers),
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, object_buffers_buffer_);
 		NameObject(context_->device, object_buffers_buffer_.buffer, "Object_Buffers_Buffer");
 
 		vulkan_util_->Begin();
@@ -395,7 +391,7 @@ namespace renderer
 		persistent_descriptor_set_resource_.LinkBufferToBinding(OBJECT_BUFFERS_BINDING, object_buffers_buffer_);
 	}
 
-	void RayTracingContext::UpdateMaterialBuffer(const std::vector<Material*>& materials)
+	void RayTracingContext::UpdateMaterialBuffers(const std::vector<Material*>& materials, const std::vector<const std::vector<int>*>& indices)
 	{
 		std::vector<Material> materials_vec{};
 		materials_vec.reserve(materials.size());
@@ -410,21 +406,60 @@ namespace renderer
 			materials_vec.push_back(Material{});
 		}
 
-		// Only allocate a new buffer if more space is needed than with the existing buffer.
-		size_t buffer_size{ materials_vec.size() * sizeof(Material) };
-		if (buffer_size > materials_resource_.size)
-		{
-			allocator_->DestroyBufferResource(&materials_resource_);
-			materials_resource_ = allocator_->CreateBufferResource(buffer_size,
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			NameObject(context_->device, materials_resource_.buffer, "Material_Buffer");
+		// Make buffer for materials.
+		allocator_->ExpandOrReuseBuffer(materials_vec.size() * sizeof(Material),
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			materials_resource_);
+		NameObject(context_->device, materials_resource_.buffer, "Material_Buffer");
+
+		// If indices is empty, make a dummy index since something needs to be bound to this binding.
+		const std::vector<const std::vector<int>*>* indices_ptr{ &indices };
+		const std::vector<int> dummy_index{ 0 };
+		const std::vector<const std::vector<int>*> dummy_indices{ &dummy_index };
+		if (indices_ptr->empty()) {
+			indices_ptr = &dummy_indices;
 		}
+
+		// Concatenate indices together.
+		std::vector<uint32_t> indices_vec{};
+		for (const std::vector<int>* geometry_mat_indices : *indices_ptr) {
+			indices_vec.insert(indices_vec.end(), geometry_mat_indices->begin(), geometry_mat_indices->end());
+		}
+
+		// Make buffer for concatenated material indices.
+		allocator_->ExpandOrReuseBuffer(indices_vec.size() * sizeof(uint32_t),
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			material_indices_resource_);
+		NameObject(context_->device, material_indices_resource_.buffer, "Material_Indices_Buffer");
 
 		vulkan_util_->Begin();
 		vulkan_util_->TransferBufferToDevice(materials_vec, materials_resource_);
+		vulkan_util_->TransferBufferToDevice(indices_vec, material_indices_resource_);
+		vulkan_util_->Submit();
+
+		uint64_t current_address{ DeviceAddress(context_->device, material_indices_resource_.buffer) };
+		std::vector<uint64_t> index_addresses{};
+		index_addresses.reserve(indices_ptr->size());
+
+		for (const std::vector<int>* geometry_mat_indices : *indices_ptr)
+		{
+			index_addresses.push_back(current_address);
+			current_address += geometry_mat_indices->size() * sizeof(decltype(indices_vec)::value_type);
+		}
+
+		// Make buffer of devices addresses which point to arrays contained in material_indices_resource_.
+		allocator_->ExpandOrReuseBuffer(indices_ptr->size() * sizeof(uint64_t),
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			material_index_addresses_resource_);
+		NameObject(context_->device, material_index_addresses_resource_.buffer, "Material_Index_Addresses_Buffer");
+
+		vulkan_util_->Begin();
+		vulkan_util_->TransferBufferToDevice(index_addresses, material_index_addresses_resource_);
 		vulkan_util_->Submit();
 
 		persistent_descriptor_set_resource_.LinkBufferToBinding(MATERIAL_BUFFER_BINDING, materials_resource_);
+		persistent_descriptor_set_resource_.LinkBufferToBinding(MATERIAL_INDEX_ADDRESSES_BINDING, material_index_addresses_resource_);
 	}
 
 	VkAccelerationStructureGeometryKHR RayTracingContext::PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const
@@ -638,7 +673,7 @@ namespace renderer
 		};
 
 		VkDescriptorSetLayoutBinding material_indices_binding{
-			.binding = MATERIAL_INDICES_BINDING,
+			.binding = MATERIAL_INDEX_ADDRESSES_BINDING,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = 1,
 			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
@@ -687,7 +722,7 @@ namespace renderer
 		// We link object buffers each time the list of BLASes changes, but we do it once initially here with
 		// with a dummy object buffer since something needs to be bound to that slot to use the closest-hit shader.
 		UpdateObjectBuffers({});
-		UpdateMaterialBuffer({});
+		UpdateMaterialBuffers({}, {});
 	}
 
 	RayTracingContext::FrameResources& RayTracingContext::GetCurrentFrame()

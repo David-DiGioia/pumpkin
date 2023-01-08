@@ -49,7 +49,7 @@ layout(buffer_reference, scalar) buffer MaterialIndices { uint i[]; };
 layout(set = 0, binding = 0) uniform accelerationStructureEXT tlas;
 layout(set = 1, binding = 0) buffer SceneDescription { ObjectBuffers i[]; } scene_description;
 layout(set = 1, binding = 1) buffer Materials { Material i[]; } materials;
-layout(set = 1, binding = 2) buffer MaterialIndexBuffers { uint64_t i[]; } material_index_buffers;
+layout(set = 1, binding = 2) buffer MaterialIndexBuffers { uint64_t i[]; } material_index_buffers; // Addresses to material index buffers. One buffer for each Vulkan instance in the order of the geometries it contains.
 
 const float pi = 3.14159265359;
 

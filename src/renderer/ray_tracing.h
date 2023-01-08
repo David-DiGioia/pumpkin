@@ -144,7 +144,11 @@ namespace renderer
 		// when CmdBuildQueuedBlases(...) is called, but that would require keeping track of previously built meshes.
 		void UpdateObjectBuffers(const std::vector<Mesh*>& meshes);
 
-		void UpdateMaterialBuffer(const std::vector<Material*>& materials);
+		// The indices argument is an array of material indices for each Vulkan instance. Each of these arrays contains one material index for each geometry
+		// contained by the BLAS referenced by the instance. This vector of vectors will be converted to two GPU buffers, one containing the concatenated indices
+		// and the other containing device addresses into those indices so that each Vulkan instance will have an associated device address pointing to an
+		// of indices for all of its geometries.
+		void UpdateMaterialBuffers(const std::vector<Material*>& materials, const std::vector<const std::vector<int>*>& indices);
 
 	private:
 		struct FrameResources;
@@ -204,6 +208,8 @@ namespace renderer
 		BufferResource instance_buffer_{};                                        // Store so we can delete it after the TLAS is built.
 		BufferResource object_buffers_buffer_{};                                  // Buffer containing device addresses to mesh data for each object in the scene. Not in FrameResources since it's rarely updated.
 		BufferResource materials_resource_{};                                     // Buffer containing all ray tracing material data.
+		BufferResource material_indices_resource_{};                              // Buffer containing concatenated ray tracing material indices for all geometries for all render objects.
+		BufferResource material_index_addresses_resource_{};                      // Buffer containing device addresses into material_indices_resource_. Each address acts as a buffer of materials for geometries of a render object.
 		std::unordered_map<AccelerationStructure*, uint32_t> custom_index_map_{}; // Map of (BLAS, custom_index) so when TLAS is queued we have access to custom indices.
 
 		VkPipeline rt_pipeline_{};
