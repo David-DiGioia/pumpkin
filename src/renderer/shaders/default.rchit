@@ -168,10 +168,10 @@ mat3 TangentToWorldMatrix(vec3 n)
 	// There is still another degree of freedom which will be arbitrary, but it will matter if anisotropic materials are implemented.
 	vec3 z = n;
 	vec3 not_z = vec3(1, 0, 0);
-	//not_z = (dot(z, not_z) > 0.999) ? vec3(0, 1, 0) : not_z;
+	not_z = (abs(dot(z, not_z)) > 0.999) ? vec3(0, 1, 0) : not_z;
 
-	vec3 x = cross(z, not_z);
-	vec3 y = cross(x, z);
+	vec3 x = normalize(cross(z, not_z));
+	vec3 y = normalize(cross(x, z));
 
 	return mat3(x, y, z);
 }
