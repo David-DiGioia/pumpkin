@@ -8,7 +8,7 @@ layout(location = 0) rayPayloadInEXT HitPayload payload;
 
 void main()
 {
-	float light_intensity = 0.2;
+	float light_intensity = 0.8;
 	vec3 light_color = vec3(1.0, 1.0, 1.0);
 
     payload.radiance += light_intensity * light_color * payload.reflected_ratio;

@@ -74,14 +74,15 @@ float SmithGGXMaskingShadowing(float n_dot_v, float n_dot_l, float a2)
 	return 2.0 * n_dot_l * n_dot_v / (denom_a + denom_b);
 }
 
-float Fresnel(float ior, float v_dot_h)
+vec3 Fresnel(float ior, float v_dot_h, float metallic, vec3 base_color)
 {
 	// Reflectance at normal incidence.
 	float num = ior - 1.0;
 	float denom = ior + 1.0;
-	float f0 = (num * num) / (denom * denom);
+	vec3 f0 = vec3((num * num) / (denom * denom));
+	f0 = mix(f0, base_color, metallic);
 
-	return f0 + (1.0 - f0) * pow(1.0 - v_dot_h, 5.0);
+	return f0 + (vec3(1.0) - f0) * pow(1.0 - v_dot_h, 5.0);
 }
 
 vec3 CookTorranceBrdf(vec3 n, vec3 v, vec3 l, vec3 base_color, float metallic, float roughness, float ior)
@@ -94,12 +95,12 @@ vec3 CookTorranceBrdf(vec3 n, vec3 v, vec3 l, vec3 base_color, float metallic, f
 
 	float distribution = NormalDistributionGgx(n_dot_h, roughness);
 	float geometry = GeometricAttenuation(n_dot_h, n_dot_v, n_dot_l, v_dot_h);
-	float fresnel = Fresnel(ior, v_dot_h);
+	vec3 fresnel = Fresnel(ior, v_dot_h, metallic, base_color);
 
-	float specular = (distribution * geometry * fresnel) / (4.0 * n_dot_l * n_dot_v);
+	vec3 specular = (distribution * geometry * fresnel) / (4.0 * n_dot_l * n_dot_v);
 
 	// Specular is colored only if metallic.
-	vec3 specular_color = mix(vec3(specular), specular * base_color, metallic);
+	vec3 specular_color = mix(specular, specular * base_color, metallic);
 
 	vec3 rho_d = base_color;
 
@@ -115,7 +116,7 @@ vec3 CookTorranceBrdf(vec3 n, vec3 v, vec3 l, vec3 base_color, float metallic, f
 	return n_dot_l * (diffuse * (vec3(1.0) - fresnel) + specular_color);
 }
 
-vec3 CookTorranceBrdfWeighted(vec3 n, vec3 v, vec3 l, vec3 base_color, float roughness, float ior)
+vec3 CookTorranceBrdfWeighted(vec3 n, vec3 v, vec3 l, vec3 base_color, float metallic, float roughness, float ior)
 {
 	vec3 h = normalize(v + l);
 	float n_dot_v = dot(n, v);
@@ -125,9 +126,24 @@ vec3 CookTorranceBrdfWeighted(vec3 n, vec3 v, vec3 l, vec3 base_color, float rou
 	float a2 = roughness * roughness;
 	float g1 = SmithGGXMasking(n_dot_v, a2);
 	float g2 = SmithGGXMaskingShadowing(n_dot_v, n_dot_l, a2);
-	float fresnel = Fresnel(ior, v_dot_h);
+	vec3 fresnel = Fresnel(ior, v_dot_h, metallic, base_color);
+	vec3 specular = fresnel * (g2 / g1);
 
-	return vec3(fresnel * (g2 / g1));
+	// Specular is colored only if metallic.
+	vec3 specular_color = mix(specular, specular * base_color, metallic);
+
+	vec3 rho_d = base_color;
+
+	// There is no diffuse reflectance for metals.
+	rho_d *= (1.0 - metallic);
+
+	// Integrating over the unit hemisphere weighted by cos(theta) (weakening factor due to incident angle) is pi.
+	// Integrating over the BRDF must result in 1.0, so we divide out the factor of pi.
+	vec3 diffuse = rho_d / pi;
+	
+	// Conserve energy by only having diffuse color where light is not reflected by fresnel.
+	// (Not sure why distribution is not taken into account).
+	return n_dot_l * (diffuse * (vec3(1.0) - fresnel)) + specular_color;
 }
 
 // Input Ve: view direction
@@ -227,32 +243,15 @@ void main()
 	// Add the amount of emission that makes it back to the camera.
 	payload.radiance += mat.emission * mat.color.xyz * payload.reflected_ratio;
 
-	vec3 brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, mat.color.xyz, mat.roughness, mat.ior);
-
 	// Depending on microfacet that ray hits, it could bounce into the face, so in such cases assume it's absorbed.
 	// This restricts the outgoing wi direction to be in the upper hemisphere surrounding the normal.
 	if(dot(wi, normal) <= 0.0)
 	{
-		//seed = Hash(seed);
-		//r0 = FloatConstruct(seed);
-		//seed = Hash(seed);
-		//r1 = FloatConstruct(seed);
-		//
-		//vec3 v_bounce = -wi;
-		//wm_tangent = SampleGgxVndf(world_to_tangent_mat * v_bounce, mat.roughness, mat.roughness, r0, r1);
-		//wm = tangent_to_world_mat * wm_tangent;
-		//wi = reflect(-v_bounce, wm);
-		//
-		//brdf_weighted *= CookTorranceBrdfWeighted(normal, v_bounce, wi, mat.color.xyz, mat.roughness, mat.ior);;
-
-		if(dot(wi, normal) <= 0.0)
-		{
-			payload.done = 1;
-			//payload.radiance = vec3(1.0, 0.0, 0.0);
-			return;
-		}
+		payload.done = 1;
+		return;
 	}
 
+	vec3 brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, mat.color.xyz, mat.metallic, mat.roughness, mat.ior);
 	payload.reflected_ratio *= brdf_weighted;
 	payload.ray_origin = position;
 	payload.ray_direction = wi;
