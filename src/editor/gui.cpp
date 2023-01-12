@@ -243,7 +243,7 @@ void EditorGui::NodeProperties()
 			bool mat_changed{ false };
 			mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));
 			mat_changed |= ImGui::DragFloat("Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
-			mat_changed |= ImGui::DragFloat("Roughness", &mat->material->roughness, 0.01f, 0.001f, 0.999f);
+			mat_changed |= ImGui::DragFloat("Roughness", &mat->material->roughness, 0.01f, 0.0f, 1.0f);
 			mat_changed |= ImGui::DragFloat("IOR", &mat->material->ior, 0.01f, 1.0f, 2.0f);
 			mat_changed |= ImGui::DragFloat("Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
 

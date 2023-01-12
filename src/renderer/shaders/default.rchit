@@ -127,8 +127,7 @@ vec3 CookTorranceBrdfWeighted(vec3 n, vec3 v, vec3 l, vec3 base_color, float rou
 	float g2 = SmithGGXMaskingShadowing(n_dot_v, n_dot_l, a2);
 	float fresnel = Fresnel(ior, v_dot_h);
 
-	//return vec3(fresnel * (g2 / g1));
-	return vec3(n_dot_l); // g2 is sometimes negative. n_dot_l is sometimes negative. Fix!
+	return vec3(fresnel * (g2 / g1));
 }
 
 // Input Ve: view direction
@@ -216,7 +215,8 @@ void main()
 
 	uint seed = Hash(uvec4(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y, payload.depth, payload.sample_number));
 	float r0 = FloatConstruct(seed);
-	float r1 = FloatConstruct(Hash(seed));
+	seed = Hash(seed);
+	float r1 = FloatConstruct(seed);
 	mat3 tangent_to_world_mat = TangentToWorldMatrix(normal);
 	mat3 world_to_tangent_mat = transpose(tangent_to_world_mat);
 	vec3 v = -gl_WorldRayDirectionEXT;
@@ -227,27 +227,32 @@ void main()
 	// Add the amount of emission that makes it back to the camera.
 	payload.radiance += mat.emission * mat.color.xyz * payload.reflected_ratio;
 
+	vec3 brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, mat.color.xyz, mat.roughness, mat.ior);
+
 	// Depending on microfacet that ray hits, it could bounce into the face, so in such cases assume it's absorbed.
 	// This restricts the outgoing wi direction to be in the upper hemisphere surrounding the normal.
-	// ACTUALLY. Shouldn't dot(wi, wm) never be negative, since we're suppose to only pick visible normals?? Yes, verified. Fix this.
-	// TODO: Fix tangent to world matrix, it's not right.
-	//if (dot(wi, wm) <= 0.0)
-	//{
-	//	payload.done = 1;
-	//	payload.radiance = vec3(1.0, 0.0, 0.0);
-	//	return;
-	//}
-
 	if(dot(wi, normal) <= 0.0)
 	{
-		payload.done = 1;
-		return;
+		//seed = Hash(seed);
+		//r0 = FloatConstruct(seed);
+		//seed = Hash(seed);
+		//r1 = FloatConstruct(seed);
+		//
+		//vec3 v_bounce = -wi;
+		//wm_tangent = SampleGgxVndf(world_to_tangent_mat * v_bounce, mat.roughness, mat.roughness, r0, r1);
+		//wm = tangent_to_world_mat * wm_tangent;
+		//wi = reflect(-v_bounce, wm);
+		//
+		//brdf_weighted *= CookTorranceBrdfWeighted(normal, v_bounce, wi, mat.color.xyz, mat.roughness, mat.ior);;
+
+		if(dot(wi, normal) <= 0.0)
+		{
+			payload.done = 1;
+			//payload.radiance = vec3(1.0, 0.0, 0.0);
+			return;
+		}
 	}
 
-	//float val = dot(wi, wm);
-	//payload.radiance = val < 0.0 ? vec3(-val, 0.0, 0.0) : vec3(0.0, val, 0.0);
-
-	vec3 brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, mat.color.xyz, mat.roughness, mat.ior);
 	payload.reflected_ratio *= brdf_weighted;
 	payload.ray_origin = position;
 	payload.ray_direction = wi;
