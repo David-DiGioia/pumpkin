@@ -132,18 +132,18 @@ vec3 CookTorranceBrdfWeighted(vec3 n, vec3 v, vec3 l, vec3 base_color, float met
 	// Specular is colored only if metallic.
 	vec3 specular_color = mix(specular, specular * base_color, metallic);
 
-	vec3 rho_d = base_color;
+	return specular_color;
+}
 
-	// There is no diffuse reflectance for metals.
-	rho_d *= (1.0 - metallic);
+vec3 LambertianBrdfWeighted(vec3 base_color)
+{
+	vec3 rho_d = base_color;
 
 	// Integrating over the unit hemisphere weighted by cos(theta) (weakening factor due to incident angle) is pi.
 	// Integrating over the BRDF must result in 1.0, so we divide out the factor of pi.
 	vec3 diffuse = rho_d / pi;
 	
-	// Conserve energy by only having diffuse color where light is not reflected by fresnel.
-	// (Not sure why distribution is not taken into account).
-	return n_dot_l * (diffuse * (vec3(1.0) - fresnel)) + specular_color;
+	return diffuse;
 }
 
 // Input Ve: view direction
@@ -176,6 +176,14 @@ vec3 SampleGgxVndf(vec3 Ve, float alpha_x, float alpha_y, float U1, float U2)
 	return Ne;
 }
 
+// In tangent space (with z up).
+vec3 SampleCosineWeighted(float r0, float r1)
+{
+	float phi = 2 * pi * r0;
+	float theta = acos(sqrt(r1));
+	return vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+}
+
 // Get matrix to convert from tangent space of triangle with normal n, to world space.
 mat3 TangentToWorldMatrix(vec3 n)
 {
@@ -189,6 +197,22 @@ mat3 TangentToWorldMatrix(vec3 n)
 	vec3 y = normalize(cross(x, z));
 
 	return mat3(x, y, z);
+}
+
+vec3 CookTorranceImportanceSample(vec3 normal, vec3 v, float roughness, mat3 tangent_to_world_mat, float r0, float r1)
+{
+	mat3 world_to_tangent_mat = transpose(tangent_to_world_mat);
+	vec3 wm_tangent = SampleGgxVndf(world_to_tangent_mat * v, roughness, roughness, r0, r1);
+	vec3 wm = tangent_to_world_mat * wm_tangent;
+	vec3 wi = reflect(gl_WorldRayDirectionEXT, wm);
+	return wi;
+}
+
+vec3 LambertianImportanceSample(vec3 normal, mat3 tangent_to_world_mat, float r0, float r1)
+{
+	vec3 wi_tangent = SampleCosineWeighted(r0, r1);
+	vec3 wi = tangent_to_world_mat * wi_tangent;
+	return wi;
 }
 
 void main()
@@ -229,16 +253,62 @@ void main()
 	vec3 position = v0.position * barycentrics.x + v1.position * barycentrics.y + v2.position * barycentrics.z;
 	position = gl_ObjectToWorldEXT * vec4(position, 1.0); // Transform the position to world space.
 
+	vec3 v = -gl_WorldRayDirectionEXT;
+
 	uint seed = Hash(uvec4(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y, payload.depth, payload.sample_number));
 	float r0 = FloatConstruct(seed);
 	seed = Hash(seed);
 	float r1 = FloatConstruct(seed);
+	seed = Hash(seed);
+	float r2 = FloatConstruct(seed);
+
 	mat3 tangent_to_world_mat = TangentToWorldMatrix(normal);
-	mat3 world_to_tangent_mat = transpose(tangent_to_world_mat);
-	vec3 v = -gl_WorldRayDirectionEXT;
-	vec3 wm_tangent = SampleGgxVndf(world_to_tangent_mat * v, mat.roughness, mat.roughness, r0, r1);
-	vec3 wm = tangent_to_world_mat * wm_tangent;
-	vec3 wi = reflect(gl_WorldRayDirectionEXT, wm);
+
+	vec3 brdf_weighted = vec3(0.0);
+	vec3 wi = vec3(0.0);
+
+	vec3 fresnel = Fresnel(mat.ior, max(dot(normal, v), 0.0), mat.metallic, mat.color.xyz);
+	//payload.radiance = fresnel;
+	//return;
+
+	/*
+
+	vec3 diff = (base_color * (1.0 - fresnel.x)) / pi;
+
+	Let there be n=2 samples.
+
+	(diff + spec) + (diff + spec)
+	= 2*diff + 2*specular
+
+	with probability p_i
+
+	(p1)(diff) + (1 - p1)(spec) + (p2)(diff) + (1 - p2)(spec)
+	= (p1 + p2)(diff) + (1 - p1 + 1 - p2)(spec)
+	= (p1 + p2)(diff) + (2 - (p1 + p2))(spec)
+
+	Note that p1 + p2 + ... + p_n <= n since p_i in [0, 1].
+	Then for diffuse, for the sum to equal n (to match original formula above) we want to mutiply each diff term with (1 / p_i)
+	and each spec term with (1 / (1 - p_i))
+	*/
+
+	float diff_probability = (1.0 - fresnel.x) * (1.0 - mat.metallic);
+
+	if (r2 < diff_probability)
+	{
+		// Diffuse.
+		wi = LambertianImportanceSample(normal, tangent_to_world_mat, r0, r1);
+		// Without cosine importance sampling, there is a constant factor of 2 * pi, and with cosine importance sampling it's a factor of pi.
+		// We ignored the constant before, so now we have to make it half the brightness.
+		brdf_weighted = 0.5 * LambertianBrdfWeighted(mat.color.xyz);
+		brdf_weighted *= 1.0 / diff_probability;
+	}
+	else
+	{
+		// Specular.
+		wi = CookTorranceImportanceSample(normal, v, mat.roughness, tangent_to_world_mat, r0, r1);
+		brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, mat.color.xyz, mat.metallic, mat.roughness, mat.ior);
+		brdf_weighted *= 1.0 / (1.0 - diff_probability);
+	}
 
 	// Add the amount of emission that makes it back to the camera.
 	payload.radiance += mat.emission * mat.color.xyz * payload.reflected_ratio;
@@ -251,7 +321,6 @@ void main()
 		return;
 	}
 
-	vec3 brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, mat.color.xyz, mat.metallic, mat.roughness, mat.ior);
 	payload.reflected_ratio *= brdf_weighted;
 	payload.ray_origin = position;
 	payload.ray_direction = wi;
