@@ -268,38 +268,16 @@ void main()
 	vec3 wi = vec3(0.0);
 
 	vec3 fresnel = Fresnel(mat.ior, max(dot(normal, v), 0.0), mat.metallic, mat.color.xyz);
-	//payload.radiance = fresnel;
-	//return;
 
-	/*
+	float diff_probability = 0.5;
 
-	vec3 diff = (base_color * (1.0 - fresnel.x)) / pi;
-
-	Let there be n=2 samples.
-
-	(diff + spec) + (diff + spec)
-	= 2*diff + 2*specular
-
-	with probability p_i
-
-	(p1)(diff) + (1 - p1)(spec) + (p2)(diff) + (1 - p2)(spec)
-	= (p1 + p2)(diff) + (1 - p1 + 1 - p2)(spec)
-	= (p1 + p2)(diff) + (2 - (p1 + p2))(spec)
-
-	Note that p1 + p2 + ... + p_n <= n since p_i in [0, 1].
-	Then for diffuse, for the sum to equal n (to match original formula above) we want to mutiply each diff term with (1 / p_i)
-	and each spec term with (1 / (1 - p_i))
-	*/
-
-	float diff_probability = (1.0 - fresnel.x) * (1.0 - mat.metallic);
-
-	if (r2 < diff_probability)
+	if (r2 < diff_probability * (1.0 - mat.metallic))
 	{
 		// Diffuse.
 		wi = LambertianImportanceSample(normal, tangent_to_world_mat, r0, r1);
 		// Without cosine importance sampling, there is a constant factor of 2 * pi, and with cosine importance sampling it's a factor of pi.
 		// We ignored the constant before, so now we have to make it half the brightness.
-		brdf_weighted = 0.5 * LambertianBrdfWeighted(mat.color.xyz);
+		brdf_weighted = 0.5 * (1.0 - fresnel.x) * LambertianBrdfWeighted(mat.color.xyz);
 		brdf_weighted *= 1.0 / diff_probability;
 	}
 	else
