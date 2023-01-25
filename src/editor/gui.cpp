@@ -3,6 +3,7 @@
 #include <cmath>
 #include <string>
 #include <climits>
+#include <chrono>
 #include "imgui.h"
 #include "glm/gtc/type_ptr.hpp"
 
@@ -49,6 +50,7 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	EngineViewport(rendered_image_id);
 	FileBrowser();
 	CameraControls();
+	Debug();
 }
 
 void EditorGui::CheckProjectSelectionPopup()
@@ -463,6 +465,36 @@ void EditorGui::CameraControls()
 	ImGui::SliderFloat("FOV", &editor_->GetCameraController().GetCamera()->fov, 30.0f, 90.0f, "%.1f", ImGuiSliderFlags_None);
 
 	ImGui::End();
+}
+
+void EditorGui::Debug()
+{
+	if (!ImGui::Begin("Debug"))
+	{
+		// Early out if the window is collapsed, as an optimization.
+		ImGui::End();
+		return;
+	}
+
+	std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+	float frame_milliseconds{ std::chrono::duration_cast<std::chrono::microseconds>(end_time - frame_start_time_).count() / 1000.0f };
+	float second_timer{ std::chrono::duration_cast<std::chrono::microseconds>(end_time - second_start_time_).count() / 1000000.0f };
+
+	if (second_timer >= 1.0f)
+	{
+		second_start_time_ = std::chrono::steady_clock::now();
+		fps_ = frame_counter_ / second_timer;
+		frame_counter_ = 0;
+	}
+
+	++frame_counter_;
+	frame_start_time_ = std::chrono::steady_clock::now();
+
+	ImGui::Text("%.3f ms", frame_milliseconds);
+	ImGui::Text("%.1f fps", fps_);
+
+	ImGui::End();
+
 }
 
 void EditorGui::UpdateViewportSize()
