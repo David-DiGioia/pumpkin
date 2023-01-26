@@ -41,7 +41,21 @@ public:
 
 	pmk::Camera* GetCamera();
 
-	float& MovementSpeed();
+	float& GetMovementSpeed();
+
+	float GetMovementSpeed() const;
+
+	glm::vec3 GetFocalPoint() const;
+
+	void SetFocalPoint(const glm::vec3& p);
+
+	float GetTheta() const;
+
+	void SetTheta(float theta);
+
+	float GetPhi() const;
+
+	void SetPhi(float phi);
 
 private:
 	void UpdateCamera();

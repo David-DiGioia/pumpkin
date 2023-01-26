@@ -18,7 +18,7 @@ layout(location = 0) rayPayloadEXT HitPayload payload;
 void main()
 {
 	uint bounces = 2;
-	uint samples = 10;
+	uint samples = 6;
 
 	vec3 hit_value = vec3(0);
 

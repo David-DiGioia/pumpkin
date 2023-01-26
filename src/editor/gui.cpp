@@ -461,7 +461,7 @@ void EditorGui::CameraControls()
 		return;
 	}
 
-	ImGui::SliderFloat("Speed", &editor_->GetCameraController().MovementSpeed(), MINIMUM_MOVEMENT_SPEED, 10000.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
+	ImGui::SliderFloat("Speed", &editor_->GetCameraController().GetMovementSpeed(), MINIMUM_MOVEMENT_SPEED, 10000.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
 	ImGui::SliderFloat("FOV", &editor_->GetCameraController().GetCamera()->fov, 30.0f, 90.0f, "%.1f", ImGuiSliderFlags_None);
 
 	ImGui::End();

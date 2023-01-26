@@ -153,8 +153,8 @@ void ProcessViewportInput(Editor* editor)
 		}
 		else
 		{
-			controller.MovementSpeed() += wheel * movement_speed_scroll_speed * controller.MovementSpeed();
-			controller.MovementSpeed() = std::max(controller.MovementSpeed(), MINIMUM_MOVEMENT_SPEED);
+			controller.GetMovementSpeed() += wheel * movement_speed_scroll_speed * controller.GetMovementSpeed();
+			controller.GetMovementSpeed() = std::max(controller.GetMovementSpeed(), MINIMUM_MOVEMENT_SPEED);
 		}
 	}
 }

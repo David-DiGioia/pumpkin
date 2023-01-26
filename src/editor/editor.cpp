@@ -27,6 +27,16 @@ namespace jsonkey
 	const std::string CHILDREN_IDS{ "children_ids" };
 	// End nodes members.
 
+	const std::string VIEWPORT_CAMERA{ "viewport_camera" };
+	// Camera members.
+	const std::string VIEWPORT_FOCAL_DISTANCE{ "viewport_focal_distance" };
+	const std::string VIEWPORT_FOCAL_POINT{ "viewport_focal_point" };
+	const std::string VIEWPORT_THETA{ "viewport_theta" };
+	const std::string VIEWPORT_PHI{ "viewport_phi" };
+	const std::string VIEWPORT_FOV{ "viewport_fov" };
+	const std::string VIEWPORT_SPEED{ "viewport_speed" };
+	// End camera members.
+
 	const std::string MATERIALS{ "materials" };
 	// Begin editor material members.
 	const std::string MATERIAL_NAME{ "name" };
@@ -263,6 +273,19 @@ void Editor::SaveProject() const
 		}
 	}
 
+	{
+		const glm::vec3& p{ controller_.GetFocalPoint() };
+
+		j[jsonkey::VIEWPORT_CAMERA] = {
+			{ jsonkey::VIEWPORT_FOCAL_POINT, {p.x, p.y, p.z} },
+			{ jsonkey::VIEWPORT_FOCAL_DISTANCE, controller_.GetFocalDistance() },
+			{ jsonkey::VIEWPORT_THETA, controller_.GetTheta() },
+			{ jsonkey::VIEWPORT_PHI, controller_.GetPhi() },
+			{ jsonkey::VIEWPORT_FOV, controller_.GetCamera()->fov },
+			{ jsonkey::VIEWPORT_SPEED, controller_.GetMovementSpeed() },
+		};
+	}
+
 	j[jsonkey::MAX_NODE_ID] = max_node_id;
 
 	auto project_data_path{ project_directory_ / PROJECT_DATA_RELATIVE_PATH };
@@ -310,8 +333,20 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 	LoadNodeData(j);
 	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME, &material_indices);
 
+	// Load viewport camera.
+	{
+		auto& p{ j[jsonkey::VIEWPORT_CAMERA][jsonkey::VIEWPORT_FOCAL_POINT] };
+
+		controller_.SetFocalPoint({ p[0], p[1], p[2] });
+		controller_.SetFocalDistance(j[jsonkey::VIEWPORT_CAMERA][jsonkey::VIEWPORT_FOCAL_DISTANCE]);
+		controller_.SetTheta(j[jsonkey::VIEWPORT_CAMERA][jsonkey::VIEWPORT_THETA]);
+		controller_.SetPhi(j[jsonkey::VIEWPORT_CAMERA][jsonkey::VIEWPORT_PHI]);
+		controller_.GetCamera()->fov = j[jsonkey::VIEWPORT_CAMERA][jsonkey::VIEWPORT_FOV];
+		controller_.GetMovementSpeed() = j[jsonkey::VIEWPORT_CAMERA][jsonkey::VIEWPORT_SPEED];
+	}
+
 	// Create new editor materials.
-	for (uint32_t i{ 0 };  material_start_idx + i < (uint32_t)materials.size(); ++i)
+	for (uint32_t i{ 0 }; material_start_idx + i < (uint32_t)materials.size(); ++i)
 	{
 		std::string material_name{ j[jsonkey::MATERIALS][i][jsonkey::MATERIAL_NAME] };
 		materials_.push_back(new EditorMaterial{ materials[material_start_idx + i], material_name });

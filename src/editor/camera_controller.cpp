@@ -93,9 +93,47 @@ pmk::Camera* CameraController::GetCamera()
 	return camera_;
 }
 
-float& CameraController::MovementSpeed()
+float& CameraController::GetMovementSpeed()
 {
 	return movement_speed_;
+}
+
+float CameraController::GetMovementSpeed() const
+{
+	return movement_speed_;
+}
+
+glm::vec3 CameraController::GetFocalPoint() const
+{
+	return focal_point_;
+}
+
+void CameraController::SetFocalPoint(const glm::vec3& p)
+{
+	focal_point_ = p;
+	UpdateCamera();
+}
+
+float CameraController::GetTheta() const
+{
+	return theta_;
+}
+
+void CameraController::SetTheta(float theta)
+{
+	theta_ = theta;
+	UpdateCamera();
+}
+
+float CameraController::GetPhi() const
+{
+	return phi_;
+}
+
+void CameraController::SetPhi(float phi)
+{
+	phi_ = phi;
+	UpdateCamera();
 }
 
 void CameraController::UpdateCamera()
