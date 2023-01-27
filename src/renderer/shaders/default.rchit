@@ -269,9 +269,9 @@ void main()
 
 	vec3 fresnel = Fresnel(mat.ior, max(dot(normal, v), 0.0), mat.metallic, mat.color.xyz);
 
-	float diff_probability = 0.5;
+	float diff_probability = 0.5 * (1.0 - mat.metallic);
 
-	if (r2 < diff_probability * (1.0 - mat.metallic))
+	if (r2 < diff_probability)
 	{
 		// Diffuse.
 		wi = LambertianImportanceSample(normal, tangent_to_world_mat, r0, r1);
