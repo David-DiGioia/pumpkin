@@ -17,4 +17,5 @@ target_include_directories(Editor PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(Editor
     Pumpkin
     Common
+    Tinyfiledialogs
 )

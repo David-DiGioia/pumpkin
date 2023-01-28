@@ -72,7 +72,7 @@ private:
 	uint32_t frame_counter_{};                                  // For calculating FPS.
 	float fps_{};
 
-	std::filesystem::path popup_current_directory_{ "D:\\dev\\pumpkin_projects" };
+	std::filesystem::path popup_current_directory_{ "C:\\" };
 	std::filesystem::directory_entry popup_selected_file_{};
 	bool open_project_selection_popup_{ true };
 	char* popup_name_buffer_;

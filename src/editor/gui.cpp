@@ -6,6 +6,7 @@
 #include <chrono>
 #include "imgui.h"
 #include "glm/gtc/type_ptr.hpp"
+#include "tinyfiledialogs.h"
 
 #include "editor.h"
 #include "pumpkin.h"
@@ -15,6 +16,20 @@
 const std::string default_layout_path{ "default_imgui_layout.ini" };
 
 constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
+
+std::filesystem::path OpenFileDialog(const std::string& title, const std::filesystem::path& default_path, const std::vector<const char*>& filter_patterns, bool allow_multi_select)
+{
+	std::string default_path_str{ default_path.string() };
+	char const* selection{ tinyfd_openFileDialog(title.c_str(), default_path_str.c_str(), (int)filter_patterns.size(), filter_patterns.data(), nullptr, (int)allow_multi_select) };
+	return selection ? std::filesystem::path{ selection } : std::filesystem::path{};
+}
+
+std::filesystem::path SelectFolderDialog(const std::string& title, const std::filesystem::path& default_path)
+{
+	std::string default_path_str{ default_path.string() };
+	const char* selection{ tinyfd_selectFolderDialog(title.c_str(), default_path_str.c_str()) };
+	return selection ? std::filesystem::path{ selection } : std::filesystem::path{};
+}
 
 void EditorGui::Initialize(Editor* editor)
 {
@@ -325,8 +340,9 @@ void EditorGui::ProjectSelectionPopup()
 
 	ImGui::Text("\nLoad existing project");
 	ImGui::PushID(1);
-	if (ImGui::Button("Parent directory")) {
-		popup_current_directory_ = popup_current_directory_.parent_path();
+	if (ImGui::Button("Browse"))
+	{
+		popup_current_directory_ = SelectFolderDialog("Select folder", popup_current_directory_);
 	}
 
 	ImGui::SameLine();

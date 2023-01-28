@@ -4,12 +4,14 @@ find_package(Vulkan REQUIRED FATAL_ERROR)
 
 add_subdirectory(volk)
 add_subdirectory(imgui)
+add_subdirectory(tinyfiledialogs)
 
 set(RENDERER_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/glfw-3.3.6.bin.WIN64/include"
     "${Vulkan_INCLUDE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/imgui"
     "${CMAKE_CURRENT_SOURCE_DIR}/SFML-2.5.1/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tinyfiledialogs"
 
     # Header only.
     "${CMAKE_CURRENT_SOURCE_DIR}/glm"
