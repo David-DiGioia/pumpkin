@@ -41,6 +41,10 @@ namespace jsonkey
 	// Begin editor material members.
 	const std::string MATERIAL_NAME{ "name" };
 	// End editor material members.
+
+	// Editor settings.
+	const std::string SETTINGS_PROJECT_DIRECTORIES_PATH{ "project_directories_path" };
+
 }
 
 void InitializationCallback(void* user_data)
@@ -59,9 +63,7 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	node_map_[scene.GetRootNode()->node_id] = new EditorNode{ scene.GetRootNode(), ROOT_NODE_NAME };
 	root_node_ = node_map_[scene.GetRootNode()->node_id];
 
-	// TODO: Make user select this through GUI at startup.
-	//project_directory_ = std::filesystem::path{ "D:/dev/pumpkin_projects/TestProject" };
-	//std::filesystem::create_directory(project_directory_ / ASSETS_RELATIVE_PATH); // Creates directory if it doesn't exist.
+	LoadEditorSettings();
 
 	gui_.Initialize(this);
 }
@@ -687,6 +689,58 @@ uint32_t Editor::MakeMaterialUnique(int material_index)
 	renderer::Material* material{ pumpkin_->MakeMaterialUnique(material_index) };
 	materials_.push_back(new EditorMaterial{ material, old_name + "Copy" });
 	return (uint32_t)(materials_.size() - 1);
+}
+
+std::filesystem::path GetAppDataDirectory()
+{
+	auto path{ std::filesystem::temp_directory_path().parent_path().parent_path().parent_path()};
+	path /= "Roaming";
+	path /= "Pumpkin";
+
+	if (!std::filesystem::exists(path)) {
+		std::filesystem::create_directories(path);
+	}
+
+	return path;
+}
+
+void Editor::LoadEditorSettings()
+{
+	std::filesystem::path app_data_dir{ GetAppDataDirectory() };
+	auto settings_path{ app_data_dir / SETTINGS_FILE_NAME };
+
+	// Load settings if possible, otherwise just use default settings.
+	if (std::filesystem::exists(settings_path))
+	{
+		std::ifstream f(settings_path);
+		nlohmann::json j{ nlohmann::json::parse(f) };
+
+		std::string path_str{ j[jsonkey::SETTINGS_PROJECT_DIRECTORIES_PATH] };
+		editor_settings.project_directories_path = std::filesystem::path{ path_str };
+
+		f.close();
+	}
+	else
+	{
+		// Defaults.
+		editor_settings.project_directories_path = "C:\\";
+	}
+}
+
+void Editor::SaveEditorSettings()
+{
+	std::filesystem::path app_data_dir{ GetAppDataDirectory() };
+	auto settings_path{ app_data_dir / SETTINGS_FILE_NAME };
+
+	nlohmann::json j{};
+
+	j[jsonkey::SETTINGS_PROJECT_DIRECTORIES_PATH] = editor_settings.project_directories_path.string();
+
+	std::ofstream o{ settings_path };
+	std::string dump = j.dump();
+	o << std::setw(4) << j << '\n';
+	o.close();
+
 }
 
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)

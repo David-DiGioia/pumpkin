@@ -18,6 +18,7 @@ constexpr uint32_t NAME_BUFFER_SIZE{ 64 };
 const std::filesystem::path ASSETS_RELATIVE_PATH{ "assets" };
 const std::filesystem::path PROJECT_DATA_RELATIVE_PATH{ "pumpkin_project" };
 const std::filesystem::path PROJECT_DATA_JSON_NAME{ "pumpkin_project.json" };
+const std::filesystem::path SETTINGS_FILE_NAME{ "settings.json" };
 const std::filesystem::path VERTEX_DATA_FILE_NAME{ "vertex_data.bin" };
 const std::filesystem::path INDEX_DATA_FILE_NAME{ "index_data.bin" };
 
@@ -108,6 +109,11 @@ struct TransformInfo
 
 	// Save a copy of the selected nodes' original transforms, since we transform relative to them each frame, and may want to restore them.
 	std::unordered_map <EditorNode*, Transform> original_transforms{};
+};
+
+struct EditorSettings
+{
+	std::filesystem::path project_directories_path;
 };
 
 class Editor
@@ -227,6 +233,12 @@ private:
 	// Makes material into a single-user copy. Returns index to the newly created material.
 	uint32_t MakeMaterialUnique(int material_index);
 
+	// Load settings from AppData.
+	void LoadEditorSettings();
+
+	// Save settings to AppData.
+	void SaveEditorSettings();
+
 	friend class EditorGui;
 
 	pmk::Pumpkin* pumpkin_{};
@@ -246,4 +258,6 @@ private:
 	bool multi_select_enabled_{ false }; // Selecting a selectable does not deselect all others when enabled.
 
 	TransformInfo transform_info_{};
+
+	EditorSettings editor_settings{}; // Settings loaded from AppData.
 };
