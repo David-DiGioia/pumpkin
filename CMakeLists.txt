@@ -21,3 +21,10 @@ add_subdirectory(src)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Editor)
 
 add_subdirectory(lib)
+
+# Copy the default imgui layout file into the build directory.
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/default_imgui_layout.ini"
+    "${PROJECT_BINARY_DIR}/src/editor/default_imgui_layout.ini"
+    COPYONLY
+)

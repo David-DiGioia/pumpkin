@@ -19,6 +19,7 @@ const std::filesystem::path ASSETS_RELATIVE_PATH{ "assets" };
 const std::filesystem::path PROJECT_DATA_RELATIVE_PATH{ "pumpkin_project" };
 const std::filesystem::path PROJECT_DATA_JSON_NAME{ "pumpkin_project.json" };
 const std::filesystem::path SETTINGS_FILE_NAME{ "settings.json" };
+const std::filesystem::path SETTINGS_DEFAULT_LAYOUT_NAME{ "default_imgui_layout.ini" };
 const std::filesystem::path VERTEX_DATA_FILE_NAME{ "vertex_data.bin" };
 const std::filesystem::path INDEX_DATA_FILE_NAME{ "index_data.bin" };
 
@@ -238,6 +239,12 @@ private:
 
 	// Save settings to AppData.
 	void SaveEditorSettings();
+
+	// Get the path to the imgui default layout file. Read this file only.
+	std::filesystem::path GetDefaultLayoutPath() const;
+
+	// Get the path to a suitable location to save the imgui default layout file.
+	std::filesystem::path GetDefaultLayoutSaveLocation() const;
 
 	friend class EditorGui;
 

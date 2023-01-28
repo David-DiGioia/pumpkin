@@ -13,8 +13,6 @@
 #include "logger.h"
 #include "input.h"
 
-const std::string default_layout_path{ "default_imgui_layout.ini" };
-
 constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
 
 std::filesystem::path OpenFileDialog(const std::string& title, const std::filesystem::path& default_path, const std::vector<const char*>& filter_patterns, bool allow_multi_select)
@@ -51,7 +49,9 @@ void EditorGui::InitializeGui()
 	io.IniFilename = NULL; // Disable automatic saving of layout.
 	io.IniSavingRate = 0.1f; // Small number so we can save often.
 	io.WantCaptureKeyboard = true;
-	ImGui::LoadIniSettingsFromDisk(default_layout_path.c_str());
+
+	std::string default_path_str{ editor_->GetDefaultLayoutPath().string() };
+	ImGui::LoadIniSettingsFromDisk(default_path_str.c_str());
 }
 
 void EditorGui::DrawGui(ImTextureID* rendered_image_id)
@@ -95,14 +95,15 @@ const renderer::Extent& EditorGui::GetViewportWindowExtent() const
 	return viewport_window_extent_;
 }
 
-void MainMenuSaveDefaultLayout()
+void EditorGui::MainMenuSaveDefaultLayout()
 {
 	if (ImGui::MenuItem("Save as default layout"))
 	{
 		ImGuiIO& io = ImGui::GetIO();
 		if (io.WantSaveIniSettings)
 		{
-			ImGui::SaveIniSettingsToDisk(default_layout_path.c_str());
+			std::string default_path_str{ editor_->GetDefaultLayoutSaveLocation().string() };
+			ImGui::SaveIniSettingsToDisk(default_path_str.c_str());
 			logger::Print("Saved ImGui layout to disk.\n");
 			io.WantSaveIniSettings = false;
 		}

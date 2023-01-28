@@ -35,6 +35,8 @@ public:
 private:
 	void MainMenu();
 
+	void MainMenuSaveDefaultLayout();
+
 	// Recursive function for drawing tree view.
 	//
 	// root:             The node to draw, along with its subtree.

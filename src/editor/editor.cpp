@@ -740,8 +740,28 @@ void Editor::SaveEditorSettings()
 	std::string dump = j.dump();
 	o << std::setw(4) << j << '\n';
 	o.close();
-
 }
+
+std::filesystem::path Editor::GetDefaultLayoutPath() const
+{
+	std::filesystem::path app_data_dir{ GetAppDataDirectory() };
+	auto default_layout_path{ app_data_dir / SETTINGS_DEFAULT_LAYOUT_NAME };
+
+	// If we have a default layout saved in AppData, read that one. Otherwise use the factory default saved in the Pumpkin folder.
+	if (!std::filesystem::exists(default_layout_path)) {
+		default_layout_path = SETTINGS_DEFAULT_LAYOUT_NAME;
+	}
+
+	return default_layout_path;
+}
+
+std::filesystem::path Editor::GetDefaultLayoutSaveLocation() const
+{
+	// We return the AppData location no matter what since we never want to overwrite the factory default.
+	std::filesystem::path app_data_dir{ GetAppDataDirectory() };
+	return app_data_dir / SETTINGS_DEFAULT_LAYOUT_NAME;
+}
+
 
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)
 	: node{ pmk_node }
