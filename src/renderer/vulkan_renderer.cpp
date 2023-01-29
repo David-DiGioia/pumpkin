@@ -799,9 +799,7 @@ namespace renderer
 		InitializeSyncObjects();
 		InitializeCameraResources();
 		//InitializeRayTraceImages();
-#ifndef EDITOR_ENABLED
 		InitializeDepthImages();
-#endif
 	}
 
 	void VulkanRenderer::InitializeCommandBuffers()
@@ -910,6 +908,8 @@ namespace renderer
 
 	void VulkanRenderer::InitializeDepthImages()
 	{
+#ifndef EDITOR_ENABLED
+
 		for (FrameResources& resource : frame_resources_)
 		{
 			resource.depth_image = allocator_.CreateImageResource(
@@ -920,6 +920,7 @@ namespace renderer
 		}
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
+#endif
 	}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)

@@ -152,17 +152,18 @@ namespace renderer
 
 			AccelerationStructure* tlas;
 
+#ifndef EDITOR_ENABLED
 			// Only used when EDITOR_ENABLED is not defined, since ImguiBackend has ownership over these otherwise.
 			// This is not in the Swapchain class since we only need frame-in-flight number depth images.
 			ImageResource depth_image;
 			//ImageResource rt_image;
+#endif
 		};
 
-		// Even though these are only used when EDITOR_ENABLED is defined, we don't change the structs
-		// between the editor enabled/disabled projects or we get runtime errors maybe stemming from
-		// breaking the one definition rule?
 		friend class ImGuiBackend;
+#ifdef EDITOR_ENABLED
 		ImGuiBackend imgui_backend_{};
+#endif
 
 		Context context_{};
 		Swapchain swapchain_{};

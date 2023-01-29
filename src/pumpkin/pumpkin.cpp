@@ -9,7 +9,9 @@ namespace pmk
 	{
 		logger::Print("Pumpkin Engine Version %d.%d\n\n", config::PUMPKIN_VERSION_MAJOR, config::PUMPKIN_VERSION_MINOR);
 
-		glfwInit();
+		if (glfwInit() != GLFW_TRUE) {
+			logger::Error("Error initializing GLFW.");
+		}
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		window_ = glfwCreateWindow(width_, height_, "Pumpkin Engine", nullptr, nullptr);
 

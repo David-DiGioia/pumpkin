@@ -72,5 +72,5 @@ add_custom_target(
 add_dependencies(Renderer Shaders)
 
 if (EDITOR_ENABLED_OPTION)
-    target_compile_definitions(Renderer PRIVATE EDITOR_ENABLED=1)
+    target_compile_definitions(Renderer PUBLIC EDITOR_ENABLED=1)
 endif()

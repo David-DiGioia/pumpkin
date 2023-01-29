@@ -14,4 +14,6 @@ target_link_libraries(Pumpkin PUBLIC
     Common
 )
 
-target_compile_definitions(Pumpkin PRIVATE EDITOR_ENABLED=1)
+if (EDITOR_ENABLED_OPTION)
+    target_compile_definitions(Pumpkin PUBLIC EDITOR_ENABLED=1)
+endif()
