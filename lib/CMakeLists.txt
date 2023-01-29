@@ -23,9 +23,6 @@ set(RENDERER_INCLUDE_DIRS
 target_include_directories (Renderer SYSTEM PUBLIC
     "${RENDERER_INCLUDE_DIRS}"
 )
-target_include_directories (Renderer_B SYSTEM PUBLIC
-    "${RENDERER_INCLUDE_DIRS}"
-)
 
 set(SFML_LIBS_D
     "${CMAKE_CURRENT_SOURCE_DIR}/SFML-2.5.1/lib/sfml-audio-s-d.lib"
@@ -51,23 +48,14 @@ set(SFML_LIBS
 target_link_libraries(Pumpkin PUBLIC debug
     "${SFML_LIBS_D}"
 )
-target_link_libraries(Pumpkin_B PUBLIC debug
-    "${SFML_LIBS_D}"
-)
 
 # Link libraries only in release build.
 target_link_libraries(Pumpkin PUBLIC optimized
     "${SFML_LIBS_R}"
 )
-target_link_libraries(Pumpkin_B PUBLIC optimized
-    "${SFML_LIBS_R}"
-)
 
 # Link libraries in all builds.
 target_link_libraries(Pumpkin PUBLIC
-    "${SFML_LIBS}"
-)
-target_link_libraries(Pumpkin_B PUBLIC
     "${SFML_LIBS}"
 )
 
@@ -81,14 +69,8 @@ set(RENDERER_LINK_LIBS
 target_link_libraries(Renderer PUBLIC
     "${RENDERER_LINK_LIBS}"
 )
-target_link_libraries(Renderer_B PUBLIC
-    "${RENDERER_LINK_LIBS}"
-)
 
 target_compile_definitions(Renderer PUBLIC
-    "SFML_STATIC"
-)
-target_compile_definitions(Renderer_B PUBLIC
     "SFML_STATIC"
 )
 

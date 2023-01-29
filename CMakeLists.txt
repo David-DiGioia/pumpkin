@@ -1,5 +1,7 @@
 ﻿cmake_minimum_required (VERSION 3.8)
 
+option(EDITOR_ENABLED_OPTION "Enable the Pumpkin editor" ON)
+
 project ("Pumpkin" VERSION 1.0)
 
 # So we can use raytacing symbol even though it wasn't defined in this file.
