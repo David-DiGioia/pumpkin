@@ -2,6 +2,14 @@
 
 option(EDITOR_ENABLED_OPTION "Enable the Pumpkin editor" ON)
 
+# CMake doesn't have a negation operator, so make a new variable for editor disabled.
+if (EDITOR_ENABLED_OPTION)
+    set(EDITOR_DISABLED_OPTION FALSE)
+else()
+    set(EDITOR_DISABLED_OPTION TRUE)
+endif()
+
+# $<IF:$<BOOL:EDITOR_ENABLED_OPTION>
 project ("Pumpkin" VERSION 1.0)
 
 # So we can use raytacing symbol even though it wasn't defined in this file.
@@ -14,8 +22,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # These variables let us copy DLLs into the bin directories of the editor/bootstrap.
 set(Editor_BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/src/editor/Release")
 set(Editor_BINARY_DIR_D "${CMAKE_CURRENT_SOURCE_DIR}/build/src/editor/Debug")
-set(Bootstrap_BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/src/bootstrap/Release")
-set(Bootstrap_BINARY_DIR_D "${CMAKE_CURRENT_SOURCE_DIR}/build/src/bootstrap/Debug")
+if (EDITOR_DISABLED_OPTION)
+    set(Bootstrap_BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/src/bootstrap/Release")
+    set(Bootstrap_BINARY_DIR_D "${CMAKE_CURRENT_SOURCE_DIR}/build/src/bootstrap/Debug")
+endif()
 
 add_subdirectory(src)
 
