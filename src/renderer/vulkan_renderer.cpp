@@ -104,19 +104,19 @@ namespace renderer
 		InitializeRayTracing();
 
 #ifdef EDITOR_ENABLED
-		imgui_backend_.Initialize(this);
+		editor_backend_.Initialize(this);
 #endif
 	}
 
 #ifdef EDITOR_ENABLED
 	void VulkanRenderer::SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks)
 	{
-		imgui_backend_.SetImGuiCallbacks(imgui_callbacks);
+		editor_backend_.GetImGuiBackend().SetImGuiCallbacks(imgui_callbacks);
 	}
 
 	void VulkanRenderer::SetImGuiViewportSize(const Extent& extent)
 	{
-		imgui_backend_.SetViewportSize(extent);
+		editor_backend_.GetImGuiBackend().SetViewportSize(extent);
 	}
 #endif
 
@@ -126,7 +126,7 @@ namespace renderer
 		CheckResult(result, "Error waiting for device to idle.");
 
 #ifdef EDITOR_ENABLED
-		imgui_backend_.CleanUp();
+		editor_backend_.GetImGuiBackend().CleanUp();
 #endif
 
 		rt_context_.CleanUp();
@@ -226,7 +226,7 @@ namespace renderer
 		CheckResult(result, "Error resetting command buffer.");
 
 #ifdef EDITOR_ENABLED
-		imgui_backend_.DrawGui();
+		editor_backend_.GetImGuiBackend().DrawGui();
 #endif
 
 		// Drawing commands happen here.
@@ -323,14 +323,14 @@ namespace renderer
 
 		// If we're using the editor and the viewport is minimized, we skip rendering to the 3D viewport.
 #ifdef EDITOR_ENABLED
-		bool minimized{ !imgui_backend_.GetViewportVisible() };
+		bool minimized{ !editor_backend_.GetImGuiBackend().GetViewportVisible() };
 #else
 		constexpr bool minimized{ false };
 #endif
 
 #ifdef EDITOR_ENABLED
 		if (!minimized) {
-			imgui_backend_.TransitionImagesForRender(cmd);
+			editor_backend_.GetImGuiBackend().TransitionImagesForRender(cmd);
 		}
 #endif
 
@@ -365,18 +365,21 @@ namespace renderer
 		}
 
 #ifdef EDITOR_ENABLED
+		// Second render pass. Render editor-specific graphics in the viewport like outline of selected.
+		editor_backend_.EditorRenderPass(cmd);
+
 		if (!minimized) {
-			imgui_backend_.TransitionImagesForSampling(cmd);
+			editor_backend_.GetImGuiBackend().TransitionImagesForSampling(cmd);
 		}
 
-		// Second render pass. Render editor GUI if the editor is enabled.
+		// Third render pass. Render editor GUI.
 		Extent window_extent{ context_.GetWindowExtent() };
 		color_attachment_info.imageView = swapchain_.GetImageView(image_index);
 		rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
 		rendering_info.pDepthAttachment = nullptr;
 
 		vkCmdBeginRendering(cmd, &rendering_info);
-		imgui_backend_.RecordCommandBuffer(cmd);
+		editor_backend_.GetImGuiBackend().RecordCommandBuffer(cmd);
 		vkCmdEndRendering(cmd);
 #endif
 	}
@@ -412,7 +415,7 @@ namespace renderer
 
 		// If the editor viewport is minimized we don't set viewport/scissors.
 #ifdef EDITOR_ENABLED
-		bool minimized{ !imgui_backend_.GetViewportVisible() };
+		bool minimized{ !editor_backend_.GetImGuiBackend().GetViewportVisible() };
 #else
 		constexpr bool minimized{ false };
 #endif
@@ -471,7 +474,7 @@ namespace renderer
 	Extent VulkanRenderer::GetViewportExtent()
 	{
 #ifdef EDITOR_ENABLED
-		return imgui_backend_.GetViewportExtent();
+		return editor_backend_.GetImGuiBackend().GetViewportExtent();
 #else
 		return context_.GetWindowExtent();
 #endif
@@ -705,7 +708,7 @@ namespace renderer
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
 	{
 #ifdef EDITOR_ENABLED
-		return imgui_backend_.GetViewportImage().image_view;
+		return editor_backend_.GetImGuiBackend().GetViewportImage().image_view;
 #else
 		return swapchain_.GetImageView(image_index);
 #endif
@@ -714,7 +717,7 @@ namespace renderer
 	VkImageView VulkanRenderer::GetViewportDepthImageView()
 	{
 #ifdef EDITOR_ENABLED
-		return imgui_backend_.GetViewportDepthImage().image_view;
+		return editor_backend_.GetImGuiBackend().GetViewportDepthImage().image_view;
 #else
 		return GetCurrentFrame().depth_image.image_view;
 #endif

@@ -78,4 +78,18 @@ namespace renderer
 		Extent viewport_extent_{};
 		bool viewport_visible_{};
 	};
+
+	class EditorBackend
+	{
+	public:
+		void Initialize(VulkanRenderer* renderer);
+
+		ImGuiBackend& GetImGuiBackend();
+
+		void EditorRenderPass(VkCommandBuffer cmd);
+
+	private:
+		VulkanRenderer* renderer_{};
+		ImGuiBackend imgui_backend_{};
+	};
 }

@@ -1,4 +1,4 @@
-#include "imgui_backend.h"
+#include "editor_backend.h"
 
 #include <vector>
 #include "volk.h"
@@ -9,6 +9,7 @@
 
 #include "vulkan_renderer.h"
 #include "vulkan_util.h"
+#include "editor_backend.h"
 
 namespace renderer
 {
@@ -273,5 +274,71 @@ namespace renderer
 
 		// Clear font textures from cpu data.
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
+	}
+
+	void EditorBackend::Initialize(VulkanRenderer* renderer)
+	{
+		renderer_ = renderer;
+		imgui_backend_.Initialize(renderer);
+	}
+
+	ImGuiBackend& EditorBackend::GetImGuiBackend()
+	{
+		return imgui_backend_;
+	}
+
+	void EditorBackend::EditorRenderPass(VkCommandBuffer cmd)
+	{
+		Extent viewport_extents{ GetViewportExtent() };
+		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.2f, 1.0f };
+
+		VkRenderingAttachmentInfo color_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = GetViewportImageView(image_index),
+			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingInfo rendering_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = { viewport_extents.width, viewport_extents.height },
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr,
+		};
+
+		vkCmdBeginRendering(cmd, &rendering_info);
+
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, CAMERA_UBO_SET, 1, &GetCurrentFrame().camera_descriptor_set_resource.descriptor_set, 0, nullptr);
+
+		VkDeviceSize zero_offset{ 0 };
+
+		for (auto& render_obj : GetCurrentFrame().render_objects)
+		{
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj.ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
+
+			for (auto& geometry : meshes_[render_obj.mesh_idx]->geometries)
+			{
+				VkIndexType index_type{ std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
+				vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
+				vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, index_type);
+				vkCmdDrawIndexed(cmd, (uint32_t)geometry.indices.size(), 1, 0, 0, 0);
+			}
+		}
+
+		vkCmdEndRendering(cmd);
 	}
 }

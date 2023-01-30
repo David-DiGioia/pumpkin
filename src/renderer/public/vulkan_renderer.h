@@ -15,7 +15,7 @@
 #include "mesh.h"
 #include "vulkan_util.h"
 #include "descriptor_set.h"
-#include "imgui_backend.h"
+#include "editor_backend.h"
 #include "renderer_types.h"
 #include "ray_tracing.h"
 #include "render_object.h"
@@ -160,9 +160,10 @@ namespace renderer
 #endif
 		};
 
+		friend class EditorBackend;
 		friend class ImGuiBackend;
 #ifdef EDITOR_ENABLED
-		ImGuiBackend imgui_backend_{};
+		EditorBackend editor_backend_{};
 #endif
 
 		Context context_{};
