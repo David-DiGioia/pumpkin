@@ -6,6 +6,9 @@ layout (set = 0, binding = 0, r8ui) uniform uimage2D mask_texture;
 
 void main()
 {
+    out_color = vec4(1.0, 0.0, 0.0, 1.0);
+    return;
+
     ivec2 coord = ivec2(gl_FragCoord.xy);
 
     // We only draw outline for pixels outside the object.

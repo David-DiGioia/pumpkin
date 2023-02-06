@@ -116,7 +116,7 @@ namespace renderer
 
 	void VulkanRenderer::SetImGuiViewportSize(const Extent& extent)
 	{
-		editor_backend_.GetImGuiBackend().SetViewportSize(extent);
+		editor_backend_.SetViewportSize(extent);
 	}
 
 	void VulkanRenderer::AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color)

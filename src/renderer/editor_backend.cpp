@@ -91,6 +91,11 @@ namespace renderer
 		return GetCurrentFrame().render_image;
 	}
 
+	ImageResource& ImGuiBackend::GetViewportRayTraceImage()
+	{
+		return GetCurrentFrame().rt_image;
+	}
+
 	ImageResource& ImGuiBackend::GetViewportDepthImage()
 	{
 		return GetCurrentFrame().depth_image;
@@ -168,7 +173,7 @@ namespace renderer
 
 			resource.rt_image = renderer_->allocator_.CreateImageResource(
 				extent,
-				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				VK_FORMAT_B8G8R8A8_UNORM);
 			NameObject(renderer_->context_.device, resource.rt_image.image, "ImGui_Backend_Ray_Trace_Image_" + std::to_string(i));
@@ -345,17 +350,44 @@ namespace renderer
 		return imgui_backend_;
 	}
 
+	void EditorBackend::SetViewportSize(const Extent& extent)
+	{
+		imgui_backend_.SetViewportSize(extent);
+
+		DestroyFrameImages();
+		CreateFrameImages();
+	}
+
 	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd, uint32_t image_index)
 	{
+		// TODO: Instead of using RT image or render image to render final image into, then switching between
+		//       them via hardcoding, make a new image called final image that composits the RT image and rasterized
+		//       image. Also can be where we draw the outline too. Might want to remove the
+		//       ImGuiBackend::GetViewportRayTraceImage() function.
+
 		for (const OutlineObjects& outline_set : outline_objects_)
 		{
+			// Transition mask image to render to as color attachment.
+			PipelineBarrier(cmd, GetCurrentFrame().mask_image.image,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_IMAGE_ASPECT_COLOR_BIT);
+
 			MaskRenderPass(cmd, outline_set);
 
-			// No layout transition happens here since it's already a color attachment.
-			PipelineBarrier(cmd, renderer_->GetViewportImage(image_index),
-				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+			// Transition RT image to color attachment for writing to.
+			PipelineBarrier(cmd, imgui_backend_.GetViewportRayTraceImage().image,
+				VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_IMAGE_ASPECT_COLOR_BIT);
+
+			// Transition mask image to be sampled as texture.
+			PipelineBarrier(cmd, GetCurrentFrame().mask_image.image,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 				VK_IMAGE_ASPECT_COLOR_BIT);
 
 			OutlineRenderPass(cmd, outline_set, image_index);
@@ -381,19 +413,34 @@ namespace renderer
 
 	void EditorBackend::InitializeFrameResources()
 	{
+		// We don't create images yet since the viewport size isn't set until the imgui viewport is drawn.
+		for (FrameResources& resource : frame_resources_)
+		{
+			resource.outline_set_resource_ = renderer_->descriptor_allocator_.CreateDescriptorSetResource(outline_layout_resource_);
+			NameObject(context_->device, resource.outline_set_resource_.descriptor_set, "Outline_Descriptor_Set");
+		}
+	}
+
+	void EditorBackend::CreateFrameImages()
+	{
 		for (FrameResources& resource : frame_resources_)
 		{
 			resource.mask_image = renderer_->allocator_.CreateImageResource(
 				renderer_->GetViewportExtent(),
-				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				MASK_COLOR_FORMAT);
 			NameObject(context_->device, resource.mask_image.image, "Outline_Mask_Image");
-
-			resource.outline_set_resource_ = renderer_->descriptor_allocator_.CreateDescriptorSetResource(outline_layout_resource_);
-			NameObject(context_->device, resource.outline_set_resource_.descriptor_set, "Outline_Descriptor_Set");
+			NameObject(context_->device, resource.mask_image.image_view, "Outline_Mask_Image_View");
 
 			resource.outline_set_resource_.LinkImageToBinding(EDITOR_MASK_TEXTURE_BINDING, resource.mask_image, VK_IMAGE_LAYOUT_GENERAL);
+		}
+	}
+
+	void EditorBackend::DestroyFrameImages()
+	{
+		for (FrameResources& resource : frame_resources_) {
+			renderer_->allocator_.DestroyImageResource(&resource.mask_image);
 		}
 	}
 
@@ -459,7 +506,7 @@ namespace renderer
 
 		VkRenderingAttachmentInfo color_attachment_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.imageView = renderer_->GetViewportImageView(image_index),
+			.imageView = imgui_backend_.GetViewportRayTraceImage().image_view,
 			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 			.resolveMode = VK_RESOLVE_MODE_NONE,
 			.resolveImageView = VK_NULL_HANDLE,

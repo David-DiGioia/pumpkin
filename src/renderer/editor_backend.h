@@ -44,6 +44,8 @@ namespace renderer
 
 		ImageResource& GetViewportImage();
 
+		ImageResource& GetViewportRayTraceImage();
+
 		ImageResource& GetViewportDepthImage();
 
 		std::array<ImageResource, FRAMES_IN_FLIGHT> GetRayTraceImages();
@@ -91,6 +93,8 @@ namespace renderer
 
 		ImGuiBackend& GetImGuiBackend();
 
+		void SetViewportSize(const Extent& extent);
+
 		void EditorRenderPasses(VkCommandBuffer cmd, uint32_t image_index);
 
 		void AddOutlineSet(std::vector<RenderObject*>&& selection_set, const glm::vec3& color);
@@ -114,6 +118,10 @@ namespace renderer
 		FrameResources& GetCurrentFrame();
 
 		void InitializeFrameResources();
+
+		void CreateFrameImages();
+
+		void DestroyFrameImages();
 
 		void MaskRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set);
 
