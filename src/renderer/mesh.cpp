@@ -10,12 +10,25 @@
 
 namespace renderer
 {
-	std::vector<VkVertexInputAttributeDescription> Vertex::GetVertexAttributes()
+	std::vector<VkVertexInputAttributeDescription> Vertex::GetVertexAttributes(VertexAttributes attributes)
 	{
-		return {
-			VERTEX_ATTRIBUTE(0, position),
-			VERTEX_ATTRIBUTE(1, normal),
-		};
+		switch (attributes)
+		{
+		case VertexAttributes::POSITION_NORMAL:
+			return {
+				VERTEX_ATTRIBUTE(0, position),
+				VERTEX_ATTRIBUTE(1, normal),
+			};
+		case VertexAttributes::POSITION:
+			return {
+				VERTEX_ATTRIBUTE(0, position),
+			};
+		case VertexAttributes::NONE:
+			return {};
+		default:
+			logger::Error("Unrecognized vertex attributes.");
+			return {};
+		}
 	}
 
 	uint64_t HashVertex(const Vertex& v, uint32_t i)

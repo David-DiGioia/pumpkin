@@ -167,8 +167,7 @@ namespace renderer
 		VkImageLayout old_layout, VkImageLayout new_layout,
 		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
 		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-		VkImageAspectFlags image_aspect
-	)
+		VkImageAspectFlags image_aspect)
 	{
 		VkImageMemoryBarrier image_memory_barrier{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -342,8 +341,7 @@ namespace renderer
 		VkImageLayout old_layout, VkImageLayout new_layout,
 		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
 		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
-		VkImageAspectFlags image_aspect
-	)
+		VkImageAspectFlags image_aspect)
 	{
 		renderer::PipelineBarrier(cmd_, image, old_layout, new_layout, src_stage_mask, dst_stage_mask, src_access_mask, dst_access_mask, image_aspect);
 	}

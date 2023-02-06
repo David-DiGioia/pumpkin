@@ -76,7 +76,7 @@ namespace renderer
 		queued_blas_build_infos_.push_back(build_info);
 	}
 
-	AccelerationStructure* RayTracingContext::QueueTlas(const std::vector<RenderObject>& render_objects)
+	AccelerationStructure* RayTracingContext::QueueTlas(const std::vector<RenderObject*>& render_objects)
 	{
 		QueuedTlasBuildInfo build_info{
 			.tlas = new AccelerationStructure{}, // This TLAS will be populated later when build command is called.
@@ -84,8 +84,8 @@ namespace renderer
 		};
 
 		build_info.instances.reserve(render_objects.size());
-		for (const RenderObject& render_object : render_objects) {
-			build_info.instances.push_back(RenderObjectToVulkanInstance(render_object));
+		for (const RenderObject* render_object : render_objects) {
+			build_info.instances.push_back(RenderObjectToVulkanInstance(*render_object));
 		}
 
 		queued_tlas_build_infos_.push_back(build_info);

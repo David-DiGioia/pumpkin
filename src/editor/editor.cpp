@@ -3,6 +3,8 @@
 #include <string>
 #include <math.h>
 #include <fstream>
+#include <unordered_set>
+#include <algorithm>
 #include "imgui.h"
 #include "glm/gtx/vector_angle.hpp"
 #include "glm/gtx/quaternion.hpp"
@@ -10,6 +12,8 @@
 #include "gui.h"
 
 const std::string ROOT_NODE_NAME{ "__root__" };
+const glm::vec3 ACTIVE_SELECTION_COLOR{ 1.0f, 0.0f, 0.0f };
+const glm::vec3 SELECTION_COLOR{ 0.0f, 1.0f, 0.0f };
 
 namespace jsonkey
 {
@@ -150,6 +154,7 @@ void Editor::SelectNode(EditorNode* node)
 
 	selected_nodes_.insert(node);
 	active_selection_node_ = node;
+	UpdateSelectionOutlines();
 }
 
 void Editor::DeselectNode(EditorNode* node)
@@ -158,6 +163,7 @@ void Editor::DeselectNode(EditorNode* node)
 	if (active_selection_node_ == node) {
 		active_selection_node_ = nullptr;
 	}
+	UpdateSelectionOutlines();
 }
 
 bool Editor::IsNodeSelected(EditorNode* node)
@@ -693,7 +699,7 @@ uint32_t Editor::MakeMaterialUnique(int material_index)
 
 std::filesystem::path GetAppDataDirectory()
 {
-	auto path{ std::filesystem::temp_directory_path().parent_path().parent_path().parent_path()};
+	auto path{ std::filesystem::temp_directory_path().parent_path().parent_path().parent_path() };
 	path /= "Roaming";
 	path /= "Pumpkin";
 
@@ -716,14 +722,14 @@ void Editor::LoadEditorSettings()
 		nlohmann::json j{ nlohmann::json::parse(f) };
 
 		std::string path_str{ j[jsonkey::SETTINGS_PROJECT_DIRECTORIES_PATH] };
-		editor_settings.project_directories_path = std::filesystem::path{ path_str };
+		editor_settings_.project_directories_path = std::filesystem::path{ path_str };
 
 		f.close();
 	}
 	else
 	{
 		// Defaults.
-		editor_settings.project_directories_path = "C:\\";
+		editor_settings_.project_directories_path = "C:\\";
 	}
 }
 
@@ -734,7 +740,7 @@ void Editor::SaveEditorSettings()
 
 	nlohmann::json j{};
 
-	j[jsonkey::SETTINGS_PROJECT_DIRECTORIES_PATH] = editor_settings.project_directories_path.string();
+	j[jsonkey::SETTINGS_PROJECT_DIRECTORIES_PATH] = editor_settings_.project_directories_path.string();
 
 	std::ofstream o{ settings_path };
 	std::string dump = j.dump();
@@ -762,6 +768,24 @@ std::filesystem::path Editor::GetDefaultLayoutSaveLocation() const
 	return app_data_dir / SETTINGS_DEFAULT_LAYOUT_NAME;
 }
 
+void Editor::UpdateSelectionOutlines() const
+{
+	pumpkin_->ClearOutlineSets();
+
+	// First draw outline around all selected nodes.
+	std::vector<renderer::RenderObjectHandle> selection_set(selected_nodes_.size());
+	std::transform(selected_nodes_.begin(), selected_nodes_.end(), selection_set.begin(), [](EditorNode* node) {
+		return node->node->render_object;
+		});
+	pumpkin_->AddOutlineSet(selection_set, SELECTION_COLOR);
+
+	// Then draw different colored outline around actively selected node.
+	if (active_selection_node_)
+	{
+		std::vector<renderer::RenderObjectHandle> active_selection_set{ active_selection_node_->node->render_object };
+		pumpkin_->AddOutlineSet(active_selection_set, ACTIVE_SELECTION_COLOR);
+	}
+}
 
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)
 	: node{ pmk_node }

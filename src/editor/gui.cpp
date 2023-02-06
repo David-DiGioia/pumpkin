@@ -33,7 +33,7 @@ void EditorGui::Initialize(Editor* editor)
 {
 	editor_ = editor;
 	popup_name_buffer_ = new char[PROJECT_NAME_BUFFER_SIZE] {};
-	popup_current_directory_ = editor_->editor_settings.project_directories_path;
+	popup_current_directory_ = editor_->editor_settings_.project_directories_path;
 }
 
 void EditorGui::CleanUp()
@@ -348,7 +348,7 @@ void EditorGui::ProjectSelectionPopup()
 		if (!selection.empty())
 		{
 			popup_current_directory_ = selection;
-			editor_->editor_settings.project_directories_path = popup_current_directory_;
+			editor_->editor_settings_.project_directories_path = popup_current_directory_;
 			editor_->SaveEditorSettings();
 		}
 	}

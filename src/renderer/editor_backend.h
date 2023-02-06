@@ -2,11 +2,14 @@
 
 #include <functional>
 #include <array>
+#include <unordered_set>
 #include "volk.h"
 #include "imgui.h"
 
 #include "memory_allocator.h"
 #include "renderer_types.h"
+#include "render_object.h"
+#include "pipeline.h"
 
 namespace renderer
 {
@@ -82,14 +85,48 @@ namespace renderer
 	class EditorBackend
 	{
 	public:
-		void Initialize(VulkanRenderer* renderer);
+		void Initialize(Context* context, VulkanRenderer* renderer);
+
+		void InitializeDescriptorSetLayouts();
 
 		ImGuiBackend& GetImGuiBackend();
 
-		void EditorRenderPass(VkCommandBuffer cmd);
+		void EditorRenderPasses(VkCommandBuffer cmd, uint32_t image_index);
+
+		void AddOutlineSet(std::vector<RenderObject*>&& selection_set, const glm::vec3& color);
+
+		void ClearOutlineSets();
 
 	private:
+		struct OutlineObjects
+		{
+			std::vector<RenderObject*> render_objects;
+			glm::vec3 color;
+		};
+
+		struct FrameResources
+		{
+			ImageResource mask_image;
+			DescriptorSetResource outline_set_resource_{};
+		};
+
+
+		FrameResources& GetCurrentFrame();
+
+		void InitializeFrameResources();
+
+		void MaskRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set);
+
+		void OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set, uint32_t image_index);
+
+		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
+
+		Context* context_{};
 		VulkanRenderer* renderer_{};
 		ImGuiBackend imgui_backend_{};
+		GraphicsPipeline mask_pipeline_{};
+		GraphicsPipeline outline_pipeline_{};
+		std::vector<OutlineObjects> outline_objects_{}; // Editor render pass will draw outlines around these sets of render objects.
+		DescriptorSetLayoutResource outline_layout_resource_{};
 	};
 }

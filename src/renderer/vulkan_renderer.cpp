@@ -104,7 +104,7 @@ namespace renderer
 		InitializeRayTracing();
 
 #ifdef EDITOR_ENABLED
-		editor_backend_.Initialize(this);
+		editor_backend_.Initialize(&context_, this);
 #endif
 	}
 
@@ -117,6 +117,20 @@ namespace renderer
 	void VulkanRenderer::SetImGuiViewportSize(const Extent& extent)
 	{
 		editor_backend_.GetImGuiBackend().SetViewportSize(extent);
+	}
+
+	void VulkanRenderer::AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color)
+	{
+		std::vector<RenderObject*> transformed_selection_set(selection_set.size());
+		std::transform(selection_set.begin(), selection_set.end(), transformed_selection_set.begin(), [&](renderer::RenderObjectHandle handle) {
+			return GetCurrentFrame().render_objects[handle];
+			});
+		editor_backend_.AddOutlineSet(std::move(transformed_selection_set), color);
+	}
+
+	void VulkanRenderer::ClearOutlineSets()
+	{
+		editor_backend_.ClearOutlineSets();
 	}
 #endif
 
@@ -137,8 +151,10 @@ namespace renderer
 			vkDestroySemaphore(context_.device, frame.image_acquired_semaphore, nullptr);
 			vkDestroySemaphore(context_.device, frame.render_done_semaphore, nullptr);
 
-			for (RenderObject& render_object : frame.render_objects) {
-				allocator_.DestroyBufferResource(&render_object.ubo_buffer_resource);
+			for (RenderObject* render_object : frame.render_objects)
+			{
+				allocator_.DestroyBufferResource(&render_object->ubo_buffer_resource);
+				delete render_object;
 			}
 			allocator_.DestroyBufferResource(&frame.camera_ubo_buffer);
 
@@ -192,7 +208,14 @@ namespace renderer
 			render_object_layout_resource_,
 		};
 
-		graphics_pipeline_.Initialize(&context_, &swapchain_, set_layouts, GetDepthImageFormat());
+		graphics_pipeline_.Initialize(
+			&context_,
+			set_layouts,
+			swapchain_.GetImageFormat(),
+			GetDepthImageFormat(),
+			VertexAttributes::POSITION_NORMAL,
+			SPIRV_PREFIX / "default.vert.spv",
+			SPIRV_PREFIX / "default.frag.spv");
 	}
 
 	void VulkanRenderer::InitializeRayTracing()
@@ -347,12 +370,12 @@ namespace renderer
 
 			VkDeviceSize zero_offset{ 0 };
 
-			for (auto& render_obj : GetCurrentFrame().render_objects)
+			for (RenderObject* render_obj : GetCurrentFrame().render_objects)
 			{
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj.ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj->ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
 
-				for (auto& geometry : meshes_[render_obj.mesh_idx]->geometries)
+				for (auto& geometry : meshes_[render_obj->mesh_idx]->geometries)
 				{
 					VkIndexType index_type{ std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
 					vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
@@ -365,14 +388,14 @@ namespace renderer
 		}
 
 #ifdef EDITOR_ENABLED
-		// Second render pass. Render editor-specific graphics in the viewport like outline of selected.
-		editor_backend_.EditorRenderPass(cmd);
+		// Multiple editor render passes. Render editor-specific graphics in the viewport like outline of selected.
+		editor_backend_.EditorRenderPasses(cmd, image_index);
 
 		if (!minimized) {
 			editor_backend_.GetImGuiBackend().TransitionImagesForSampling(cmd);
 		}
 
-		// Third render pass. Render editor GUI.
+		// Last render pass. Render editor GUI.
 		Extent window_extent{ context_.GetWindowExtent() };
 		color_attachment_info.imageView = swapchain_.GetImageView(image_index);
 		rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
@@ -493,11 +516,11 @@ namespace renderer
 		}
 
 		// Save render objects.
-		for (const RenderObject& ro : GetCurrentFrame().render_objects)
+		for (RenderObject* ro : GetCurrentFrame().render_objects)
 		{
 			j[jsonkey::RENDER_OBJECTS] += {
-				{ jsonkey::MESH_INDEX, ro.mesh_idx },
-				{ jsonkey::MATERIAL_INDICES, ro.material_indices },
+				{ jsonkey::MESH_INDEX, ro->mesh_idx },
+				{ jsonkey::MATERIAL_INDICES, ro->material_indices },
 			};
 		}
 
@@ -650,14 +673,14 @@ namespace renderer
 
 	Mesh* VulkanRenderer::GetMesh(RenderObjectHandle render_object_handle)
 	{
-		RenderObject& render_object{ GetCurrentFrame().render_objects[render_object_handle] };
-		return meshes_[render_object.mesh_idx];
+		RenderObject* render_object{ GetCurrentFrame().render_objects[render_object_handle] };
+		return meshes_[render_object->mesh_idx];
 	}
 
 	const std::vector<int>& VulkanRenderer::GetMaterialIndices(RenderObjectHandle render_object_handle)
 	{
-		RenderObject& render_object{ GetCurrentFrame().render_objects[render_object_handle] };
-		return render_object.material_indices;
+		RenderObject* render_object{ GetCurrentFrame().render_objects[render_object_handle] };
+		return render_object->material_indices;
 	}
 
 	uint32_t VulkanRenderer::GetCurrentFrameNumber() const
@@ -678,8 +701,8 @@ namespace renderer
 	std::vector<const std::vector<int>*> VulkanRenderer::GetMaterialIndices()
 	{
 		std::vector<const std::vector<int>*> material_indices{};
-		for (const RenderObject& ro : GetCurrentFrame().render_objects) {
-			material_indices.push_back(&ro.material_indices);
+		for (const RenderObject* ro : GetCurrentFrame().render_objects) {
+			material_indices.push_back(&ro->material_indices);
 		}
 		return material_indices;
 	}
@@ -687,7 +710,7 @@ namespace renderer
 	void VulkanRenderer::SetMaterialIndex(RenderObjectHandle render_object_handle, uint32_t geometry_index, int material_index)
 	{
 		for (FrameResources& frame_resource : frame_resources_) {
-			frame_resource.render_objects[render_object_handle].material_indices[geometry_index] = material_index;
+			frame_resource.render_objects[render_object_handle]->material_indices[geometry_index] = material_index;
 		}
 		UpdateMaterials();
 	}
@@ -714,6 +737,15 @@ namespace renderer
 #endif
 	}
 
+	VkImage VulkanRenderer::GetViewportImage(uint32_t image_index)
+	{
+#ifdef EDITOR_ENABLED
+		return editor_backend_.GetImGuiBackend().GetViewportImage().image;
+#else
+		return swapchain_.GetImage(image_index);
+#endif
+	}
+
 	VkImageView VulkanRenderer::GetViewportDepthImageView()
 	{
 #ifdef EDITOR_ENABLED
@@ -727,7 +759,7 @@ namespace renderer
 	{
 		for (auto& frame : frame_resources_)
 		{
-			RenderObject render_object{
+			RenderObject* render_object{ new RenderObject{
 				.mesh_idx = mesh_index,
 				.material_indices = material_indices,
 				.uniform_buffer = {
@@ -736,10 +768,10 @@ namespace renderer
 				.ubo_buffer_resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
 					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
 				.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_),
-			};
-			NameObject(context_.device, render_object.ubo_buffer_resource.buffer, std::string{ "Render_Object_Buffer_" + std::to_string(render_object.mesh_idx) });
+			} };
+			NameObject(context_.device, render_object->ubo_buffer_resource.buffer, std::string{ "Render_Object_Buffer_" + std::to_string(render_object->mesh_idx) });
 
-			render_object.ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object.ubo_buffer_resource);
+			render_object->ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object->ubo_buffer_resource);
 			frame.render_objects.push_back(render_object);
 		}
 
@@ -748,13 +780,13 @@ namespace renderer
 
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
 	{
-		RenderObject& render_object{ GetCurrentFrame().render_objects[render_object_handle] };
-		render_object.uniform_buffer.transform = transform;
+		RenderObject* render_object{ GetCurrentFrame().render_objects[render_object_handle] };
+		render_object->uniform_buffer.transform = transform;
 
 		void* data{};
-		vkMapMemory(context_.device, *render_object.ubo_buffer_resource.memory, render_object.ubo_buffer_resource.offset, render_object.ubo_buffer_resource.size, 0, &data);
-		memcpy(data, &render_object.uniform_buffer, sizeof(RenderObject::UniformBuffer));
-		vkUnmapMemory(context_.device, *render_object.ubo_buffer_resource.memory);
+		vkMapMemory(context_.device, *render_object->ubo_buffer_resource.memory, render_object->ubo_buffer_resource.offset, render_object->ubo_buffer_resource.size, 0, &data);
+		memcpy(data, &render_object->uniform_buffer, sizeof(RenderObject::UniformBuffer));
+		vkUnmapMemory(context_.device, *render_object->ubo_buffer_resource.memory);
 	}
 
 	void VulkanRenderer::SetCameraMatrix(const glm::mat4& view, const glm::mat4& projection)
@@ -975,9 +1007,9 @@ namespace renderer
 				out_material_names->push_back(tinygltf_material.name);
 			}
 
-			materials_.push_back(new Material{default_material});
+			materials_.push_back(new Material{ default_material });
 		}
-		
+
 		// If gltf file doesn't include materials, just create a default material for it.
 		if (model.materials.empty())
 		{

@@ -52,6 +52,10 @@ namespace pmk
 		// The out_material_indices writes a list of material indices used by the newly loaded geometries, to update user count for materials.
 		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, std::vector<int>* out_material_indices);
 
+		void ClearOutlineSets();
+
+		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color);
+
 	private:
 		// General work the host needs to do each frame.
 		void HostWork();

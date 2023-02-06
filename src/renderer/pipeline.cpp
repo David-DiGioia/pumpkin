@@ -1,7 +1,6 @@
 #include "pipeline.h"
 
 #include <vector>
-#include <filesystem>
 #include "volk.h"
 
 #include "logger.h"
@@ -11,14 +10,21 @@
 
 namespace renderer
 {
-	void GraphicsPipeline::Initialize(Context* context, Swapchain* swapchain, const std::vector<DescriptorSetLayoutResource>& set_layouts, VkFormat depth_format)
+	void GraphicsPipeline::Initialize(
+		Context* context,
+		const std::vector<DescriptorSetLayoutResource>& set_layouts,
+		VkFormat color_attachment_format,
+		VkFormat depth_format,
+		VertexAttributes attributes,
+		const std::filesystem::path& vertex_shader_path,
+		const std::filesystem::path& fragment_shader_path)
 	{
 		context_ = context;
 
 		// Shaders ----------------------------------------------------------------------------
 
-		VkShaderModule vertex_shader{ LoadShaderModule(context_->device, SPIRV_PREFIX / "default.vert.spv") };
-		VkShaderModule fragment_shader{ LoadShaderModule(context_->device, SPIRV_PREFIX / "default.frag.spv") };
+		VkShaderModule vertex_shader{ LoadShaderModule(context_->device, vertex_shader_path) };
+		VkShaderModule fragment_shader{ LoadShaderModule(context_->device, fragment_shader_path) };
 
 		VkPipelineShaderStageCreateInfo vertex_stage{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -48,15 +54,15 @@ namespace renderer
 			.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
 		};
 
-		std::vector<VkVertexInputAttributeDescription> attributes{ Vertex::GetVertexAttributes() };
+		std::vector<VkVertexInputAttributeDescription> vertex_attributes{ Vertex::GetVertexAttributes(attributes) };
 
 		VkPipelineVertexInputStateCreateInfo vertex_input_info{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 			.flags = 0, // Reserved.
 			.vertexBindingDescriptionCount = 1,
 			.pVertexBindingDescriptions = &vertex_input_binding,
-			.vertexAttributeDescriptionCount = (uint32_t)attributes.size(),
-			.pVertexAttributeDescriptions = attributes.data(),
+			.vertexAttributeDescriptionCount = (uint32_t)vertex_attributes.size(),
+			.pVertexAttributeDescriptions = vertex_attributes.data(),
 		};
 
 		VkPipelineInputAssemblyStateCreateInfo input_assembly_info{
@@ -110,8 +116,8 @@ namespace renderer
 		VkPipelineDepthStencilStateCreateInfo depth_stencil_info{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
 			.flags = 0, // Only extension flags.
-			.depthTestEnable = VK_TRUE,
-			.depthWriteEnable = VK_TRUE,
+			.depthTestEnable = depth_format == VK_FORMAT_UNDEFINED ? VK_FALSE : VK_TRUE,
+			.depthWriteEnable = depth_format == VK_FORMAT_UNDEFINED ? VK_FALSE : VK_TRUE,
 			.depthCompareOp = VK_COMPARE_OP_LESS,
 			.depthBoundsTestEnable = VK_FALSE,
 			.stencilTestEnable = VK_FALSE,
@@ -122,7 +128,7 @@ namespace renderer
 		};
 
 		VkPipelineColorBlendAttachmentState color_blend_attachment{
-			.blendEnable = VK_TRUE,
+			.blendEnable = VK_FALSE,
 			.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
 			.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
 			.colorBlendOp = VK_BLEND_OP_ADD,
@@ -157,14 +163,12 @@ namespace renderer
 
 		CreatePipelineLayout(set_layouts);
 
-		VkFormat swapchain_image_format = swapchain->GetImageFormat();
-
 		// Dynamic rendering.
 		VkPipelineRenderingCreateInfo rendering_info{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
 			.viewMask = 0,
 			.colorAttachmentCount = 1,
-			.pColorAttachmentFormats = &swapchain_image_format,
+			.pColorAttachmentFormats = &color_attachment_format,
 			.depthAttachmentFormat = depth_format,
 			.stencilAttachmentFormat = {}, // TODO.
 		};

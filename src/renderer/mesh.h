@@ -23,7 +23,7 @@ namespace renderer
 		glm::vec3 position;
 		glm::vec3 normal;
 
-		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
+		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes(VertexAttributes attributes);
 	};
 
 	struct Material

@@ -116,7 +116,7 @@ namespace renderer
 
 		// Returns empty TLAS without build data that will be populated after CmdBuildQueuedTlases(...) is called.
 		// The build data will not be present in the TLAS buffer until after CmdBuildQueuedTlases(...) is called and the queue is submitted.
-		AccelerationStructure* QueueTlas(const std::vector<RenderObject>& render_objects);
+		AccelerationStructure* QueueTlas(const std::vector<RenderObject*>& render_objects);
 
 		// Creates the BLAS objects populating the empty BLASes saved from QueueBlas(...) and writes the build
 		// commands into the command buffer.

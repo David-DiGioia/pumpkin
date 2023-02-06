@@ -27,6 +27,13 @@ namespace renderer
 
 	// Types.
 
+	enum class VertexAttributes
+	{
+		POSITION_NORMAL,
+		POSITION,
+		NONE,
+	};
+
 	struct Extent
 	{
 		uint32_t width;

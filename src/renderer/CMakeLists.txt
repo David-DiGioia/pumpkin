@@ -61,6 +61,10 @@ COMPILE_SHADER("default.rgen")
 COMPILE_SHADER("default.rmiss")
 COMPILE_SHADER("shadow.rmiss")
 COMPILE_SHADER("default.rchit")
+COMPILE_SHADER("mask.vert")
+COMPILE_SHADER("mask.frag")
+COMPILE_SHADER("fullscreen_triangle.vert")
+COMPILE_SHADER("outline.frag")
 HEADER_SHADER("common.glsl")
 
 add_custom_target(

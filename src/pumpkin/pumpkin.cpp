@@ -131,6 +131,16 @@ namespace pmk
 		renderer_.LoadRenderData(j, vertex_path, index_path, out_material_indices);
 	}
 
+	void Pumpkin::ClearOutlineSets()
+	{
+		renderer_.ClearOutlineSets();
+	}
+
+	void Pumpkin::AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color)
+	{
+		renderer_.AddOutlineSet(selection_set, color);
+	}
+
 	void Pumpkin::UpdateDeltaTime()
 	{
 		auto current_time{ std::chrono::steady_clock::now() };

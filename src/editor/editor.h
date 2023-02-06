@@ -246,6 +246,8 @@ private:
 	// Get the path to a suitable location to save the imgui default layout file.
 	std::filesystem::path GetDefaultLayoutSaveLocation() const;
 
+	void UpdateSelectionOutlines() const;
+
 	friend class EditorGui;
 
 	pmk::Pumpkin* pumpkin_{};
@@ -266,5 +268,5 @@ private:
 
 	TransformInfo transform_info_{};
 
-	EditorSettings editor_settings{}; // Settings loaded from AppData.
+	EditorSettings editor_settings_{}; // Settings loaded from AppData.
 };

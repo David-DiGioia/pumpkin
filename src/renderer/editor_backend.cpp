@@ -13,6 +13,15 @@
 
 namespace renderer
 {
+	constexpr uint32_t EDITOR_CAMERA_UBO_SET{ 0 };
+	constexpr uint32_t EDITOR_RENDER_OBJECT_UBO_SET{ 1 };
+
+	constexpr uint32_t EDITOR_OUTLINE_SET{ 0 };
+	constexpr uint32_t EDITOR_MASK_TEXTURE_BINDING{ 0 };
+	constexpr VkFormat MASK_COLOR_FORMAT{ VK_FORMAT_R8_UINT };
+
+	// ImGui backend ------------------------------------------------------------------------------------------------
+
 	void ImGuiBackend::Initialize(VulkanRenderer* renderer)
 	{
 		renderer_ = renderer;
@@ -276,10 +285,59 @@ namespace renderer
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
 	}
 
-	void EditorBackend::Initialize(VulkanRenderer* renderer)
+	// Editor backend ------------------------------------------------------------------------------------------------
+
+	void EditorBackend::Initialize(Context* context, VulkanRenderer* renderer)
 	{
+		context_ = context;
 		renderer_ = renderer;
 		imgui_backend_.Initialize(renderer);
+		InitializeDescriptorSetLayouts();
+
+		std::vector<DescriptorSetLayoutResource> mask_set_layouts{
+			renderer_->camera_layout_resource_,
+			renderer_->render_object_layout_resource_,
+		};
+
+		mask_pipeline_.Initialize(
+			context,
+			mask_set_layouts,
+			MASK_COLOR_FORMAT,
+			VK_FORMAT_UNDEFINED,
+			VertexAttributes::POSITION,
+			SPIRV_PREFIX / "mask.vert.spv",
+			SPIRV_PREFIX / "mask.frag.spv");
+
+		std::vector<DescriptorSetLayoutResource> outline_set_layouts{ outline_layout_resource_ };
+
+		outline_pipeline_.Initialize(
+			context,
+			outline_set_layouts,
+			renderer_->swapchain_.GetImageFormat(),
+			VK_FORMAT_UNDEFINED,
+			VertexAttributes::NONE,
+			SPIRV_PREFIX / "fullscreen_triangle.vert.spv",
+			SPIRV_PREFIX / "outline.frag.spv");
+
+		InitializeFrameResources();
+	}
+
+	void EditorBackend::InitializeDescriptorSetLayouts()
+	{
+		VkDescriptorSetLayoutBinding mask_binding{
+			.binding = EDITOR_MASK_TEXTURE_BINDING ,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> outline_bindings{
+			mask_binding,
+		};
+
+		outline_layout_resource_ = renderer_->descriptor_allocator_.CreateDescriptorSetLayoutResource(outline_bindings);
+		NameObject(context_->device, outline_layout_resource_.layout, "Outline_Layout_Resource");
 	}
 
 	ImGuiBackend& EditorBackend::GetImGuiBackend()
@@ -287,14 +345,66 @@ namespace renderer
 		return imgui_backend_;
 	}
 
-	void EditorBackend::EditorRenderPass(VkCommandBuffer cmd)
+	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd, uint32_t image_index)
 	{
-		Extent viewport_extents{ GetViewportExtent() };
-		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.2f, 1.0f };
+		for (const OutlineObjects& outline_set : outline_objects_)
+		{
+			MaskRenderPass(cmd, outline_set);
+
+			// No layout transition happens here since it's already a color attachment.
+			PipelineBarrier(cmd, renderer_->GetViewportImage(image_index),
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+				VK_IMAGE_ASPECT_COLOR_BIT);
+
+			OutlineRenderPass(cmd, outline_set, image_index);
+		}
+	}
+
+	void EditorBackend::AddOutlineSet(std::vector<RenderObject*>&& selection_set, const glm::vec3& color)
+	{
+		OutlineObjects& outline_set{ outline_objects_.emplace_back() };
+		outline_set.render_objects = std::move(selection_set);
+		outline_set.color = color;
+	}
+
+	void EditorBackend::ClearOutlineSets()
+	{
+		outline_objects_.clear();
+	}
+
+	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
+	{
+		return frame_resources_[renderer_->current_frame_];
+	}
+
+	void EditorBackend::InitializeFrameResources()
+	{
+		for (FrameResources& resource : frame_resources_)
+		{
+			resource.mask_image = renderer_->allocator_.CreateImageResource(
+				renderer_->GetViewportExtent(),
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				MASK_COLOR_FORMAT);
+			NameObject(context_->device, resource.mask_image.image, "Outline_Mask_Image");
+
+			resource.outline_set_resource_ = renderer_->descriptor_allocator_.CreateDescriptorSetResource(outline_layout_resource_);
+			NameObject(context_->device, resource.outline_set_resource_.descriptor_set, "Outline_Descriptor_Set");
+
+			resource.outline_set_resource_.LinkImageToBinding(EDITOR_MASK_TEXTURE_BINDING, resource.mask_image, VK_IMAGE_LAYOUT_GENERAL);
+		}
+	}
+
+	void EditorBackend::MaskRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set)
+	{
+		Extent viewport_extents{ renderer_->GetViewportExtent() };
+		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.0f, 1.0f };
 
 		VkRenderingAttachmentInfo color_attachment_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.imageView = GetViewportImageView(image_index),
+			.imageView = GetCurrentFrame().mask_image.image_view,
 			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 			.resolveMode = VK_RESOLVE_MODE_NONE,
 			.resolveImageView = VK_NULL_HANDLE,
@@ -321,16 +431,17 @@ namespace renderer
 
 		vkCmdBeginRendering(cmd, &rendering_info);
 
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, CAMERA_UBO_SET, 1, &GetCurrentFrame().camera_descriptor_set_resource.descriptor_set, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mask_pipeline_.layout, EDITOR_CAMERA_UBO_SET, 1, &renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set, 0, nullptr);
 
 		VkDeviceSize zero_offset{ 0 };
 
-		for (auto& render_obj : GetCurrentFrame().render_objects)
-		{
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj.ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mask_pipeline_.pipeline);
 
-			for (auto& geometry : meshes_[render_obj.mesh_idx]->geometries)
+		for (RenderObject* render_object : outline_set.render_objects)
+		{
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mask_pipeline_.layout, EDITOR_RENDER_OBJECT_UBO_SET, 1, &render_object->ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
+
+			for (auto& geometry : renderer_->meshes_[render_object->mesh_idx]->geometries)
 			{
 				VkIndexType index_type{ std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
 				vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
@@ -338,6 +449,49 @@ namespace renderer
 				vkCmdDrawIndexed(cmd, (uint32_t)geometry.indices.size(), 1, 0, 0, 0);
 			}
 		}
+		vkCmdEndRendering(cmd);
+	}
+
+	void EditorBackend::OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set, uint32_t image_index)
+	{
+		Extent viewport_extents{ renderer_->GetViewportExtent() };
+		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.0f, 1.0f };
+
+		VkRenderingAttachmentInfo color_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = renderer_->GetViewportImageView(image_index),
+			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingInfo rendering_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = { viewport_extents.width, viewport_extents.height },
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr,
+		};
+
+		vkCmdBeginRendering(cmd, &rendering_info);
+
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, outline_pipeline_.layout, EDITOR_OUTLINE_SET, 1, &GetCurrentFrame().outline_set_resource_.descriptor_set, 0, nullptr);
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, outline_pipeline_.pipeline);
+
+		// Fullscreen triangle.
+		vkCmdDraw(cmd, 3, 1, 0, 0);
 
 		vkCmdEndRendering(cmd);
 	}

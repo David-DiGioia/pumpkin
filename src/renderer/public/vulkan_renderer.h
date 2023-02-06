@@ -85,6 +85,10 @@ namespace renderer
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
 
 		void SetImGuiViewportSize(const Extent& extent);
+
+		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color);
+
+		void ClearOutlineSets();
 #endif
 
 	private:
@@ -105,6 +109,8 @@ namespace renderer
 		const FrameResources& GetCurrentFrame() const;
 
 		VkImageView GetViewportImageView(uint32_t image_index);
+
+		VkImage GetViewportImage(uint32_t image_index);
 
 		VkImageView GetViewportDepthImageView();
 
@@ -136,7 +142,7 @@ namespace renderer
 
 		struct FrameResources
 		{
-			std::vector<RenderObject> render_objects;
+			std::vector<RenderObject*> render_objects;
 
 			struct RasterizationCameraUBO
 			{
