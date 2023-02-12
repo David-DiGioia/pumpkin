@@ -76,7 +76,7 @@ namespace renderer
 			{
 				DestroyFrameResources();
 				CreateFrameResources(extent);
-				renderer_->SetRayTraceImages(GetRayTraceImages());
+				renderer_->UpdateImages();
 			}
 		}
 	}
@@ -88,17 +88,31 @@ namespace renderer
 
 	ImageResource& ImGuiBackend::GetViewportImage()
 	{
-		return GetCurrentFrame().render_image;
+		return GetCurrentFrame().final_image;
 	}
 
-	ImageResource& ImGuiBackend::GetViewportRayTraceImage()
+	std::array<ImageResource, FRAMES_IN_FLIGHT> ImGuiBackend::GetRasterImages()
 	{
-		return GetCurrentFrame().rt_image;
+		std::array<ImageResource, FRAMES_IN_FLIGHT> raster_images{};
+
+		uint32_t i{ 0 };
+		for (FrameResources& resource : frame_resources_)
+		{
+			raster_images[i] = resource.raster_image;
+			++i;
+		}
+
+		return raster_images;
 	}
 
 	ImageResource& ImGuiBackend::GetViewportDepthImage()
 	{
 		return GetCurrentFrame().depth_image;
+	}
+
+	ImageResource& ImGuiBackend::GetRasterImage()
+	{
+		return GetCurrentFrame().raster_image;
 	}
 
 	std::array<ImageResource, FRAMES_IN_FLIGHT> ImGuiBackend::GetRayTraceImages()
@@ -119,7 +133,7 @@ namespace renderer
 	{
 		// If we're using the editor's image we need to transition it to be a color attachment.
 		PipelineBarrier(
-			cmd, GetCurrentFrame().render_image.image,
+			cmd, GetCurrentFrame().raster_image.image,
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
@@ -130,23 +144,32 @@ namespace renderer
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			0, VK_ACCESS_SHADER_WRITE_BIT);
+
+		PipelineBarrier(
+			cmd, GetCurrentFrame().final_image.image,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 	}
 
-	void ImGuiBackend::TransitionImagesForSampling(VkCommandBuffer cmd)
+	void ImGuiBackend::TransitionColorPassesForSampling(VkCommandBuffer cmd)
 	{
 		// Pipeline barrier to make sure previous rendering finishes before fragment shader.
-		// Also transitions image layout to be read from shader.
+		// Also transitions image layout to be read from composite shader.
 		PipelineBarrier(
-			cmd, GetCurrentFrame().render_image.image,
+			cmd, GetCurrentFrame().raster_image.image,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+	}
+
+	void ImGuiBackend::TransitionFinalImageForSampling(VkCommandBuffer cmd)
+	{
+		PipelineBarrier(
+			cmd, GetCurrentFrame().final_image.image,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
-
-		PipelineBarrier(
-			cmd, GetCurrentFrame().rt_image.image,
-			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 	}
 
 	bool ImGuiBackend::GetViewportVisible() const
@@ -164,19 +187,26 @@ namespace renderer
 		uint32_t i{ 0 };
 		for (FrameResources& resource : frame_resources_)
 		{
-			resource.render_image = renderer_->allocator_.CreateImageResource(
+			resource.raster_image = renderer_->allocator_.CreateImageResource(
 				extent,
-				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // Color attachment to render into, then ImGui samples from it.
+				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // Color attachment to render into, then ImGui samples from it.
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				renderer_->swapchain_.GetImageFormat());
-			NameObject(renderer_->context_.device, resource.render_image.image, "ImGui_Backend_Render_Image_" + std::to_string(i));
+				VK_FORMAT_R8G8B8A8_UNORM);
+			NameObject(renderer_->context_.device, resource.raster_image.image, "ImGui_Backend_Raster_Image_" + std::to_string(i));
 
 			resource.rt_image = renderer_->allocator_.CreateImageResource(
 				extent,
-				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				VK_FORMAT_B8G8R8A8_UNORM);
+				VK_FORMAT_R8G8B8A8_UNORM);
 			NameObject(renderer_->context_.device, resource.rt_image.image, "ImGui_Backend_Ray_Trace_Image_" + std::to_string(i));
+
+			resource.final_image = renderer_->allocator_.CreateImageResource(
+				extent,
+				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				renderer_->swapchain_.GetImageFormat());
+			NameObject(renderer_->context_.device, resource.final_image.image, "ImGui_Backend_Final_Image_" + std::to_string(i));
 
 			resource.depth_image = renderer_->allocator_.CreateImageResource(
 				extent,
@@ -187,8 +217,8 @@ namespace renderer
 			NameObject(renderer_->context_.device, resource.depth_image.image, "ImGui_Backend_Depth_Image_" + std::to_string(i));
 
 			resource.render_target_descriptor = ImGui_ImplVulkan_AddTexture(
-				resource.rt_image.sampler,
-				resource.rt_image.image_view,
+				resource.raster_image.sampler,
+				resource.raster_image.image_view,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			NameObject(renderer_->context_.device, resource.render_target_descriptor, "ImGui_Backend_Render_Target_Descriptor_" + std::to_string(i));
 
@@ -213,7 +243,7 @@ namespace renderer
 
 		for (FrameResources& resource : frame_resources_)
 		{
-			renderer_->allocator_.DestroyImageResource(&resource.render_image);
+			renderer_->allocator_.DestroyImageResource(&resource.raster_image);
 			renderer_->allocator_.DestroyImageResource(&resource.rt_image);
 			renderer_->allocator_.DestroyImageResource(&resource.depth_image);
 
@@ -350,6 +380,11 @@ namespace renderer
 		return imgui_backend_;
 	}
 
+	const ImGuiBackend& EditorBackend::GetImGuiBackend() const
+	{
+		return imgui_backend_;
+	}
+
 	void EditorBackend::SetViewportSize(const Extent& extent)
 	{
 		imgui_backend_.SetViewportSize(extent);
@@ -360,11 +395,6 @@ namespace renderer
 
 	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd, uint32_t image_index)
 	{
-		// TODO: Instead of using RT image or render image to render final image into, then switching between
-		//       them via hardcoding, make a new image called final image that composits the RT image and rasterized
-		//       image. Also can be where we draw the outline too. Might want to remove the
-		//       ImGuiBackend::GetViewportRayTraceImage() function.
-
 		for (const OutlineObjects& outline_set : outline_objects_)
 		{
 			// Transition mask image to render to as color attachment.
@@ -376,11 +406,11 @@ namespace renderer
 
 			MaskRenderPass(cmd, outline_set);
 
-			// Transition RT image to color attachment for writing to.
-			PipelineBarrier(cmd, imgui_backend_.GetViewportRayTraceImage().image,
-				VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			// No transitions needed here, just barrier for writing to final image.
+			PipelineBarrier(cmd, imgui_backend_.GetViewportImage().image,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				VK_IMAGE_ASPECT_COLOR_BIT);
 
 			// Transition mask image to be sampled as texture.
@@ -506,7 +536,7 @@ namespace renderer
 
 		VkRenderingAttachmentInfo color_attachment_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.imageView = imgui_backend_.GetViewportRayTraceImage().image_view,
+			.imageView = imgui_backend_.GetViewportImage().image_view,
 			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 			.resolveMode = VK_RESOLVE_MODE_NONE,
 			.resolveImageView = VK_NULL_HANDLE,

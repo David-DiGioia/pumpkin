@@ -44,15 +44,19 @@ namespace renderer
 
 		ImageResource& GetViewportImage();
 
-		ImageResource& GetViewportRayTraceImage();
-
 		ImageResource& GetViewportDepthImage();
+
+		ImageResource& GetRasterImage();
+
+		std::array<ImageResource, FRAMES_IN_FLIGHT> GetRasterImages();
 
 		std::array<ImageResource, FRAMES_IN_FLIGHT> GetRayTraceImages();
 
 		void TransitionImagesForRender(VkCommandBuffer cmd);
 
-		void TransitionImagesForSampling(VkCommandBuffer cmd);
+		void TransitionColorPassesForSampling(VkCommandBuffer cmd);
+
+		void TransitionFinalImageForSampling(VkCommandBuffer cmd);
 
 	private:
 		struct FrameResources;
@@ -71,8 +75,9 @@ namespace renderer
 		{
 			// We use raw descriptor set here instead of resource since ImGui creates it for us.
 			VkDescriptorSet render_target_descriptor;
-			ImageResource render_image;
+			ImageResource raster_image;
 			ImageResource rt_image;
+			ImageResource final_image;
 			ImageResource depth_image;
 		};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
@@ -92,6 +97,8 @@ namespace renderer
 		void InitializeDescriptorSetLayouts();
 
 		ImGuiBackend& GetImGuiBackend();
+
+		const ImGuiBackend& GetImGuiBackend() const;
 
 		void SetViewportSize(const Extent& extent);
 

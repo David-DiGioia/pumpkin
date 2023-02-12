@@ -73,11 +73,15 @@ namespace glm
 namespace renderer
 {
 	// Camera descriptor set.
-	static constexpr uint32_t CAMERA_UBO_SET{ 0 };
-	static constexpr uint32_t CAMERA_UBO_BINDING{ 0 };
+	constexpr uint32_t CAMERA_UBO_SET{ 0 };
+	constexpr uint32_t CAMERA_UBO_BINDING{ 0 };
 	// Render object descriptor set.
-	static constexpr uint32_t RENDER_OBJECT_UBO_SET{ 1 };
-	static constexpr uint32_t RENDER_OBJECT_UBO_BINDING{ 0 };
+	constexpr uint32_t RENDER_OBJECT_UBO_SET{ 1 };
+	constexpr uint32_t RENDER_OBJECT_UBO_BINDING{ 0 };
+	// Composite pass descriptor set.
+	constexpr uint32_t COMPOSITE_DESCRIPTOR_SET{ 0 };
+	constexpr uint32_t COMPOSITE_RASTER_BINDING{ 0 };
+	constexpr uint32_t COMPOSITE_RT_IMAGE_BINDING{ 1 };
 
 	void WindowResizedCallback(GLFWwindow* window, int width, int height)
 	{
@@ -178,7 +182,7 @@ namespace renderer
 
 		vulkan_util_.CleanUp();
 		allocator_.CleanUp();
-		graphics_pipeline_.CleanUp();
+		raster_pipeline_.CleanUp();
 		descriptor_allocator_.CleanUp();
 		swapchain_.CleanUp();
 		context_.CleanUp();
@@ -203,19 +207,33 @@ namespace renderer
 
 	void VulkanRenderer::InitializePipelines()
 	{
-		std::vector<DescriptorSetLayoutResource> set_layouts{
+		std::vector<DescriptorSetLayoutResource> raster_layouts{
 			camera_layout_resource_,
 			render_object_layout_resource_,
 		};
 
-		graphics_pipeline_.Initialize(
+		raster_pipeline_.Initialize(
 			&context_,
-			set_layouts,
-			swapchain_.GetImageFormat(),
+			raster_layouts,
+			VK_FORMAT_R8G8B8A8_UNORM,
 			GetDepthImageFormat(),
 			VertexAttributes::POSITION_NORMAL,
 			SPIRV_PREFIX / "default.vert.spv",
 			SPIRV_PREFIX / "default.frag.spv");
+
+		std::vector<DescriptorSetLayoutResource> composite_layouts{
+			composite_layout_resource_,
+		};
+
+
+		composite_pipeline_.Initialize(
+			&context_,
+			composite_layouts,
+			swapchain_.GetImageFormat(),
+			VK_FORMAT_UNDEFINED,
+			VertexAttributes::NONE,
+			SPIRV_PREFIX / "fullscreen_triangle.vert.spv",
+			SPIRV_PREFIX / "composite.frag.spv");
 	}
 
 	void VulkanRenderer::InitializeRayTracing()
@@ -302,12 +320,46 @@ namespace renderer
 
 	void VulkanRenderer::Draw(VkCommandBuffer cmd, uint32_t image_index)
 	{
+		if (!GetViewportMinimized())
+		{
+			// Ray tracing render pass.
+			if (GetCurrentFrame().tlas) {
+				//rt_context_.Render(cmd);
+			}
+
+			// First raster render pass. Render 3D Viewport.
+			RasterRenderPass(cmd);
+
+			// Transition rt image and raster image to be sampled during composite pass.
+			editor_backend_.GetImGuiBackend().TransitionColorPassesForSampling(cmd);
+
+			// Composite all render passes except editor render passes, which will write directly to the final image.
+			//CompositeRenderPass(cmd, image_index);
+		}
+
+#ifdef EDITOR_ENABLED
+		if (!GetViewportMinimized())
+		{
+			// Multiple editor render passes. Render editor-specific graphics in the viewport like outline of selected.
+			//editor_backend_.EditorRenderPasses(cmd, image_index);
+
+			// Transition composited image to be sampled from ImGui renderpass.
+			editor_backend_.GetImGuiBackend().TransitionFinalImageForSampling(cmd);
+		}
+
+		// Last render pass. Render editor GUI.
+		EditorGuiRenderPass(cmd, image_index);
+#endif
+	}
+
+	void VulkanRenderer::RasterRenderPass(VkCommandBuffer cmd)
+	{
 		Extent viewport_extents{ GetViewportExtent() };
 		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.2f, 1.0f };
 
 		VkRenderingAttachmentInfo color_attachment_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.imageView = GetViewportImageView(image_index),
+			.imageView = editor_backend_.GetImGuiBackend().GetRasterImage().image_view,
 			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 			.resolveMode = VK_RESOLVE_MODE_NONE,
 			.resolveImageView = VK_NULL_HANDLE,
@@ -344,67 +396,112 @@ namespace renderer
 			.pStencilAttachment = nullptr,
 		};
 
-		// If we're using the editor and the viewport is minimized, we skip rendering to the 3D viewport.
-#ifdef EDITOR_ENABLED
-		bool minimized{ !editor_backend_.GetImGuiBackend().GetViewportVisible() };
-#else
-		constexpr bool minimized{ false };
-#endif
+		vkCmdBeginRendering(cmd, &rendering_info);
 
-#ifdef EDITOR_ENABLED
-		if (!minimized) {
-			editor_backend_.GetImGuiBackend().TransitionImagesForRender(cmd);
-		}
-#endif
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, raster_pipeline_.layout, CAMERA_UBO_SET, 1, &GetCurrentFrame().camera_descriptor_set_resource.descriptor_set, 0, nullptr);
 
-		if (!minimized)
+		VkDeviceSize zero_offset{ 0 };
+
+		for (RenderObject* render_obj : GetCurrentFrame().render_objects)
 		{
-			if (GetCurrentFrame().tlas) {
-				rt_context_.Render(cmd);
-			}
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, raster_pipeline_.pipeline);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, raster_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj->ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
 
-			// First render pass. Render 3D Viewport.
-			vkCmdBeginRendering(cmd, &rendering_info);
-
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, CAMERA_UBO_SET, 1, &GetCurrentFrame().camera_descriptor_set_resource.descriptor_set, 0, nullptr);
-
-			VkDeviceSize zero_offset{ 0 };
-
-			for (RenderObject* render_obj : GetCurrentFrame().render_objects)
+			for (auto& geometry : meshes_[render_obj->mesh_idx]->geometries)
 			{
-				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.pipeline);
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj->ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
-
-				for (auto& geometry : meshes_[render_obj->mesh_idx]->geometries)
-				{
-					VkIndexType index_type{ std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
-					vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
-					vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, index_type);
-					vkCmdDrawIndexed(cmd, (uint32_t)geometry.indices.size(), 1, 0, 0, 0);
-				}
+				VkIndexType index_type{ std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
+				vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
+				vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, index_type);
+				vkCmdDrawIndexed(cmd, (uint32_t)geometry.indices.size(), 1, 0, 0, 0);
 			}
-
-			vkCmdEndRendering(cmd);
 		}
 
-#ifdef EDITOR_ENABLED
-		// Multiple editor render passes. Render editor-specific graphics in the viewport like outline of selected.
-		editor_backend_.EditorRenderPasses(cmd, image_index);
+		vkCmdEndRendering(cmd);
+	}
 
-		if (!minimized) {
-			editor_backend_.GetImGuiBackend().TransitionImagesForSampling(cmd);
-		}
-
-		// Last render pass. Render editor GUI.
+	void VulkanRenderer::EditorGuiRenderPass(VkCommandBuffer cmd, uint32_t image_index)
+	{
 		Extent window_extent{ context_.GetWindowExtent() };
-		color_attachment_info.imageView = swapchain_.GetImageView(image_index);
-		rendering_info.renderArea.extent = { window_extent.width, window_extent.height };
-		rendering_info.pDepthAttachment = nullptr;
+		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.2f, 1.0f };
+
+		VkRenderingAttachmentInfo color_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = swapchain_.GetImageView(image_index),
+			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingInfo rendering_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = { window_extent.width, window_extent.height },
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr,
+		};
 
 		vkCmdBeginRendering(cmd, &rendering_info);
 		editor_backend_.GetImGuiBackend().RecordCommandBuffer(cmd);
 		vkCmdEndRendering(cmd);
-#endif
+	}
+
+	void VulkanRenderer::CompositeRenderPass(VkCommandBuffer cmd, uint32_t image_index)
+	{
+		Extent viewport_extents{ GetViewportExtent() };
+		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.0f, 1.0f };
+
+		VkRenderingAttachmentInfo color_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = GetViewportImageView(image_index),
+			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingInfo rendering_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = { viewport_extents.width, viewport_extents.height },
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr,
+		};
+
+		vkCmdBeginRendering(cmd, &rendering_info);
+
+		vkCmdBindDescriptorSets(
+			cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			composite_pipeline_.layout, COMPOSITE_DESCRIPTOR_SET,
+			1, &GetCurrentFrame().composite_descriptor_set_resource.descriptor_set,
+			0, nullptr);
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, composite_pipeline_.pipeline);
+
+		// Fullscreen triangle.
+		vkCmdDraw(cmd, 3, 1, 0, 0);
+
+		vkCmdEndRendering(cmd);
 	}
 
 	void VulkanRenderer::RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index)
@@ -451,7 +548,7 @@ namespace renderer
 			vkCmdSetScissor(cmd, 0, 1, &scissor);
 		}
 
-		TransitionSwapImageForRender(cmd, image_index);
+		TransitionImagesForRender(cmd, image_index);
 		Draw(cmd, image_index);
 		TransitionSwapImageForPresent(cmd, image_index);
 
@@ -459,8 +556,13 @@ namespace renderer
 		CheckResult(result, "Failed to end command buffer.");
 	}
 
-	void VulkanRenderer::TransitionSwapImageForRender(VkCommandBuffer cmd, uint32_t image_index)
+	void VulkanRenderer::TransitionImagesForRender(VkCommandBuffer cmd, uint32_t image_index)
 	{
+#ifdef EDITOR_ENABLED
+		if (!GetViewportMinimized()) {
+			editor_backend_.GetImGuiBackend().TransitionImagesForRender(cmd);
+		}
+#endif
 		PipelineBarrier(
 			cmd, swapchain_.GetImage(image_index),
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,              // Image layout.
@@ -826,6 +928,30 @@ namespace renderer
 
 		render_object_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(render_object_bindings);
 		NameObject(context_.device, render_object_layout_resource_.layout, "Render_Object_Descriptor_Set_Layout");
+
+		VkDescriptorSetLayoutBinding raster_image_binding{
+			.binding = COMPOSITE_RASTER_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding rt_image_binding{
+			.binding = COMPOSITE_RT_IMAGE_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> composite_bindings{
+			raster_image_binding,
+			rt_image_binding,
+		};
+
+		composite_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(composite_bindings);
+		NameObject(context_.device, composite_layout_resource_.layout, "Composite_Descriptor_Set_Layout");
 	}
 
 	void VulkanRenderer::InitializeFrameResources()
@@ -833,6 +959,7 @@ namespace renderer
 		InitializeCommandBuffers();
 		InitializeSyncObjects();
 		InitializeCameraResources();
+
 		//InitializeRayTraceImages();
 		InitializeDepthImages();
 	}
@@ -936,9 +1063,18 @@ namespace renderer
 	}
 	*/
 
-	void VulkanRenderer::SetRayTraceImages(const std::array<ImageResource, FRAMES_IN_FLIGHT>& rt_images)
+	void VulkanRenderer::UpdateImages()
 	{
-		rt_context_.SetRenderImages(GetViewportExtent(), rt_images);
+		rt_context_.SetRenderImages(GetViewportExtent(), editor_backend_.GetImGuiBackend().GetRayTraceImages());
+
+		uint32_t i{ 0 };
+		for (FrameResources& resource : frame_resources_)
+		{
+			resource.composite_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(composite_layout_resource_);
+			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RASTER_BINDING, editor_backend_.GetImGuiBackend().GetRasterImages()[i], VK_IMAGE_LAYOUT_GENERAL);
+			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RT_IMAGE_BINDING, editor_backend_.GetImGuiBackend().GetRayTraceImages()[i], VK_IMAGE_LAYOUT_GENERAL);
+		}
+
 	}
 
 	void VulkanRenderer::InitializeDepthImages()
@@ -1064,8 +1200,18 @@ namespace renderer
 		mesh = nullptr;
 	}
 
+	bool VulkanRenderer::GetViewportMinimized() const
+	{
+		// If we're using the editor and the viewport is minimized, we skip rendering to the 3D viewport.
+#ifdef EDITOR_ENABLED
+		return !editor_backend_.GetImGuiBackend().GetViewportVisible();
+#else
+		return false;
+#endif
+	}
+
 	uint32_t VulkanRenderer::MeshCount() const
 	{
 		return (uint32_t)meshes_.size();
 	}
-}
+	}

@@ -48,6 +48,7 @@ namespace renderer
 
 		// Vertex input -----------------------------------------------------------------------
 
+
 		VkVertexInputBindingDescription vertex_input_binding{
 			.binding = 0,
 			.stride = sizeof(Vertex),
@@ -56,14 +57,19 @@ namespace renderer
 
 		std::vector<VkVertexInputAttributeDescription> vertex_attributes{ Vertex::GetVertexAttributes(attributes) };
 
-		VkPipelineVertexInputStateCreateInfo vertex_input_info{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-			.flags = 0, // Reserved.
-			.vertexBindingDescriptionCount = 1,
-			.pVertexBindingDescriptions = &vertex_input_binding,
-			.vertexAttributeDescriptionCount = (uint32_t)vertex_attributes.size(),
-			.pVertexAttributeDescriptions = vertex_attributes.data(),
-		};
+		VkPipelineVertexInputStateCreateInfo vertex_input_info{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+
+		if (attributes != VertexAttributes::NONE)
+		{
+			vertex_input_info = VkPipelineVertexInputStateCreateInfo{
+				.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+				.flags = 0, // Reserved.
+				.vertexBindingDescriptionCount = 1,
+				.pVertexBindingDescriptions = &vertex_input_binding,
+				.vertexAttributeDescriptionCount = (uint32_t)vertex_attributes.size(),
+				.pVertexAttributeDescriptions = vertex_attributes.data(),
+			};
+		}
 
 		VkPipelineInputAssemblyStateCreateInfo input_assembly_info{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,

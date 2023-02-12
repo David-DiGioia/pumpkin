@@ -96,9 +96,15 @@ namespace renderer
 
 		void Draw(VkCommandBuffer cmd, uint32_t image_index);
 
+		void RasterRenderPass(VkCommandBuffer cmd);
+
+		void EditorGuiRenderPass(VkCommandBuffer cmd, uint32_t image_index);
+
+		void CompositeRenderPass(VkCommandBuffer cmd, uint32_t image_index);
+
 		void RecordCommandBuffer(VkCommandBuffer cmd, uint32_t image_index);
 
-		void TransitionSwapImageForRender(VkCommandBuffer cmd, uint32_t image_index);
+		void TransitionImagesForRender(VkCommandBuffer cmd, uint32_t image_index);
 
 		void TransitionSwapImageForPresent(VkCommandBuffer cmd, uint32_t image_index);
 
@@ -108,8 +114,10 @@ namespace renderer
 
 		const FrameResources& GetCurrentFrame() const;
 
+		// We don't return an image resource here since we make the viewports separate from the VkImages made by the swapchain.
 		VkImageView GetViewportImageView(uint32_t image_index);
 
+		// We don't return an image resource here since swapchain creates VkImages directly.
 		VkImage GetViewportImage(uint32_t image_index);
 
 		VkImageView GetViewportDepthImageView();
@@ -130,7 +138,7 @@ namespace renderer
 
 		//void InitializeRayTraceImages();
 
-		void SetRayTraceImages(const std::array<ImageResource, FRAMES_IN_FLIGHT>& rt_images);
+		void UpdateImages();
 
 		void InitializeDepthImages();
 
@@ -139,6 +147,8 @@ namespace renderer
 		void UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh);
 
 		void DestroyMesh(Mesh* mesh);
+
+		bool GetViewportMinimized() const;
 
 		struct FrameResources
 		{
@@ -150,6 +160,8 @@ namespace renderer
 			} camera_ubo;
 			BufferResource camera_ubo_buffer;
 			DescriptorSetResource camera_descriptor_set_resource;
+
+			DescriptorSetResource composite_descriptor_set_resource;
 
 			VkCommandBuffer command_buffer;
 			VkFence render_done_fence;
@@ -174,7 +186,8 @@ namespace renderer
 
 		Context context_{};
 		Swapchain swapchain_{};
-		GraphicsPipeline graphics_pipeline_{};
+		GraphicsPipeline raster_pipeline_{};
+		GraphicsPipeline composite_pipeline_{};
 		VkCommandPool command_pool_{};
 		Allocator allocator_{};
 		DescriptorAllocator descriptor_allocator_{};
@@ -186,6 +199,7 @@ namespace renderer
 		std::unordered_map<uint64_t, std::pair<uint64_t, uint32_t>> mesh_hash_map_{}; // To prevent duplicating vertex data when loading same file multiple times. (vertex_hash, (index_hash, mesh_idx)).
 		DescriptorSetLayoutResource camera_layout_resource_{};
 		DescriptorSetLayoutResource render_object_layout_resource_{};
+		DescriptorSetLayoutResource composite_layout_resource_{};
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};

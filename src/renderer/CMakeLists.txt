@@ -65,6 +65,7 @@ COMPILE_SHADER("mask.vert")
 COMPILE_SHADER("mask.frag")
 COMPILE_SHADER("fullscreen_triangle.vert")
 COMPILE_SHADER("outline.frag")
+COMPILE_SHADER("composite.frag")
 HEADER_SHADER("common.glsl")
 
 add_custom_target(
