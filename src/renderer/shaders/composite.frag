@@ -11,5 +11,6 @@ void main()
 
     // For now just output the ray traced image. Later we can composite the raster image with it.
     //out_color = imageLoad(raster_image, coord);
-    out_color = vec4(1.0, 0.0, 0.0, 1.0);
+    out_color = imageLoad(rt_image, coord);
+    //out_color = vec4(1.0, 0.0, 0.0, 1.0);
 }

@@ -217,8 +217,8 @@ namespace renderer
 			NameObject(renderer_->context_.device, resource.depth_image.image, "ImGui_Backend_Depth_Image_" + std::to_string(i));
 
 			resource.render_target_descriptor = ImGui_ImplVulkan_AddTexture(
-				resource.raster_image.sampler,
-				resource.raster_image.image_view,
+				resource.final_image.sampler,
+				resource.final_image.image_view,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			NameObject(renderer_->context_.device, resource.render_target_descriptor, "ImGui_Backend_Render_Target_Descriptor_" + std::to_string(i));
 

@@ -324,7 +324,7 @@ namespace renderer
 		{
 			// Ray tracing render pass.
 			if (GetCurrentFrame().tlas) {
-				//rt_context_.Render(cmd);
+				rt_context_.Render(cmd);
 			}
 
 			// First raster render pass. Render 3D Viewport.
@@ -334,14 +334,14 @@ namespace renderer
 			editor_backend_.GetImGuiBackend().TransitionColorPassesForSampling(cmd);
 
 			// Composite all render passes except editor render passes, which will write directly to the final image.
-			//CompositeRenderPass(cmd, image_index);
+			CompositeRenderPass(cmd, image_index);
 		}
 
 #ifdef EDITOR_ENABLED
 		if (!GetViewportMinimized())
 		{
 			// Multiple editor render passes. Render editor-specific graphics in the viewport like outline of selected.
-			//editor_backend_.EditorRenderPasses(cmd, image_index);
+			editor_backend_.EditorRenderPasses(cmd, image_index);
 
 			// Transition composited image to be sampled from ImGui renderpass.
 			editor_backend_.GetImGuiBackend().TransitionFinalImageForSampling(cmd);
