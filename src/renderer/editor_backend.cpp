@@ -245,6 +245,7 @@ namespace renderer
 		{
 			renderer_->allocator_.DestroyImageResource(&resource.raster_image);
 			renderer_->allocator_.DestroyImageResource(&resource.rt_image);
+			renderer_->allocator_.DestroyImageResource(&resource.final_image);
 			renderer_->allocator_.DestroyImageResource(&resource.depth_image);
 
 			result = vkFreeDescriptorSets(renderer_->context_.device, descriptor_pool_, 1, &resource.render_target_descriptor);
@@ -355,6 +356,20 @@ namespace renderer
 			SPIRV_PREFIX / "outline.frag.spv");
 
 		InitializeFrameResources();
+	}
+
+	void EditorBackend::CleanUp()
+	{
+		imgui_backend_.CleanUp();
+
+		mask_pipeline_.CleanUp();
+		outline_pipeline_.CleanUp();
+
+		for (FrameResources& resource : frame_resources_) {
+			renderer_->allocator_.DestroyImageResource(&resource.mask_image);
+		}
+
+		renderer_->descriptor_allocator_.DestroyDescriptorSetLayoutResource(&outline_layout_resource_);
 	}
 
 	void EditorBackend::InitializeDescriptorSetLayouts()
@@ -535,8 +550,6 @@ namespace renderer
 				&render_object->ubo_descriptor_set_resource.descriptor_set,
 				0,
 				nullptr);
-
-			logger::Print("Binding descriptor set %llu for mask pass\n", render_object->ubo_descriptor_set_resource.descriptor_set);
 
 			for (auto& geometry : renderer_->meshes_[render_object->mesh_idx]->geometries)
 			{

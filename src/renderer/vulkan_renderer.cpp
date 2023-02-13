@@ -144,7 +144,7 @@ namespace renderer
 		CheckResult(result, "Error waiting for device to idle.");
 
 #ifdef EDITOR_ENABLED
-		editor_backend_.GetImGuiBackend().CleanUp();
+		editor_backend_.CleanUp();
 #endif
 
 		rt_context_.CleanUp();
@@ -171,6 +171,7 @@ namespace renderer
 
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&render_object_layout_resource_);
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&camera_layout_resource_);
+		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&composite_layout_resource_);
 
 		for (Mesh* mesh : meshes_) {
 			DestroyMesh(mesh);
@@ -183,6 +184,7 @@ namespace renderer
 		vulkan_util_.CleanUp();
 		allocator_.CleanUp();
 		raster_pipeline_.CleanUp();
+		composite_pipeline_.CleanUp();
 		descriptor_allocator_.CleanUp();
 		swapchain_.CleanUp();
 		context_.CleanUp();
@@ -414,8 +416,6 @@ namespace renderer
 				&render_obj->ubo_descriptor_set_resource.descriptor_set,
 				0,
 				nullptr);
-
-			logger::Print("Binding descriptor set %llu for raster pass\n", render_obj->ubo_descriptor_set_resource.descriptor_set);
 
 			for (auto& geometry : meshes_[render_obj->mesh_idx]->geometries)
 			{

@@ -94,6 +94,8 @@ namespace renderer
 	public:
 		void Initialize(Context* context, VulkanRenderer* renderer);
 
+		void CleanUp();
+
 		void InitializeDescriptorSetLayouts();
 
 		ImGuiBackend& GetImGuiBackend();
