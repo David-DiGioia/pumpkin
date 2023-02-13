@@ -11,7 +11,6 @@ void main()
     // We only draw outline for pixels outside the object.
     if (imageLoad(mask_texture, coord).x == 1) {
         discard;
-        return;
     }
 
     int radius = 2;

@@ -125,9 +125,9 @@ namespace renderer
 
 	void VulkanRenderer::AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color)
 	{
-		std::vector<RenderObject*> transformed_selection_set(selection_set.size());
+		std::vector<uint32_t> transformed_selection_set(selection_set.size());
 		std::transform(selection_set.begin(), selection_set.end(), transformed_selection_set.begin(), [&](renderer::RenderObjectHandle handle) {
-			return GetCurrentFrame().render_objects[handle];
+			return (uint32_t)handle;
 			});
 		editor_backend_.AddOutlineSet(std::move(transformed_selection_set), color);
 	}
@@ -341,7 +341,7 @@ namespace renderer
 		if (!GetViewportMinimized())
 		{
 			// Multiple editor render passes. Render editor-specific graphics in the viewport like outline of selected.
-			editor_backend_.EditorRenderPasses(cmd, image_index);
+			editor_backend_.EditorRenderPasses(cmd);
 
 			// Transition composited image to be sampled from ImGui renderpass.
 			editor_backend_.GetImGuiBackend().TransitionFinalImageForSampling(cmd);
@@ -405,7 +405,17 @@ namespace renderer
 		for (RenderObject* render_obj : GetCurrentFrame().render_objects)
 		{
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, raster_pipeline_.pipeline);
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, raster_pipeline_.layout, RENDER_OBJECT_UBO_SET, 1, &render_obj->ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
+			vkCmdBindDescriptorSets(
+				cmd,
+				VK_PIPELINE_BIND_POINT_GRAPHICS,
+				raster_pipeline_.layout,
+				RENDER_OBJECT_UBO_SET,
+				1,
+				&render_obj->ubo_descriptor_set_resource.descriptor_set,
+				0,
+				nullptr);
+
+			logger::Print("Binding descriptor set %llu for raster pass\n", render_obj->ubo_descriptor_set_resource.descriptor_set);
 
 			for (auto& geometry : meshes_[render_obj->mesh_idx]->geometries)
 			{
@@ -1073,6 +1083,7 @@ namespace renderer
 			resource.composite_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(composite_layout_resource_);
 			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RASTER_BINDING, editor_backend_.GetImGuiBackend().GetRasterImages()[i], VK_IMAGE_LAYOUT_GENERAL);
 			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RT_IMAGE_BINDING, editor_backend_.GetImGuiBackend().GetRayTraceImages()[i], VK_IMAGE_LAYOUT_GENERAL);
+			++i;
 		}
 
 	}

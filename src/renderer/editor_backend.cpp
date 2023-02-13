@@ -393,7 +393,7 @@ namespace renderer
 		CreateFrameImages();
 	}
 
-	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd, uint32_t image_index)
+	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd)
 	{
 		for (const OutlineObjects& outline_set : outline_objects_)
 		{
@@ -420,14 +420,14 @@ namespace renderer
 				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 				VK_IMAGE_ASPECT_COLOR_BIT);
 
-			OutlineRenderPass(cmd, outline_set, image_index);
+			OutlineRenderPass(cmd, outline_set);
 		}
 	}
 
-	void EditorBackend::AddOutlineSet(std::vector<RenderObject*>&& selection_set, const glm::vec3& color)
+	void EditorBackend::AddOutlineSet(std::vector<uint32_t>&& selection_set, const glm::vec3& color)
 	{
 		OutlineObjects& outline_set{ outline_objects_.emplace_back() };
-		outline_set.render_objects = std::move(selection_set);
+		outline_set.render_object_indices = std::move(selection_set);
 		outline_set.color = color;
 	}
 
@@ -508,15 +508,35 @@ namespace renderer
 
 		vkCmdBeginRendering(cmd, &rendering_info);
 
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mask_pipeline_.layout, EDITOR_CAMERA_UBO_SET, 1, &renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set, 0, nullptr);
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			mask_pipeline_.layout,
+			EDITOR_CAMERA_UBO_SET,
+			1,
+			&renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
 
 		VkDeviceSize zero_offset{ 0 };
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mask_pipeline_.pipeline);
 
-		for (RenderObject* render_object : outline_set.render_objects)
+		for (uint32_t render_object_index : outline_set.render_object_indices)
 		{
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mask_pipeline_.layout, EDITOR_RENDER_OBJECT_UBO_SET, 1, &render_object->ubo_descriptor_set_resource.descriptor_set, 0, nullptr);
+			RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[render_object_index] };
+
+			vkCmdBindDescriptorSets(
+				cmd,
+				VK_PIPELINE_BIND_POINT_GRAPHICS,
+				mask_pipeline_.layout,
+				EDITOR_RENDER_OBJECT_UBO_SET,
+				1,
+				&render_object->ubo_descriptor_set_resource.descriptor_set,
+				0,
+				nullptr);
+
+			logger::Print("Binding descriptor set %llu for mask pass\n", render_object->ubo_descriptor_set_resource.descriptor_set);
 
 			for (auto& geometry : renderer_->meshes_[render_object->mesh_idx]->geometries)
 			{
@@ -529,7 +549,7 @@ namespace renderer
 		vkCmdEndRendering(cmd);
 	}
 
-	void EditorBackend::OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set, uint32_t image_index)
+	void EditorBackend::OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set)
 	{
 		Extent viewport_extents{ renderer_->GetViewportExtent() };
 		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.0f, 1.0f };

@@ -102,16 +102,16 @@ namespace renderer
 
 		void SetViewportSize(const Extent& extent);
 
-		void EditorRenderPasses(VkCommandBuffer cmd, uint32_t image_index);
+		void EditorRenderPasses(VkCommandBuffer cmd);
 
-		void AddOutlineSet(std::vector<RenderObject*>&& selection_set, const glm::vec3& color);
+		void AddOutlineSet(std::vector<uint32_t>&& selection_set, const glm::vec3& color);
 
 		void ClearOutlineSets();
 
 	private:
 		struct OutlineObjects
 		{
-			std::vector<RenderObject*> render_objects;
+			std::vector<uint32_t> render_object_indices;
 			glm::vec3 color;
 		};
 
@@ -132,7 +132,7 @@ namespace renderer
 
 		void MaskRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set);
 
-		void OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set, uint32_t image_index);
+		void OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set);
 
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 
