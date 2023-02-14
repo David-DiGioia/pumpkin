@@ -1,6 +1,7 @@
 #include "pipeline.h"
 
 #include <vector>
+#include <algorithm>
 #include "volk.h"
 
 #include "logger.h"
@@ -13,6 +14,7 @@ namespace renderer
 	void GraphicsPipeline::Initialize(
 		Context* context,
 		const std::vector<DescriptorSetLayoutResource>& set_layouts,
+		const std::vector<VkPushConstantRange>& push_constant_ranges,
 		VkFormat color_attachment_format,
 		VkFormat depth_format,
 		VertexAttributes attributes,
@@ -167,7 +169,7 @@ namespace renderer
 			.pDynamicStates = dynamic_states.data(),
 		};
 
-		CreatePipelineLayout(set_layouts);
+		CreatePipelineLayout(set_layouts, push_constant_ranges);
 
 		// Dynamic rendering.
 		VkPipelineRenderingCreateInfo rendering_info{
@@ -203,7 +205,6 @@ namespace renderer
 
 		VkResult result{ vkCreateGraphicsPipelines(context_->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline) };
 		CheckResult(result, "Failed to create graphics pipeline.");
-		NameObject(context_->device, pipeline, "Main_Graphics_Pipeline");
 
 		vkDestroyShaderModule(context_->device, vertex_shader, nullptr);
 		vkDestroyShaderModule(context_->device, fragment_shader, nullptr);
@@ -215,26 +216,26 @@ namespace renderer
 		vkDestroyPipeline(context_->device, pipeline, nullptr);
 	}
 
-	void GraphicsPipeline::CreatePipelineLayout(const std::vector<DescriptorSetLayoutResource>& set_layouts)
+	void GraphicsPipeline::CreatePipelineLayout(
+		const std::vector<DescriptorSetLayoutResource>& set_layouts,
+		const std::vector<VkPushConstantRange>& push_constant_ranges)
 	{
 		// Convert layout resources to Vulkan set layouts.
-		std::vector<VkDescriptorSetLayout> vk_set_layouts;
-		vk_set_layouts.reserve(set_layouts.size());
-		for (auto& set_layout : set_layouts) {
-			vk_set_layouts.push_back(set_layout.layout);
-		}
+		std::vector<VkDescriptorSetLayout> vk_set_layouts(set_layouts.size());
+		std::transform(set_layouts.begin(), set_layouts.end(), vk_set_layouts.begin(), [](const DescriptorSetLayoutResource& layout_resource) {
+			return layout_resource.layout;
+			});
 
 		VkPipelineLayoutCreateInfo layout_info{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			.flags = 0,
 			.setLayoutCount = (uint32_t)vk_set_layouts.size(),
 			.pSetLayouts = vk_set_layouts.data(),
-			.pushConstantRangeCount = 0,
-			.pPushConstantRanges = nullptr,
+			.pushConstantRangeCount = (uint32_t)push_constant_ranges.size(),
+			.pPushConstantRanges = push_constant_ranges.data(),
 		};
 
 		VkResult result{ vkCreatePipelineLayout(context_->device, &layout_info, nullptr, &layout) };
 		CheckResult(result, "Failed to create pipeline layout.");
-		NameObject(context_->device, layout, "Graphics_Pipeline_Layout");
 	}
 }

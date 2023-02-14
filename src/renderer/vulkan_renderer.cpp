@@ -123,7 +123,7 @@ namespace renderer
 		editor_backend_.SetViewportSize(extent);
 	}
 
-	void VulkanRenderer::AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color)
+	void VulkanRenderer::AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color)
 	{
 		std::vector<uint32_t> transformed_selection_set(selection_set.size());
 		std::transform(selection_set.begin(), selection_set.end(), transformed_selection_set.begin(), [&](renderer::RenderObjectHandle handle) {
@@ -217,11 +217,14 @@ namespace renderer
 		raster_pipeline_.Initialize(
 			&context_,
 			raster_layouts,
+			{},
 			VK_FORMAT_R8G8B8A8_UNORM,
 			GetDepthImageFormat(),
 			VertexAttributes::POSITION_NORMAL,
 			SPIRV_PREFIX / "default.vert.spv",
 			SPIRV_PREFIX / "default.frag.spv");
+		NameObject(context_.device, raster_pipeline_.pipeline, "Raster_Pipeline");
+		NameObject(context_.device, raster_pipeline_.layout, "Raster_Pipeline_Layout");
 
 		std::vector<DescriptorSetLayoutResource> composite_layouts{
 			composite_layout_resource_,
@@ -231,11 +234,15 @@ namespace renderer
 		composite_pipeline_.Initialize(
 			&context_,
 			composite_layouts,
+			{},
 			swapchain_.GetImageFormat(),
 			VK_FORMAT_UNDEFINED,
 			VertexAttributes::NONE,
 			SPIRV_PREFIX / "fullscreen_triangle.vert.spv",
 			SPIRV_PREFIX / "composite.frag.spv");
+		NameObject(context_.device, composite_pipeline_.pipeline, "Composite_Pipeline");
+		NameObject(context_.device, composite_pipeline_.layout, "Composite_Pipeline_Layout");
+
 	}
 
 	void VulkanRenderer::InitializeRayTracing()

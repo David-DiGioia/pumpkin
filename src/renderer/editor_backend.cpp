@@ -338,22 +338,36 @@ namespace renderer
 		mask_pipeline_.Initialize(
 			context,
 			mask_set_layouts,
+			{},
 			MASK_COLOR_FORMAT,
 			VK_FORMAT_UNDEFINED,
 			VertexAttributes::POSITION,
 			SPIRV_PREFIX / "mask.vert.spv",
 			SPIRV_PREFIX / "mask.frag.spv");
+		NameObject(context_->device, mask_pipeline_.pipeline, "Mask_Pipeline");
+		NameObject(context_->device, mask_pipeline_.layout, "Mask_Pipeline_Layout");
 
 		std::vector<DescriptorSetLayoutResource> outline_set_layouts{ outline_layout_resource_ };
+
+		VkPushConstantRange color_push_constant_range{
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.offset = 0,
+			.size = sizeof(glm::vec4),
+		};
+
+		std::vector<VkPushConstantRange> outline_push_constant_ranges{ color_push_constant_range };
 
 		outline_pipeline_.Initialize(
 			context,
 			outline_set_layouts,
+			outline_push_constant_ranges,
 			renderer_->swapchain_.GetImageFormat(),
 			VK_FORMAT_UNDEFINED,
 			VertexAttributes::NONE,
 			SPIRV_PREFIX / "fullscreen_triangle.vert.spv",
 			SPIRV_PREFIX / "outline.frag.spv");
+		NameObject(context_->device, outline_pipeline_.pipeline, "Outline_Pipeline");
+		NameObject(context_->device, outline_pipeline_.layout, "Outline_Pipeline_Layout");
 
 		InitializeFrameResources();
 	}
@@ -439,7 +453,7 @@ namespace renderer
 		}
 	}
 
-	void EditorBackend::AddOutlineSet(std::vector<uint32_t>&& selection_set, const glm::vec3& color)
+	void EditorBackend::AddOutlineSet(std::vector<uint32_t>&& selection_set, const glm::vec4& color)
 	{
 		OutlineObjects& outline_set{ outline_objects_.emplace_back() };
 		outline_set.render_object_indices = std::move(selection_set);
@@ -533,9 +547,9 @@ namespace renderer
 			0,
 			nullptr);
 
-		VkDeviceSize zero_offset{ 0 };
-
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mask_pipeline_.pipeline);
+
+		VkDeviceSize zero_offset{ 0 };
 
 		for (uint32_t render_object_index : outline_set.render_object_indices)
 		{
@@ -599,6 +613,7 @@ namespace renderer
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, outline_pipeline_.layout, EDITOR_OUTLINE_SET, 1, &GetCurrentFrame().outline_set_resource_.descriptor_set, 0, nullptr);
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, outline_pipeline_.pipeline);
+		vkCmdPushConstants(cmd, outline_pipeline_.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), &outline_set.color);
 
 		// Fullscreen triangle.
 		vkCmdDraw(cmd, 3, 1, 0, 0);

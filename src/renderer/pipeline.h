@@ -17,6 +17,7 @@ namespace renderer
 		void Initialize(
 			Context* context,
 			const std::vector<DescriptorSetLayoutResource>& set_layouts,
+			const std::vector<VkPushConstantRange>& push_constant_ranges,
 			VkFormat color_attachment_format,
 			VkFormat depth_format,
 			VertexAttributes attributes,
@@ -30,7 +31,9 @@ namespace renderer
 		VkPipelineLayout layout{};
 
 	private:
-		void CreatePipelineLayout(const std::vector<DescriptorSetLayoutResource>& set_layouts);
+		void CreatePipelineLayout(
+			const std::vector<DescriptorSetLayoutResource>& set_layouts,
+			const std::vector<VkPushConstantRange>& push_constant_ranges);
 
 		Context* context_{};
 	};

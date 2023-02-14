@@ -136,7 +136,7 @@ namespace pmk
 		renderer_.ClearOutlineSets();
 	}
 
-	void Pumpkin::AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color)
+	void Pumpkin::AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color)
 	{
 		renderer_.AddOutlineSet(selection_set, color);
 	}

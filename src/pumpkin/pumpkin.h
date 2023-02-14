@@ -54,7 +54,7 @@ namespace pmk
 
 		void ClearOutlineSets();
 
-		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color);
+		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color);
 
 	private:
 		// General work the host needs to do each frame.

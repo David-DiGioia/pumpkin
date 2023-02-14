@@ -86,7 +86,7 @@ namespace renderer
 
 		void SetImGuiViewportSize(const Extent& extent);
 
-		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec3& color);
+		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color);
 
 		void ClearOutlineSets();
 #endif

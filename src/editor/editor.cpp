@@ -12,8 +12,8 @@
 #include "gui.h"
 
 const std::string ROOT_NODE_NAME{ "__root__" };
-const glm::vec3 ACTIVE_SELECTION_COLOR{ 1.0f, 0.0f, 0.0f };
-const glm::vec3 SELECTION_COLOR{ 0.0f, 1.0f, 0.0f };
+const glm::vec4 ACTIVE_SELECTION_COLOR{ 0.9569f, 0.5961f, 0.1765f, 1.0 };
+const glm::vec4 SELECTION_COLOR{ 0.8941f, 0.3529f, 0.1451f, 1.0 };
 
 namespace jsonkey
 {

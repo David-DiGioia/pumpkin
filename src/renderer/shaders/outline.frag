@@ -2,6 +2,8 @@
 
 layout (location = 0) out vec4 out_color;
 
+layout (push_constant) uniform OutlinePushConstant{ vec4 outline_color; } constants;
+
 layout (set = 0, binding = 0, r8ui) uniform uimage2D mask_texture;
 
 void main()
@@ -27,7 +29,7 @@ void main()
             if (mask == 1)
             {
                 // Draw outline only when adjacent pixel contains mask.
-                out_color = vec4(0.8, 0.1, 0.0, 1.0);
+                out_color = constants.outline_color;
                 return;
             }
         }

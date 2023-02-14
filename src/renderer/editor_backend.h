@@ -106,7 +106,7 @@ namespace renderer
 
 		void EditorRenderPasses(VkCommandBuffer cmd);
 
-		void AddOutlineSet(std::vector<uint32_t>&& selection_set, const glm::vec3& color);
+		void AddOutlineSet(std::vector<uint32_t>&& selection_set, const glm::vec4& color);
 
 		void ClearOutlineSets();
 
@@ -114,7 +114,7 @@ namespace renderer
 		struct OutlineObjects
 		{
 			std::vector<uint32_t> render_object_indices;
-			glm::vec3 color;
+			glm::vec4 color;
 		};
 
 		struct FrameResources
