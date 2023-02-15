@@ -12,8 +12,12 @@
 #include "gui.h"
 
 const std::string ROOT_NODE_NAME{ "__root__" };
-const glm::vec4 ACTIVE_SELECTION_COLOR{ 0.9569f, 0.5961f, 0.1765f, 1.0 };
-const glm::vec4 SELECTION_COLOR{ 0.8941f, 0.3529f, 0.1451f, 1.0 };
+
+// These colors are specified in linear space, so if you sample a color with image software
+// (these colors are sampled from Blender) then you must convert them from sRGB space to linear space
+// (these colors have already been converted).
+const glm::vec4 ACTIVE_SELECTION_COLOR{ 0.921582f, 0.327778f, 0.0395462f, 1.0 };
+const glm::vec4 SELECTION_COLOR{ 0.775822f, 0.104616f, 0.021219f, 1.0 };
 
 namespace jsonkey
 {

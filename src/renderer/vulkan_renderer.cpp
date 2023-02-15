@@ -235,7 +235,7 @@ namespace renderer
 			&context_,
 			composite_layouts,
 			{},
-			swapchain_.GetImageFormat(),
+			GetViewportImageFormat(),
 			VK_FORMAT_UNDEFINED,
 			VertexAttributes::NONE,
 			SPIRV_PREFIX / "fullscreen_triangle.vert.spv",
@@ -871,6 +871,15 @@ namespace renderer
 		return editor_backend_.GetImGuiBackend().GetViewportDepthImage().image_view;
 #else
 		return GetCurrentFrame().depth_image.image_view;
+#endif
+	}
+
+	VkFormat VulkanRenderer::GetViewportImageFormat() const
+	{
+#ifdef EDITOR_ENABLED
+		return editor_backend_.GetImGuiBackend().GetViewportImageFormat();
+#else
+		return swapchain_.GetImageFormat();
 #endif
 	}
 

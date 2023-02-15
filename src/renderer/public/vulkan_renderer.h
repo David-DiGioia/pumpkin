@@ -122,6 +122,8 @@ namespace renderer
 
 		VkImageView GetViewportDepthImageView();
 
+		VkFormat GetViewportImageFormat() const;
+
 		VkFormat GetDepthImageFormat() const;
 
 		void InitializePipelines();

@@ -42,6 +42,8 @@ namespace renderer
 
 		bool GetViewportVisible() const;
 
+		VkFormat GetViewportImageFormat() const;
+
 		ImageResource& GetViewportImage();
 
 		ImageResource& GetViewportDepthImage();

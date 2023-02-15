@@ -19,6 +19,7 @@ namespace renderer
 	constexpr uint32_t EDITOR_OUTLINE_SET{ 0 };
 	constexpr uint32_t EDITOR_MASK_TEXTURE_BINDING{ 0 };
 	constexpr VkFormat MASK_COLOR_FORMAT{ VK_FORMAT_R8_UINT };
+	constexpr VkFormat FINAL_IMAGE_FORMAT{ VK_FORMAT_R8G8B8A8_UNORM };
 
 	// ImGui backend ------------------------------------------------------------------------------------------------
 
@@ -177,6 +178,11 @@ namespace renderer
 		return viewport_visible_;
 	}
 
+	VkFormat ImGuiBackend::GetViewportImageFormat() const
+	{
+		return FINAL_IMAGE_FORMAT;
+	}
+
 	ImGuiBackend::FrameResources& ImGuiBackend::GetCurrentFrame()
 	{
 		return frame_resources_[renderer_->current_frame_];
@@ -205,7 +211,7 @@ namespace renderer
 				extent,
 				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				renderer_->swapchain_.GetImageFormat());
+				FINAL_IMAGE_FORMAT);
 			NameObject(renderer_->context_.device, resource.final_image.image, "ImGui_Backend_Final_Image_" + std::to_string(i));
 
 			resource.depth_image = renderer_->allocator_.CreateImageResource(
@@ -361,7 +367,7 @@ namespace renderer
 			context,
 			outline_set_layouts,
 			outline_push_constant_ranges,
-			renderer_->swapchain_.GetImageFormat(),
+			FINAL_IMAGE_FORMAT,
 			VK_FORMAT_UNDEFINED,
 			VertexAttributes::NONE,
 			SPIRV_PREFIX / "fullscreen_triangle.vert.spv",
