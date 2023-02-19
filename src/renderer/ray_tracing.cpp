@@ -60,6 +60,11 @@ namespace renderer
 		allocator_->DestroyBufferResource(&rt_shader_binding_table_.raygen_sbt);
 		allocator_->DestroyBufferResource(&rt_shader_binding_table_.miss_sbt);
 		allocator_->DestroyBufferResource(&rt_shader_binding_table_.hit_sbt);
+		allocator_->DestroyBufferResource(&raycast_shader_binding_table_.raygen_sbt);
+		allocator_->DestroyBufferResource(&raycast_shader_binding_table_.miss_sbt);
+		allocator_->DestroyBufferResource(&raycast_shader_binding_table_.hit_sbt);
+		allocator_->DestroyBufferResource(&raycasts_buffer_);
+		allocator_->DestroyBufferResource(&rayhits_buffer_);
 		allocator_->DestroyBufferResource(&object_buffers_buffer_);
 		allocator_->DestroyBufferResource(&materials_resource_);
 		allocator_->DestroyBufferResource(&material_indices_resource_);
@@ -69,9 +74,12 @@ namespace renderer
 
 		vkDestroyPipeline(context_->device, rt_pipeline_, nullptr);
 		vkDestroyPipelineLayout(context_->device, rt_pipeline_layout_, nullptr);
+		vkDestroyPipeline(context_->device, raycast_pipeline_, nullptr);
+		vkDestroyPipelineLayout(context_->device, raycast_pipeline_layout_, nullptr);
 
 		descriptor_allocator_->DestroyDescriptorSetLayoutResource(&frame_descriptor_set_layout_resource_);
 		descriptor_allocator_->DestroyDescriptorSetLayoutResource(&persistent_descriptor_set_layout_resource_);
+		descriptor_allocator_->DestroyDescriptorSetLayoutResource(&raycast_descriptor_set_layout_resource_);
 	}
 
 	void RayTracingContext::QueueBlas(Mesh* mesh)
@@ -895,11 +903,13 @@ namespace renderer
 			16,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		NameObject(context_->device, raycasts_buffer_.buffer, "Raycasts_Buffer");
 
 		rayhits_buffer_ = allocator_->CreateBufferResource(
 			sizeof(Rayhit) * MAX_RAYCASTS,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		NameObject(context_->device, rayhits_buffer_.buffer, "Rayhits_Buffer");
 
 		raycast_descriptor_set_resource_.LinkBufferToBinding(RAYCASTS_BUFFER_BINDING, raycasts_buffer_);
 		raycast_descriptor_set_resource_.LinkBufferToBinding(RAYHITS_BUFFER_BINDING, rayhits_buffer_);
