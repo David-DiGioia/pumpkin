@@ -11,6 +11,12 @@
 
 namespace pmk
 {
+	struct Rayhit
+	{
+		Node* node;
+		glm::vec3 position;
+	};
+
 	class Pumpkin
 	{
 	public:
@@ -56,6 +62,12 @@ namespace pmk
 
 		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color);
 
+		void QueueRaycast(const glm::vec3& origin, const glm::vec3& direction);
+
+		std::vector<pmk::Rayhit> CastQueuedRays();
+
+		Node* GetNodeByRenderObject(renderer::RenderObjectHandle handle);
+
 	private:
 		// General work the host needs to do each frame.
 		void HostWork();
@@ -71,6 +83,8 @@ namespace pmk
 
 		float delta_time_{};
 		std::chrono::steady_clock::time_point last_time_{};
+
+		std::vector<renderer::Raycast> queued_raycasts_{};
 
 		uint32_t width_{ 1920 };
 		uint32_t height_{ 1080 };

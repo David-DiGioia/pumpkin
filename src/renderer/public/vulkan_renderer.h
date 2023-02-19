@@ -81,6 +81,8 @@ namespace renderer
 
 		void UpdateObjectBuffers();
 
+		std::vector<Rayhit> CastRays(const std::vector<Raycast>& raycasts);
+
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
 

@@ -4,7 +4,7 @@
 
 constexpr float MINIMUM_MOVEMENT_SPEED{ 0.1f };
 
-void ProcessViewportInput(Editor* editor);
+void ProcessViewportInput(Editor* editor, const renderer::Extent& viewport_extent);
 
 void ProcessTreeViewInput(Editor* editor);
 

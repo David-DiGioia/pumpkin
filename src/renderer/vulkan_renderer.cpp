@@ -847,6 +847,11 @@ namespace renderer
 		rt_context_.UpdateObjectBuffers(meshes_);
 	}
 
+	std::vector<Rayhit> VulkanRenderer::CastRays(const std::vector<Raycast>& raycasts)
+	{
+		return rt_context_.CastRays(raycasts);
+	}
+
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
 	{
 #ifdef EDITOR_ENABLED

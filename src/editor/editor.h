@@ -146,6 +146,8 @@ public:
 
 	void DeselectNode(EditorNode* node);
 
+	void DeselectAllNodes();
+
 	bool IsNodeSelected(EditorNode* node);
 
 	bool SelectionEmpty() const;
@@ -209,6 +211,8 @@ public:
 	const EditorGui& GetGui() const;
 
 	glm::vec3 GetSelectedNodesAveragePosition() const;
+
+	void CastSelectionRay(const glm::vec2& mouse_pos, const renderer::Extent& viewport_extent);
 
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);

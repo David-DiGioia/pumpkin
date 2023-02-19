@@ -170,6 +170,13 @@ void Editor::DeselectNode(EditorNode* node)
 	UpdateSelectionOutlines();
 }
 
+void Editor::DeselectAllNodes()
+{
+	selected_nodes_.clear();
+	active_selection_node_ = nullptr;
+	UpdateSelectionOutlines();
+}
+
 bool Editor::IsNodeSelected(EditorNode* node)
 {
 	return selected_nodes_.find(node) != selected_nodes_.end();
@@ -662,6 +669,32 @@ glm::vec3 Editor::GetSelectedNodesAveragePosition() const
 		sum += node->node->GetWorldPosition();
 	}
 	return sum / (float)selected_nodes_.size();
+}
+
+void Editor::CastSelectionRay(const glm::vec2& mouse_pos, const renderer::Extent& viewport_extent)
+{
+	// This converts pixel coordinates into a ray that we can cast. See the raygen shader for detailed explanation.
+	const glm::vec2 pixel_center{ mouse_pos + glm::vec2{0.5f, 0.5f} };
+	const glm::vec2 uv{ pixel_center / glm::vec2{ viewport_extent.width, viewport_extent.height } };
+	const glm::vec2 d{ uv * 2.0f - 1.0f };
+
+	pmk::Camera& cam{ pumpkin_->GetScene().GetCamera() };
+	glm::mat4 view_inverse{ glm::inverse(cam.GetViewMatrix()) };
+	glm::mat4 projection_inverse{ glm::inverse(cam.GetProjectionMatrix(viewport_extent)) };
+
+	glm::vec3 origin{ glm::vec3(view_inverse * glm::vec4{0, 0, 0, 1}) };
+	glm::vec4 target{ projection_inverse * glm::vec4{d.x, d.y, 1, 1} };
+	glm::vec3 direction{ glm::vec3(view_inverse * glm::vec4(glm::normalize(glm::vec3{target}), 0)) };
+
+	pumpkin_->QueueRaycast(origin, direction);
+	pmk::Rayhit rayhit = pumpkin_->CastQueuedRays()[0];
+
+	if (rayhit.node) {
+		SelectNode(NodeToEditorNode(rayhit.node));
+	}
+	else {
+		DeselectAllNodes();
+	}
 }
 
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const

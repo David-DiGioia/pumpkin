@@ -7,16 +7,22 @@
 
 namespace renderer
 {
-	// Set 0. Frame resource set.
+	constexpr uint32_t MAX_RAYCASTS{ 512 }; // Maximum number of raycasts per dispatch. Might want to re-evaluate later.
+
+	// Set 0 of rt pipeline. Frame resource set.
 	constexpr uint32_t TLAS_BINDING{ 0 };
 	constexpr uint32_t IMAGE_BUFFER_BINDING{ 1 };
 	constexpr uint32_t CAMERA_UBO_BINDING{ 2 };
 
-	// Set 1. Persistent set.
+	// Set 1 of rt pipeline. Persistent set.
 	constexpr uint32_t OBJECT_BUFFERS_BINDING{ 0 };
 	constexpr uint32_t MATERIAL_BUFFER_BINDING{ 1 };
 	constexpr uint32_t MATERIAL_INDEX_ADDRESSES_BINDING{ 2 };
 
+	// Set 0 of raycast pipeline.
+	constexpr uint32_t RAYCAST_TLAS_BINDING{ 0 };
+	constexpr uint32_t RAYCASTS_BUFFER_BINDING{ 1 };
+	constexpr uint32_t RAYHITS_BUFFER_BINDING{ 2 };
 
 	void RayTracingContext::Initialize(Context* context,
 		VulkanRenderer* renderer,
@@ -43,16 +49,17 @@ namespace renderer
 		vkGetPhysicalDeviceProperties2(context->physical_device, &physical_device_properties);
 
 		CreateDescriptorSets();
-		CreatePipelineAndShaderBindingTable();
+		CreateRtPipelineAndShaderBindingTable();
+		CreateRaycastPipelineAndShaderBindingTable();
 	}
 
 	void RayTracingContext::CleanUp()
 	{
 		DeleteTemporaryBuffers();
 
-		allocator_->DestroyBufferResource(&shader_binding_table_.raygen_sbt);
-		allocator_->DestroyBufferResource(&shader_binding_table_.miss_sbt);
-		allocator_->DestroyBufferResource(&shader_binding_table_.hit_sbt);
+		allocator_->DestroyBufferResource(&rt_shader_binding_table_.raygen_sbt);
+		allocator_->DestroyBufferResource(&rt_shader_binding_table_.miss_sbt);
+		allocator_->DestroyBufferResource(&rt_shader_binding_table_.hit_sbt);
 		allocator_->DestroyBufferResource(&object_buffers_buffer_);
 		allocator_->DestroyBufferResource(&materials_resource_);
 		allocator_->DestroyBufferResource(&material_indices_resource_);
@@ -298,11 +305,12 @@ namespace renderer
 			0,
 			nullptr);
 
-		vkCmdTraceRaysKHR(cmd,
-			&shader_binding_table_.raygen_sbt_address,
-			&shader_binding_table_.miss_sbt_address,
-			&shader_binding_table_.hit_sbt_address,
-			&shader_binding_table_.callable_sbt_address,
+		vkCmdTraceRaysKHR(
+			cmd,
+			&rt_shader_binding_table_.raygen_sbt_address,
+			&rt_shader_binding_table_.miss_sbt_address,
+			&rt_shader_binding_table_.hit_sbt_address,
+			&rt_shader_binding_table_.callable_sbt_address,
 			render_extent_.width,
 			render_extent_.height,
 			1);
@@ -341,6 +349,7 @@ namespace renderer
 	void RayTracingContext::SetTlas(VkAccelerationStructureKHR tlas)
 	{
 		GetCurrentFrame().frame_descriptor_set_resource_.LinkAccelerationStructureToBinding(TLAS_BINDING, tlas);
+		raycast_descriptor_set_resource_.LinkAccelerationStructureToBinding(RAYCAST_TLAS_BINDING, tlas);
 	}
 
 	void RayTracingContext::SetRenderImages(const Extent& render_extent, const std::array<ImageResource, FRAMES_IN_FLIGHT>& render_images)
@@ -462,6 +471,54 @@ namespace renderer
 		persistent_descriptor_set_resource_.LinkBufferToBinding(MATERIAL_INDEX_ADDRESSES_BINDING, material_index_addresses_resource_);
 	}
 
+	std::vector<Rayhit> RayTracingContext::CastRays(const std::vector<Raycast>& raycasts)
+	{
+		if ((uint32_t)raycasts.size() > MAX_RAYCASTS) {
+			logger::Error("Too many raycasts submitted for a single dispatch.");
+		}
+
+		// Write raycast input data to GPU buffer.
+		void* data{};
+		VkResult result{ vkMapMemory(context_->device, *raycasts_buffer_.memory, raycasts_buffer_.offset, raycasts_buffer_.size, 0, &data) };
+		CheckResult(result, "Failed to map memory to cast rays.");
+		std::memcpy(data, raycasts.data(), raycasts.size() * sizeof(Raycast));
+		vkUnmapMemory(context_->device, *raycasts_buffer_.memory);
+
+		// Cast rays.
+		VkCommandBuffer cmd{ vulkan_util_->Begin() };
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raycast_pipeline_);
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+			raycast_pipeline_layout_,
+			0,
+			1,
+			&raycast_descriptor_set_resource_.descriptor_set,
+			0,
+			nullptr);
+
+		vkCmdTraceRaysKHR(
+			cmd,
+			&raycast_shader_binding_table_.raygen_sbt_address,
+			&raycast_shader_binding_table_.miss_sbt_address,
+			&raycast_shader_binding_table_.hit_sbt_address,
+			&raycast_shader_binding_table_.callable_sbt_address,
+			(uint32_t)raycasts.size(),
+			1,
+			1);
+
+		vulkan_util_->Submit();
+
+		// Copy rayhit output data to vector.
+		std::vector<Rayhit> rayhits(raycasts.size());
+		result = vkMapMemory(context_->device, *rayhits_buffer_.memory, rayhits_buffer_.offset, rayhits_buffer_.size, 0, &data);
+		CheckResult(result, "Failed to map memory for rayhits.");
+		std::memcpy(rayhits.data(), data, rayhits.size() * sizeof(Rayhit));
+		vkUnmapMemory(context_->device, *rayhits_buffer_.memory);
+
+		return rayhits;
+	}
+
 	VkAccelerationStructureGeometryKHR RayTracingContext::PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const
 	{
 		VkAccelerationStructureGeometryKHR vk_geometry{
@@ -572,7 +629,7 @@ namespace renderer
 		return device_buffer;
 	}
 
-	void RayTracingContext::CreatePipelineAndShaderBindingTable()
+	void RayTracingContext::CreateRtPipelineAndShaderBindingTable()
 	{
 		ShaderBindingTableBuilder sbt_builder{};
 		sbt_builder.Initialize(context_, allocator_, vulkan_util_, &rt_pipeline_properties_);
@@ -581,7 +638,7 @@ namespace renderer
 		sbt_builder.AddMissShader(SPIRV_PREFIX / "shadow.rmiss.spv");
 		sbt_builder.AddHitGroup(SPIRV_PREFIX / "default.rchit.spv", SHADER_UNUSED_PATH, SHADER_UNUSED_PATH);
 
-		CreatePipelineLayout();
+		CreateRtPipelineLayout();
 
 		VkRayTracingPipelineCreateInfoKHR rt_pipeline_info{
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -603,11 +660,11 @@ namespace renderer
 		CheckResult(result, "Failed to create ray tracing pipeline.");
 		NameObject(context_->device, rt_pipeline_, "Ray_Trace_Pipeline");
 
-		shader_binding_table_ = sbt_builder.Build(rt_pipeline_);
+		rt_shader_binding_table_ = sbt_builder.Build(rt_pipeline_);
 		sbt_builder.CleanUp();
 	}
 
-	void RayTracingContext::CreatePipelineLayout()
+	void RayTracingContext::CreateRtPipelineLayout()
 	{
 		std::vector <VkDescriptorSetLayout> set_layouts{
 			frame_descriptor_set_layout_resource_.layout,
@@ -628,9 +685,64 @@ namespace renderer
 		NameObject(context_->device, rt_pipeline_layout_, "Ray_Trace_Pipeline_Layout");
 	}
 
+	void RayTracingContext::CreateRaycastPipelineAndShaderBindingTable()
+	{
+		ShaderBindingTableBuilder sbt_builder{};
+		sbt_builder.Initialize(context_, allocator_, vulkan_util_, &rt_pipeline_properties_);
+		sbt_builder.SetRaygenShader(SPIRV_PREFIX / "raycast.rgen.spv");
+		sbt_builder.AddMissShader(SPIRV_PREFIX / "raycast.rmiss.spv");
+		sbt_builder.AddHitGroup(SPIRV_PREFIX / "raycast.rchit.spv", SHADER_UNUSED_PATH, SHADER_UNUSED_PATH);
+
+		CreateRaycastPipelineLayout();
+
+		VkRayTracingPipelineCreateInfoKHR raycast_pipeline_info{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+			.flags = 0,
+			.stageCount = (uint32_t)sbt_builder.GetShaderStages().size(),
+			.pStages = sbt_builder.GetShaderStages().data(),
+			.groupCount = (uint32_t)sbt_builder.GetGroups().size(),
+			.pGroups = sbt_builder.GetGroups().data(),
+			.maxPipelineRayRecursionDepth = 1,
+			.pLibraryInfo = nullptr,
+			.pLibraryInterface = nullptr,
+			.pDynamicState = nullptr,
+			.layout = raycast_pipeline_layout_,
+			.basePipelineHandle = VK_NULL_HANDLE,
+			.basePipelineIndex = {},
+		};
+
+		VkResult result{ vkCreateRayTracingPipelinesKHR(context_->device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &raycast_pipeline_info, nullptr, &raycast_pipeline_) };
+		CheckResult(result, "Failed to create raycast pipeline.");
+		NameObject(context_->device, raycast_pipeline_, "Raycast_Pipeline");
+
+		raycast_shader_binding_table_ = sbt_builder.Build(raycast_pipeline_);
+		sbt_builder.CleanUp();
+	}
+
+	void RayTracingContext::CreateRaycastPipelineLayout()
+	{
+		std::vector <VkDescriptorSetLayout> set_layouts{
+			raycast_descriptor_set_layout_resource_.layout,
+		};
+
+		VkPipelineLayoutCreateInfo layout_info{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			.flags = 0,
+			.setLayoutCount = (uint32_t)set_layouts.size(),
+			.pSetLayouts = set_layouts.data(),
+			.pushConstantRangeCount = 0,
+			.pPushConstantRanges = nullptr,
+		};
+
+		VkResult result{ vkCreatePipelineLayout(context_->device, &layout_info, nullptr, &raycast_pipeline_layout_) };
+		CheckResult(result, "Failed to create raycast pipeline layout.");
+		NameObject(context_->device, raycast_pipeline_layout_, "Raycast_Pipeline_Layout");
+
+	}
+
 	void RayTracingContext::CreateDescriptorSets()
 	{
-		// Set 0.
+		// Set 0 of rt pipeline.
 		VkDescriptorSetLayoutBinding tlas_binding{
 			.binding = TLAS_BINDING,
 			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
@@ -655,7 +767,7 @@ namespace renderer
 			.pImmutableSamplers = nullptr,
 		};
 
-		// Set 1.
+		// Set 1 of rt pipline.
 		VkDescriptorSetLayoutBinding object_buffers_binding{
 			.binding = OBJECT_BUFFERS_BINDING,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -680,23 +792,57 @@ namespace renderer
 			.pImmutableSamplers = nullptr,
 		};
 
-		std::vector<VkDescriptorSetLayoutBinding> bindings_set_0{
+		// Set 0 of raycast pipeline.
+		VkDescriptorSetLayoutBinding raycast_tlas_binding{
+			.binding = RAYCAST_TLAS_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding raycasts_buffer_binding{
+			.binding = RAYCASTS_BUFFER_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding rayhits_buffer_binding{
+			.binding = RAYHITS_BUFFER_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+		
+		std::vector<VkDescriptorSetLayoutBinding> bindings_rt_set_0{
 			tlas_binding,
 			image_buffer_binding,
 			camera_ubo_binding,
 		};
 
-		std::vector<VkDescriptorSetLayoutBinding> bindings_set_1{
+		std::vector<VkDescriptorSetLayoutBinding> bindings_rt_set_1{
 			object_buffers_binding,
 			material_buffer_binding,
 			material_indices_binding,
 		};
 
-		frame_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_set_0);
+		std::vector<VkDescriptorSetLayoutBinding> bindings_raycast_set_0{
+			raycast_tlas_binding,
+			raycasts_buffer_binding,
+			rayhits_buffer_binding,
+		};
+
+		frame_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_rt_set_0);
 		NameObject(context_->device, frame_descriptor_set_layout_resource_.layout, "Ray_Trace_Frame_Descriptor_Set_Layout");
 
-		persistent_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_set_1);
+		persistent_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_rt_set_1);
 		NameObject(context_->device, persistent_descriptor_set_layout_resource_.layout, "Ray_Trace_Persistent_Descriptor_Set_Layout");
+
+		raycast_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_raycast_set_0);
+		NameObject(context_->device, raycast_descriptor_set_layout_resource_.layout, "Raycast_Descriptor_Set_Layout");
 
 		uint32_t i{ 0 };
 		for (FrameResources& frame : frame_resources_)
@@ -719,6 +865,11 @@ namespace renderer
 		persistent_descriptor_set_resource_ = descriptor_allocator_->CreateDescriptorSetResource(persistent_descriptor_set_layout_resource_);
 		NameObject(context_->device, persistent_descriptor_set_resource_.descriptor_set, "Ray_Trace_Persistent_Descriptor_Set");
 
+		raycast_descriptor_set_resource_ = descriptor_allocator_->CreateDescriptorSetResource(raycast_descriptor_set_layout_resource_);
+		NameObject(context_->device, raycast_descriptor_set_resource_.descriptor_set, "Raycast_Descriptor_Set");
+
+		CreateAndLinkRaycastBuffers();
+
 		// We link object buffers each time the list of BLASes changes, but we do it once initially here with
 		// with a dummy object buffer since something needs to be bound to that slot to use the closest-hit shader.
 		UpdateObjectBuffers({});
@@ -735,6 +886,23 @@ namespace renderer
 		for (FrameResources& frame : frame_resources_) {
 			allocator_->DestroyBufferResource(&frame.camera_ubo_buffer);
 		}
+	}
+
+	void RayTracingContext::CreateAndLinkRaycastBuffers()
+	{
+		raycasts_buffer_ = allocator_->CreateAlignedBufferResource(
+			sizeof(Raycast) * MAX_RAYCASTS,
+			16,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+		rayhits_buffer_ = allocator_->CreateBufferResource(
+			sizeof(Rayhit) * MAX_RAYCASTS,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+		raycast_descriptor_set_resource_.LinkBufferToBinding(RAYCASTS_BUFFER_BINDING, raycasts_buffer_);
+		raycast_descriptor_set_resource_.LinkBufferToBinding(RAYHITS_BUFFER_BINDING, rayhits_buffer_);
 	}
 
 	void ShaderBindingTableBuilder::Initialize(Context* context, Allocator* allocator, VulkanUtil* vulkan_util, VkPhysicalDeviceRayTracingPipelinePropertiesKHR* rt_pipeline_properties)

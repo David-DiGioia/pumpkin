@@ -297,7 +297,7 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 	}
 
 	if (ImGui::IsWindowFocused()) {
-		ProcessViewportInput(editor_);
+		ProcessViewportInput(editor_, viewport_extent_);
 	}
 
 	if ((viewport_extent_.width != 0) && (viewport_extent_.height != 0)) {

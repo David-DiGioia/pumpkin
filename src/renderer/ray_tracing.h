@@ -47,6 +47,18 @@ namespace renderer
 		// TODO: BufferResource for callable shaders.
 	};
 
+	struct Raycast
+	{
+		glm::vec4 origin;
+		glm::vec4 direction;
+	};
+
+	struct Rayhit
+	{
+		uint32_t instance_index;
+		glm::vec3 position;
+	};
+
 	// Utility for building the shader binding table.
 	// Step 1: Initialize and add all the shader groups.
 	// Step 2: Create the ray tracing pipeline using shader stages and groups from GetShaderStages() and GetGroups() respectively.
@@ -150,6 +162,10 @@ namespace renderer
 		// of indices for all of its geometries.
 		void UpdateMaterialBuffers(const std::vector<Material*>& materials, const std::vector<const std::vector<int>*>& indices);
 
+		// Cast rays for none rendering purposes, eg for clicking objects in the scene.
+		// Returns vector of Rayhits of same size as input raycasts.
+		std::vector<Rayhit> CastRays(const std::vector<Raycast>& raycasts);
+
 	private:
 		struct FrameResources;
 
@@ -163,15 +179,21 @@ namespace renderer
 
 		BufferResource UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances);
 
-		void CreatePipelineAndShaderBindingTable();
+		void CreateRtPipelineAndShaderBindingTable();
 
-		void CreatePipelineLayout();
+		void CreateRtPipelineLayout();
+
+		void CreateRaycastPipelineAndShaderBindingTable();
+
+		void CreateRaycastPipelineLayout();
 
 		void CreateDescriptorSets();
 
 		FrameResources& GetCurrentFrame();
 
 		void DestroyFrameResources();
+
+		void CreateAndLinkRaycastBuffers();
 
 		struct QueuedBlasBuildInfo
 		{
@@ -217,8 +239,16 @@ namespace renderer
 		DescriptorSetLayoutResource frame_descriptor_set_layout_resource_{};
 		DescriptorSetLayoutResource persistent_descriptor_set_layout_resource_{};
 		DescriptorSetResource persistent_descriptor_set_resource_{};              // Descriptor set for resources that do not change each frame.
-		ShaderBindingTable shader_binding_table_{};
+		ShaderBindingTable rt_shader_binding_table_{};
 		Extent render_extent_{};
+
+		VkPipeline raycast_pipeline_{};
+		VkPipelineLayout raycast_pipeline_layout_{};
+		DescriptorSetLayoutResource raycast_descriptor_set_layout_resource_{};
+		DescriptorSetResource raycast_descriptor_set_resource_{};
+		BufferResource raycasts_buffer_{};
+		BufferResource rayhits_buffer_{};
+		ShaderBindingTable raycast_shader_binding_table_{};
 
 		VkPhysicalDeviceAccelerationStructurePropertiesKHR acceleration_structure_properties_{};
 		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_pipeline_properties_{};

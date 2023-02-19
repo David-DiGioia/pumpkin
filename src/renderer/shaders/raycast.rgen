@@ -1,0 +1,31 @@
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+struct Raycast
+{
+	vec4 origin;
+	vec4 direction;
+};
+
+layout(set = 0, binding = 0) uniform accelerationStructureEXT tlas;
+layout(set = 0, binding = 1) buffer Raycasts { Raycast i[]; } raycasts;
+
+layout(location = 0) rayPayloadEXT int dummy_payload;
+
+void main()
+{
+	Raycast raycast = raycasts.i[gl_LaunchIDEXT.x];
+
+	traceRayEXT(
+		tlas,
+		gl_RayFlagsOpaqueEXT,
+		0x80,                 // Most significant bit is reserved for raycast objects.
+		0,
+		0,
+		0,
+		raycast.origin.xyz,
+		0.001,
+		raycast.direction.xyz,
+		1e32,
+		0);
+}

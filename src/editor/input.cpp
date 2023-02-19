@@ -70,7 +70,7 @@ bool ProcessTransformInput(Editor* editor)
 	return false;
 }
 
-void ProcessViewportInput(Editor* editor)
+void ProcessViewportInput(Editor* editor, const renderer::Extent& viewport_extent)
 {
 	if (ProcessTransformInput(editor)) {
 		return;
@@ -135,6 +135,14 @@ void ProcessViewportInput(Editor* editor)
 		// so often we just get the minimum of 1 pixel, so speed would become mainly determined by framerate which is undesirable.
 		controller.Rotate(-mouse_delta.x * rotate_speed, -mouse_delta.y * rotate_speed);
 		ImGui::ResetMouseDragDelta();
+	}
+
+	// Select object by clicking.
+	if (ImGui::IsMouseClicked(ImGuiMouseButton_Left, false))
+	{
+		const glm::vec2 pixel_coord{ GetViewportRelativeMousePos(editor) };
+
+		editor->CastSelectionRay(pixel_coord, viewport_extent);
 	}
 
 	// Zoom / change speed with scroll wheel.

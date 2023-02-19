@@ -141,6 +141,43 @@ namespace pmk
 		renderer_.AddOutlineSet(selection_set, color);
 	}
 
+	void Pumpkin::QueueRaycast(const glm::vec3& origin, const glm::vec3& direction)
+	{
+		queued_raycasts_.push_back({ glm::vec4{origin, 0.0f}, glm::vec4{direction, 0.0f} });
+	}
+
+	std::vector<pmk::Rayhit> Pumpkin::CastQueuedRays()
+	{
+		std::vector<renderer::Rayhit> renderer_rayhits{renderer_.CastRays(queued_raycasts_)};
+		queued_raycasts_.clear();
+
+		// Convert to pumpkin rayhits.
+		std::vector<pmk::Rayhit> pmk_rayhits{};
+		pmk_rayhits.reserve(renderer_rayhits.size());
+		for (const renderer::Rayhit& renderer_rayhit : renderer_rayhits)
+		{
+			pmk::Rayhit& pmk_rayhit{ pmk_rayhits.emplace_back() };
+
+			pmk_rayhit.node = GetNodeByRenderObject((renderer::RenderObjectHandle)renderer_rayhit.instance_index);
+			pmk_rayhit.position = renderer_rayhit.position;
+		}
+
+		return pmk_rayhits;
+	}
+
+	Node* Pumpkin::GetNodeByRenderObject(renderer::RenderObjectHandle handle)
+	{
+		// TODO: Change this to not be a linear search.
+		for (Node* node : scene_.GetNodes())
+		{
+			if (node->render_object == handle)
+			{
+				return node;
+			}
+		}
+		return nullptr;
+	}
+
 	void Pumpkin::UpdateDeltaTime()
 	{
 		auto current_time{ std::chrono::steady_clock::now() };

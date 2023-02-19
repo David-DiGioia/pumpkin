@@ -66,6 +66,9 @@ COMPILE_SHADER("mask.frag")
 COMPILE_SHADER("fullscreen_triangle.vert")
 COMPILE_SHADER("outline.frag")
 COMPILE_SHADER("composite.frag")
+COMPILE_SHADER("raycast.rgen")
+COMPILE_SHADER("raycast.rchit")
+COMPILE_SHADER("raycast.rmiss")
 HEADER_SHADER("common.glsl")
 
 add_custom_target(
