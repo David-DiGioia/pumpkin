@@ -11,7 +11,6 @@
 #include "editor.h"
 #include "pumpkin.h"
 #include "logger.h"
-#include "input.h"
 
 constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
 
@@ -183,7 +182,7 @@ void EditorGui::TreeView()
 
 	// If the defocused window is clicked in, it seems the IsWindowFocused is delayed a frame before it returns true.
 	if (ImGui::IsWindowFocused() || clicked_node) {
-		ProcessTreeViewInput(editor_);
+		input_.ProcessTreeViewInput(editor_);
 	}
 
 	if (clicked_node) {
@@ -297,7 +296,7 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 	}
 
 	if (ImGui::IsWindowFocused()) {
-		ProcessViewportInput(editor_, viewport_extent_);
+		input_.ProcessViewportInput(editor_, viewport_extent_);
 	}
 
 	if ((viewport_extent_.width != 0) && (viewport_extent_.height != 0)) {
@@ -450,7 +449,7 @@ void EditorGui::FileBrowser()
 			}
 
 			if (ImGui::IsWindowFocused()) {
-				ProcessFileBrowserInput(editor_);
+				input_.ProcessFileBrowserInput(editor_);
 			}
 
 			if (ImGui::Selectable(filename.c_str(), editor_->IsFileSelected(entry), 0, file_button_size)) {

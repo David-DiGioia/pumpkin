@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "glm/glm.hpp"
 
+#include "editor.h"
 #include "logger.h"
 #include "camera_controller.h"
 #include "math_util.h"
@@ -70,7 +71,7 @@ bool ProcessTransformInput(Editor* editor)
 	return false;
 }
 
-void ProcessViewportInput(Editor* editor, const renderer::Extent& viewport_extent)
+void EditorInput::ProcessViewportInput(Editor* editor, const renderer::Extent& viewport_extent)
 {
 	if (ProcessTransformInput(editor)) {
 		return;
@@ -138,11 +139,23 @@ void ProcessViewportInput(Editor* editor, const renderer::Extent& viewport_exten
 	}
 
 	// Select object by clicking.
-	if (ImGui::IsMouseClicked(ImGuiMouseButton_Left, false))
 	{
-		const glm::vec2 pixel_coord{ GetViewportRelativeMousePos(editor) };
+		glm::vec2 mouse_pos{ GetViewportRelativeMousePos(editor) };
+		constexpr float raycast_radius{ 3.0f }; // If mouse moves out of this pixel radius between clicking and releasing, ray is not cast.
 
-		editor->CastSelectionRay(pixel_coord, viewport_extent);
+		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left, false))
+		{
+			mouse_down_pos_ = mouse_pos;
+			should_cast_ray_on_release_ = true;
+		}
+
+		if (glm::distance(mouse_pos, mouse_down_pos_) > raycast_radius) {
+			should_cast_ray_on_release_ = false;
+		}
+
+		if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && should_cast_ray_on_release_) {
+			editor->CastSelectionRay(mouse_pos, viewport_extent);
+		}
 	}
 
 	// Zoom / change speed with scroll wheel.
@@ -167,13 +180,13 @@ void ProcessViewportInput(Editor* editor, const renderer::Extent& viewport_exten
 	}
 }
 
-void ProcessTreeViewInput(Editor* editor)
+void EditorInput::ProcessTreeViewInput(Editor* editor)
 {
 	// Handle multiselect.
 	editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
 }
 
-void ProcessFileBrowserInput(Editor* editor)
+void EditorInput::ProcessFileBrowserInput(Editor* editor)
 {
 	editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
 }

@@ -1,11 +1,21 @@
 #pragma once
 
-#include "editor.h"
+#include "renderer_types.h"
+
+class Editor;
 
 constexpr float MINIMUM_MOVEMENT_SPEED{ 0.1f };
 
-void ProcessViewportInput(Editor* editor, const renderer::Extent& viewport_extent);
+class EditorInput
+{
+public:
+	void ProcessViewportInput(Editor* editor, const renderer::Extent& viewport_extent);
 
-void ProcessTreeViewInput(Editor* editor);
+	void ProcessTreeViewInput(Editor* editor);
 
-void ProcessFileBrowserInput(Editor* editor);
+	void ProcessFileBrowserInput(Editor* editor);
+
+private:
+	glm::vec2 mouse_down_pos_{};
+	bool should_cast_ray_on_release_{};
+};

@@ -7,6 +7,7 @@
 #include <filesystem>
 #include "pumpkin.h"
 #include "imgui.h"
+#include "input.h"
 
 class Editor;
 class EditorNode;
@@ -62,6 +63,7 @@ private:
 	void LoadProject();
 
 	Editor* editor_{};
+	EditorInput input_{};
 	renderer::Extent viewport_extent_{};        // Dimension of the 3D viewport.
 	renderer::Extent viewport_window_extent_{}; // Dimension of the window containing 3D viewport, including header etc.
 	std::filesystem::path current_directory_{};
