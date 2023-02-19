@@ -68,6 +68,8 @@ namespace pmk
 
 		Node* GetNodeByRenderObject(renderer::RenderObjectHandle handle);
 
+		void AddRenderObjectToNode(Node* node, renderer::RenderObjectHandle handle);
+
 	private:
 		// General work the host needs to do each frame.
 		void HostWork();

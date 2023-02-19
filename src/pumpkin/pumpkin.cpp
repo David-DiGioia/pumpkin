@@ -167,15 +167,12 @@ namespace pmk
 
 	Node* Pumpkin::GetNodeByRenderObject(renderer::RenderObjectHandle handle)
 	{
-		// TODO: Change this to not be a linear search.
-		for (Node* node : scene_.GetNodes())
-		{
-			if (node->render_object == handle)
-			{
-				return node;
-			}
-		}
-		return nullptr;
+		return scene_.GetNodeByRenderObject(handle);
+	}
+
+	void Pumpkin::AddRenderObjectToNode(Node* node, renderer::RenderObjectHandle handle)
+	{
+		scene_.AddRenderObjectToNode(node, handle);
 	}
 
 	void Pumpkin::UpdateDeltaTime()

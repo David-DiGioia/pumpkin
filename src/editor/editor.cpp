@@ -393,7 +393,7 @@ void Editor::LoadNodeData(const nlohmann::json& j)
 		auto& s{ json_node[jsonkey::SCALE] };
 		auto& q{ json_node[jsonkey::ROTATION] };
 
-		node->render_object = json_node[jsonkey::RENDER_OBJECT];
+		pumpkin_->AddRenderObjectToNode(node, (renderer::RenderObjectHandle)json_node[jsonkey::RENDER_OBJECT]);
 		node->position = glm::vec3{ p[0], p[1], p[2] };
 		node->scale = glm::vec3{ s[0], s[1], s[2] };
 		node->rotation = glm::quat{ q[3], q[0], q[1], q[2] };

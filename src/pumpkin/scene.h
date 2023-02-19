@@ -20,7 +20,7 @@ namespace pmk
 		// Each transform is in local space of parent.
 		glm::vec3 position{};
 		glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
-		glm::quat rotation{1.0f, 0.0f, 0.0f, 0.0f};
+		glm::quat rotation{ 1.0f, 0.0f, 0.0f, 0.0f };
 
 		Node* GetParent() const;
 
@@ -103,6 +103,10 @@ namespace pmk
 
 		Node* GetRootNode() const;
 
+		Node* GetNodeByRenderObject(renderer::RenderObjectHandle handle);
+
+		void AddRenderObjectToNode(Node* node, renderer::RenderObjectHandle handle);
+
 	private:
 		// Recursive implementation to upload node render object data.
 		void UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform);
@@ -112,7 +116,8 @@ namespace pmk
 		Camera camera_{};
 		renderer::VulkanRenderer* renderer_{};
 		Node* root_node_{};
-		std::vector<Node*> nodes_{}; // All nodes in the scene. We heap allocate the nodes to avoid dangling pointers when nodes_ resizes.
-		uint32_t next_node_id_{};    // The next node created will have this id.
+		std::vector<Node*> nodes_{};                                                       // All nodes in the scene. We heap allocate the nodes to avoid dangling pointers when nodes_ resizes.
+		std::unordered_map<renderer::RenderObjectHandle, Node*> render_object_node_map_{}; // Map render object handles to nodes. This won't contain nodes without render objects.
+		uint32_t next_node_id_{};                                                          // The next node created will have this id.
 	};
 }

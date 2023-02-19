@@ -178,7 +178,7 @@ namespace pmk
 
 				// If not -1, this indicates this mesh has been loaded already, so we give the render object the index of the existing mesh.
 				uint32_t mesh_idx{ duplicate_indices[gltf_node.mesh] == -1 ? mesh_starting_index + gltf_node.mesh : (uint32_t)duplicate_indices[gltf_node.mesh] };
-				node->render_object = renderer_->CreateRenderObject(mesh_idx, material_indices);
+				AddRenderObjectToNode(node, renderer_->CreateRenderObject(mesh_idx, material_indices));
 
 				if (!gltf_node.translation.empty()) {
 					node->position = glm::vec3{ (float)gltf_node.translation[0], (float)gltf_node.translation[1], (float)gltf_node.translation[2] };
@@ -266,6 +266,24 @@ namespace pmk
 	Node* Scene::GetRootNode() const
 	{
 		return root_node_;
+	}
+
+	Node* Scene::GetNodeByRenderObject(renderer::RenderObjectHandle handle)
+	{
+		auto it{ render_object_node_map_.find(handle) };
+		if (it != render_object_node_map_.end()) {
+			return it->second;
+		}
+		return nullptr;
+	}
+
+	void Scene::AddRenderObjectToNode(Node* node, renderer::RenderObjectHandle handle)
+	{
+		node->render_object = handle;
+
+		if (node->render_object != renderer::NULL_HANDLE); {
+			render_object_node_map_[node->render_object] = node;
+		}
 	}
 
 	glm::mat4 Camera::GetViewMatrix() const
