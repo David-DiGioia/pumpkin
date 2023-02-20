@@ -716,15 +716,23 @@ void Editor::CastSelectionRay(const glm::vec2& mouse_pos, const renderer::Extent
 	{
 		EditorNode* node{ NodeToEditorNode(rayhit.node) };
 
-		if (active_selection_node_ == node) {
-			DeselectNode(node);
-		}
-		else if (selected_nodes_.contains(node))
+		if (multi_select_enabled_)
 		{
-			active_selection_node_ = node;
-			UpdateSelectionOutlines();
+			if (active_selection_node_ == node) {
+				DeselectNode(node);
+			}
+			else if (selected_nodes_.contains(node))
+			{
+				active_selection_node_ = node;
+				UpdateSelectionOutlines();
+			}
+			else {
+				SelectNode(node);
+			}
 		}
-		else {
+		else
+		{
+			DeselectAllNodes();
 			SelectNode(node);
 		}
 	}
