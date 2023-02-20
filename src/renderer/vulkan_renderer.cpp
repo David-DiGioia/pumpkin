@@ -989,7 +989,7 @@ namespace renderer
 	{
 		InitializeCommandBuffers();
 		InitializeSyncObjects();
-		InitializeCameraResources();
+		InitializeDescriptorResources();
 
 		//InitializeRayTraceImages();
 		InitializeDepthImages();
@@ -1054,17 +1054,21 @@ namespace renderer
 		}
 	}
 
-	void VulkanRenderer::InitializeCameraResources()
+	void VulkanRenderer::InitializeDescriptorResources()
 	{
 		uint32_t i{ 0 };
 		for (FrameResources& resource : frame_resources_)
 		{
+			// Camera resources.
 			resource.camera_ubo_buffer = allocator_.CreateBufferResource(sizeof(FrameResources::RasterizationCameraUBO),
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 			NameObject(context_.device, resource.camera_ubo_buffer.buffer, std::string{ "Camera_UBO_Buffer_" + std::to_string(i) });
 
 			resource.camera_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(camera_layout_resource_);
 			resource.camera_descriptor_set_resource.LinkBufferToBinding(CAMERA_UBO_BINDING, resource.camera_ubo_buffer);
+
+			// Composite image resource. Don't link to binding yet, since we do this when window is resized.
+			resource.composite_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(composite_layout_resource_);
 			++i;
 		}
 	}
@@ -1101,7 +1105,6 @@ namespace renderer
 		uint32_t i{ 0 };
 		for (FrameResources& resource : frame_resources_)
 		{
-			resource.composite_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(composite_layout_resource_);
 			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RASTER_BINDING, editor_backend_.GetImGuiBackend().GetRasterImages()[i], VK_IMAGE_LAYOUT_GENERAL);
 			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RT_IMAGE_BINDING, editor_backend_.GetImGuiBackend().GetRayTraceImages()[i], VK_IMAGE_LAYOUT_GENERAL);
 			++i;

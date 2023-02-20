@@ -138,7 +138,7 @@ namespace renderer
 
 		void InitializeSyncObjects();
 
-		void InitializeCameraResources();
+		void InitializeDescriptorResources();
 
 		//void InitializeRayTraceImages();
 
