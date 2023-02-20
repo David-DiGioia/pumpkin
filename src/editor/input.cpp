@@ -87,7 +87,10 @@ void EditorInput::ProcessViewportInput(Editor* editor, const renderer::Extent& v
 
 	// Handle shift modifier.
 	if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
-
+		
+		if (ImGui::IsKeyReleased(ImGuiKey_A)) {
+			editor->ToggleSelectAll();
+		}
 	}
 	else
 	{
@@ -140,6 +143,7 @@ void EditorInput::ProcessViewportInput(Editor* editor, const renderer::Extent& v
 
 	// Select object by clicking.
 	{
+		editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
 		glm::vec2 mouse_pos{ GetViewportRelativeMousePos(editor) };
 		constexpr float raycast_radius{ 3.0f }; // If mouse moves out of this pixel radius between clicking and releasing, ray is not cast.
 

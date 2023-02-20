@@ -146,6 +146,10 @@ public:
 
 	void DeselectNode(EditorNode* node);
 
+	void ToggleSelectAll();
+
+	void SelectAllNodes();
+
 	void DeselectAllNodes();
 
 	bool IsNodeSelected(EditorNode* node);

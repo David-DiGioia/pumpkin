@@ -170,6 +170,28 @@ void Editor::DeselectNode(EditorNode* node)
 	UpdateSelectionOutlines();
 }
 
+void Editor::ToggleSelectAll()
+{
+	if (selected_nodes_.empty()) {
+		SelectAllNodes();
+	}
+	else {
+		DeselectAllNodes();
+	}
+}
+
+void Editor::SelectAllNodes()
+{
+	for (auto& pair : node_map_)
+	{
+		// Don't select root node.
+		if (pair.first != 0) {
+			selected_nodes_.insert(pair.second);
+		}
+	}
+	UpdateSelectionOutlines();
+}
+
 void Editor::DeselectAllNodes()
 {
 	selected_nodes_.clear();
@@ -689,10 +711,24 @@ void Editor::CastSelectionRay(const glm::vec2& mouse_pos, const renderer::Extent
 	pumpkin_->QueueRaycast(origin, direction);
 	pmk::Rayhit rayhit = pumpkin_->CastQueuedRays()[0];
 
-	if (rayhit.node) {
-		SelectNode(NodeToEditorNode(rayhit.node));
+
+	if (rayhit.node)
+	{
+		EditorNode* node{ NodeToEditorNode(rayhit.node) };
+
+		if (active_selection_node_ == node) {
+			DeselectNode(node);
+		}
+		else if (selected_nodes_.contains(node))
+		{
+			active_selection_node_ = node;
+			UpdateSelectionOutlines();
+		}
+		else {
+			SelectNode(node);
+		}
 	}
-	else {
+	else if (!multi_select_enabled_) {
 		DeselectAllNodes();
 	}
 }
