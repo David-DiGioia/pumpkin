@@ -4,6 +4,7 @@
 #include <string>
 #include <climits>
 #include <chrono>
+#include <set>
 #include "imgui.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "tinyfiledialogs.h"
@@ -13,6 +14,11 @@
 #include "logger.h"
 
 constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
+
+bool EditorNodeCmp::operator()(EditorNode* a, EditorNode* b) const
+{
+	return a->GetName() < b->GetName();
+}
 
 std::filesystem::path OpenFileDialog(const std::string& title, const std::filesystem::path& default_path, const std::vector<const char*>& filter_patterns, bool allow_multi_select)
 {
@@ -152,9 +158,10 @@ void EditorGui::DrawTreeNode(EditorNode* root, EditorNode** out_node_clicked)
 
 	if (!is_leaf && node_open)
 	{
-		for (pmk::Node* node : root->node->GetChildren()) {
-			DrawTreeNode(editor_->NodeToEditorNode(node), out_node_clicked);
+		for (EditorNode* node : GetSortedChildren(root)) {
+			DrawTreeNode(node, out_node_clicked);
 		}
+
 		ImGui::TreePop();
 	}
 }
@@ -176,8 +183,8 @@ void EditorGui::TreeView()
 	EditorNode* clicked_node{ nullptr };
 
 	// We don't draw the root node itself, this just exists to make it easier to do operations to all nodes recursively.
-	for (pmk::Node* node : root_node->node->GetChildren()) {
-		DrawTreeNode(editor_->NodeToEditorNode(node), &clicked_node);
+	for (EditorNode* node : GetSortedChildren(root_node)) {
+		DrawTreeNode(node, &clicked_node);
 	}
 
 	// If the defocused window is clicked in, it seems the IsWindowFocused is delayed a frame before it returns true.
@@ -542,4 +549,16 @@ void EditorGui::LoadProject()
 	editor_->LoadProject(popup_selected_file_);
 	popup_selected_file_ = {};
 	pumpkin_proj_selected_ = false;
+}
+
+std::set<EditorNode*, EditorNodeCmp> EditorGui::GetSortedChildren(EditorNode* node)
+{
+	auto node_set{ node->node->GetChildren() };
+	std::set<EditorNode*, EditorNodeCmp> sorted_editor_nodes{};
+
+	for (pmk::Node* node : node->node->GetChildren()) {
+		sorted_editor_nodes.insert(editor_->NodeToEditorNode(node));
+	}
+
+	return sorted_editor_nodes;
 }

@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <unordered_set>
+#include <set>
 #include <filesystem>
 #include "pumpkin.h"
 #include "imgui.h"
@@ -11,6 +12,12 @@
 
 class Editor;
 class EditorNode;
+
+// Comparator to compare EditorNode pointers by name.
+struct EditorNodeCmp
+{
+	bool operator()(EditorNode* a, EditorNode* b) const;
+};
 
 class EditorGui
 {
@@ -61,6 +68,8 @@ private:
 	void UpdateViewportSize();
 
 	void LoadProject();
+	
+	std::set<EditorNode*, EditorNodeCmp> GetSortedChildren(EditorNode* node);
 
 	Editor* editor_{};
 	EditorInput input_{};
