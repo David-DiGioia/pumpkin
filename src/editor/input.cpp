@@ -86,10 +86,22 @@ void EditorInput::ProcessViewportInput(Editor* editor, const renderer::Extent& v
 	glm::vec3 move_dir{};
 
 	// Handle shift modifier.
-	if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
-		
+	if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
+	{
 		if (ImGui::IsKeyReleased(ImGuiKey_A)) {
 			editor->ToggleSelectAll();
+		}
+	}
+	else if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl))
+	{
+		if (ImGui::IsKeyPressed(ImGuiKey_P)) {
+			editor->ParentSelectionToActive();
+		}
+	}
+	else if (ImGui::IsKeyDown(ImGuiKey_LeftAlt))
+	{
+		if (ImGui::IsKeyPressed(ImGuiKey_P)) {
+			editor->ClearSelectionParent();
 		}
 	}
 	else

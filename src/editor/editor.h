@@ -218,6 +218,10 @@ public:
 
 	void CastSelectionRay(const glm::vec2& mouse_pos, const renderer::Extent& viewport_extent);
 
+	void ParentSelectionToActive();
+
+	void ClearSelectionParent();
+
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);
 

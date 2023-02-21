@@ -741,6 +741,27 @@ void Editor::CastSelectionRay(const glm::vec2& mouse_pos, const renderer::Extent
 	}
 }
 
+void Editor::ParentSelectionToActive()
+{
+	if (!active_selection_node_) {
+		return;
+	}
+
+	for (EditorNode* node : selected_nodes_)
+	{
+		if (node != active_selection_node_) {
+			node->node->SetParent(active_selection_node_->node);
+		}
+	}
+}
+
+void Editor::ClearSelectionParent()
+{
+	for (EditorNode* node : selected_nodes_) {
+		node->node->SetParent(root_node_->node);
+	}
+}
+
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
 {
 	const renderer::Extent& viewport_extent{ gui_.GetViewportExtent() };

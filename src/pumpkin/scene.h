@@ -48,6 +48,11 @@ namespace pmk
 		// and recursing down, prefer to just pass the local transforms with you and accumulate to get global transforms.
 		glm::mat4 GetWorldTransform() const;
 
+		void SetWorldTransform(const glm::mat4& transform);
+
+		// Not every transform matrix can be represented by position/rotation/scale, such as skew.
+		void SetLocalTransform(const glm::mat4& transform);
+
 	private:
 		// Make constructor private to insure node_id is assigned only from Scene.
 		Node(uint32_t id);

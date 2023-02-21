@@ -43,6 +43,8 @@ namespace pmk
 
 	void Node::SetParent(Node* parent)
 	{
+		glm::mat4 original_world_transform{ GetWorldTransform() };
+
 		// No longer child of old parent.
 		if (parent_) {
 			parent_->children_.erase(this);
@@ -53,6 +55,8 @@ namespace pmk
 		if (parent) {
 			parent->children_.insert(this);
 		}
+
+		SetWorldTransform(original_world_transform);
 	}
 
 	void Node::AddChild(Node* child)
@@ -105,6 +109,27 @@ namespace pmk
 			return parent_->GetWorldTransform() * GetLocalTransform();
 		}
 		return GetLocalTransform();
+	}
+
+	void Node::SetWorldTransform(const glm::mat4& transform)
+	{
+		glm::mat4 inv_parent_transform{ parent_ ? glm::inverse(parent_->GetWorldTransform()) : glm::mat4(1.0f) };
+		SetLocalTransform(inv_parent_transform * transform);
+	}
+
+	void Node::SetLocalTransform(const glm::mat4& transform)
+	{
+		glm::vec3 v1{ glm::vec3(transform[0]) };
+		glm::vec3 v2{ glm::vec3(transform[1]) };
+		glm::vec3 v3{ glm::vec3(transform[2]) };
+		float l1{ glm::length(v1) };
+		float l2{ glm::length(v2) };
+		float l3{ glm::length(v3) };
+		glm::mat3 rot_mat{ v1 / l1, v2 / l2, v3 / l3 };
+
+		scale = { l1, l2, l3 };
+		position = glm::vec3(transform[3]);
+		rotation = glm::quat_cast(rot_mat);
 	}
 
 	void Scene::Initialize(renderer::VulkanRenderer* renderer)
