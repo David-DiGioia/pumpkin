@@ -43,6 +43,11 @@ namespace pmk
 
 	void Node::SetParent(Node* parent)
 	{
+		// If setting this parent would create a parent cycle, abort.
+		if (parent && parent->HasAncestor(this)) {
+			return;
+		}
+
 		glm::mat4 original_world_transform{ GetWorldTransform() };
 
 		// No longer child of old parent.
@@ -130,6 +135,14 @@ namespace pmk
 		scale = { l1, l2, l3 };
 		position = glm::vec3(transform[3]);
 		rotation = glm::quat_cast(rot_mat);
+	}
+
+	bool Node::HasAncestor(Node* node)
+	{
+		if (parent_) {
+			return (parent_ == node) || parent_->HasAncestor(node);
+		}
+		return false;
 	}
 
 	void Scene::Initialize(renderer::VulkanRenderer* renderer)
