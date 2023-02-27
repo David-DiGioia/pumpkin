@@ -319,7 +319,7 @@ namespace pmk
 	{
 		node->render_object = handle;
 
-		if (node->render_object != renderer::NULL_HANDLE); {
+		if (node->render_object != renderer::NULL_HANDLE) {
 			render_object_node_map_[node->render_object] = node;
 		}
 	}

@@ -9,8 +9,6 @@ struct Rayhit
 
 layout(set = 0, binding = 2) buffer Rayhits { Rayhit i[]; } rayhits;
 
-hitAttributeEXT vec3 attribs;
-
 void main()
 {
 	rayhits.i[gl_LaunchIDEXT.x].instance_id = gl_InstanceID;
