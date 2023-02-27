@@ -78,14 +78,14 @@ private:
 	std::filesystem::path current_directory_{};
 
 	int material_selected_geometry_index_{};
-	int material_selected_combo_{};
 
 	std::chrono::steady_clock::time_point frame_start_time_{};  // For timing frame duration.
 	std::chrono::steady_clock::time_point second_start_time_{}; // For calculating FPS.
 	uint32_t frame_counter_{};                                  // For calculating FPS.
 	float fps_{};
 
-	std::filesystem::path popup_current_directory_{ "C:\\" };
+	std::filesystem::path project_popup_current_directory_{ "C:\\" };
+	std::filesystem::path texture_popup_current_directory_{};
 	std::filesystem::directory_entry popup_selected_file_{};
 	bool open_project_selection_popup_{ true };
 	char* popup_name_buffer_;

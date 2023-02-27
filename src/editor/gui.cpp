@@ -38,7 +38,7 @@ void EditorGui::Initialize(Editor* editor)
 {
 	editor_ = editor;
 	popup_name_buffer_ = new char[PROJECT_NAME_BUFFER_SIZE] {};
-	popup_current_directory_ = editor_->editor_settings_.project_directories_path;
+	project_popup_current_directory_ = editor_->editor_settings_.project_directories_path;
 }
 
 void EditorGui::CleanUp()
@@ -224,6 +224,10 @@ void EditorGui::NodeProperties()
 		std::transform(node_materials.begin(), node_materials.end(), node_materials_strings.begin(),
 			[=](int mat_idx) { return editor_->materials_[mat_idx]->GetNameBuffer(); });
 
+		if (material_selected_geometry_index_ >= node_materials.size()) {
+			material_selected_geometry_index_ = 0;
+		}
+
 		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 		ImGui::Text("Material");
 		ImGui::ListBox("##MaterialList", &material_selected_geometry_index_, node_materials_strings.data(), node_materials_strings.size(), 4);
@@ -233,12 +237,12 @@ void EditorGui::NodeProperties()
 			EditorMaterial* mat{ editor_->materials_[node_materials[material_selected_geometry_index_]] };
 
 			// Combo box to swap selected material for a different existing material.
-			material_selected_combo_ = node_materials[material_selected_geometry_index_];
+			int material_selected_combo = node_materials[material_selected_geometry_index_];
 			if (ImGui::BeginCombo("##MaterialCombo", nullptr, ImGuiComboFlags_NoPreview))
 			{
 				for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
 				{
-					const bool is_selected{ material_selected_combo_ == mat_idx };
+					const bool is_selected{ material_selected_combo == mat_idx };
 					if (ImGui::Selectable(editor_->materials_[mat_idx]->GetNameBuffer(), is_selected)) {
 						editor_->SetNodeMaterial(active_node, material_selected_geometry_index_, mat_idx);
 					}
@@ -260,13 +264,30 @@ void EditorGui::NodeProperties()
 				std::string user_count_string{ std::to_string(mat->user_count) };
 				if (ImGui::Button(user_count_string.c_str()))
 				{
-					uint32_t mat_copy{ editor_->MakeMaterialUnique((uint32_t)material_selected_combo_) };
+					uint32_t mat_copy{ editor_->MakeMaterialUnique((uint32_t)material_selected_combo) };
 					editor_->SetNodeMaterial(active_node, material_selected_geometry_index_, mat_copy);
 				}
 			}
 
+			ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+
 			bool mat_changed{ false };
+
+			if (ImGui::Button("Tex"))
+			{
+				auto selection{ OpenFileDialog("Select texture", texture_popup_current_directory_, {"png", "jpg", "jpeg"}, false) };
+				if (!selection.empty())
+				{
+					if (selection.has_root_directory()) {
+						texture_popup_current_directory_ = selection.root_directory();
+					}
+
+					renderer::TextureHandle handle{ editor_->ImportTexture(selection) };
+					// TODO: Do something with handle here...
+				}
+			}
 			mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));
+
 			mat_changed |= ImGui::DragFloat("Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
 			mat_changed |= ImGui::DragFloat("Roughness", &mat->material->roughness, 0.01f, 0.0f, 1.0f);
 			mat_changed |= ImGui::DragFloat("IOR", &mat->material->ior, 0.01f, 1.0f, 2.0f);
@@ -339,9 +360,10 @@ void EditorGui::ProjectSelectionPopup()
 	ImGui::BeginDisabled(popup_name_buffer_[0] == '\0'); // Disable empty string.
 	if (ImGui::Button("Create project"))
 	{
-		auto project_dir{ popup_current_directory_ / popup_name_buffer_ };
+		auto project_dir{ project_popup_current_directory_ / popup_name_buffer_ };
 		editor_->NewProject(project_dir);
 		current_directory_ = project_dir / ASSETS_RELATIVE_PATH;
+		texture_popup_current_directory_ = project_dir / ASSETS_RELATIVE_PATH;
 		ImGui::CloseCurrentPopup();
 	}
 	ImGui::EndDisabled();
@@ -350,26 +372,26 @@ void EditorGui::ProjectSelectionPopup()
 	ImGui::PushID(1);
 	if (ImGui::Button("Browse"))
 	{
-		auto selection{ SelectFolderDialog("Select folder", popup_current_directory_) };
+		auto selection{ SelectFolderDialog("Select folder", project_popup_current_directory_) };
 		if (!selection.empty())
 		{
-			popup_current_directory_ = selection;
-			editor_->editor_settings_.project_directories_path = popup_current_directory_;
+			project_popup_current_directory_ = selection;
+			editor_->editor_settings_.project_directories_path = project_popup_current_directory_;
 			editor_->SaveEditorSettings();
 		}
 	}
 
 	ImGui::SameLine();
-	ImGui::Text(popup_current_directory_.string().c_str());
+	ImGui::Text(project_popup_current_directory_.string().c_str());
 	ImGui::PopID();
 
 	ImGui::BeginChild("Project selection child", ImVec2(ImGui::GetContentRegionAvail().x, 200), false, 0);
 
-	if (fs::exists(popup_current_directory_) && fs::is_directory(popup_current_directory_))
+	if (fs::exists(project_popup_current_directory_) && fs::is_directory(project_popup_current_directory_))
 	{
 		int idx{ 0 };
 
-		for (const fs::directory_entry& entry : fs::directory_iterator(popup_current_directory_))
+		for (const fs::directory_entry& entry : fs::directory_iterator(project_popup_current_directory_))
 		{
 			if (!entry.is_directory()) {
 				continue;
@@ -394,7 +416,7 @@ void EditorGui::ProjectSelectionPopup()
 				}
 				else
 				{
-					popup_current_directory_ = entry;
+					project_popup_current_directory_ = entry;
 					popup_selected_file_ = {};
 				}
 			}

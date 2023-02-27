@@ -14,6 +14,12 @@ namespace renderer
 	{
 		switch (attributes)
 		{
+		case VertexAttributes::POSITION_NORMAL_COORD:
+			return {
+				VERTEX_ATTRIBUTE(0, position),
+				VERTEX_ATTRIBUTE(1, normal),
+				VERTEX_ATTRIBUTE(2, tex_coord),
+			};
 		case VertexAttributes::POSITION_NORMAL:
 			return {
 				VERTEX_ATTRIBUTE(0, position),
@@ -105,7 +111,6 @@ namespace renderer
 				}
 
 				// TEX COORD.
-				/*
 				if (tex_coord_itr != primitive.attributes.end())
 				{
 					tinygltf::Accessor& coord_accesor = model.accessors[tex_coord_itr->second];
@@ -134,7 +139,6 @@ namespace renderer
 						logger::Error("glTF tex coord accessor type mismatch.\n");
 					}
 				}
-				*/
 
 				hash ^= HashVertex(out_mesh->geometries[geo_idx].vertices[i], i);
 			}

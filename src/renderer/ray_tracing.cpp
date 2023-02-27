@@ -7,7 +7,7 @@
 
 namespace renderer
 {
-	constexpr uint32_t MAX_RAYCASTS{ 512 }; // Maximum number of raycasts per dispatch. Might want to re-evaluate later.
+	constexpr uint32_t MAX_RAYCASTS{ 512 };          // Maximum number of raycasts per dispatch. Might want to re-evaluate later.
 
 	// Set 0 of rt pipeline. Frame resource set.
 	constexpr uint32_t TLAS_BINDING{ 0 };
@@ -18,6 +18,7 @@ namespace renderer
 	constexpr uint32_t OBJECT_BUFFERS_BINDING{ 0 };
 	constexpr uint32_t MATERIAL_BUFFER_BINDING{ 1 };
 	constexpr uint32_t MATERIAL_INDEX_ADDRESSES_BINDING{ 2 };
+	constexpr uint32_t MATERIAL_TEXTURES_BINDING{ 3 };
 
 	// Set 0 of raycast pipeline.
 	constexpr uint32_t RAYCAST_TLAS_BINDING{ 0 };
@@ -800,6 +801,14 @@ namespace renderer
 			.pImmutableSamplers = nullptr,
 		};
 
+		VkDescriptorSetLayoutBinding bindless_textures_binding{
+			.binding = MATERIAL_TEXTURES_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = MAX_BINDLESS_TEXTURES,
+			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+			.pImmutableSamplers = nullptr,
+		};
+
 		// Set 0 of raycast pipeline.
 		VkDescriptorSetLayoutBinding raycast_tlas_binding{
 			.binding = RAYCAST_TLAS_BINDING,
@@ -824,7 +833,7 @@ namespace renderer
 			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
 			.pImmutableSamplers = nullptr,
 		};
-		
+
 		std::vector<VkDescriptorSetLayoutBinding> bindings_rt_set_0{
 			tlas_binding,
 			image_buffer_binding,
@@ -835,6 +844,7 @@ namespace renderer
 			object_buffers_binding,
 			material_buffer_binding,
 			material_indices_binding,
+			bindless_textures_binding,
 		};
 
 		std::vector<VkDescriptorSetLayoutBinding> bindings_raycast_set_0{

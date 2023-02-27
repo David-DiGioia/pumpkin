@@ -159,8 +159,16 @@ namespace renderer
 
 		CheckDeviceExtensionsSupported(required_device_extensions);
 
+		// For bindless textures.
+		VkPhysicalDeviceDescriptorIndexingFeatures indexing_features{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+			.descriptorBindingPartiallyBound = VK_TRUE,
+			.runtimeDescriptorArray = VK_TRUE,
+		};
+
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+			.pNext = &indexing_features,
 			.accelerationStructure = VK_TRUE,
 			.accelerationStructureCaptureReplay = VK_FALSE,
 			.accelerationStructureIndirectBuild = VK_FALSE,

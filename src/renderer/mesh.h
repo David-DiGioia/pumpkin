@@ -22,17 +22,27 @@ namespace renderer
 	{
 		glm::vec3 position;
 		glm::vec3 normal;
+		glm::vec2 tex_coord;
 
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes(VertexAttributes attributes);
 	};
 
 	struct Material
 	{
+		// Backup values to use if texture index is NULL_TEXTURE_INDEX.
 		glm::vec4 color;
 		float metallic;
 		float roughness;
-		float ior;
 		float emission;
+
+		// There is no corresponding texture for IOR.
+		float ior;
+
+		// Indices into textures[].
+		uint32_t color_index;
+		uint32_t metallic_index;
+		uint32_t roughness_index;
+		uint32_t emission_index;
 	};
 
 	struct Geometry

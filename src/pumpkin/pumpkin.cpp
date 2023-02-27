@@ -175,6 +175,11 @@ namespace pmk
 		scene_.AddRenderObjectToNode(node, handle);
 	}
 
+	renderer::TextureHandle Pumpkin::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
+	{
+		return renderer_.CreateTexture(data, width, height, channels);
+	}
+
 	void Pumpkin::UpdateDeltaTime()
 	{
 		auto current_time{ std::chrono::steady_clock::now() };

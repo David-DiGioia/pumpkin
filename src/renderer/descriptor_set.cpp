@@ -99,7 +99,7 @@ namespace renderer
 
 		VkDescriptorPoolCreateInfo pool_info{
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.flags = 0,
+			.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
 			.maxSets = max_descriptor_sets,
 			.poolSizeCount = (uint32_t)pool_sizes.size(),
 			.pPoolSizes = pool_sizes.data(),

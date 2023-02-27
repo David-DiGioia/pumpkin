@@ -852,6 +852,39 @@ namespace renderer
 		return rt_context_.CastRays(raycasts);
 	}
 
+	renderer::TextureHandle VulkanRenderer::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
+	{
+		VkFormat format{ channels == 4 ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8_SRGB };
+
+		ImageResource texture_image{ allocator_.CreateImageResource(
+			{ width, height },
+			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			format) };
+
+		vulkan_util_.Begin();
+
+		// Transition image to transfer dst layout.
+		vulkan_util_.PipelineBarrier(
+			texture_image.image,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0, VK_ACCESS_TRANSFER_WRITE_BIT);
+
+		vulkan_util_.TransferImageToDevice(data, width * height * channels, texture_image, width, height);
+
+		// Transition image to shader read only, so the texture can be read in shaders.
+		vulkan_util_.PipelineBarrier(
+			texture_image.image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+		vulkan_util_.Submit();
+
+		// TODO: Add texture to vector and return index.
+	}
+
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
 	{
 #ifdef EDITOR_ENABLED
@@ -1167,8 +1200,12 @@ namespace renderer
 			.color = glm::vec4{ 0.4f, 0.4f, 0.4f, 1.0f },
 			.metallic = 0.0f,
 			.roughness = 0.8f,
-			.ior = 1.53f,
 			.emission = 0.0f,
+			.ior = 1.53f,
+			.color_index = NULL_INDEX,
+			.metallic_index = NULL_INDEX,
+			.roughness_index = NULL_INDEX,
+			.emission_index = NULL_INDEX,
 		};
 
 		// Load materials.
@@ -1249,4 +1286,4 @@ namespace renderer
 	{
 		return (uint32_t)meshes_.size();
 	}
-	}
+}

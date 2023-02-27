@@ -222,6 +222,8 @@ public:
 
 	void ClearSelectionParent();
 
+	renderer::TextureHandle ImportTexture(const std::filesystem::path& path);
+
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);
 

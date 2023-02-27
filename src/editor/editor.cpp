@@ -8,6 +8,7 @@
 #include "imgui.h"
 #include "glm/gtx/vector_angle.hpp"
 #include "glm/gtx/quaternion.hpp"
+#include "stb_image.h"
 
 #include "gui.h"
 
@@ -760,6 +761,18 @@ void Editor::ClearSelectionParent()
 	for (EditorNode* node : selected_nodes_) {
 		node->node->SetParent(root_node_->node);
 	}
+}
+
+renderer::TextureHandle Editor::ImportTexture(const std::filesystem::path& path)
+{
+	int x{}; // Width.
+	int y{}; // Height.
+	int n{}; // Number of 8-bit components per pixel.
+	unsigned char *data = stbi_load(path.string().c_str(), &x, &y, &n, 0);
+	renderer::TextureHandle handle{ pumpkin_->CreateTexture(data, (uint32_t)x, (uint32_t)y, (uint32_t)n) };
+	stbi_image_free(data);
+
+	return handle;
 }
 
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const

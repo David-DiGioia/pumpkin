@@ -19,6 +19,7 @@
 #include "renderer_types.h"
 #include "ray_tracing.h"
 #include "render_object.h"
+#include "renderer_constants.h"
 
 namespace renderer
 {
@@ -82,6 +83,8 @@ namespace renderer
 		void UpdateObjectBuffers();
 
 		std::vector<Rayhit> CastRays(const std::vector<Raycast>& raycasts);
+
+		renderer::TextureHandle CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels);
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);

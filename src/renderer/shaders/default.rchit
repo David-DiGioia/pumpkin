@@ -12,15 +12,27 @@ struct Vertex
 {
 	vec3 position;
 	vec3 normal;
+	vec2 tex_coord;
 };
+
+const uint NULL_TEXTURE_INDEX = 0xFFFFFFFF;
 
 struct Material
 {
+    // Backup values to use if texture index is NULL_TEXTURE_INDEX.
 	vec4 color;
 	float metallic;
 	float roughness;
-	float ior;
 	float emission;
+
+	// There is no corresponding texture for IOR.
+	float ior;
+
+	// Indices into textures[].
+	uint color_index;
+	uint metallic_index;
+	uint roughness_index;
+	uint emission_index;
 };
 
 struct ObjectBuffers
@@ -42,6 +54,7 @@ layout(set = 0, binding = 0) uniform accelerationStructureEXT tlas;
 layout(set = 1, binding = 0) buffer SceneDescription { ObjectBuffers i[]; } scene_description;
 layout(set = 1, binding = 1) buffer Materials { Material i[]; } materials;
 layout(set = 1, binding = 2) buffer MaterialIndexBuffers { uint64_t i[]; } material_index_buffers; // Addresses to material index buffers. One buffer for each Vulkan instance in the order of the geometries it contains.
+layout(set = 1, binding = 3) uniform sampler2D textures[];
 
 float NormalDistributionGgx(float n_dot_h, float roughness)
 {
@@ -267,9 +280,16 @@ void main()
 	vec3 brdf_weighted = vec3(0.0);
 	vec3 wi = vec3(0.0);
 
-	vec3 fresnel = Fresnel(mat.ior, max(dot(normal, v), 0.0), mat.metallic, mat.color.xyz);
+	// Sample textures.
+	vec2 tex_coord = v0.tex_coord * barycentrics.x + v1.tex_coord * barycentrics.y + v2.tex_coord * barycentrics.z;
+	vec3 color = texture(textures[mat.color_index], tex_coord).rgb;
+	float metallic = texture(textures[mat.metallic_index], tex_coord).r;
+	float roughness = texture(textures[mat.roughness_index], tex_coord).r;
+	float emission = texture(textures[mat.emission_index], tex_coord).r;
 
-	float diff_probability = 0.5 * (1.0 - mat.metallic);
+	vec3 fresnel = Fresnel(mat.ior, max(dot(normal, v), 0.0), metallic, color);
+
+	float diff_probability = 0.5 * (1.0 - metallic);
 
 	if (r2 < diff_probability)
 	{
@@ -277,19 +297,19 @@ void main()
 		wi = LambertianImportanceSample(normal, tangent_to_world_mat, r0, r1);
 		// Without cosine importance sampling, there is a constant factor of 2 * pi, and with cosine importance sampling it's a factor of pi.
 		// We ignored the constant before, so now we have to make it half the brightness.
-		brdf_weighted = 0.5 * (1.0 - fresnel.x) * LambertianBrdfWeighted(mat.color.xyz);
+		brdf_weighted = 0.5 * (1.0 - fresnel.x) * LambertianBrdfWeighted(color);
 		brdf_weighted *= 1.0 / diff_probability;
 	}
 	else
 	{
 		// Specular.
-		wi = CookTorranceImportanceSample(normal, v, mat.roughness, tangent_to_world_mat, r0, r1);
-		brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, mat.color.xyz, mat.metallic, mat.roughness, mat.ior);
+		wi = CookTorranceImportanceSample(normal, v, roughness, tangent_to_world_mat, r0, r1);
+		brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, color, metallic, roughness, mat.ior);
 		brdf_weighted *= 1.0 / (1.0 - diff_probability);
 	}
 
 	// Add the amount of emission that makes it back to the camera.
-	payload.radiance += mat.emission * mat.color.xyz * payload.reflected_ratio;
+	payload.radiance += emission * color * payload.reflected_ratio;
 
 	// Depending on microfacet that ray hits, it could bounce into the face, so in such cases assume it's absorbed.
 	// This restricts the outgoing wi direction to be in the upper hemisphere surrounding the normal.

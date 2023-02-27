@@ -336,6 +336,41 @@ namespace renderer
 		destroy_queue_.push_back(staging);
 	}
 
+	void VulkanUtil::TransferImageToDevice(const void* host_buffer, uint32_t size, ImageResource& image, uint32_t width, uint32_t height)
+	{
+		BufferResource staging{ alloc_->CreateBufferResource(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
+		NameObject(context_->device, staging.buffer, std::string{ "Vulkan_Util_Transfer_Staging_Buffer" });
+
+		// Copy data to staging buffer.
+		void* data{};
+		vkMapMemory(context_->device, *staging.memory, staging.offset, staging.size, 0, &data);
+		memcpy(data, host_buffer, staging.size);
+		vkUnmapMemory(context_->device, *staging.memory);
+
+		// Transfer from staging to device.
+		VkBufferImageCopy image_copy{
+			.bufferOffset = 0,
+			.bufferRowLength = 0,
+			.bufferImageHeight = 0,
+			.imageSubresource = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = 0,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+			.imageOffset = {0, 0, 0},
+			.imageExtent = {
+				.width = width,
+				.height = height,
+				.depth = 1,
+			},
+		};
+
+		vkCmdCopyBufferToImage(cmd_, staging.buffer, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &image_copy);
+
+		destroy_queue_.push_back(staging);
+	}
+
 	void VulkanUtil::PipelineBarrier(
 		VkImage image,
 		VkImageLayout old_layout, VkImageLayout new_layout,

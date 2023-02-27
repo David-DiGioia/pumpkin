@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <limits>
 
 // Should not include any headers from Pumpkin, since most files include renderer_types.h.
 #include "volk.h"
@@ -13,10 +12,8 @@ namespace renderer
 {
 	// Handles.
 
-	// This is an index into the render objects vector.
-	typedef uint64_t RenderObjectHandle;
-
-	constexpr uint64_t NULL_HANDLE{ std::numeric_limits<uint64_t>().max() };
+	typedef uint64_t RenderObjectHandle; // Index into the render objects vector.
+	typedef uint64_t TextureHandle;      // Index into the textures vector.
 
 	// Constants.
 
@@ -29,6 +26,7 @@ namespace renderer
 
 	enum class VertexAttributes
 	{
+		POSITION_NORMAL_COORD,
 		POSITION_NORMAL,
 		POSITION,
 		NONE,
