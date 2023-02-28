@@ -852,37 +852,40 @@ namespace renderer
 		return rt_context_.CastRays(raycasts);
 	}
 
-	renderer::TextureHandle VulkanRenderer::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
+	TextureHandle VulkanRenderer::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
 	{
 		VkFormat format{ channels == 4 ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8_SRGB };
 
-		ImageResource texture_image{ allocator_.CreateImageResource(
+		ImageResource* texture_image{ new ImageResource{allocator_.CreateImageResource(
 			{ width, height },
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			format) };
+			format)} };
 
 		vulkan_util_.Begin();
 
 		// Transition image to transfer dst layout.
 		vulkan_util_.PipelineBarrier(
-			texture_image.image,
+			texture_image->image,
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			0, VK_ACCESS_TRANSFER_WRITE_BIT);
 
-		vulkan_util_.TransferImageToDevice(data, width * height * channels, texture_image, width, height);
+		vulkan_util_.TransferImageToDevice(data, width * height * channels, *texture_image, width, height);
 
 		// Transition image to shader read only, so the texture can be read in shaders.
 		vulkan_util_.PipelineBarrier(
-			texture_image.image,
+			texture_image->image,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 
 		vulkan_util_.Submit();
+		textures_.push_back(texture_image);
 
-		// TODO: Add texture to vector and return index.
+		return (TextureHandle)(textures_.size() - 1);
+
+		// TODO: Add interface to let editor assign a texture handle to a material property. And link textures_ to the descriptor set.
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
@@ -1160,7 +1163,7 @@ namespace renderer
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
 #endif
-	}
+}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{
