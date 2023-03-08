@@ -866,13 +866,15 @@ namespace renderer
 
 	uint32_t VulkanRenderer::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
 	{
-		VkFormat format{ channels == 4 ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8_SRGB };
+		if (channels != 4) {
+			logger::Error("Only textures with 4 channels are supported.");
+		}
 
 		ImageResource* texture_image{ new ImageResource{allocator_.CreateImageResource(
 			{ width, height },
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			format)} };
+			VK_FORMAT_R8G8B8A8_SRGB)} };
 
 		vulkan_util_.Begin();
 

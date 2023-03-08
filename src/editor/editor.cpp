@@ -765,11 +765,12 @@ void Editor::ClearSelectionParent()
 
 uint32_t Editor::ImportTexture(const std::filesystem::path& path)
 {
-	int x{}; // Width.
-	int y{}; // Height.
-	int n{}; // Number of 8-bit components per pixel.
-	unsigned char *data = stbi_load(path.string().c_str(), &x, &y, &n, 0);
-	uint32_t index{ pumpkin_->CreateTexture(data, (uint32_t)x, (uint32_t)y, (uint32_t)n) };
+	int required_components{ 4 }; // Number of required components per pixel.
+	int x{};                      // Width.
+	int y{};                      // Height.
+	int n{};                      // Number of 8-bit components per pixel in original image.
+	unsigned char *data = stbi_load(path.string().c_str(), &x, &y, &n, required_components);
+	uint32_t index{ pumpkin_->CreateTexture(data, (uint32_t)x, (uint32_t)y, (uint32_t)required_components) };
 	stbi_image_free(data);
 
 	return index;
