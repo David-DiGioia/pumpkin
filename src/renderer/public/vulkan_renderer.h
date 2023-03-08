@@ -206,7 +206,7 @@ namespace renderer
 
 		std::vector<Mesh*> meshes_{};                  // All meshes referenced by render objects.
 		std::vector<Material*> materials_{};           // All materials referenced by geometries. Buffer resource for materials is in RayTracingContext.
-		std::vector<const ImageResource*> textures_{}; // All textures referenced by materials.
+		std::vector<ImageResource*> textures_{};       // All textures referenced by materials.
 		std::unordered_map<uint64_t, std::pair<uint64_t, uint32_t>> mesh_hash_map_{}; // To prevent duplicating vertex data when loading same file multiple times. (vertex_hash, (index_hash, mesh_idx)).
 		DescriptorSetLayoutResource camera_layout_resource_{};
 		DescriptorSetLayoutResource render_object_layout_resource_{};

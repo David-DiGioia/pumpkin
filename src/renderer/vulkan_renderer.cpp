@@ -173,6 +173,10 @@ namespace renderer
 			}
 		}
 
+		for (ImageResource* texture : textures_) {
+			allocator_.DestroyImageResource(texture);
+		}
+
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&render_object_layout_resource_);
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&camera_layout_resource_);
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&composite_layout_resource_);
@@ -875,6 +879,8 @@ namespace renderer
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			VK_FORMAT_R8G8B8A8_SRGB)} };
+		NameObject(context_.device, texture_image->image, "Texture_Image");
+		NameObject(context_.device, texture_image->image_view, "Texture_Image_View");
 
 		vulkan_util_.Begin();
 
@@ -1177,7 +1183,7 @@ namespace renderer
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
 #endif
-	}
+}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{

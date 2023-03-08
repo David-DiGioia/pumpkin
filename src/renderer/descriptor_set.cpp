@@ -31,10 +31,11 @@ namespace renderer
 
 	void DescriptorSetResource::LinkImageToBinding(uint32_t binding, const ImageResource& image_resource, VkImageLayout image_layout)
 	{
-		LinkImageArrayToBinding(binding, { &image_resource }, image_layout);
+		// Const cast because LinkImageArrayToBinding will not modify image_resource, but it needs to take a non-const ImageResource*.
+		LinkImageArrayToBinding(binding, { &const_cast<ImageResource&>(image_resource) }, image_layout);
 	}
 
-	void DescriptorSetResource::LinkImageArrayToBinding(uint32_t binding, const std::vector<const ImageResource*>& image_resources, VkImageLayout image_layout)
+	void DescriptorSetResource::LinkImageArrayToBinding(uint32_t binding, const std::vector<ImageResource*>& image_resources, VkImageLayout image_layout)
 	{
 		std::vector<VkWriteDescriptorSet> write_infos{};
 		write_infos.reserve(image_resources.size());

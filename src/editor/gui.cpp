@@ -275,7 +275,7 @@ void EditorGui::NodeProperties()
 
 			if (ImGui::Button("Tex"))
 			{
-				auto selection{ OpenFileDialog("Select texture", texture_popup_current_directory_, {"png", "jpg", "jpeg"}, false) };
+				auto selection{ OpenFileDialog("Select texture", texture_popup_current_directory_, {"*.png", "*.jpg", "*.jpeg", "*.tga", "*.bmp", "*.psd", "*.gif"}, false)};
 				if (!selection.empty())
 				{
 					if (selection.has_root_directory()) {
@@ -284,6 +284,7 @@ void EditorGui::NodeProperties()
 
 					uint32_t texture_index{ editor_->ImportTexture(selection) };
 					mat->material->color_index = texture_index;
+					mat_changed = true;
 				}
 			}
 			mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));

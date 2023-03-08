@@ -480,7 +480,7 @@ namespace renderer
 		persistent_descriptor_set_resource_.LinkBufferToBinding(MATERIAL_INDEX_ADDRESSES_BINDING, material_index_addresses_resource_);
 	}
 
-	void RayTracingContext::UpdateTextureBuffers(const std::vector<const ImageResource*>& textures)
+	void RayTracingContext::UpdateTextureBuffers(const std::vector<ImageResource*>& textures)
 	{
 		persistent_descriptor_set_resource_.LinkImageArrayToBinding(MATERIAL_TEXTURES_BINDING, textures);
 	}
