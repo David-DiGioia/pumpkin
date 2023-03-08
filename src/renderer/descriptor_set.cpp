@@ -43,10 +43,12 @@ namespace renderer
 		uint32_t i{ 0 };
 		for (const ImageResource* image_resource : image_resources)
 		{
-			VkDescriptorImageInfo image_info{
-				.sampler = image_resource->sampler,
-				.imageView = image_resource->image_view,
-				.imageLayout = image_layout,
+			// Heap allocate so lifetime persists outside of loop.
+			VkDescriptorImageInfo* image_info{ new VkDescriptorImageInfo{
+					.sampler = image_resource->sampler,
+					.imageView = image_resource->image_view,
+					.imageLayout = image_layout,
+				}
 			};
 
 			VkWriteDescriptorSet write_info{
@@ -56,7 +58,7 @@ namespace renderer
 				.dstArrayElement = i,
 				.descriptorCount = 1,
 				.descriptorType = layout_resource->bindings.at(binding).descriptorType,
-				.pImageInfo = &image_info,
+				.pImageInfo = image_info,
 				.pBufferInfo = nullptr,
 				.pTexelBufferView = nullptr,
 			};
@@ -67,6 +69,11 @@ namespace renderer
 		}
 
 		vkUpdateDescriptorSets(device_, (uint32_t)write_infos.size(), write_infos.data(), 0, nullptr);
+
+		// Clean up descriptor image infos.
+		for (VkWriteDescriptorSet& write_info : write_infos) {
+			delete write_info.pImageInfo;
+		}
 	}
 
 	void DescriptorSetResource::LinkAccelerationStructureToBinding(uint32_t binding, VkAccelerationStructureKHR acceleration_structure)
