@@ -280,12 +280,13 @@ void main()
 	vec3 brdf_weighted = vec3(0.0);
 	vec3 wi = vec3(0.0);
 
-	// Sample textures.
+	// Sample textures or use backup values.
 	vec2 tex_coord = v0.tex_coord * barycentrics.x + v1.tex_coord * barycentrics.y + v2.tex_coord * barycentrics.z;
-	vec3 color = texture(textures[mat.color_index], tex_coord).rgb;
-	float metallic = texture(textures[mat.metallic_index], tex_coord).r;
-	float roughness = texture(textures[mat.roughness_index], tex_coord).r;
-	float emission = texture(textures[mat.emission_index], tex_coord).r;
+
+	vec3 color = mat.color_index == NULL_TEXTURE_INDEX ? mat.color.rgb : texture(textures[mat.color_index], tex_coord).rgb;
+	float metallic = mat.metallic_index == NULL_TEXTURE_INDEX ? mat.metallic : texture(textures[mat.metallic_index], tex_coord).r;
+	float roughness = mat.roughness_index == NULL_TEXTURE_INDEX ? mat.roughness : texture(textures[mat.roughness_index], tex_coord).r;
+	float emission = mat.emission_index == NULL_TEXTURE_INDEX ? mat.emission : texture(textures[mat.emission_index], tex_coord).r;
 
 	vec3 fresnel = Fresnel(mat.ior, max(dot(normal, v), 0.0), metallic, color);
 

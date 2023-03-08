@@ -66,7 +66,7 @@ namespace renderer
 
 		Mesh* GetMesh(RenderObjectHandle render_object_handle);
 
-		const std::vector<int>& GetMaterialIndices(RenderObjectHandle render_object_handle) ;
+		const std::vector<int>& GetMaterialIndices(RenderObjectHandle render_object_handle);
 
 		uint32_t GetCurrentFrameNumber() const;
 
@@ -84,7 +84,10 @@ namespace renderer
 
 		std::vector<Rayhit> CastRays(const std::vector<Raycast>& raycasts);
 
-		TextureHandle CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels);
+		// Returns texture index into textures_ vector.
+		uint32_t CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels);
+
+		//void SetMaterialTexture(Material* material, MaterialProperty material_property, TextureHandle texture); // maybe TODO: instead of TextureHandle just use a texture index, and set that indices in the renderer::Material directly from the editor. So this function wouldn't be needed.
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);
@@ -201,9 +204,9 @@ namespace renderer
 		VulkanUtil vulkan_util_{};
 		RayTracingContext rt_context_{};
 
-		std::vector<Mesh*> meshes_{};            // All meshes referenced by render objects.
-		std::vector<Material*> materials_{};     // All materials referenced by geometries. Buffer resource for materials is in RayTracingContext.
-		std::vector<ImageResource*> textures_{}; // All textures referenced by materials.
+		std::vector<Mesh*> meshes_{};                  // All meshes referenced by render objects.
+		std::vector<Material*> materials_{};           // All materials referenced by geometries. Buffer resource for materials is in RayTracingContext.
+		std::vector<const ImageResource*> textures_{}; // All textures referenced by materials.
 		std::unordered_map<uint64_t, std::pair<uint64_t, uint32_t>> mesh_hash_map_{}; // To prevent duplicating vertex data when loading same file multiple times. (vertex_hash, (index_hash, mesh_idx)).
 		DescriptorSetLayoutResource camera_layout_resource_{};
 		DescriptorSetLayoutResource render_object_layout_resource_{};

@@ -230,7 +230,7 @@ void EditorGui::NodeProperties()
 
 		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 		ImGui::Text("Material");
-		ImGui::ListBox("##MaterialList", &material_selected_geometry_index_, node_materials_strings.data(), node_materials_strings.size(), 4);
+		ImGui::ListBox("##MaterialList", &material_selected_geometry_index_, node_materials_strings.data(), (int)node_materials_strings.size(), 4);
 
 		if (material_selected_geometry_index_ >= 0 && material_selected_geometry_index_ < (int)node_materials_strings.size())
 		{
@@ -282,8 +282,8 @@ void EditorGui::NodeProperties()
 						texture_popup_current_directory_ = selection.root_directory();
 					}
 
-					renderer::TextureHandle handle{ editor_->ImportTexture(selection) };
-					// TODO: Do something with handle here...
+					uint32_t texture_index{ editor_->ImportTexture(selection) };
+					mat->material->color_index = texture_index;
 				}
 			}
 			mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));

@@ -175,7 +175,7 @@ namespace pmk
 		scene_.AddRenderObjectToNode(node, handle);
 	}
 
-	renderer::TextureHandle Pumpkin::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
+	uint32_t Pumpkin::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
 	{
 		return renderer_.CreateTexture(data, width, height, channels);
 	}

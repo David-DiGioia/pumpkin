@@ -162,6 +162,7 @@ namespace renderer
 		// For bindless textures.
 		VkPhysicalDeviceDescriptorIndexingFeatures indexing_features{
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+			.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
 			.descriptorBindingPartiallyBound = VK_TRUE,
 			.runtimeDescriptorArray = VK_TRUE,
 		};

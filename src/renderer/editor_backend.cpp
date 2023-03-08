@@ -406,7 +406,7 @@ namespace renderer
 			mask_binding,
 		};
 
-		outline_layout_resource_ = renderer_->descriptor_allocator_.CreateDescriptorSetLayoutResource(outline_bindings);
+		outline_layout_resource_ = renderer_->descriptor_allocator_.CreateDescriptorSetLayoutResource(outline_bindings, 0);
 		NameObject(context_->device, outline_layout_resource_.layout, "Outline_Layout_Resource");
 	}
 

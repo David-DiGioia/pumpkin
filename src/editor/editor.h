@@ -222,7 +222,8 @@ public:
 
 	void ClearSelectionParent();
 
-	renderer::TextureHandle ImportTexture(const std::filesystem::path& path);
+	// Returns texture index.
+	uint32_t ImportTexture(const std::filesystem::path& path);
 
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);

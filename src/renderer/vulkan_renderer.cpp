@@ -41,8 +41,12 @@ namespace jsonkey {
 	const std::string COLOR{ "color" };
 	const std::string METALLIC{ "metallic" };
 	const std::string ROUGHNESS{ "roughness" };
-	const std::string IOR{ "ior" };
 	const std::string EMISSION{ "emission" };
+	const std::string IOR{ "ior" };
+	const std::string COLOR_INDEX{ "color_index" };
+	const std::string METALLIC_INDEX{ "metallic_index" };
+	const std::string ROUGHNESS_INDEX{ "roughness_index" };
+	const std::string EMISSION_INDEX{ "emission_index" };
 	// End material members.
 
 	const std::string MESH_HASH_MAP{ "mesh_hash_map" };
@@ -680,8 +684,12 @@ namespace renderer
 				{ jsonkey::COLOR, material->color },
 				{ jsonkey::METALLIC, material->metallic },
 				{ jsonkey::ROUGHNESS, material->roughness },
-				{ jsonkey::IOR, material->ior },
 				{ jsonkey::EMISSION, material->emission },
+				{ jsonkey::IOR, material->ior },
+				{ jsonkey::COLOR_INDEX, material->color_index },
+				{ jsonkey::METALLIC_INDEX, material->metallic_index },
+				{ jsonkey::ROUGHNESS_INDEX, material->roughness_index },
+				{ jsonkey::EMISSION_INDEX, material->emission_index },
 			};
 		}
 
@@ -729,8 +737,12 @@ namespace renderer
 			material->color = json_material[jsonkey::COLOR];
 			material->metallic = json_material[jsonkey::METALLIC];
 			material->roughness = json_material[jsonkey::ROUGHNESS];
-			material->ior = json_material[jsonkey::IOR];
 			material->emission = json_material[jsonkey::EMISSION];
+			material->ior = json_material[jsonkey::IOR];
+			material->color_index = json_material[jsonkey::COLOR_INDEX];
+			material->metallic_index = json_material[jsonkey::METALLIC_INDEX];
+			material->roughness_index = json_material[jsonkey::ROUGHNESS_INDEX];
+			material->emission_index = json_material[jsonkey::EMISSION_INDEX];
 
 			materials_.push_back(material);
 		}
@@ -852,7 +864,7 @@ namespace renderer
 		return rt_context_.CastRays(raycasts);
 	}
 
-	TextureHandle VulkanRenderer::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
+	uint32_t VulkanRenderer::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
 	{
 		VkFormat format{ channels == 4 ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8_SRGB };
 
@@ -883,9 +895,9 @@ namespace renderer
 		vulkan_util_.Submit();
 		textures_.push_back(texture_image);
 
-		return (TextureHandle)(textures_.size() - 1);
+		rt_context_.UpdateTextureBuffers(textures_);
 
-		// TODO: Add interface to let editor assign a texture handle to a material property. And link textures_ to the descriptor set.
+		return (uint32_t)(textures_.size() - 1);
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
@@ -986,14 +998,14 @@ namespace renderer
 			ubo_binding,
 		};
 
-		camera_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(camera_bindings);
+		camera_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(camera_bindings, 0);
 		NameObject(context_.device, camera_layout_resource_.layout, "Camera_Descriptor_Set_Layout");
 
 		std::vector<VkDescriptorSetLayoutBinding> render_object_bindings{
 			ubo_binding,
 		};
 
-		render_object_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(render_object_bindings);
+		render_object_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(render_object_bindings, 0);
 		NameObject(context_.device, render_object_layout_resource_.layout, "Render_Object_Descriptor_Set_Layout");
 
 		VkDescriptorSetLayoutBinding raster_image_binding{
@@ -1017,7 +1029,7 @@ namespace renderer
 			rt_image_binding,
 		};
 
-		composite_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(composite_bindings);
+		composite_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(composite_bindings, 0);
 		NameObject(context_.device, composite_layout_resource_.layout, "Composite_Descriptor_Set_Layout");
 	}
 
@@ -1163,7 +1175,7 @@ namespace renderer
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
 #endif
-}
+	}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{

@@ -162,6 +162,8 @@ namespace renderer
 		// of indices for all of its geometries.
 		void UpdateMaterialBuffers(const std::vector<Material*>& materials, const std::vector<const std::vector<int>*>& indices);
 
+		void UpdateTextureBuffers(const std::vector<const ImageResource*>& textures);
+
 		// Cast rays for none rendering purposes, eg for clicking objects in the scene.
 		// Returns vector of Rayhits of same size as input raycasts.
 		std::vector<Rayhit> CastRays(const std::vector<Raycast>& raycasts);

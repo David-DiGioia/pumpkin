@@ -31,25 +31,41 @@ namespace renderer
 
 	void DescriptorSetResource::LinkImageToBinding(uint32_t binding, const ImageResource& image_resource, VkImageLayout image_layout)
 	{
-		VkDescriptorImageInfo image_info{
-			.sampler = image_resource.sampler,
-			.imageView = image_resource.image_view,
-			.imageLayout = image_layout,
-		};
+		LinkImageArrayToBinding(binding, { &image_resource }, image_layout);
+	}
 
-		VkWriteDescriptorSet write_info{
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = descriptor_set,
-			.dstBinding = binding,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = layout_resource->bindings.at(binding).descriptorType,
-			.pImageInfo = &image_info,
-			.pBufferInfo = nullptr,
-			.pTexelBufferView = nullptr,
-		};
+	void DescriptorSetResource::LinkImageArrayToBinding(uint32_t binding, const std::vector<const ImageResource*>& image_resources, VkImageLayout image_layout)
+	{
+		std::vector<VkWriteDescriptorSet> write_infos{};
+		write_infos.reserve(image_resources.size());
 
-		vkUpdateDescriptorSets(device_, 1, &write_info, 0, nullptr);
+		uint32_t i{ 0 };
+		for (const ImageResource* image_resource : image_resources)
+		{
+			VkDescriptorImageInfo image_info{
+				.sampler = image_resource->sampler,
+				.imageView = image_resource->image_view,
+				.imageLayout = image_layout,
+			};
+
+			VkWriteDescriptorSet write_info{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = descriptor_set,
+				.dstBinding = binding,
+				.dstArrayElement = i,
+				.descriptorCount = 1,
+				.descriptorType = layout_resource->bindings.at(binding).descriptorType,
+				.pImageInfo = &image_info,
+				.pBufferInfo = nullptr,
+				.pTexelBufferView = nullptr,
+			};
+
+			write_infos.push_back(write_info);
+
+			++i;
+		}
+
+		vkUpdateDescriptorSets(device_, (uint32_t)write_infos.size(), write_infos.data(), 0, nullptr);
 	}
 
 	void DescriptorSetResource::LinkAccelerationStructureToBinding(uint32_t binding, VkAccelerationStructureKHR acceleration_structure)
@@ -115,7 +131,12 @@ namespace renderer
 		vkDestroyDescriptorPool(context_->device, pool_, nullptr);
 	}
 
-	DescriptorSetLayoutResource DescriptorAllocator::CreateDescriptorSetLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings)
+	DescriptorSetLayoutResource DescriptorAllocator::CreateDescriptorSetLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings, VkDescriptorSetLayoutCreateFlags flags)
+	{
+		return CreateDescriptorSetLayoutResource(layout_bindings, {}, flags);
+	}
+
+	DescriptorSetLayoutResource DescriptorAllocator::CreateDescriptorSetLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings, const std::vector<VkDescriptorBindingFlags>& binding_flags, VkDescriptorSetLayoutCreateFlags flags)
 	{
 		DescriptorSetLayoutResource layout_resource{};
 
@@ -124,9 +145,16 @@ namespace renderer
 			layout_resource.bindings[binding_info.binding] = binding_info;
 		}
 
+		VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_info{
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+			.bindingCount = (uint32_t)binding_flags.size(),
+			.pBindingFlags = binding_flags.data(),
+		};
+
 		VkDescriptorSetLayoutCreateInfo descriptor_layout_info{
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.flags = 0,
+			.pNext = binding_flags.empty() ? nullptr : &binding_flags_info,
+			.flags = flags,
 			.bindingCount = (uint32_t)layout_bindings.size(),
 			.pBindings = layout_bindings.data(),
 		};

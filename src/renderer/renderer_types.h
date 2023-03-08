@@ -13,7 +13,6 @@ namespace renderer
 	// Handles.
 
 	typedef uint64_t RenderObjectHandle; // Index into the render objects vector.
-	typedef uint64_t TextureHandle;      // Index into the textures vector.
 
 	// Constants.
 
@@ -30,6 +29,14 @@ namespace renderer
 		POSITION_NORMAL,
 		POSITION,
 		NONE,
+	};
+
+	enum class MaterialProperty
+	{
+		COLOR,
+		METALLIC,
+		ROUGHNESS,
+		EMISSION,
 	};
 
 	struct Extent

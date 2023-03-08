@@ -49,6 +49,9 @@ namespace renderer
 		// Get acceleration structure properties to reference throughout lifetime of RT context.
 		vkGetPhysicalDeviceProperties2(context->physical_device, &physical_device_properties);
 
+		// Create dummy texture since we always need a texture bound even if we aren't accessing any.
+		CreateDummyTexture();
+
 		CreateDescriptorSets();
 		CreateRtPipelineAndShaderBindingTable();
 		CreateRaycastPipelineAndShaderBindingTable();
@@ -480,6 +483,11 @@ namespace renderer
 		persistent_descriptor_set_resource_.LinkBufferToBinding(MATERIAL_INDEX_ADDRESSES_BINDING, material_index_addresses_resource_);
 	}
 
+	void RayTracingContext::UpdateTextureBuffers(const std::vector<const ImageResource*>& textures)
+	{
+		persistent_descriptor_set_resource_.LinkImageArrayToBinding(MATERIAL_TEXTURES_BINDING, textures);
+	}
+
 	std::vector<Rayhit> RayTracingContext::CastRays(const std::vector<Raycast>& raycasts)
 	{
 		if ((uint32_t)raycasts.size() > MAX_RAYCASTS) {
@@ -809,6 +817,14 @@ namespace renderer
 			.pImmutableSamplers = nullptr,
 		};
 
+		// Flags corresponding to the set 1 structs above.
+		std::vector<VkDescriptorBindingFlags> binding_flags{
+			0,
+			0,
+			0,
+			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+		};
+
 		// Set 0 of raycast pipeline.
 		VkDescriptorSetLayoutBinding raycast_tlas_binding{
 			.binding = RAYCAST_TLAS_BINDING,
@@ -853,13 +869,13 @@ namespace renderer
 			rayhits_buffer_binding,
 		};
 
-		frame_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_rt_set_0);
+		frame_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_rt_set_0, 0);
 		NameObject(context_->device, frame_descriptor_set_layout_resource_.layout, "Ray_Trace_Frame_Descriptor_Set_Layout");
 
-		persistent_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_rt_set_1);
+		persistent_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_rt_set_1, binding_flags, VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT);
 		NameObject(context_->device, persistent_descriptor_set_layout_resource_.layout, "Ray_Trace_Persistent_Descriptor_Set_Layout");
 
-		raycast_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_raycast_set_0);
+		raycast_descriptor_set_layout_resource_ = descriptor_allocator_->CreateDescriptorSetLayoutResource(bindings_raycast_set_0, 0);
 		NameObject(context_->device, raycast_descriptor_set_layout_resource_.layout, "Raycast_Descriptor_Set_Layout");
 
 		uint32_t i{ 0 };

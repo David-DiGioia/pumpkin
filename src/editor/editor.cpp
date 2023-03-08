@@ -763,16 +763,16 @@ void Editor::ClearSelectionParent()
 	}
 }
 
-renderer::TextureHandle Editor::ImportTexture(const std::filesystem::path& path)
+uint32_t Editor::ImportTexture(const std::filesystem::path& path)
 {
 	int x{}; // Width.
 	int y{}; // Height.
 	int n{}; // Number of 8-bit components per pixel.
 	unsigned char *data = stbi_load(path.string().c_str(), &x, &y, &n, 0);
-	renderer::TextureHandle handle{ pumpkin_->CreateTexture(data, (uint32_t)x, (uint32_t)y, (uint32_t)n) };
+	uint32_t index{ pumpkin_->CreateTexture(data, (uint32_t)x, (uint32_t)y, (uint32_t)n) };
 	stbi_image_free(data);
 
-	return handle;
+	return index;
 }
 
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const

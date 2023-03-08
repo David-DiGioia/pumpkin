@@ -24,6 +24,8 @@ namespace renderer
 
 		void LinkImageToBinding(uint32_t binding, const ImageResource& image_resource, VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+		void LinkImageArrayToBinding(uint32_t binding, const std::vector<const ImageResource*>& image_resources, VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 		void LinkAccelerationStructureToBinding(uint32_t binding, VkAccelerationStructureKHR acceleration_structure);
 
 	private:
@@ -40,7 +42,10 @@ namespace renderer
 
 		void CleanUp();
 
-		DescriptorSetLayoutResource CreateDescriptorSetLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings);
+		DescriptorSetLayoutResource CreateDescriptorSetLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings, VkDescriptorSetLayoutCreateFlags flags);
+
+		// Binding flags is not typically needed except for descriptor set layouts containing bindless resources.
+		DescriptorSetLayoutResource CreateDescriptorSetLayoutResource(const std::vector<VkDescriptorSetLayoutBinding>& layout_bindings, const std::vector<VkDescriptorBindingFlags>& binding_flags, VkDescriptorSetLayoutCreateFlags flags);
 
 		void DestroyDescriptorSetLayoutResource(DescriptorSetLayoutResource* layout_resource);
 
