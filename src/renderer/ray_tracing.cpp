@@ -49,9 +49,6 @@ namespace renderer
 		// Get acceleration structure properties to reference throughout lifetime of RT context.
 		vkGetPhysicalDeviceProperties2(context->physical_device, &physical_device_properties);
 
-		// Create dummy texture since we always need a texture bound even if we aren't accessing any.
-		CreateDummyTexture();
-
 		CreateDescriptorSets();
 		CreateRtPipelineAndShaderBindingTable();
 		CreateRaycastPipelineAndShaderBindingTable();
