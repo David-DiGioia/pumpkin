@@ -199,6 +199,72 @@ void EditorGui::TreeView()
 	ImGui::End();
 }
 
+bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_ui, uint32_t* texture_index, bool* mat_changed)
+{
+	ImGui::PushID(name.c_str());
+
+	if (!(*show_tex_ui) && ImGui::Button("Tex")) {
+		*show_tex_ui = true;
+	}
+	else if (*show_tex_ui)
+	{
+		if (ImGui::BeginCombo("##TextureCombo", nullptr, ImGuiComboFlags_NoPreview))
+		{
+			for (uint32_t tex_idx = 0; tex_idx < (uint32_t)editor_->textures_.size(); ++tex_idx)
+			{
+				const bool is_selected{ *texture_index == tex_idx };
+				if (ImGui::Selectable(editor_->textures_[tex_idx]->GetNameBuffer(), is_selected))
+				{
+					*texture_index = tex_idx;
+					editor_->GetPumpkin()->UpdateMaterials();
+				}
+
+				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
+				if (is_selected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Load"))
+		{
+			auto selection = OpenFileDialog("Select texture", texture_popup_current_directory_, { "*.png", "*.jpg", "*.jpeg", "*.tga", "*.bmp", "*.psd", "*.gif" }, false);
+			if (!selection.empty())
+			{
+				if (selection.has_root_directory()) {
+					texture_popup_current_directory_ = selection.root_directory();
+				}
+
+				uint32_t tex_index{ editor_->ImportTexture(selection) };
+				*texture_index = tex_index;
+				*mat_changed = true;
+			}
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("X"))
+		{
+			*texture_index = renderer::NULL_INDEX;
+			*show_tex_ui = false;
+			editor_->GetPumpkin()->UpdateMaterials();
+		}
+
+		ImGui::SameLine();
+		ImGui::Text(*texture_index == renderer::NULL_INDEX ? "No texture selected." : editor_->GetTexture(*texture_index)->GetNameBuffer());
+	}
+	else
+	{
+		ImGui::PopID();
+		ImGui::SameLine();
+		return false;
+	}
+
+	ImGui::PopID();
+	return true;
+}
+
 void EditorGui::NodeProperties()
 {
 	if (!ImGui::Begin("Node properties"))
@@ -273,26 +339,23 @@ void EditorGui::NodeProperties()
 
 			bool mat_changed{ false };
 
-			if (ImGui::Button("Tex"))
-			{
-				auto selection{ OpenFileDialog("Select texture", texture_popup_current_directory_, {"*.png", "*.jpg", "*.jpeg", "*.tga", "*.bmp", "*.psd", "*.gif"}, false)};
-				if (!selection.empty())
-				{
-					if (selection.has_root_directory()) {
-						texture_popup_current_directory_ = selection.root_directory();
-					}
-
-					uint32_t texture_index{ editor_->ImportTexture(selection) };
-					mat->material->color_index = texture_index;
-					mat_changed = true;
-				}
+			if (!MaterialTextureProperty("Color", & mat->show_color_tex_ui_, &mat->material->color_index, &mat_changed)) {
+				mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));
 			}
-			mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));
 
-			mat_changed |= ImGui::DragFloat("Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
-			mat_changed |= ImGui::DragFloat("Roughness", &mat->material->roughness, 0.01f, 0.0f, 1.0f);
+			if (!MaterialTextureProperty("Metallic", & mat->show_metallic_tex_ui_, &mat->material->metallic_index, &mat_changed)) {
+				mat_changed |= ImGui::DragFloat("Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
+			}
+
+			if (!MaterialTextureProperty("Roughness", &mat->show_roughness_tex_ui_, &mat->material->roughness_index, &mat_changed)) {
+				mat_changed |= ImGui::DragFloat("Roughness", &mat->material->roughness, 0.01f, 0.0f, 1.0f);
+			}
+
+			if (!MaterialTextureProperty("Emission", &mat->show_emission_tex_ui_, &mat->material->emission_index, &mat_changed)) {
+				mat_changed |= ImGui::DragFloat("Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
+			}
+
 			mat_changed |= ImGui::DragFloat("IOR", &mat->material->ior, 0.01f, 1.0f, 2.0f);
-			mat_changed |= ImGui::DragFloat("Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
 
 			if (mat_changed) {
 				editor_->pumpkin_->UpdateMaterials();

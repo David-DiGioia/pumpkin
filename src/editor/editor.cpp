@@ -84,6 +84,14 @@ void Editor::CleanUp()
 	}
 	node_map_.clear();
 
+	for (EditorMaterial* material : materials_) {
+		delete material;
+	}
+
+	for (EditorTexture* texture : textures_) {
+		delete texture;
+	}
+
 	gui_.CleanUp();
 }
 
@@ -773,7 +781,14 @@ uint32_t Editor::ImportTexture(const std::filesystem::path& path)
 	uint32_t index{ pumpkin_->CreateTexture(data, (uint32_t)x, (uint32_t)y, (uint32_t)required_components) };
 	stbi_image_free(data);
 
+	textures_.push_back(new EditorTexture{index, path.filename().string()});
+
 	return index;
+}
+
+EditorTexture* Editor::GetTexture(uint32_t texture_index)
+{
+	return textures_[texture_index];
 }
 
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
@@ -953,6 +968,28 @@ std::string EditorMaterial::GetName() const
 }
 
 char* EditorMaterial::GetNameBuffer() const
+{
+	return name_buffer_;
+}
+
+EditorTexture::EditorTexture(uint32_t texture_index, const std::string& name)
+	: index{ texture_index }
+	, name_buffer_{ new char[NAME_BUFFER_SIZE] {} }
+{
+	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());
+}
+
+EditorTexture::~EditorTexture()
+{
+	delete[] name_buffer_;
+}
+
+std::string EditorTexture::GetName() const
+{
+	return std::string(name_buffer_);
+}
+
+char* EditorTexture::GetNameBuffer() const
 {
 	return name_buffer_;
 }

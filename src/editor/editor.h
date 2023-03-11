@@ -54,6 +54,25 @@ enum class TransformSpace {
 	LOCAL,
 };
 
+// Wrapper for renderer texture index that adds extra members only needed by the editor.
+class EditorTexture
+{
+public:
+	EditorTexture(uint32_t texture_index, const std::string& name);
+
+	~EditorTexture();
+
+	std::string GetName() const;
+
+	char* GetNameBuffer() const;
+
+	uint32_t index{};      // Renderer index of texture.
+	uint32_t user_count{}; // Number of material properties that use this texture.
+
+private:
+	char* name_buffer_{};
+};
+
 // Wrapper for renderer::Material that adds extra members only needed by the editor.
 class EditorMaterial
 {
@@ -70,6 +89,12 @@ public:
 
 	renderer::Material* material{};
 	uint32_t user_count{}; // Number of meshes that use this material.
+
+	// These flags determine if the texture UI or slider UI should be shown for material properties
+	bool show_color_tex_ui_{};
+	bool show_metallic_tex_ui_{};
+	bool show_roughness_tex_ui_{};
+	bool show_emission_tex_ui_{};
 private:
 	char* name_buffer_{};
 };
@@ -89,6 +114,7 @@ public:
 	char* GetNameBuffer() const;
 
 	pmk::Node* node;
+
 private:
 	char* name_buffer_;
 };
@@ -225,6 +251,8 @@ public:
 	// Returns texture index.
 	uint32_t ImportTexture(const std::filesystem::path& path);
 
+	EditorTexture* GetTexture(uint32_t texture_index);
+
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);
 
@@ -274,6 +302,7 @@ private:
 	std::unordered_set<EditorNode*> selected_nodes_{};     // Set of all selected nodes. Having a set makes it possible to ierate over only selected nodes.
 	std::unordered_map<uint32_t, EditorNode*> node_map_{}; // The key of this map is pmk::Node::node_id. This allows finding an EditorNode from a pmk::Node.
 	std::vector<EditorMaterial*> materials_{};             // List of EditorMaterials in same order as the renderer's material list, so material index is valid here too.
+	std::vector<EditorTexture*> textures_{};               // List of EditorTextures in same order as the renderer's texture list, so texture index is valid here too.
 
 	std::filesystem::path project_directory_{};                  // The root directory of the user's project.
 	std::filesystem::path active_selection_file_{};              // The actively selected file.
