@@ -162,6 +162,12 @@ namespace renderer
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+		PipelineBarrier(
+			cmd, GetCurrentFrame().rt_image.image,
+			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 	}
 
 	void ImGuiBackend::TransitionFinalImageForSampling(VkCommandBuffer cmd)
@@ -199,6 +205,7 @@ namespace renderer
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				VK_FORMAT_R8G8B8A8_UNORM);
 			NameObject(renderer_->context_.device, resource.raster_image.image, "ImGui_Backend_Raster_Image_" + std::to_string(i));
+			NameObject(renderer_->context_.device, resource.raster_image.image_view, "ImGui_Backend_Raster_Image_View_" + std::to_string(i));
 
 			resource.rt_image = renderer_->allocator_.CreateImageResource(
 				extent,
@@ -206,6 +213,7 @@ namespace renderer
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				VK_FORMAT_R8G8B8A8_UNORM);
 			NameObject(renderer_->context_.device, resource.rt_image.image, "ImGui_Backend_Ray_Trace_Image_" + std::to_string(i));
+			NameObject(renderer_->context_.device, resource.rt_image.image_view, "ImGui_Backend_Ray_Trace_Image_View_" + std::to_string(i));
 
 			resource.final_image = renderer_->allocator_.CreateImageResource(
 				extent,
@@ -213,6 +221,7 @@ namespace renderer
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				FINAL_IMAGE_FORMAT);
 			NameObject(renderer_->context_.device, resource.final_image.image, "ImGui_Backend_Final_Image_" + std::to_string(i));
+			NameObject(renderer_->context_.device, resource.final_image.image_view, "ImGui_Backend_Final_Image_View_" + std::to_string(i));
 
 			resource.depth_image = renderer_->allocator_.CreateImageResource(
 				extent,
@@ -221,6 +230,7 @@ namespace renderer
 				renderer_->GetDepthImageFormat(),
 				VK_IMAGE_ASPECT_DEPTH_BIT);
 			NameObject(renderer_->context_.device, resource.depth_image.image, "ImGui_Backend_Depth_Image_" + std::to_string(i));
+			NameObject(renderer_->context_.device, resource.depth_image.image_view, "ImGui_Backend_Depth_Image_View_" + std::to_string(i));
 
 			resource.render_target_descriptor = ImGui_ImplVulkan_AddTexture(
 				resource.final_image.sampler,
