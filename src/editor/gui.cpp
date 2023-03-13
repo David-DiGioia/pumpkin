@@ -14,6 +14,7 @@
 #include "logger.h"
 
 constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
+constexpr uint32_t NODE_PROPERTY_ALIGNMENT{ 77 };
 
 bool EditorNodeCmp::operator()(EditorNode* a, EditorNode* b) const
 {
@@ -201,7 +202,11 @@ void EditorGui::TreeView()
 
 bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_ui, uint32_t* texture_index, bool* mat_changed)
 {
+	bool show_texture_ui{ true };
 	ImGui::PushID(name.c_str());
+
+	ImGui::Text(name.c_str());
+	ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
 
 	if (!(*show_tex_ui) && ImGui::Button("Tex")) {
 		*show_tex_ui = true;
@@ -256,13 +261,12 @@ bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_
 	}
 	else
 	{
-		ImGui::PopID();
 		ImGui::SameLine();
-		return false;
+		show_texture_ui = false;
 	}
 
 	ImGui::PopID();
-	return true;
+	return show_texture_ui;
 }
 
 void EditorGui::NodeProperties()
@@ -279,11 +283,23 @@ void EditorGui::NodeProperties()
 	if (active_node)
 	{
 		ImGui::Text("Transform");
-		ImGui::InputText("Node name", active_node->GetNameBuffer(), NAME_BUFFER_SIZE);
-		ImGui::DragFloat3("Position", glm::value_ptr(active_node->node->position), 0.1f);
-		ImGui::DragFloat3("Scale", glm::value_ptr(active_node->node->scale), 0.1f);
+
+		ImGui::Text("Node name");
+		ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+		ImGui::InputText("##Node name", active_node->GetNameBuffer(), NAME_BUFFER_SIZE);
+
+		ImGui::Text("Position");
+		ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+		ImGui::DragFloat3("##Position", glm::value_ptr(active_node->node->position), 0.1f);
+
+		ImGui::Text("Scale");
+		ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+		ImGui::DragFloat3("##Scale", glm::value_ptr(active_node->node->scale), 0.1f);
+
 		auto& rot{ active_node->node->rotation };
-		ImGui::Text("%.2f  %.2f  %.2f  %.2f Rotation", rot.x, rot.y, rot.z, rot.w);
+		ImGui::Text("Rotation");
+		ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+		ImGui::Text("%.2f  %.2f  %.2f  %.2f", rot.x, rot.y, rot.z, rot.w);
 
 		std::vector<int> node_materials{ editor_->GetMaterialIndicesFromNode(active_node) };
 		std::vector<const char*> node_materials_strings(node_materials.size());
@@ -339,23 +355,25 @@ void EditorGui::NodeProperties()
 
 			bool mat_changed{ false };
 
-			if (!MaterialTextureProperty("Color", & mat->show_color_tex_ui_, &mat->material->color_index, &mat_changed)) {
-				mat_changed |= ImGui::ColorEdit3("Color", glm::value_ptr(mat->material->color));
+			if (!MaterialTextureProperty("Color", &mat->show_color_tex_ui_, &mat->material->color_index, &mat_changed)) {
+				mat_changed |= ImGui::ColorEdit3("##Color", glm::value_ptr(mat->material->color));
 			}
 
-			if (!MaterialTextureProperty("Metallic", & mat->show_metallic_tex_ui_, &mat->material->metallic_index, &mat_changed)) {
-				mat_changed |= ImGui::DragFloat("Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
+			if (!MaterialTextureProperty("Metallic", &mat->show_metallic_tex_ui_, &mat->material->metallic_index, &mat_changed)) {
+				mat_changed |= ImGui::DragFloat("##Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
 			}
 
 			if (!MaterialTextureProperty("Roughness", &mat->show_roughness_tex_ui_, &mat->material->roughness_index, &mat_changed)) {
-				mat_changed |= ImGui::DragFloat("Roughness", &mat->material->roughness, 0.01f, 0.0f, 1.0f);
+				mat_changed |= ImGui::DragFloat("##Roughness", &mat->material->roughness, 0.01f, 0.0f, 1.0f);
 			}
 
 			if (!MaterialTextureProperty("Emission", &mat->show_emission_tex_ui_, &mat->material->emission_index, &mat_changed)) {
-				mat_changed |= ImGui::DragFloat("Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
+				mat_changed |= ImGui::DragFloat("##Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
 			}
 
-			mat_changed |= ImGui::DragFloat("IOR", &mat->material->ior, 0.01f, 1.0f, 2.0f);
+			ImGui::Text("IOR");
+			ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+			mat_changed |= ImGui::DragFloat("##IOR", &mat->material->ior, 0.01f, 1.0f, 2.0f);
 
 			if (mat_changed) {
 				editor_->pumpkin_->UpdateMaterials();
