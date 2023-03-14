@@ -371,6 +371,9 @@ void EditorGui::NodeProperties()
 				mat_changed |= ImGui::DragFloat("##Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
 			}
 
+			bool show_normal_texture_ui{true};
+			MaterialTextureProperty("Normal", &show_normal_texture_ui, &mat->material->normal_index, &mat_changed);
+
 			ImGui::Text("IOR");
 			ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
 			mat_changed |= ImGui::DragFloat("##IOR", &mat->material->ior, 0.01f, 1.0f, 2.0f);

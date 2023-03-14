@@ -43,6 +43,9 @@ namespace renderer
 		uint32_t metallic_index;
 		uint32_t roughness_index;
 		uint32_t emission_index;
+		uint32_t normal_index;
+
+		uint32_t padding[3];
 	};
 
 	struct Geometry

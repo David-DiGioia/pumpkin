@@ -33,6 +33,9 @@ struct Material
 	uint metallic_index;
 	uint roughness_index;
 	uint emission_index;
+	uint normal_index;
+
+	uint padding[3];
 };
 
 struct ObjectBuffers
@@ -132,9 +135,9 @@ vec3 CookTorranceBrdf(vec3 n, vec3 v, vec3 l, vec3 base_color, float metallic, f
 vec3 CookTorranceBrdfWeighted(vec3 n, vec3 v, vec3 l, vec3 base_color, float metallic, float roughness, float ior)
 {
 	vec3 h = normalize(v + l);
-	float n_dot_v = dot(n, v);
-	float n_dot_l = dot(n, l);
-	float v_dot_h = dot(v, h);
+	float n_dot_v = max(dot(n, v), 0.001);
+	float n_dot_l = max(dot(n, l), 0.001);
+	float v_dot_h = max(dot(v, h), 0.001);
 
 	float a2 = roughness * roughness;
 	float g1 = SmithGGXMasking(n_dot_v, a2);
@@ -254,11 +257,32 @@ void main()
 	const vec3 barycentrics = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 
 	// Compute the normal at hit position.
-	vec3 normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
-	normal = normalize(gl_ObjectToWorldEXT * vec4(normal, 0.0)); // Transform the normal to world space. w = 0 to ignore position information.
+	vec3 tri_normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
+	tri_normal = normalize(gl_ObjectToWorldEXT * vec4(tri_normal, 0.0)); // Transform the normal to world space. w = 0 to ignore position information.
 	
+	vec3 tri_flat_normal = cross(v1.position - v0.position, v2.position - v0.position);
+	tri_flat_normal = normalize(gl_ObjectToWorldEXT * vec4(tri_flat_normal, 0.0));
+
+	// Use normal map if it's provided.
+	mat3 tangent_to_world_mat = TangentToWorldMatrix(tri_normal);
+	vec2 tex_coord = v0.tex_coord * barycentrics.x + v1.tex_coord * barycentrics.y + v2.tex_coord * barycentrics.z;
+	vec3 normal = vec3(0.0);
+
+	if (mat.normal_index == NULL_TEXTURE_INDEX) {
+		normal = tri_normal;
+	}
+	else
+	{
+		normal = texture(textures[mat.normal_index], tex_coord).xyz; // Tangent space in [0, 1].
+		normal = normalize(2.0 * normal - 1.0);                      // Tangent space in [-1, 1].
+		//normal = vec3(0.0, 0.0, 1.0);
+		//normal = tangent_to_world_mat * normal; // TODO: Must use uv coords to transform to object space, then to world space.
+	}
+
 	// Flip the normal around if it's a backfacing triangle.
-	if (gl_HitKindEXT == gl_HitKindBackFacingTriangleEXT) {
+	if (gl_HitKindEXT == gl_HitKindBackFacingTriangleEXT)
+	{
+		tri_flat_normal *= -1;
 		normal *= -1;
 	}
 
@@ -275,14 +299,10 @@ void main()
 	seed = Hash(seed);
 	float r2 = FloatConstruct(seed);
 
-	mat3 tangent_to_world_mat = TangentToWorldMatrix(normal);
-
 	vec3 brdf_weighted = vec3(0.0);
 	vec3 wi = vec3(0.0);
 
 	// Sample textures or use backup values.
-	vec2 tex_coord = v0.tex_coord * barycentrics.x + v1.tex_coord * barycentrics.y + v2.tex_coord * barycentrics.z;
-
 	vec3 color = mat.color_index == NULL_TEXTURE_INDEX ? mat.color.rgb : texture(textures[mat.color_index], tex_coord).rgb;
 	float metallic = mat.metallic_index == NULL_TEXTURE_INDEX ? mat.metallic : texture(textures[mat.metallic_index], tex_coord).r;
 	float roughness = mat.roughness_index == NULL_TEXTURE_INDEX ? mat.roughness : texture(textures[mat.roughness_index], tex_coord).r;
@@ -295,7 +315,7 @@ void main()
 	if (r2 < diff_probability)
 	{
 		// Diffuse.
-		wi = LambertianImportanceSample(normal, tangent_to_world_mat, r0, r1);
+		wi = LambertianImportanceSample(tri_flat_normal, tangent_to_world_mat, r0, r1);
 		// Without cosine importance sampling, there is a constant factor of 2 * pi, and with cosine importance sampling it's a factor of pi.
 		// We ignored the constant before, so now we have to make it half the brightness.
 		brdf_weighted = 0.5 * (1.0 - fresnel.x) * LambertianBrdfWeighted(color);
@@ -304,7 +324,7 @@ void main()
 	else
 	{
 		// Specular.
-		wi = CookTorranceImportanceSample(normal, v, roughness, tangent_to_world_mat, r0, r1);
+		wi = CookTorranceImportanceSample(tri_flat_normal, v, roughness, tangent_to_world_mat, r0, r1);
 		brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, color, metallic, roughness, mat.ior);
 		brdf_weighted *= 1.0 / (1.0 - diff_probability);
 	}
@@ -314,7 +334,7 @@ void main()
 
 	// Depending on microfacet that ray hits, it could bounce into the face, so in such cases assume it's absorbed.
 	// This restricts the outgoing wi direction to be in the upper hemisphere surrounding the normal.
-	if(dot(wi, normal) <= 0.0)
+	if(dot(wi, tri_flat_normal) <= 0.0)
 	{
 		payload.done = 1;
 		return;

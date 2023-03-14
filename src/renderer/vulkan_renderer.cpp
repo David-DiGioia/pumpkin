@@ -47,6 +47,7 @@ namespace jsonkey {
 	const std::string METALLIC_INDEX{ "metallic_index" };
 	const std::string ROUGHNESS_INDEX{ "roughness_index" };
 	const std::string EMISSION_INDEX{ "emission_index" };
+	const std::string NORMAL_INDEX{ "normal_index" };
 	// End material members.
 
 	const std::string MESH_HASH_MAP{ "mesh_hash_map" };
@@ -694,6 +695,7 @@ namespace renderer
 				{ jsonkey::METALLIC_INDEX, material->metallic_index },
 				{ jsonkey::ROUGHNESS_INDEX, material->roughness_index },
 				{ jsonkey::EMISSION_INDEX, material->emission_index },
+				{ jsonkey::NORMAL_INDEX, material->normal_index },
 			};
 		}
 
@@ -747,6 +749,7 @@ namespace renderer
 			material->metallic_index = json_material[jsonkey::METALLIC_INDEX];
 			material->roughness_index = json_material[jsonkey::ROUGHNESS_INDEX];
 			material->emission_index = json_material[jsonkey::EMISSION_INDEX];
+			material->normal_index = json_material[jsonkey::NORMAL_INDEX];
 
 			materials_.push_back(material);
 		}
@@ -1229,6 +1232,7 @@ namespace renderer
 			.metallic_index = NULL_INDEX,
 			.roughness_index = NULL_INDEX,
 			.emission_index = NULL_INDEX,
+			.normal_index = NULL_INDEX,
 		};
 
 		// Load materials.
