@@ -85,9 +85,7 @@ namespace renderer
 		std::vector<Rayhit> CastRays(const std::vector<Raycast>& raycasts);
 
 		// Returns texture index into textures_ vector.
-		uint32_t CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels);
-
-		//void SetMaterialTexture(Material* material, MaterialProperty material_property, TextureHandle texture); // maybe TODO: instead of TextureHandle just use a texture index, and set that indices in the renderer::Material directly from the editor. So this function wouldn't be needed.
+		uint32_t CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels, bool color_data);
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);

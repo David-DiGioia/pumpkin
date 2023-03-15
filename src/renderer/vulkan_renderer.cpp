@@ -871,7 +871,7 @@ namespace renderer
 		return rt_context_.CastRays(raycasts);
 	}
 
-	uint32_t VulkanRenderer::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels)
+	uint32_t VulkanRenderer::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels, bool color_data)
 	{
 		if (channels != 4) {
 			logger::Error("Only textures with 4 channels are supported.");
@@ -881,7 +881,7 @@ namespace renderer
 			{ width, height },
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			VK_FORMAT_R8G8B8A8_SRGB)} };
+			color_data ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM)} };
 		NameObject(context_.device, texture_image->image, "Texture_Image");
 		NameObject(context_.device, texture_image->image_view, "Texture_Image_View");
 

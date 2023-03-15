@@ -200,7 +200,7 @@ void EditorGui::TreeView()
 	ImGui::End();
 }
 
-bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_ui, uint32_t* texture_index, bool* mat_changed)
+bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_ui, uint32_t* texture_index, bool* mat_changed, bool color_data)
 {
 	bool show_texture_ui{ true };
 	ImGui::PushID(name.c_str());
@@ -242,7 +242,7 @@ bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_
 					texture_popup_current_directory_ = selection.root_directory();
 				}
 
-				uint32_t tex_index{ editor_->ImportTexture(selection) };
+				uint32_t tex_index{ editor_->ImportTexture(selection, color_data) };
 				*texture_index = tex_index;
 				*mat_changed = true;
 			}
@@ -355,24 +355,24 @@ void EditorGui::NodeProperties()
 
 			bool mat_changed{ false };
 
-			if (!MaterialTextureProperty("Color", &mat->show_color_tex_ui_, &mat->material->color_index, &mat_changed)) {
+			if (!MaterialTextureProperty("Color", &mat->show_color_tex_ui_, &mat->material->color_index, &mat_changed, true)) {
 				mat_changed |= ImGui::ColorEdit3("##Color", glm::value_ptr(mat->material->color));
 			}
 
-			if (!MaterialTextureProperty("Metallic", &mat->show_metallic_tex_ui_, &mat->material->metallic_index, &mat_changed)) {
+			if (!MaterialTextureProperty("Metallic", &mat->show_metallic_tex_ui_, &mat->material->metallic_index, &mat_changed, false)) {
 				mat_changed |= ImGui::DragFloat("##Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
 			}
 
-			if (!MaterialTextureProperty("Roughness", &mat->show_roughness_tex_ui_, &mat->material->roughness_index, &mat_changed)) {
+			if (!MaterialTextureProperty("Roughness", &mat->show_roughness_tex_ui_, &mat->material->roughness_index, &mat_changed, false)) {
 				mat_changed |= ImGui::DragFloat("##Roughness", &mat->material->roughness, 0.01f, 0.0f, 1.0f);
 			}
 
-			if (!MaterialTextureProperty("Emission", &mat->show_emission_tex_ui_, &mat->material->emission_index, &mat_changed)) {
+			if (!MaterialTextureProperty("Emission", &mat->show_emission_tex_ui_, &mat->material->emission_index, &mat_changed, false)) {
 				mat_changed |= ImGui::DragFloat("##Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
 			}
 
 			bool show_normal_texture_ui{true};
-			MaterialTextureProperty("Normal", &show_normal_texture_ui, &mat->material->normal_index, &mat_changed);
+			MaterialTextureProperty("Normal", &show_normal_texture_ui, &mat->material->normal_index, &mat_changed, false);
 
 			ImGui::Text("IOR");
 			ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);

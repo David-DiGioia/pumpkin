@@ -264,7 +264,6 @@ void main()
 	tri_flat_normal = normalize(gl_ObjectToWorldEXT * vec4(tri_flat_normal, 0.0));
 
 	// Use normal map if it's provided.
-	mat3 tangent_to_world_mat = TangentToWorldMatrix(tri_normal);
 	vec2 tex_coord = v0.tex_coord * barycentrics.x + v1.tex_coord * barycentrics.y + v2.tex_coord * barycentrics.z;
 	vec3 normal = vec3(0.0);
 
@@ -275,8 +274,6 @@ void main()
 	{
 		normal = texture(textures[mat.normal_index], tex_coord).xyz; // Tangent space in [0, 1].
 		normal = normalize(2.0 * normal - 1.0);                      // Tangent space in [-1, 1].
-		//normal = vec3(0.0, 0.0, 1.0);
-		//normal = tangent_to_world_mat * normal; // TODO: Must use uv coords to transform to object space, then to world space.
 	}
 
 	// Flip the normal around if it's a backfacing triangle.
@@ -309,13 +306,14 @@ void main()
 	float emission = mat.emission_index == NULL_TEXTURE_INDEX ? mat.emission : texture(textures[mat.emission_index], tex_coord).r;
 
 	vec3 fresnel = Fresnel(mat.ior, max(dot(normal, v), 0.0), metallic, color);
+	mat3 tangent_to_world_mat = TangentToWorldMatrix(normal);
 
 	float diff_probability = 0.5 * (1.0 - metallic);
 
 	if (r2 < diff_probability)
 	{
 		// Diffuse.
-		wi = LambertianImportanceSample(tri_flat_normal, tangent_to_world_mat, r0, r1);
+		wi = LambertianImportanceSample(normal, tangent_to_world_mat, r0, r1);
 		// Without cosine importance sampling, there is a constant factor of 2 * pi, and with cosine importance sampling it's a factor of pi.
 		// We ignored the constant before, so now we have to make it half the brightness.
 		brdf_weighted = 0.5 * (1.0 - fresnel.x) * LambertianBrdfWeighted(color);
@@ -324,7 +322,7 @@ void main()
 	else
 	{
 		// Specular.
-		wi = CookTorranceImportanceSample(tri_flat_normal, v, roughness, tangent_to_world_mat, r0, r1);
+		wi = CookTorranceImportanceSample(normal, v, roughness, tangent_to_world_mat, r0, r1);
 		brdf_weighted = CookTorranceBrdfWeighted(normal, v, wi, color, metallic, roughness, mat.ior);
 		brdf_weighted *= 1.0 / (1.0 - diff_probability);
 	}

@@ -249,7 +249,7 @@ public:
 	void ClearSelectionParent();
 
 	// Returns texture index.
-	uint32_t ImportTexture(const std::filesystem::path& path);
+	uint32_t ImportTexture(const std::filesystem::path& path, bool color_data);
 
 	EditorTexture* GetTexture(uint32_t texture_index);
 

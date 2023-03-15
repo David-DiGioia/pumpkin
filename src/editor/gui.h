@@ -70,7 +70,7 @@ private:
 	void LoadProject();
 
 	// Returns true if texture property is being used, or false if slider should be displayed.
-	bool MaterialTextureProperty(const std::string& name, bool* show_tex_ui, uint32_t* texture_index, bool* mat_changed);
+	bool MaterialTextureProperty(const std::string& name, bool* show_tex_ui, uint32_t* texture_index, bool* mat_changed, bool color_data);
 	
 	std::set<EditorNode*, EditorNodeCmp> GetSortedChildren(EditorNode* node);
 
