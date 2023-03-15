@@ -118,7 +118,7 @@ namespace renderer
 		std::ifstream file{ path, std::ios::ate | std::ios::binary };
 
 		if (!file.is_open()) {
-			logger::Error("Can't open file: %s\n", path.c_str());
+			logger::Error("Can't open file: %s\n", path.string().c_str());
 		}
 
 		// Find size of file in bytes by position of cursor.
