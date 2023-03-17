@@ -56,7 +56,7 @@ namespace renderer
 
 		Extent GetViewportExtent();
 
-		void DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path) const;
+		void DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, const std::filesystem::path& texture_path) const;
 
 		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, std::vector<int>* out_material_indices);
 

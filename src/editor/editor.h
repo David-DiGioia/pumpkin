@@ -22,6 +22,7 @@ const std::filesystem::path SETTINGS_FILE_NAME{ "settings.json" };
 const std::filesystem::path SETTINGS_DEFAULT_LAYOUT_NAME{ "default_imgui_layout.ini" };
 const std::filesystem::path VERTEX_DATA_FILE_NAME{ "vertex_data.bin" };
 const std::filesystem::path INDEX_DATA_FILE_NAME{ "index_data.bin" };
+const std::filesystem::path TEXTURE_DATA_FILE_NAME{ "texture_data.bin" };
 
 enum class TransformType {
 	NONE,

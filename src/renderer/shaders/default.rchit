@@ -272,9 +272,9 @@ void main()
 	}
 	else
 	{
-		normal = texture(textures[mat.normal_index], tex_coord).xyz; // Tangent space in [0, 1].
+		normal = texture(textures[nonuniformEXT(mat.normal_index)], tex_coord).xyz; // Tangent space in [0, 1].
 		normal = normalize(2.0 * normal - 1.0);                      // Tangent space in [-1, 1].
-		normal = TangentToWorldMatrix(tri_normal) * normal;          // World space in [-1, 1].
+		//normal = TangentToWorldMatrix(tri_normal) * normal;          // World space in [-1, 1].
 	}
 
 	// Flip the normal around if it's a backfacing triangle.
@@ -301,10 +301,10 @@ void main()
 	vec3 wi = vec3(0.0);
 
 	// Sample textures or use backup values.
-	vec3 color = mat.color_index == NULL_TEXTURE_INDEX ? mat.color.rgb : texture(textures[mat.color_index], tex_coord).rgb;
-	float metallic = mat.metallic_index == NULL_TEXTURE_INDEX ? mat.metallic : texture(textures[mat.metallic_index], tex_coord).r;
-	float roughness = mat.roughness_index == NULL_TEXTURE_INDEX ? mat.roughness : texture(textures[mat.roughness_index], tex_coord).r;
-	float emission = mat.emission_index == NULL_TEXTURE_INDEX ? mat.emission : texture(textures[mat.emission_index], tex_coord).r;
+	vec3 color = mat.color_index == NULL_TEXTURE_INDEX ? mat.color.rgb : texture(textures[nonuniformEXT(mat.color_index)], tex_coord).rgb;
+	float metallic = mat.metallic_index == NULL_TEXTURE_INDEX ? mat.metallic : texture(textures[nonuniformEXT(mat.metallic_index)], tex_coord).r;
+	float roughness = mat.roughness_index == NULL_TEXTURE_INDEX ? mat.roughness : texture(textures[nonuniformEXT(mat.roughness_index)], tex_coord).r;
+	float emission = mat.emission_index == NULL_TEXTURE_INDEX ? mat.emission : texture(textures[nonuniformEXT(mat.emission_index)], tex_coord).r;
 
 	vec3 fresnel = Fresnel(mat.ior, max(dot(normal, v), 0.0), metallic, color);
 	mat3 tangent_to_world_mat = TangentToWorldMatrix(normal);

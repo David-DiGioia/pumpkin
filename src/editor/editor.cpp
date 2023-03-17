@@ -341,7 +341,7 @@ void Editor::SaveProject() const
 	auto project_data_path{ project_directory_ / PROJECT_DATA_RELATIVE_PATH };
 	std::filesystem::create_directories(project_data_path); // Make the directory if it doesn't exist.
 
-	pumpkin_->DumpRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME);
+	pumpkin_->DumpRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME, project_data_path / TEXTURE_DATA_FILE_NAME);
 
 	// The other material properties are saved in DumpRenderData() but the material name is specific to the editor so it's saved here.
 	uint32_t mat_idx{ 0 };

@@ -159,17 +159,9 @@ namespace renderer
 
 		CheckDeviceExtensionsSupported(required_device_extensions);
 
-		// For bindless textures.
-		VkPhysicalDeviceDescriptorIndexingFeatures indexing_features{
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
-			.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
-			.descriptorBindingPartiallyBound = VK_TRUE,
-			.runtimeDescriptorArray = VK_TRUE,
-		};
-
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-			.pNext = &indexing_features,
+			.pNext = nullptr,
 			.accelerationStructure = VK_TRUE,
 			.accelerationStructureCaptureReplay = VK_FALSE,
 			.accelerationStructureIndirectBuild = VK_FALSE,
@@ -187,18 +179,20 @@ namespace renderer
 			.rayTraversalPrimitiveCulling = VK_FALSE,
 		};
 
-		VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features{
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
-			.pNext = &ray_tracing_features,
-			.bufferDeviceAddress = VK_TRUE,
-			.bufferDeviceAddressCaptureReplay = VK_FALSE,
-			.bufferDeviceAddressMultiDevice = VK_FALSE,
-		};
-
 		VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features{
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
-			.pNext = &buffer_device_address_features,
+			.pNext = &ray_tracing_features,
 			.dynamicRendering = VK_TRUE,
+		};
+
+		VkPhysicalDeviceVulkan12Features features_12{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+			.pNext = &dynamic_rendering_features,
+			.shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+			.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
+			.descriptorBindingPartiallyBound = VK_TRUE,
+			.runtimeDescriptorArray = VK_TRUE,
+			.bufferDeviceAddress = VK_TRUE,
 		};
 
 		VkPhysicalDeviceFeatures features{
@@ -207,7 +201,7 @@ namespace renderer
 
 		VkDeviceCreateInfo device_info{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			.pNext = &dynamic_rendering_features,
+			.pNext = &features_12,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &graphics_queue_info,
 			.enabledExtensionCount = (uint32_t)required_device_extensions.size(),

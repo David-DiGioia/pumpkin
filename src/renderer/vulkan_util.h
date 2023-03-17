@@ -98,6 +98,8 @@ namespace renderer
 
 		void TransferImageToDevice(const void* host_buffer, uint32_t size, ImageResource& image, uint32_t width, uint32_t height);
 
+		void TransferImageToHost(const void* host_buffer, uint32_t size, ImageResource& image, uint32_t width, uint32_t height);
+
 		void PipelineBarrier(
 			VkImage image,
 			VkImageLayout old_layout, VkImageLayout new_layout,

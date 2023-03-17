@@ -50,6 +50,15 @@ namespace jsonkey {
 	const std::string NORMAL_INDEX{ "normal_index" };
 	// End material members.
 
+	const std::string TEXTURES{ "textures" };
+	// Texture members.
+	const std::string WIDTH{ "width" };
+	const std::string HEIGHT{ "height" };
+	const std::string CHANNELS{ "channels" };
+	const std::string NON_COLOR{ "non_color" };
+	const std::string BYTE_OFFSET{ "byte_offset" };
+	// End texture members.
+
 	const std::string MESH_HASH_MAP{ "mesh_hash_map" };
 	// Mesh hash map members.
 	const std::string VERTEX_HASH{ "vertex_hash" };
@@ -87,6 +96,9 @@ namespace renderer
 	constexpr uint32_t COMPOSITE_DESCRIPTOR_SET{ 0 };
 	constexpr uint32_t COMPOSITE_RASTER_BINDING{ 0 };
 	constexpr uint32_t COMPOSITE_RT_IMAGE_BINDING{ 1 };
+
+	constexpr VkFormat COLOR_TEXTURE_FORMAT{ VK_FORMAT_R8G8B8A8_SRGB };
+	constexpr VkFormat NON_COLOR_TEXTURE_FORMAT{ VK_FORMAT_R8G8B8A8_UNORM };
 
 	void WindowResizedCallback(GLFWwindow* window, int width, int height)
 	{
@@ -631,7 +643,7 @@ namespace renderer
 #endif
 	}
 
-	void VulkanRenderer::DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path) const
+	void VulkanRenderer::DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, const std::filesystem::path& texture_path) const
 	{
 		// Save mesh hash map.
 		for (const auto& pair : mesh_hash_map_)
@@ -654,9 +666,11 @@ namespace renderer
 
 		uint32_t vertex_byte_offest{ 0 };
 		uint32_t index_byte_offset{ 0 };
+		uint32_t texture_byte_offset{ 0 };
 
 		std::ofstream vertex_file{ vertex_path, std::ios::out | std::ios::binary };
 		std::ofstream index_file{ index_path, std::ios::out | std::ios::binary };
+		std::ofstream texture_file{ texture_path, std::ios::out | std::ios::binary };
 
 		// Save meshes.
 		for (const Mesh* mesh : meshes_)
@@ -680,6 +694,20 @@ namespace renderer
 			}
 
 			j[jsonkey::MESHES] += json_mesh;
+		}
+
+		// Save textures.
+		for (const ImageResource* texture : textures_)
+		{
+			j[jsonkey::TEXTURES] += {
+				{ jsonkey::WIDTH, texture->extent.width },
+				{ jsonkey::HEIGHT, texture->extent.height },
+				{ jsonkey::CHANNELS, 4 },
+				{ jsonkey::NON_COLOR, texture->format == NON_COLOR_TEXTURE_FORMAT },
+				{ jsonkey::BYTE_OFFSET, texture_byte_offset },
+			};
+
+
 		}
 
 		// Save materials.
@@ -881,7 +909,7 @@ namespace renderer
 			{ width, height },
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			color_data ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM)} };
+			color_data ? COLOR_TEXTURE_FORMAT : NON_COLOR_TEXTURE_FORMAT)} };
 		NameObject(context_.device, texture_image->image, "Texture_Image");
 		NameObject(context_.device, texture_image->image_view, "Texture_Image_View");
 
@@ -1186,7 +1214,7 @@ namespace renderer
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
 #endif
-}
+	}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{
