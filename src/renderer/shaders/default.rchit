@@ -274,6 +274,7 @@ void main()
 	{
 		normal = texture(textures[mat.normal_index], tex_coord).xyz; // Tangent space in [0, 1].
 		normal = normalize(2.0 * normal - 1.0);                      // Tangent space in [-1, 1].
+		normal = TangentToWorldMatrix(tri_normal) * normal;          // World space in [-1, 1].
 	}
 
 	// Flip the normal around if it's a backfacing triangle.
