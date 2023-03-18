@@ -71,7 +71,49 @@ bool ProcessTransformInput(Editor* editor)
 	return false;
 }
 
-void EditorInput::ProcessViewportInput(Editor* editor, const renderer::Extent& viewport_extent)
+void EditorInput::ProcessViewportAllInput(Editor* editor, const renderer::Extent& viewport_extent)
+{
+	glm::vec2 mouse_pos{ GetViewportRelativeMousePos(editor) };
+	if (mouse_pos.x < 0.0f || mouse_pos.y < 0.0f || mouse_pos.x > viewport_extent.width || mouse_pos.y > viewport_extent.height) {
+		return;
+	}
+
+	CameraController& controller{ editor->GetCameraController() };
+	constexpr float rotate_speed{ 0.003f };
+
+	// Revolve / rotate with mouse.
+	glm::vec2 mouse_delta{ CastVec2<glm::vec2>(ImGui::GetMouseDragDelta()) };
+
+	if (mouse_delta != glm::vec2(0.0f, 0.0f))
+	{
+		// We don't multiply by delta time since mouse delta is integer value of number of pixels moved,
+		// so often we just get the minimum of 1 pixel, so speed would become mainly determined by framerate which is undesirable.
+		controller.Rotate(-mouse_delta.x * rotate_speed, -mouse_delta.y * rotate_speed);
+		ImGui::ResetMouseDragDelta();
+	}
+
+	// Select object by clicking.
+	{
+		editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
+		constexpr float raycast_radius{ 3.0f }; // If mouse moves out of this pixel radius between clicking and releasing, ray is not cast.
+
+		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left, false))
+		{
+			mouse_down_pos_ = mouse_pos;
+			should_cast_ray_on_release_ = true;
+		}
+
+		if (glm::distance(mouse_pos, mouse_down_pos_) > raycast_radius) {
+			should_cast_ray_on_release_ = false;
+		}
+
+		if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && should_cast_ray_on_release_) {
+			editor->CastSelectionRay(mouse_pos, viewport_extent);
+		}
+	}
+}
+
+void EditorInput::ProcessViewportFocusInput(Editor* editor, const renderer::Extent& viewport_extent)
 {
 	if (ProcessTransformInput(editor)) {
 		return;
@@ -79,7 +121,6 @@ void EditorInput::ProcessViewportInput(Editor* editor, const renderer::Extent& v
 
 	constexpr float zoom_speed{ 0.1f };
 	constexpr float movement_speed_scroll_speed{ 0.1f };
-	constexpr float rotate_speed{ 0.003f };
 
 	CameraController& controller{ editor->GetCameraController() };
 	float delta_time{ editor->GetPumpkin()->GetDeltaTime() };
@@ -142,37 +183,7 @@ void EditorInput::ProcessViewportInput(Editor* editor, const renderer::Extent& v
 		controller.Focus(editor->GetSelectedNodesAveragePosition(), radius);
 	}
 
-	// Revolve / rotate with mouse.
-	glm::vec2 mouse_delta{ CastVec2<glm::vec2>(ImGui::GetMouseDragDelta()) };
-
-	if (mouse_delta != glm::vec2(0.0f, 0.0f))
-	{
-		// We don't multiply by delta time since mouse delta is integer value of number of pixels moved,
-		// so often we just get the minimum of 1 pixel, so speed would become mainly determined by framerate which is undesirable.
-		controller.Rotate(-mouse_delta.x * rotate_speed, -mouse_delta.y * rotate_speed);
-		ImGui::ResetMouseDragDelta();
-	}
-
-	// Select object by clicking.
-	{
-		editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
-		glm::vec2 mouse_pos{ GetViewportRelativeMousePos(editor) };
-		constexpr float raycast_radius{ 3.0f }; // If mouse moves out of this pixel radius between clicking and releasing, ray is not cast.
-
-		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left, false))
-		{
-			mouse_down_pos_ = mouse_pos;
-			should_cast_ray_on_release_ = true;
-		}
-
-		if (glm::distance(mouse_pos, mouse_down_pos_) > raycast_radius) {
-			should_cast_ray_on_release_ = false;
-		}
-
-		if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && should_cast_ray_on_release_) {
-			editor->CastSelectionRay(mouse_pos, viewport_extent);
-		}
-	}
+	// from here. TODO: erase this comment.
 
 	// Zoom / change speed with scroll wheel.
 	float wheel{ ImGui::GetIO().MouseWheel };
