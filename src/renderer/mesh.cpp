@@ -186,6 +186,38 @@ namespace renderer
 		return hash;
 	}
 
+	void CalculateTangents(Mesh* out_mesh)
+	{
+		for (Geometry& geometry : out_mesh->geometries)
+		{
+			for (uint32_t i{ 0 }; i < geometry.indices.size() - 2; i += 3)
+			{
+				Vertex& v1{ geometry.vertices[geometry.indices[(uint64_t)i + 0]] };
+				Vertex& v2{ geometry.vertices[geometry.indices[(uint64_t)i + 1]] };
+				Vertex& v3{ geometry.vertices[geometry.indices[(uint64_t)i + 2]] };
+
+				glm::vec3 edge1{ v2.position - v1.position };
+				glm::vec3 edge2{ v3.position - v1.position };
+				glm::vec2 delta_uv1{ v2.tex_coord - v1.tex_coord };
+				glm::vec2 delta_uv2{ v3.tex_coord - v1.tex_coord };
+
+				float f{ 1.0f / (delta_uv1.x * delta_uv2.y - delta_uv2.x * delta_uv1.y) };
+
+				glm::vec3 tangent{
+					f * (delta_uv2.y * edge1.x - delta_uv1.y * edge2.x),
+					f * (delta_uv2.y * edge1.y - delta_uv1.y * edge2.y),
+					f * (delta_uv2.y * edge1.z - delta_uv1.y * edge2.z),
+				};
+
+				tangent = glm::normalize(tangent);
+
+				v1.tangent = tangent;
+				v2.tangent = tangent;
+				v3.tangent = tangent;
+			}
+		}
+	}
+
 	std::string NameMesh(const std::vector<Geometry>& geometries)
 	{
 		uint32_t triangle_count{ 0 };

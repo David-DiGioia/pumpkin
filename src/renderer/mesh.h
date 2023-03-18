@@ -22,6 +22,7 @@ namespace renderer
 	{
 		glm::vec3 position;
 		glm::vec3 normal;
+		glm::vec3 tangent;
 		glm::vec2 tex_coord;
 
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes(VertexAttributes attributes);
@@ -72,6 +73,9 @@ namespace renderer
 	//
 	// out_mesh must already have Mesh::geometries resized to number of primitives in gltf mesh.
 	uint64_t LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, Mesh* out_mesh);
+
+	// Calculate the tangents of a loaded mesh.
+	void CalculateTangents(Mesh* out_mesh);
 
 	std::string NameMesh(const std::vector<Geometry>& geometries);
 }

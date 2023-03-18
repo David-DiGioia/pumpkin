@@ -1231,6 +1231,7 @@ namespace renderer
 
 			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, mesh) };
 			uint64_t index_hash{ LoadIndicesGLTF(model, tinygltf_mesh, mesh) };
+			CalculateTangents(mesh);
 
 			// Check if this mesh has been loaded before, and only add to meshes_ if it hasn't
 			auto it{ mesh_hash_map_.find(vertex_hash) }; // This is a nested pair (vertex_hash, (index_hash, mesh_index)).

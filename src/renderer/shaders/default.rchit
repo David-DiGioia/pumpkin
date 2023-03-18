@@ -12,6 +12,7 @@ struct Vertex
 {
 	vec3 position;
 	vec3 normal;
+	vec3 tangent;
 	vec2 tex_coord;
 };
 
@@ -200,7 +201,7 @@ vec3 SampleCosineWeighted(float r0, float r1)
 	return vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
 }
 
-// Get matrix to convert from tangent space of triangle with normal n, to world space.
+// Get matrix to convert from tangent-space of triangle with world-space normal n, to world-space.
 mat3 TangentToWorldMatrix(vec3 n)
 {
 	// Want to create a matrix M with M: vec3(0, 0, 1) -> n. Since in the Eric Heitz paper, the hemisphere is truncated along the z-axis.
@@ -213,6 +214,17 @@ mat3 TangentToWorldMatrix(vec3 n)
 	vec3 y = normalize(cross(x, z));
 
 	return mat3(x, y, z);
+}
+
+// The normal and tangent are vertex attributes in world space.
+mat3 TangentToWorldMatrix(vec3 normal, vec3 tangent)
+{
+	vec3 bitangent = normalize(cross(normal, tangent));
+
+	// x direction in tangent-space gets mapped to tangent direction.
+	// y direction in tangent-space gets mapped to bitangent direction.
+	// z direction in tangent-space gets mapped to normal direction.
+	return mat3(tangent, bitangent, normal);
 }
 
 vec3 CookTorranceImportanceSample(vec3 normal, vec3 v, float roughness, mat3 tangent_to_world_mat, float r0, float r1)
@@ -260,6 +272,8 @@ void main()
 	vec3 tri_normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
 	tri_normal = normalize(gl_ObjectToWorldEXT * vec4(tri_normal, 0.0)); // Transform the normal to world space. w = 0 to ignore position information.
 	
+	vec3 tri_tangent = v0.tangent * barycentrics.x + v1.tangent * barycentrics.y + v2.tangent * barycentrics.z;
+
 	vec3 tri_flat_normal = cross(v1.position - v0.position, v2.position - v0.position);
 	tri_flat_normal = normalize(gl_ObjectToWorldEXT * vec4(tri_flat_normal, 0.0));
 
@@ -273,8 +287,8 @@ void main()
 	else
 	{
 		normal = texture(textures[nonuniformEXT(mat.normal_index)], tex_coord).xyz; // Tangent space in [0, 1].
-		normal = normalize(2.0 * normal - 1.0);                      // Tangent space in [-1, 1].
-		//normal = TangentToWorldMatrix(tri_normal) * normal;          // World space in [-1, 1].
+		normal = normalize(2.0 * normal - 1.0);                                     // Tangent space in [-1, 1].
+		normal = TangentToWorldMatrix(tri_normal, tri_tangent) * normal;            // World space in [-1, 1].
 	}
 
 	// Flip the normal around if it's a backfacing triangle.
