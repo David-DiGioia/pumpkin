@@ -371,6 +371,30 @@ namespace renderer
 		destroy_queue_.push_back(staging);
 	}
 
+	void VulkanUtil::TransferImageToBuffer(BufferResource& buffer, uint32_t size, const ImageResource& image, uint32_t width, uint32_t height)
+	{
+		// Transfer from device to staging.
+		VkBufferImageCopy image_copy{
+			.bufferOffset = 0,
+			.bufferRowLength = 0,
+			.bufferImageHeight = 0,
+			.imageSubresource = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = 0,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+			.imageOffset = {0, 0, 0},
+			.imageExtent = {
+				.width = width,
+				.height = height,
+				.depth = 1,
+			},
+		};
+
+		vkCmdCopyImageToBuffer(cmd_, image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer.buffer, 1, &image_copy);
+	}
+
 	void VulkanUtil::PipelineBarrier(
 		VkImage image,
 		VkImageLayout old_layout, VkImageLayout new_layout,

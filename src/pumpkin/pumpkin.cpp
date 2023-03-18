@@ -121,14 +121,23 @@ namespace pmk
 		return delta_time_;
 	}
 
-	void Pumpkin::DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, const std::filesystem::path& texture_path) const
+	void Pumpkin::DumpRenderData(
+		nlohmann::json& j,
+		const std::filesystem::path& vertex_path,
+		const std::filesystem::path& index_path,
+		const std::filesystem::path& texture_path)
 	{
 		renderer_.DumpRenderData(j, vertex_path, index_path, texture_path);
 	}
 
-	void Pumpkin::LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, std::vector<int>* out_material_indices)
+	void Pumpkin::LoadRenderData(
+		nlohmann::json& j,
+		const std::filesystem::path& vertex_path,
+		const std::filesystem::path& index_path,
+		const std::filesystem::path& texture_path,
+		std::vector<int>* out_material_indices)
 	{
-		renderer_.LoadRenderData(j, vertex_path, index_path, out_material_indices);
+		renderer_.LoadRenderData(j, vertex_path, index_path, texture_path, out_material_indices);
 	}
 
 	void Pumpkin::ClearOutlineSets()
@@ -178,6 +187,11 @@ namespace pmk
 	uint32_t Pumpkin::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels, bool color_data)
 	{
 		return renderer_.CreateTexture(data, width, height, channels, color_data);
+	}
+
+	uint32_t Pumpkin::GetTextureCount() const
+	{
+		return renderer_.GetTextureCount();
 	}
 
 	void Pumpkin::UpdateDeltaTime()

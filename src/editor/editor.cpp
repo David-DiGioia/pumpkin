@@ -51,6 +51,11 @@ namespace jsonkey
 	const std::string MATERIAL_NAME{ "name" };
 	// End editor material members.
 
+	const std::string TEXTURES{ "textures" };
+	// Begin editor texture members.
+	const std::string TEXTURE_NAME{ "name" };
+	// End editor texture members.
+
 	// Editor settings.
 	const std::string SETTINGS_PROJECT_DIRECTORIES_PATH{ "project_directories_path" };
 
@@ -343,6 +348,12 @@ void Editor::SaveProject() const
 
 	pumpkin_->DumpRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME, project_data_path / TEXTURE_DATA_FILE_NAME);
 
+	// The other texture properties are saved in DumpRenderData() but the texture name is specific to the editor so it's saved here.
+	uint32_t tex_idx{ 0 };
+	for (auto& json_texture : j[jsonkey::TEXTURES]) {
+		json_texture[jsonkey::TEXTURE_NAME] = textures_[tex_idx++]->GetName();
+	}
+
 	// The other material properties are saved in DumpRenderData() but the material name is specific to the editor so it's saved here.
 	uint32_t mat_idx{ 0 };
 	for (auto& json_material : j[jsonkey::MATERIALS]) {
@@ -381,7 +392,7 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 	std::vector<int> material_indices{};
 
 	LoadNodeData(j);
-	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME, &material_indices);
+	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME, project_data_path / TEXTURE_DATA_FILE_NAME, &material_indices);
 
 	// Load viewport camera.
 	{
@@ -393,6 +404,13 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 		controller_.SetPhi(j[jsonkey::VIEWPORT_CAMERA][jsonkey::VIEWPORT_PHI]);
 		controller_.GetCamera()->fov = j[jsonkey::VIEWPORT_CAMERA][jsonkey::VIEWPORT_FOV];
 		controller_.GetMovementSpeed() = j[jsonkey::VIEWPORT_CAMERA][jsonkey::VIEWPORT_SPEED];
+	}
+
+	// Create new editor textures.
+	for (uint32_t i{ 0 }; i < pumpkin_->GetTextureCount(); ++i)
+	{
+		std::string texture_name{ j[jsonkey::TEXTURES][i][jsonkey::TEXTURE_NAME] };
+		textures_.push_back(new EditorTexture{ i, texture_name });
 	}
 
 	// Create new editor materials.

@@ -56,9 +56,18 @@ namespace renderer
 
 		Extent GetViewportExtent();
 
-		void DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, const std::filesystem::path& texture_path) const;
+		void DumpRenderData(
+			nlohmann::json& j,
+			const std::filesystem::path& vertex_path,
+			const std::filesystem::path& index_path,
+			const std::filesystem::path& texture_path);
 
-		void LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, std::vector<int>* out_material_indices);
+		void LoadRenderData(
+			nlohmann::json& j,
+			const std::filesystem::path& vertex_path,
+			const std::filesystem::path& index_path,
+			const std::filesystem::path& texture_path,
+			std::vector<int>* out_material_indices);
 
 		void BuildTlasAndUpdateBlases();
 
@@ -86,6 +95,8 @@ namespace renderer
 
 		// Returns texture index into textures_ vector.
 		uint32_t CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels, bool color_data);
+
+		uint32_t GetTextureCount() const;
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);

@@ -55,8 +55,9 @@ namespace jsonkey {
 	const std::string WIDTH{ "width" };
 	const std::string HEIGHT{ "height" };
 	const std::string CHANNELS{ "channels" };
-	const std::string NON_COLOR{ "non_color" };
-	const std::string BYTE_OFFSET{ "byte_offset" };
+	const std::string COLOR_DATA{ "non_color" };
+	const std::string TEXTURE_INDEX{ "texture_index" };
+	const std::string TEXTURE_BYTE_OFFSET{ "texture_byte_offset" };
 	// End texture members.
 
 	const std::string MESH_HASH_MAP{ "mesh_hash_map" };
@@ -643,7 +644,11 @@ namespace renderer
 #endif
 	}
 
-	void VulkanRenderer::DumpRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, const std::filesystem::path& texture_path) const
+	void VulkanRenderer::DumpRenderData(
+		nlohmann::json& j,
+		const std::filesystem::path& vertex_path,
+		const std::filesystem::path& index_path,
+		const std::filesystem::path& texture_path)
 	{
 		// Save mesh hash map.
 		for (const auto& pair : mesh_hash_map_)
@@ -686,28 +691,56 @@ namespace renderer
 					{ jsonkey::INDEX_BYTE_SIZE, geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type) },
 				};
 
-				vertex_file.write(reinterpret_cast<const char*>(geometry.vertices.data()), geometry.vertices.size() * sizeof(Vertex));
-				index_file.write(reinterpret_cast<const char*>(geometry.indices.data()), geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type));
+				size_t vertex_byte_size{ geometry.vertices.size() * sizeof(Vertex) };
+				size_t index_byte_size{ geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type) };
 
-				vertex_byte_offest += (uint32_t)(geometry.vertices.size() * sizeof(Vertex));
-				index_byte_offset += (uint32_t)(geometry.indices.size() * sizeof(decltype(Geometry::indices)::value_type));
+				vertex_file.write(reinterpret_cast<const char*>(geometry.vertices.data()), vertex_byte_size);
+				index_file.write(reinterpret_cast<const char*>(geometry.indices.data()), index_byte_size);
+
+				vertex_byte_offest += (uint32_t)(vertex_byte_size);
+				index_byte_offset += (uint32_t)(index_byte_size);
 			}
 
 			j[jsonkey::MESHES] += json_mesh;
 		}
 
 		// Save textures.
+		uint32_t texture_idx{0};
 		for (const ImageResource* texture : textures_)
 		{
+			constexpr uint32_t channels{ 4 };
+
 			j[jsonkey::TEXTURES] += {
 				{ jsonkey::WIDTH, texture->extent.width },
 				{ jsonkey::HEIGHT, texture->extent.height },
-				{ jsonkey::CHANNELS, 4 },
-				{ jsonkey::NON_COLOR, texture->format == NON_COLOR_TEXTURE_FORMAT },
-				{ jsonkey::BYTE_OFFSET, texture_byte_offset },
+				{ jsonkey::CHANNELS, channels },
+				{ jsonkey::COLOR_DATA, texture->format == COLOR_TEXTURE_FORMAT },
+				{ jsonkey::TEXTURE_INDEX, texture_idx++ },
+				{ jsonkey::TEXTURE_BYTE_OFFSET, texture_byte_offset },
 			};
 
+			VkDeviceSize byte_size{ (VkDeviceSize)texture->extent.width * texture->extent.height * channels };
+			BufferResource host_buffer{ allocator_.CreateBufferResource(byte_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
+			NameObject(context_.device, host_buffer.buffer, "Texture_Temporary_Host_Buffer");
 
+			vulkan_util_.Begin();
+			// Transition layout for transfer.
+			vulkan_util_.PipelineBarrier(
+				texture->image,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT,
+				VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT);
+			vulkan_util_.TransferImageToBuffer(host_buffer, byte_size, *texture, texture->extent.width, texture->extent.height);
+			vulkan_util_.Submit();
+
+			void* data{};
+			vkMapMemory(context_.device, *host_buffer.memory, host_buffer.offset, host_buffer.size, 0, &data);
+
+			texture_file.write(reinterpret_cast<const char*>(data), byte_size);
+			texture_byte_offset += byte_size;
+
+			vkUnmapMemory(context_.device, *host_buffer.memory);
+			allocator_.DestroyBufferResource(&host_buffer);
 		}
 
 		// Save materials.
@@ -729,12 +762,44 @@ namespace renderer
 
 		vertex_file.close();
 		index_file.close();
+		texture_file.close();
 	}
 
-	void VulkanRenderer::LoadRenderData(nlohmann::json& j, const std::filesystem::path& vertex_path, const std::filesystem::path& index_path, std::vector<int>* out_material_indices)
+	void VulkanRenderer::LoadRenderData(
+		nlohmann::json& j,
+		const std::filesystem::path& vertex_path,
+		const std::filesystem::path& index_path,
+		const std::filesystem::path& texture_path,
+		std::vector<int>* out_material_indices)
 	{
 		std::ifstream vertex_file{ vertex_path, std::ios::out | std::ios::binary };
 		std::ifstream index_file{ index_path, std::ios::out | std::ios::binary };
+		std::ifstream texture_file{ texture_path, std::ios::out | std::ios::binary };
+
+		// This map makes loading flexible to removal of unused textures since it associates old indices with new ones.
+		std::unordered_map<uint32_t, uint32_t> texture_index_map{}; // Contains pairs of (old_index, new_index).
+		texture_index_map[NULL_INDEX] = NULL_INDEX;
+
+		// Load textures.
+		for (auto& json_texture : j[jsonkey::TEXTURES])
+		{
+			uint32_t width{ json_texture[jsonkey::WIDTH] };
+			uint32_t height{ json_texture[jsonkey::HEIGHT] };
+			uint32_t channels{ json_texture[jsonkey::CHANNELS] };
+			uint32_t old_index{ json_texture[jsonkey::TEXTURE_INDEX] };
+			bool color_data{ json_texture[jsonkey::COLOR_DATA] };
+
+			uint32_t byte_size{ width * height * channels };
+
+			unsigned char* texture_data{ new unsigned char[byte_size] };
+			texture_file.seekg((size_t)json_texture[jsonkey::TEXTURE_BYTE_OFFSET]);
+			texture_file.read(reinterpret_cast<char*>(texture_data), byte_size);
+
+			uint32_t new_index{ CreateTexture(texture_data, width, height, channels, color_data) };
+			texture_index_map[old_index] = new_index;
+
+			delete[] texture_data;
+		}
 
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 
@@ -773,11 +838,11 @@ namespace renderer
 			material->roughness = json_material[jsonkey::ROUGHNESS];
 			material->emission = json_material[jsonkey::EMISSION];
 			material->ior = json_material[jsonkey::IOR];
-			material->color_index = json_material[jsonkey::COLOR_INDEX];
-			material->metallic_index = json_material[jsonkey::METALLIC_INDEX];
-			material->roughness_index = json_material[jsonkey::ROUGHNESS_INDEX];
-			material->emission_index = json_material[jsonkey::EMISSION_INDEX];
-			material->normal_index = json_material[jsonkey::NORMAL_INDEX];
+			material->color_index = texture_index_map[json_material[jsonkey::COLOR_INDEX]];
+			material->metallic_index = texture_index_map[json_material[jsonkey::METALLIC_INDEX]];
+			material->roughness_index = texture_index_map[json_material[jsonkey::ROUGHNESS_INDEX]];
+			material->emission_index = texture_index_map[json_material[jsonkey::EMISSION_INDEX]];
+			material->normal_index = texture_index_map[json_material[jsonkey::NORMAL_INDEX]];
 
 			materials_.push_back(material);
 		}
@@ -907,7 +972,7 @@ namespace renderer
 
 		ImageResource* texture_image{ new ImageResource{allocator_.CreateImageResource(
 			{ width, height },
-			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			color_data ? COLOR_TEXTURE_FORMAT : NON_COLOR_TEXTURE_FORMAT)} };
 		NameObject(context_.device, texture_image->image, "Texture_Image");
@@ -937,6 +1002,11 @@ namespace renderer
 		rt_context_.UpdateTextureBuffers(textures_);
 
 		return (uint32_t)(textures_.size() - 1);
+	}
+
+	uint32_t VulkanRenderer::GetTextureCount() const
+	{
+		return (uint32_t)textures_.size();
 	}
 
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
@@ -1195,7 +1265,7 @@ namespace renderer
 			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RASTER_BINDING, editor_backend_.GetImGuiBackend().GetRasterImages()[i], VK_IMAGE_LAYOUT_GENERAL);
 			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RT_IMAGE_BINDING, editor_backend_.GetImGuiBackend().GetRayTraceImages()[i], VK_IMAGE_LAYOUT_GENERAL);
 			++i;
-		}
+}
 
 	}
 
