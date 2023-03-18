@@ -208,6 +208,9 @@ bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_
 	ImGui::Text(name.c_str());
 	ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
 
+	bool has_texture{ *texture_index != renderer::NULL_INDEX };
+	*show_tex_ui |= has_texture;
+
 	if (!(*show_tex_ui) && ImGui::Button("Tex")) {
 		*show_tex_ui = true;
 	}
