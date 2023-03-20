@@ -149,6 +149,29 @@ namespace renderer
 		return hash;
 	}
 
+	template<typename T>
+	void LoadPrimitiveIndicesGLTF(tinygltf::Model& model, tinygltf::Primitive& primitive, uint32_t geo_idx, uint64_t* out_hash, Mesh* out_mesh)
+	{
+		int accessor_idx = primitive.indices;
+
+		int buffer_view_idx = model.accessors[accessor_idx].bufferView;
+		auto& buffer_view = model.bufferViews[buffer_view_idx];
+		int buffer_idx = buffer_view.buffer;
+		auto& buffer = model.buffers[buffer_idx];
+
+		uint32_t idx_count{ (uint32_t)model.accessors[accessor_idx].count };
+		out_mesh->geometries[geo_idx].indices.reserve(idx_count);
+
+		T* data = (T*)(buffer.data.data() + buffer_view.byteOffset);
+
+		for (uint32_t i = 0; i < idx_count; i++)
+		{
+			T idx{ *(data + i) };
+			out_mesh->geometries[geo_idx].indices.push_back(idx);
+			*out_hash ^= idx * (i + 47);
+		}
+	}
+
 	uint64_t LoadIndicesGLTF(tinygltf::Model& model, tinygltf::Mesh& tinygltf_mesh, Mesh* out_mesh)
 	{
 		uint64_t hash{ 8501276 };
@@ -157,27 +180,16 @@ namespace renderer
 		for (tinygltf::Primitive& primitive : tinygltf_mesh.primitives)
 		{
 			int accessor_idx = primitive.indices;
-
-			int buffer_view_idx = model.accessors[accessor_idx].bufferView;
-			auto& buffer_view = model.bufferViews[buffer_view_idx];
-			int buffer_idx = buffer_view.buffer;
-			auto& buffer = model.buffers[buffer_idx];
-
 			int component_type = model.accessors[accessor_idx].componentType;
-			if (component_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
-				logger::Error("glTF index component type mismatch.");
+
+			if (component_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+				LoadPrimitiveIndicesGLTF<uint16_t>(model, primitive, geo_idx, &hash, out_mesh);
 			}
-
-			uint32_t idx_count{ (uint32_t)model.accessors[accessor_idx].count };
-			out_mesh->geometries[geo_idx].indices.reserve(idx_count);
-
-			uint16_t* data = (uint16_t*)(buffer.data.data() + buffer_view.byteOffset);
-
-			for (uint32_t i = 0; i < idx_count; i++)
-			{
-				uint16_t idx{ *(data + i) };
-				out_mesh->geometries[geo_idx].indices.push_back(idx);
-				hash ^= idx * (i + 47);
+			else if (component_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+				LoadPrimitiveIndicesGLTF<uint32_t>(model, primitive, geo_idx, &hash, out_mesh);
+			}
+			else {
+				logger::Error("glTF index component type mismatch.");
 			}
 
 			++geo_idx;
