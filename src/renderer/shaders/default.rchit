@@ -48,7 +48,6 @@ struct ObjectBuffers
 hitAttributeEXT vec3 attribs;
 
 layout(location = 0) rayPayloadInEXT HitPayload payload;
-layout(location = 1) rayPayloadEXT bool is_shadowed;
 
 layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
 layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
