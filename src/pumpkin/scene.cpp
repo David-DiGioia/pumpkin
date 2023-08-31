@@ -253,6 +253,7 @@ namespace pmk
 		Node* node{ CreateNode() };
 		renderer::RenderObjectHandle render_object{ renderer_->CreateRenderObjectFromParticles(particles, { 0 }) };
 		AddRenderObjectToNode(node, render_object);
+		renderer_->UpdateMaterials();
 	}
 
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
