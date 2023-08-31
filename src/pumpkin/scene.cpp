@@ -241,6 +241,20 @@ namespace pmk
 		renderer_->UpdateMaterials();
 	}
 
+	void Scene::GenerateParticleRenderData()
+	{
+		std::vector<renderer::Particle> particles{
+			{
+				.position = glm::vec3{0.0, 0.0, 0.0},
+				.geometry_index = 0,
+			}
+		};
+
+		Node* node{ CreateNode() };
+		renderer::RenderObjectHandle render_object{ renderer_->CreateRenderObjectFromParticles(particles, { 0 }) };
+		AddRenderObjectToNode(node, render_object);
+	}
+
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
 	{
 		glm::mat4 local_transform{ root->GetLocalTransform() };

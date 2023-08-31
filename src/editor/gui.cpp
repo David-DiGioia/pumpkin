@@ -635,6 +635,10 @@ void EditorGui::Debug()
 	ImGui::Text("%.3f ms", frame_milliseconds);
 	ImGui::Text("%.1f fps", fps_);
 
+	if (ImGui::Button("Generate particles")) {
+		editor_->GenerateParticleRenderData();
+	}
+
 	ImGui::End();
 
 }

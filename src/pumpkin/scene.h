@@ -91,6 +91,8 @@ namespace pmk
 		// out_names writes the names of the imported nodes in order, or is ignored if null.
 		void ImportGLTF(const std::filesystem::path& path, std::vector<std::string>* out_node_names, std::vector<std::string>* out_material_names);
 
+		void GenerateParticleRenderData();
+
 		// Update all render objects transforms to reflect their containing node.
 		void UploadRenderObjects();
 

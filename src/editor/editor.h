@@ -219,6 +219,8 @@ public:
 	// path: The path relative to the assets folder.
 	void ImportGLTF(const std::filesystem::path& path);
 
+	void GenerateParticleRenderData();
+
 	void SetMultiselect(bool multiselect);
 
 	EditorNode* GetActiveSelectionNode();

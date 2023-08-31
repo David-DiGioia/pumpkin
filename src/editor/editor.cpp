@@ -508,6 +508,17 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	}
 }
 
+void Editor::GenerateParticleRenderData()
+{
+	std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
+	uint32_t node_idx{ (uint32_t)nodes.size() };
+	pumpkin_->GetScene().GenerateParticleRenderData();
+
+	// Create wrapper EditorNode for generated pmk::Node.
+	EditorNode* editor_node{ new EditorNode{ nodes[node_idx], "particle_node"}};
+	node_map_[nodes[node_idx]->node_id] = editor_node;
+}
+
 void Editor::SetMultiselect(bool multiselect)
 {
 	multi_select_enabled_ = multiselect;
@@ -795,11 +806,11 @@ uint32_t Editor::ImportTexture(const std::filesystem::path& path, bool color_dat
 	int x{};                      // Width.
 	int y{};                      // Height.
 	int n{};                      // Number of 8-bit components per pixel in original image.
-	unsigned char *data = stbi_load(path.string().c_str(), &x, &y, &n, required_components);
+	unsigned char* data = stbi_load(path.string().c_str(), &x, &y, &n, required_components);
 	uint32_t index{ pumpkin_->CreateTexture(data, (uint32_t)x, (uint32_t)y, (uint32_t)required_components, color_data) };
 	stbi_image_free(data);
 
-	textures_.push_back(new EditorTexture{index, path.filename().string()});
+	textures_.push_back(new EditorTexture{ index, path.filename().string() });
 
 	return index;
 }

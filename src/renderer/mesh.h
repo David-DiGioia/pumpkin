@@ -64,6 +64,12 @@ namespace renderer
 		std::vector<Geometry> geometries;
 	};
 
+	struct Particle
+	{
+		glm::vec3 position;
+		int geometry_index;
+	};
+
 	// Return hash of this mesh's vertices.
 	//
 	// out_mesh must already have Mesh::geometries resized to number of primitives in gltf mesh.

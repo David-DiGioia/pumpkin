@@ -157,7 +157,7 @@ namespace pmk
 
 	std::vector<pmk::Rayhit> Pumpkin::CastQueuedRays()
 	{
-		std::vector<renderer::Rayhit> renderer_rayhits{renderer_.CastRays(queued_raycasts_)};
+		std::vector<renderer::Rayhit> renderer_rayhits{ renderer_.CastRays(queued_raycasts_) };
 		queued_raycasts_.clear();
 
 		// Convert to pumpkin rayhits.

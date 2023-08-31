@@ -705,7 +705,7 @@ namespace renderer
 		}
 
 		// Save textures.
-		uint32_t texture_idx{0};
+		uint32_t texture_idx{ 0 };
 		for (const ImageResource* texture : textures_)
 		{
 			constexpr uint32_t channels{ 4 };
@@ -1068,6 +1068,13 @@ namespace renderer
 		return (RenderObjectHandle)(frame_resources_[0].render_objects.size() - 1);
 	}
 
+	RenderObjectHandle VulkanRenderer::CreateRenderObjectFromParticles(const std::vector<Particle>& particles, const std::vector<int>& material_indices)
+	{
+		uint32_t mesh_index{ (uint32_t)meshes_.size() };
+		GenerateParticleMesh(particles);
+		return CreateRenderObject(mesh_index, material_indices);
+	}
+
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
 	{
 		RenderObject* render_object{ GetCurrentFrame().render_objects[render_object_handle] };
@@ -1265,7 +1272,7 @@ namespace renderer
 			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RASTER_BINDING, editor_backend_.GetImGuiBackend().GetRasterImages()[i], VK_IMAGE_LAYOUT_GENERAL);
 			resource.composite_descriptor_set_resource.LinkImageToBinding(COMPOSITE_RT_IMAGE_BINDING, editor_backend_.GetImGuiBackend().GetRayTraceImages()[i], VK_IMAGE_LAYOUT_GENERAL);
 			++i;
-}
+		}
 
 	}
 
@@ -1363,6 +1370,57 @@ namespace renderer
 		return duplicate_indices;
 	}
 
+	void VulkanRenderer::GenerateParticleMesh(const std::vector<Particle>& particles) {
+		Mesh* mesh{ new Mesh{} };
+		mesh->geometries.resize(1);
+
+		// Generate vertices.
+		uint32_t particle_vert_count{};
+		{
+			std::vector<Vertex> particle_vertices{ GetParticleVertices() };
+			particle_vert_count = (uint32_t)particle_vertices.size();
+			uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
+			mesh->geometries[0].vertices.resize(vertex_count);
+
+			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+			{
+				for (uint32_t v{ 0 }; v < particle_vert_count; ++v)
+				{
+					uint32_t vert_buffer_idx{ p * particle_vert_count + v };
+					mesh->geometries[0].vertices[vert_buffer_idx] = particle_vertices[v];
+					mesh->geometries[0].vertices[vert_buffer_idx].position += particles[p].position;
+				}
+			}
+		}
+
+		// Generate indices.
+		{
+			std::vector<uint32_t> particle_indices{ GetParticleIndices() };
+			uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
+			mesh->geometries[0].indices.resize(index_count);
+
+			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+			{
+				for (uint32_t i{ 0 }; i < (uint32_t)particle_indices.size(); ++i)
+				{
+					uint32_t idx_buffer_idx{ p * (uint32_t)particle_indices.size() + i };
+					mesh->geometries[0].indices[idx_buffer_idx] = p * particle_vert_count + particle_indices[i];
+				}
+			}
+		}
+
+		CalculateTangents(mesh);
+
+		VkCommandBuffer cmd{ vulkan_util_.Begin() };
+		UploadMeshToDevice(vulkan_util_, *mesh);
+		rt_context_.QueueBlas(mesh);
+		rt_context_.CmdBuildQueuedBlases(cmd);
+		vulkan_util_.Submit();
+
+		meshes_.push_back(mesh);
+		rt_context_.UpdateObjectBuffers(meshes_);
+	}
+
 	void VulkanRenderer::UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh)
 	{
 		for (Geometry& geometry : mesh.geometries)
@@ -1406,6 +1464,86 @@ namespace renderer
 #else
 		return false;
 #endif
+	}
+
+	std::vector<Vertex> VulkanRenderer::GetParticleVertices() const
+	{
+		uint32_t vert_count{ 24 }; // Cube with 3 normals per corner so 8 * 3 vertices.
+		std::vector<Vertex> verts(vert_count);
+
+		// Position. Three of each since there are three different normals at each corner.
+		verts[0].position = glm::vec3{ -1.0f, -1.0f, -1.0f };
+		verts[1].position = glm::vec3{ -1.0f, -1.0f, -1.0f };
+		verts[2].position = glm::vec3{ -1.0f, -1.0f, -1.0f };
+		verts[3].position = glm::vec3{ -1.0f, -1.0f, 1.0f };
+		verts[4].position = glm::vec3{ -1.0f, -1.0f, 1.0f };
+		verts[5].position = glm::vec3{ -1.0f, -1.0f, 1.0f };
+		verts[6].position = glm::vec3{ -1.0f, 1.0f, -1.0f };
+		verts[7].position = glm::vec3{ -1.0f, 1.0f, -1.0f };
+		verts[8].position = glm::vec3{ -1.0f, 1.0f, -1.0f };
+		verts[9].position = glm::vec3{ -1.0f, 1.0f, 1.0f };
+		verts[10].position = glm::vec3{ -1.0f, 1.0f, 1.0f };
+		verts[11].position = glm::vec3{ -1.0f, 1.0f, 1.0f };
+
+		verts[12].position = glm::vec3{ 1.0f, -1.0f, -1.0f };
+		verts[13].position = glm::vec3{ 1.0f, -1.0f, -1.0f };
+		verts[14].position = glm::vec3{ 1.0f, -1.0f, -1.0f };
+		verts[15].position = glm::vec3{ 1.0f, -1.0f, 1.0f };
+		verts[16].position = glm::vec3{ 1.0f, -1.0f, 1.0f };
+		verts[17].position = glm::vec3{ 1.0f, -1.0f, 1.0f };
+		verts[18].position = glm::vec3{ 1.0f, 1.0f, -1.0f };
+		verts[19].position = glm::vec3{ 1.0f, 1.0f, -1.0f };
+		verts[20].position = glm::vec3{ 1.0f, 1.0f, -1.0f };
+		verts[21].position = glm::vec3{ 1.0f, 1.0f, 1.0f };
+		verts[22].position = glm::vec3{ 1.0f, 1.0f, 1.0f };
+		verts[23].position = glm::vec3{ 1.0f, 1.0f, 1.0f };
+
+		// Normals.
+		verts[0].normal = glm::vec3{ -1.0f, 0.0f, 0.0f }; // 0 vertex.
+		verts[1].normal = glm::vec3{ 0.0f, -1.0f, 0.0f }; // 0 vertex.
+		verts[2].normal = glm::vec3{ 0.0f, 0.0f, -1.0f }; // 0 vertex.
+		verts[3].normal = glm::vec3{ -1.0f, 0.0f, 0.0f }; // 1 vertex.
+		verts[4].normal = glm::vec3{ 0.0f, -1.0f, 0.0f }; // 1 vertex.
+		verts[5].normal = glm::vec3{ 0.0f, 0.0f, 1.0f };  // 1 vertex.
+		verts[6].normal = glm::vec3{ -1.0f, 0.0f, 0.0f }; // 2 vertex.
+		verts[7].normal = glm::vec3{ 0.0f, 1.0f, 0.0f };  // 2 vertex.
+		verts[8].normal = glm::vec3{ 0.0f, 0.0f, -1.0f }; // 2 vertex.
+		verts[9].normal = glm::vec3{ -1.0f, 0.0f, 0.0f }; // 3 vertex.
+		verts[10].normal = glm::vec3{ 0.0f, 1.0f, 0.0f }; // 3 vertex.
+		verts[11].normal = glm::vec3{ 0.0f, 0.0f, 1.0f }; // 3 vertex.
+
+		verts[12].normal = glm::vec3{ 1.0f, 0.0f, 0.0f };  // 4 vertex.
+		verts[13].normal = glm::vec3{ 0.0f, -1.0f, 0.0f }; // 4 vertex.
+		verts[14].normal = glm::vec3{ 0.0f, 0.0f, -1.0f }; // 4 vertex.
+		verts[15].normal = glm::vec3{ 1.0f, 0.0f, 0.0f };  // 5 vertex.
+		verts[16].normal = glm::vec3{ 0.0f, -1.0f, 0.0f }; // 5 vertex.
+		verts[17].normal = glm::vec3{ 0.0f, 0.0f, 1.0f };  // 5 vertex.
+		verts[18].normal = glm::vec3{ 1.0f, 0.0f, 0.0f };  // 6 vertex.
+		verts[19].normal = glm::vec3{ 0.0f, 1.0f, 0.0f };  // 6 vertex.
+		verts[20].normal = glm::vec3{ 0.0f, 0.0f, -1.0f }; // 6 vertex.
+		verts[21].normal = glm::vec3{ 1.0f, 0.0f, 0.0f };  // 7 vertex.
+		verts[22].normal = glm::vec3{ 0.0f, 1.0f, 0.0f };  // 7 vertex.
+		verts[23].normal = glm::vec3{ 0.0f, 0.0f, 1.0f };  // 7 vertex.
+
+		return verts;
+	}
+
+	std::vector<uint32_t> VulkanRenderer::GetParticleIndices() const
+	{
+		return {
+			2, 8, 20,   // Z- plane.
+			2, 20, 14,  // Z- plane.
+			0, 3, 6,    // X- plane.
+			3, 9, 6,    // X- plane.
+			5, 23, 11,  // Z+ plane.
+			5, 17, 23,  // Z+ plane.
+			15, 18, 21, // X+ plane.
+			15, 12, 18, // X+ plane.
+			19, 7, 10,  // Y+ plane.
+			19, 10, 22, // Y+ plane.
+			1, 13, 4,   // Y- plane.
+			13, 16, 4,  // Y- plane.
+		};
 	}
 
 	uint32_t VulkanRenderer::MeshCount() const

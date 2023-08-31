@@ -44,11 +44,17 @@ namespace renderer
 		// If out_material_names is not null, then loaded material names will be written into it.
 		std::vector<int> LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names);
 
+		// TODO: Move mesh generation into compute shader.
+		void GenerateParticleMesh(const std::vector<Particle>& particles);
+
 		uint32_t MeshCount() const;
 
 		// Create a render object with the buffer resource and descriptors already associated
 		// with the render object data.
 		RenderObjectHandle CreateRenderObject(uint32_t mesh_index, const std::vector<int>& material_indices);
+
+		// Create a RenderObject from a vector of particles.
+		RenderObjectHandle CreateRenderObjectFromParticles(const std::vector<Particle>& particles, const std::vector<int>& material_indices);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
@@ -168,6 +174,12 @@ namespace renderer
 		void DestroyMesh(Mesh* mesh);
 
 		bool GetViewportMinimized() const;
+
+		// Get the vertex data for a single particle, eg a cube.
+		std::vector<Vertex> GetParticleVertices() const;
+
+		// Get the index data for a single particle, eg a cube.
+		std::vector<uint32_t> GetParticleIndices() const;
 
 		struct FrameResources
 		{
