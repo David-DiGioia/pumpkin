@@ -45,7 +45,7 @@ namespace renderer
 		std::vector<int> LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names);
 
 		// TODO: Move mesh generation into compute shader.
-		void GenerateParticleMesh(const std::vector<Particle>& particles);
+		void GenerateParticleMesh(const std::vector<Particle>& particles, float particle_width);
 
 		uint32_t MeshCount() const;
 
@@ -54,7 +54,7 @@ namespace renderer
 		RenderObjectHandle CreateRenderObject(uint32_t mesh_index, const std::vector<int>& material_indices);
 
 		// Create a RenderObject from a vector of particles.
-		RenderObjectHandle CreateRenderObjectFromParticles(const std::vector<Particle>& particles, const std::vector<int>& material_indices);
+		RenderObjectHandle CreateRenderObjectFromParticles(const std::vector<Particle>& particles, float particle_width, const std::vector<int>& material_indices);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
@@ -176,7 +176,7 @@ namespace renderer
 		bool GetViewportMinimized() const;
 
 		// Get the vertex data for a single particle, eg a cube.
-		std::vector<Vertex> GetParticleVertices() const;
+		std::vector<Vertex> GetParticleVertices(float particle_width) const;
 
 		// Get the index data for a single particle, eg a cube.
 		std::vector<uint32_t> GetParticleIndices() const;

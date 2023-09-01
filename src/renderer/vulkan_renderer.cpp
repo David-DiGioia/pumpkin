@@ -1068,10 +1068,10 @@ namespace renderer
 		return (RenderObjectHandle)(frame_resources_[0].render_objects.size() - 1);
 	}
 
-	RenderObjectHandle VulkanRenderer::CreateRenderObjectFromParticles(const std::vector<Particle>& particles, const std::vector<int>& material_indices)
+	RenderObjectHandle VulkanRenderer::CreateRenderObjectFromParticles(const std::vector<Particle>& particles, float particle_width, const std::vector<int>& material_indices)
 	{
 		uint32_t mesh_index{ (uint32_t)meshes_.size() };
-		GenerateParticleMesh(particles);
+		GenerateParticleMesh(particles, particle_width);
 		return CreateRenderObject(mesh_index, material_indices);
 	}
 
@@ -1370,14 +1370,15 @@ namespace renderer
 		return duplicate_indices;
 	}
 
-	void VulkanRenderer::GenerateParticleMesh(const std::vector<Particle>& particles) {
+	void VulkanRenderer::GenerateParticleMesh(const std::vector<Particle>& particles, float particle_width)
+	{
 		Mesh* mesh{ new Mesh{} };
 		mesh->geometries.resize(1);
 
 		// Generate vertices.
 		uint32_t particle_vert_count{};
 		{
-			std::vector<Vertex> particle_vertices{ GetParticleVertices() };
+			std::vector<Vertex> particle_vertices{ GetParticleVertices(particle_width) };
 			particle_vert_count = (uint32_t)particle_vertices.size();
 			uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
 			mesh->geometries[0].vertices.resize(vertex_count);
@@ -1466,37 +1467,38 @@ namespace renderer
 #endif
 	}
 
-	std::vector<Vertex> VulkanRenderer::GetParticleVertices() const
+	std::vector<Vertex> VulkanRenderer::GetParticleVertices(float particle_width) const
 	{
 		uint32_t vert_count{ 24 }; // Cube with 3 normals per corner so 8 * 3 vertices.
 		std::vector<Vertex> verts(vert_count);
+		float particle_radius{ particle_width / 2.0f };
 
 		// Position. Three of each since there are three different normals at each corner.
-		verts[0].position = glm::vec3{ -1.0f, -1.0f, -1.0f };
-		verts[1].position = glm::vec3{ -1.0f, -1.0f, -1.0f };
-		verts[2].position = glm::vec3{ -1.0f, -1.0f, -1.0f };
-		verts[3].position = glm::vec3{ -1.0f, -1.0f, 1.0f };
-		verts[4].position = glm::vec3{ -1.0f, -1.0f, 1.0f };
-		verts[5].position = glm::vec3{ -1.0f, -1.0f, 1.0f };
-		verts[6].position = glm::vec3{ -1.0f, 1.0f, -1.0f };
-		verts[7].position = glm::vec3{ -1.0f, 1.0f, -1.0f };
-		verts[8].position = glm::vec3{ -1.0f, 1.0f, -1.0f };
-		verts[9].position = glm::vec3{ -1.0f, 1.0f, 1.0f };
-		verts[10].position = glm::vec3{ -1.0f, 1.0f, 1.0f };
-		verts[11].position = glm::vec3{ -1.0f, 1.0f, 1.0f };
+		verts[0].position = glm::vec3{ -1.0f, -1.0f, -1.0f } *particle_radius;
+		verts[1].position = glm::vec3{ -1.0f, -1.0f, -1.0f } *particle_radius;
+		verts[2].position = glm::vec3{ -1.0f, -1.0f, -1.0f } *particle_radius;
+		verts[3].position = glm::vec3{ -1.0f, -1.0f, 1.0f } *particle_radius;
+		verts[4].position = glm::vec3{ -1.0f, -1.0f, 1.0f } *particle_radius;
+		verts[5].position = glm::vec3{ -1.0f, -1.0f, 1.0f } *particle_radius;
+		verts[6].position = glm::vec3{ -1.0f, 1.0f, -1.0f } *particle_radius;
+		verts[7].position = glm::vec3{ -1.0f, 1.0f, -1.0f } *particle_radius;
+		verts[8].position = glm::vec3{ -1.0f, 1.0f, -1.0f } *particle_radius;
+		verts[9].position = glm::vec3{ -1.0f, 1.0f, 1.0f } *particle_radius;
+		verts[10].position = glm::vec3{ -1.0f, 1.0f, 1.0f } *particle_radius;
+		verts[11].position = glm::vec3{ -1.0f, 1.0f, 1.0f } *particle_radius;
 
-		verts[12].position = glm::vec3{ 1.0f, -1.0f, -1.0f };
-		verts[13].position = glm::vec3{ 1.0f, -1.0f, -1.0f };
-		verts[14].position = glm::vec3{ 1.0f, -1.0f, -1.0f };
-		verts[15].position = glm::vec3{ 1.0f, -1.0f, 1.0f };
-		verts[16].position = glm::vec3{ 1.0f, -1.0f, 1.0f };
-		verts[17].position = glm::vec3{ 1.0f, -1.0f, 1.0f };
-		verts[18].position = glm::vec3{ 1.0f, 1.0f, -1.0f };
-		verts[19].position = glm::vec3{ 1.0f, 1.0f, -1.0f };
-		verts[20].position = glm::vec3{ 1.0f, 1.0f, -1.0f };
-		verts[21].position = glm::vec3{ 1.0f, 1.0f, 1.0f };
-		verts[22].position = glm::vec3{ 1.0f, 1.0f, 1.0f };
-		verts[23].position = glm::vec3{ 1.0f, 1.0f, 1.0f };
+		verts[12].position = glm::vec3{ 1.0f, -1.0f, -1.0f } *particle_radius;
+		verts[13].position = glm::vec3{ 1.0f, -1.0f, -1.0f } *particle_radius;
+		verts[14].position = glm::vec3{ 1.0f, -1.0f, -1.0f } *particle_radius;
+		verts[15].position = glm::vec3{ 1.0f, -1.0f, 1.0f } *particle_radius;
+		verts[16].position = glm::vec3{ 1.0f, -1.0f, 1.0f } *particle_radius;
+		verts[17].position = glm::vec3{ 1.0f, -1.0f, 1.0f } *particle_radius;
+		verts[18].position = glm::vec3{ 1.0f, 1.0f, -1.0f } *particle_radius;
+		verts[19].position = glm::vec3{ 1.0f, 1.0f, -1.0f } *particle_radius;
+		verts[20].position = glm::vec3{ 1.0f, 1.0f, -1.0f } *particle_radius;
+		verts[21].position = glm::vec3{ 1.0f, 1.0f, 1.0f } *particle_radius;
+		verts[22].position = glm::vec3{ 1.0f, 1.0f, 1.0f } *particle_radius;
+		verts[23].position = glm::vec3{ 1.0f, 1.0f, 1.0f } *particle_radius;
 
 		// Normals.
 		verts[0].normal = glm::vec3{ -1.0f, 0.0f, 0.0f }; // 0 vertex.
