@@ -96,7 +96,22 @@ public:
 	bool show_metallic_tex_ui_{};
 	bool show_roughness_tex_ui_{};
 	bool show_emission_tex_ui_{};
+
 private:
+	char* name_buffer_{};
+};
+
+class EditorShader
+{
+public:
+	EditorShader(const std::filesystem::path& spirv_path, const std::string& name);
+
+	~EditorShader();
+
+	char* GetNameBuffer() const;
+
+private:
+	std::filesystem::path spirv_path_{};
 	char* name_buffer_{};
 };
 
@@ -256,6 +271,11 @@ public:
 
 	EditorTexture* GetTexture(uint32_t texture_index);
 
+	// Returns shader index into shaders_.
+	uint32_t ImportShader(const std::filesystem::path& shader_path);
+
+	EditorShader* GetShader(uint32_t shader_index);
+
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);
 
@@ -306,6 +326,7 @@ private:
 	std::unordered_map<uint32_t, EditorNode*> node_map_{}; // The key of this map is pmk::Node::node_id. This allows finding an EditorNode from a pmk::Node.
 	std::vector<EditorMaterial*> materials_{};             // List of EditorMaterials in same order as the renderer's material list, so material index is valid here too.
 	std::vector<EditorTexture*> textures_{};               // List of EditorTextures in same order as the renderer's texture list, so texture index is valid here too.
+	std::vector<EditorShader*> shaders_{};                 // List of EditorShaders, containing path to SPIRV files to be passed to renderer.
 
 	std::filesystem::path project_directory_{};                  // The root directory of the user's project.
 	std::filesystem::path active_selection_file_{};              // The actively selected file.

@@ -260,10 +260,14 @@ namespace pmk
 				.position = glm::vec3{-1.0, 1.0, 0.0},
 				.geometry_index = 0,
 			},
+			{
+				.position = glm::vec3{-1.0, 2.0, 0.0},
+				.geometry_index = 0,
+			},
 		};
 
 		Node* node{ CreateNode() };
-		renderer::RenderObjectHandle render_object{ renderer_->CreateRenderObjectFromParticles(particles, 0.3f, { 0 }) };
+		renderer::RenderObjectHandle render_object{ renderer_->CreateRenderObjectFromParticles(particles, 0.1f, { 0 }) };
 		AddRenderObjectToNode(node, render_object);
 		renderer_->UpdateMaterials();
 	}

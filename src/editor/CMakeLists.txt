@@ -8,6 +8,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/input.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/camera_controller.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/camera_controller.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/user_shader_util.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/user_shader_util.cpp"
 )
 
 add_executable(Editor "${SOURCES}")

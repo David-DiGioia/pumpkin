@@ -15,6 +15,7 @@
 
 constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
 constexpr uint32_t NODE_PROPERTY_ALIGNMENT{ 77 };
+constexpr uint32_t SHADER_PROPERTY_ALIGNMENT{ 85 };
 
 bool EditorNodeCmp::operator()(EditorNode* a, EditorNode* b) const
 {
@@ -67,11 +68,12 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	CheckProjectSelectionPopup();
 	MainMenu();
 	TreeView();
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
 	NodeProperties();
 	EngineViewport(rendered_image_id);
 	FileBrowser();
 	CameraControls();
+	ParticleEditor();
 	Debug();
 }
 
@@ -272,6 +274,58 @@ bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_
 	return show_texture_ui;
 }
 
+void EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, bool* shader_changed)
+{
+	bool show_texture_ui{ true };
+	ImGui::PushID(name.c_str());
+
+	ImGui::Text(name.c_str());
+	ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+
+	if (ImGui::BeginCombo("##ShaderCombo", nullptr, ImGuiComboFlags_NoPreview))
+	{
+		for (uint32_t idx = 0; idx < (uint32_t)editor_->shaders_.size(); ++idx)
+		{
+			const bool is_selected{ *shader_index == idx };
+			if (ImGui::Selectable(editor_->shaders_[idx]->GetNameBuffer(), is_selected))
+			{
+				*shader_index = idx;
+			}
+
+			// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
+			if (is_selected) {
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("Load"))
+	{
+		auto selection = OpenFileDialog("Select shader", shader_popup_current_directory_, { "*.comp", "*.cs", "*.glsl" }, false);
+		if (!selection.empty())
+		{
+			if (selection.has_root_directory()) {
+				shader_popup_current_directory_ = selection.root_directory();
+			}
+
+			uint32_t idx{ editor_->ImportShader(selection) };
+			*shader_index = idx;
+		}
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("X")) {
+		*shader_index = renderer::NULL_INDEX;
+	}
+
+	ImGui::SameLine();
+	ImGui::Text(*shader_index == renderer::NULL_INDEX ? "No shader selected." : editor_->GetShader(*shader_index)->GetNameBuffer());
+
+	ImGui::PopID();
+}
+
 void EditorGui::NodeProperties()
 {
 	if (!ImGui::Begin("Node properties"))
@@ -374,7 +428,7 @@ void EditorGui::NodeProperties()
 				mat_changed |= ImGui::DragFloat("##Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
 			}
 
-			bool show_normal_texture_ui{true};
+			bool show_normal_texture_ui{ true };
 			MaterialTextureProperty("Normal", &show_normal_texture_ui, &mat->material->normal_index, &mat_changed, false);
 
 			ImGui::Text("IOR");
@@ -609,11 +663,35 @@ void EditorGui::CameraControls()
 	ImGui::End();
 }
 
+void EditorGui::ParticleEditor()
+{
+	if (!ImGui::Begin("Particle Editor"))
+	{
+		ImGui::End();
+		return;
+	}
+
+	ImGui::Text("Particle shaders");
+
+	bool shader_changed{ false };
+
+	ShaderProperty("Generation", &gen_shader_index_, &shader_changed);
+	ShaderProperty("Update", &update_shader_index_, &shader_changed);
+
+	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+
+	if (ImGui::Button("Generate particles")) {
+		editor_->GenerateParticleRenderData();
+	}
+
+	ImGui::End();
+
+}
+
 void EditorGui::Debug()
 {
 	if (!ImGui::Begin("Debug"))
 	{
-		// Early out if the window is collapsed, as an optimization.
 		ImGui::End();
 		return;
 	}
@@ -635,12 +713,7 @@ void EditorGui::Debug()
 	ImGui::Text("%.3f ms", frame_milliseconds);
 	ImGui::Text("%.1f fps", fps_);
 
-	if (ImGui::Button("Generate particles")) {
-		editor_->GenerateParticleRenderData();
-	}
-
 	ImGui::End();
-
 }
 
 void EditorGui::UpdateViewportSize()

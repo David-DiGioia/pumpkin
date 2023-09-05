@@ -63,6 +63,8 @@ private:
 
 	void CameraControls();
 
+	void ParticleEditor();
+
 	void Debug();
 
 	void UpdateViewportSize();
@@ -71,7 +73,9 @@ private:
 
 	// Returns true if texture property is being used, or false if slider should be displayed.
 	bool MaterialTextureProperty(const std::string& name, bool* show_tex_ui, uint32_t* texture_index, bool* mat_changed, bool color_data);
-	
+
+	void ShaderProperty(const std::string& name, uint32_t* shader_index, bool* shader_changed);
+
 	std::set<EditorNode*, EditorNodeCmp> GetSortedChildren(EditorNode* node);
 
 	Editor* editor_{};
@@ -89,8 +93,12 @@ private:
 
 	std::filesystem::path project_popup_current_directory_{ "C:\\" };
 	std::filesystem::path texture_popup_current_directory_{};
+	std::filesystem::path shader_popup_current_directory_{};
 	std::filesystem::directory_entry popup_selected_file_{};
 	bool open_project_selection_popup_{ true };
 	char* popup_name_buffer_;
 	bool pumpkin_proj_selected_{ false };
+
+	uint32_t gen_shader_index_{ renderer::NULL_INDEX };
+	uint32_t update_shader_index_{ renderer::NULL_INDEX };
 };
