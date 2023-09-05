@@ -4,7 +4,7 @@ layout (location = 0) out vec4 out_color;
 
 layout (push_constant) uniform OutlinePushConstant{ vec4 outline_color; } constants;
 
-layout (set = 0, binding = 0, r8ui) uniform uimage2D mask_texture;
+layout (set = 0, binding = 0, r8ui) readonly uniform uimage2D mask_texture;
 
 void main()
 {

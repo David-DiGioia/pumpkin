@@ -2,8 +2,8 @@
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 0, binding = 0, rgba8) uniform image2D raster_image;
-layout (set = 0, binding = 1, rgba8) uniform image2D rt_image;
+layout (set = 0, binding = 0, rgba8) readonly uniform image2D  raster_image;
+layout (set = 0, binding = 1, rgba8) readonly uniform image2D rt_image;
 
 void main()
 {

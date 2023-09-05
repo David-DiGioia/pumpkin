@@ -8,12 +8,14 @@
 
 #include "common.glsl"
 
+// Must be aligned to 16.
 struct Vertex
 {
-	vec3 position;
-	vec3 normal;
-	vec3 tangent;
+	vec4 position;
+	vec4 normal;
+	vec4 tangent;
 	vec2 tex_coord;
+	float[2] padding;
 };
 
 const uint NULL_TEXTURE_INDEX = 0xFFFFFFFF;
@@ -50,7 +52,7 @@ hitAttributeEXT vec3 attribs;
 layout(location = 0) rayPayloadInEXT HitPayload payload;
 
 layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
-layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
+layout(buffer_reference, scalar) buffer Indices { uint i[]; };
 layout(buffer_reference, scalar) buffer MaterialIndices { uint i[]; };
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT tlas;
@@ -257,23 +259,25 @@ void main()
 	Material mat = materials.i[material_index];
 
 	// Indices of the triangle.
-	uvec3 ind = indices.i[gl_PrimitiveID];
+	uint ind_x = indices.i[gl_PrimitiveID * 3 + 0];
+	uint ind_y = indices.i[gl_PrimitiveID * 3 + 1];
+	uint ind_z = indices.i[gl_PrimitiveID * 3 + 2];
 
 	// Vertices of the triangle.
-	Vertex v0 = vertices.v[ind.x];
-	Vertex v1 = vertices.v[ind.y];
-	Vertex v2 = vertices.v[ind.z];
+	Vertex v0 = vertices.v[ind_x];
+	Vertex v1 = vertices.v[ind_y];
+	Vertex v2 = vertices.v[ind_z];
 
 	// Barcentric coordinates of the triangle.
 	const vec3 barycentrics = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 
 	// Compute the normal at hit position.
-	vec3 tri_normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
+	vec3 tri_normal = (v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z).xyz;
 	tri_normal = normalize(gl_ObjectToWorldEXT * vec4(tri_normal, 0.0)); // Transform the normal to world space. w = 0 to ignore position information.
 	
-	vec3 tri_tangent = v0.tangent * barycentrics.x + v1.tangent * barycentrics.y + v2.tangent * barycentrics.z;
+	vec3 tri_tangent = (v0.tangent * barycentrics.x + v1.tangent * barycentrics.y + v2.tangent * barycentrics.z).xyz;
 
-	vec3 tri_flat_normal = cross(v1.position - v0.position, v2.position - v0.position);
+	vec3 tri_flat_normal = cross(v1.position.xyz - v0.position.xyz, v2.position.xyz - v0.position.xyz);
 	tri_flat_normal = normalize(gl_ObjectToWorldEXT * vec4(tri_flat_normal, 0.0));
 
 	// Use normal map if it's provided.
@@ -298,7 +302,7 @@ void main()
 	}
 
 	// Compute the hit position.
-	vec3 position = v0.position * barycentrics.x + v1.position * barycentrics.y + v2.position * barycentrics.z;
+	vec3 position = (v0.position * barycentrics.x + v1.position * barycentrics.y + v2.position * barycentrics.z).xyz;
 	position = gl_ObjectToWorldEXT * vec4(position, 1.0); // Transform the position to world space.
 
 	vec3 v = -gl_WorldRayDirectionEXT;
@@ -342,7 +346,8 @@ void main()
 	}
 
 	// Add the amount of emission that makes it back to the camera.
-	payload.radiance += emission * color * payload.reflected_ratio;
+	//payload.radiance += emission * color * payload.reflected_ratio;
+	payload.radiance = v0.position.xyz;
 
 	// Depending on microfacet that ray hits, it could bounce into the face, so in such cases assume it's absorbed.
 	// This restricts the outgoing wi direction to be in the upper hemisphere surrounding the normal.

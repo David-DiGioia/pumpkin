@@ -208,8 +208,8 @@ namespace renderer
 				Vertex& v2{ geometry.vertices[geometry.indices[(uint64_t)i + 1]] };
 				Vertex& v3{ geometry.vertices[geometry.indices[(uint64_t)i + 2]] };
 
-				glm::vec3 edge1{ v2.position - v1.position };
-				glm::vec3 edge2{ v3.position - v1.position };
+				glm::vec3 edge1{ glm::vec3{v2.position} - glm::vec3{v1.position} };
+				glm::vec3 edge2{ glm::vec3{v3.position} - glm::vec3{v1.position} };
 				glm::vec2 delta_uv1{ v2.tex_coord - v1.tex_coord };
 				glm::vec2 delta_uv2{ v3.tex_coord - v1.tex_coord };
 
@@ -223,9 +223,9 @@ namespace renderer
 
 				tangent = glm::normalize(tangent);
 
-				v1.tangent = tangent;
-				v2.tangent = tangent;
-				v3.tangent = tangent;
+				v1.tangent = glm::vec4{tangent, 0.0f};
+				v2.tangent = glm::vec4{tangent, 0.0f};
+				v3.tangent = glm::vec4{tangent, 0.0f};
 			}
 		}
 	}
