@@ -1,6 +1,6 @@
 ﻿# If Vulkan SDK is installed, this command will make the Vulkan symbols
 # used below available to us. Use cmake gui to see all the available symbols.
-find_package(Vulkan REQUIRED FATAL_ERROR)
+find_package(Vulkan REQUIRED)
 
 add_subdirectory(volk)
 add_subdirectory(imgui)
