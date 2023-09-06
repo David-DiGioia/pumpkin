@@ -541,7 +541,7 @@ namespace renderer
 			.geometry = {
 				.triangles = {
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-					.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT,
+					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 					.vertexData = DeviceAddress(context_->device, pmk_geometry.vertices_resource.buffer),
 					.vertexStride = sizeof(Vertex),
 					.maxVertex = *std::max_element(std::begin(pmk_geometry.indices), std::end(pmk_geometry.indices)),
