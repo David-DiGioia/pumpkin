@@ -346,8 +346,7 @@ void main()
 	}
 
 	// Add the amount of emission that makes it back to the camera.
-	//payload.radiance += emission * color * payload.reflected_ratio;
-	payload.radiance = v0.position.xyz;
+	payload.radiance += emission * color * payload.reflected_ratio;
 
 	// Depending on microfacet that ray hits, it could bounce into the face, so in such cases assume it's absorbed.
 	// This restricts the outgoing wi direction to be in the upper hemisphere surrounding the normal.
