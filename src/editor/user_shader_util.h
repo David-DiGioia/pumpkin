@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <cstddef>
 #include <vector>
+#include <string>
 
 enum class MemberType
 {
@@ -52,5 +53,16 @@ public:
 	const UniformBuffer& GetUniformBuffer() const;
 
 private:
+	enum class ParserState
+	{
+		BEGIN,
+		UBO_FOUND,
+		UBO_BRACE_OPENED,
+		UBO_BRACE_CLOSED,
+	} state_{};
+
 	UniformBuffer uniform_buffer_;
 };
+
+// Returns path to spirv file.
+std::filesystem::path CompileShader(const std::filesystem::path& shader_path);
