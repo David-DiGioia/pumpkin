@@ -274,7 +274,7 @@ bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_
 	return show_texture_ui;
 }
 
-void EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, bool* shader_changed)
+void EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, bool* compile_error)
 {
 	bool show_texture_ui{ true };
 	ImGui::PushID(name.c_str());
@@ -312,6 +312,7 @@ void EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 
 			uint32_t idx{ editor_->ImportShader(selection) };
 			*shader_index = idx;
+			*compile_error = (idx == renderer::NULL_INDEX);
 		}
 	}
 
@@ -321,7 +322,12 @@ void EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 	}
 
 	ImGui::SameLine();
-	ImGui::Text(*shader_index == renderer::NULL_INDEX ? "No shader selected." : editor_->GetShader(*shader_index)->GetNameBuffer());
+	if (*compile_error) {
+		ImGui::TextColored(ImVec4{ 1.0f, 0.0f, 0.0f, 1.0f }, "Compilation failed.");
+	}
+	else {
+		ImGui::Text(*shader_index == renderer::NULL_INDEX ? "No shader selected." : editor_->GetShader(*shader_index)->GetNameBuffer());
+	}
 
 	ImGui::PopID();
 }
@@ -673,14 +679,12 @@ void EditorGui::ParticleEditor()
 
 	ImGui::Text("Particle shaders");
 
-	bool shader_changed{ false };
-
-	ShaderProperty("Generation", &gen_shader_index_, &shader_changed);
+	ShaderProperty("Generation", &gen_shader_index_, &gen_shader_compile_error_);
 	if (gen_shader_index_ != renderer::NULL_INDEX) {
 		editor_->GetShader(gen_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT);
 	}
 
-	ShaderProperty("Update", &update_shader_index_, &shader_changed);
+	ShaderProperty("Update", &update_shader_index_, &update_shader_compile_error_);
 	if (update_shader_index_ != renderer::NULL_INDEX) {
 		editor_->GetShader(update_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT);
 	}

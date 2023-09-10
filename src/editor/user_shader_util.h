@@ -67,5 +67,5 @@ private:
 	UniformBuffer uniform_buffer_;
 };
 
-// Returns path to spirv file.
-std::filesystem::path CompileShader(const std::filesystem::path& shader_path);
+// Returns true if compilation succeeds, otherwise returns false.
+bool CompileShader(const std::filesystem::path& shader_path, std::filesystem::path* out_spirv_path);

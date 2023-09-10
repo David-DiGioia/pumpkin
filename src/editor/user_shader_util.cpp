@@ -194,13 +194,14 @@ void ShaderParser::ParseUniformBufferBody(const std::string& ubo_body)
 	uniform_buffer_.Initialize(member_variables);
 }
 
-std::filesystem::path CompileShader(const std::filesystem::path& shader_path)
+bool CompileShader(const std::filesystem::path& shader_path, std::filesystem::path* out_spirv_path)
 {
 	const std::filesystem::path vulkan_sdk_path{ getenv("VULKAN_SDK") };
 	const std::filesystem::path glsl_validator{ vulkan_sdk_path / "Bin/glslangValidator.exe" };
 	const std::filesystem::path spirv_path{ shader_path.parent_path() / (shader_path.filename().string() + ".spv") };
 
 	const std::string command_line{ glsl_validator.string() + " -V " + shader_path.string() + " -o " + spirv_path.string() + " --target-env spirv1.6" };
+	bool compilation_succeeded{ true };
 
 	// Attempt to compile shader.
 	{
@@ -213,7 +214,7 @@ std::filesystem::path CompileShader(const std::filesystem::path& shader_path)
 			NULL,
 			NULL,
 			FALSE,
-			CREATE_NEW_CONSOLE,
+			CREATE_NO_WINDOW,
 			NULL,
 			NULL,
 			&si,
@@ -222,12 +223,21 @@ std::filesystem::path CompileShader(const std::filesystem::path& shader_path)
 		// Wait for the process to finish.
 		WaitForSingleObject(pi.hProcess, INFINITE);
 
+		DWORD exit_code{ 0 };
+		if (!GetExitCodeProcess(pi.hProcess, &exit_code)) {
+			logger::Error("Couldn't get exit code\n");
+		}
+		else if (exit_code != 0) {
+			compilation_succeeded = false;
+		}
+
 		// Close process and thread handles. 
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
+
 	}
 
-	return spirv_path;
+	return compilation_succeeded;
 }
 
 void UniformBuffer::Initialize(const std::vector<MemberVariable>& members)

@@ -74,7 +74,7 @@ private:
 	// Returns true if texture property is being used, or false if slider should be displayed.
 	bool MaterialTextureProperty(const std::string& name, bool* show_tex_ui, uint32_t* texture_index, bool* mat_changed, bool color_data);
 
-	void ShaderProperty(const std::string& name, uint32_t* shader_index, bool* shader_changed);
+	void ShaderProperty(const std::string& name, uint32_t* shader_index, bool* compile_error);
 
 	std::set<EditorNode*, EditorNodeCmp> GetSortedChildren(EditorNode* node);
 
@@ -101,4 +101,6 @@ private:
 
 	uint32_t gen_shader_index_{ renderer::NULL_INDEX };
 	uint32_t update_shader_index_{ renderer::NULL_INDEX };
+	bool gen_shader_compile_error_{ false };
+	bool update_shader_compile_error_{ false };
 };

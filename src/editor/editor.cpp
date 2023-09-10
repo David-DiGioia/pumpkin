@@ -826,11 +826,15 @@ EditorTexture* Editor::GetTexture(uint32_t texture_index)
 
 uint32_t Editor::ImportShader(const std::filesystem::path& shader_path)
 {
-	std::filesystem::path spirv_path{ CompileShader(shader_path) };
-	EditorShader* shader{ new EditorShader{shader_path, spirv_path, shader_path.filename().string()} };
-	shaders_.push_back(shader);
-
-	return (uint32_t)(shaders_.size() - 1);
+	std::filesystem::path spirv_path{};
+	if (CompileShader(shader_path, &spirv_path))
+	{
+		EditorShader* shader{ new EditorShader{shader_path, spirv_path, shader_path.filename().string()} };
+		shaders_.push_back(shader);
+		return (uint32_t)(shaders_.size() - 1);
+	}
+	// If compilation fails, return null index.
+	return renderer::NULL_INDEX;
 }
 
 EditorShader* Editor::GetShader(uint32_t shader_index)
