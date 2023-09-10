@@ -25,6 +25,7 @@ struct MemberVariable
 {
 	std::string name;     // Name of variable.
 	MemberType type;      // GLSL type, such as float, int, etc.
+	uint32_t size;        // Byte size of this variable.
 	uint32_t offset;      // Byte offset into uniform buffer.
 	uint32_t array_count; // Number of array elements.
 };
@@ -33,16 +34,16 @@ struct MemberVariable
 class UniformBuffer
 {
 public:
-	UniformBuffer(const std::vector<MemberVariable>& members);
+	void Initialize(const std::vector<MemberVariable>& members);
 
 	const std::vector<std::byte>& GetBuffer() const;
 
 	// Draw the ImGui elements for each of the UBO members, that allow each member to be modified.
-	void DrawGui();
+	void DrawGui(uint32_t alignment);
 
 private:
-	std::vector<std::byte> uniform_buffer_{}; // A byte buffer the same size as the shader's uniform buffer.
 	std::vector<MemberVariable> members_{};   // Type info about each of the members of the UBO struct.
+	std::vector<std::byte> uniform_buffer_{}; // A byte buffer the same size as the shader's uniform buffer.
 };
 
 class ShaderParser
@@ -53,12 +54,14 @@ public:
 	const UniformBuffer& GetUniformBuffer() const;
 
 private:
+	void ParseUniformBufferBody(const std::string& ubo_body);
+
 	enum class ParserState
 	{
-		BEGIN,
-		UBO_FOUND,
-		UBO_BRACE_OPENED,
-		UBO_BRACE_CLOSED,
+		FIND_UBO,
+		FIND_OPEN_BRACE,
+		CONCATENATE_BETWEEN_BRACES,
+		PARSE_MEMBERS,
 	} state_{};
 
 	UniformBuffer uniform_buffer_;

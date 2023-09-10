@@ -1,5 +1,7 @@
 #include "string_util.h"
 
+#include <sstream>
+
 namespace pmkutil
 {
 	std::string StringReplace(std::string str, const std::string& from, const std::string& to)
@@ -35,6 +37,19 @@ namespace pmkutil
 	bool Contains(const std::string& s, const std::string& value)
 	{
 		return s.find(value) != std::string::npos;
+	}
+
+	std::vector<std::string> Split(const std::string& s, char delim)
+	{
+		std::vector<std::string> result;
+		std::stringstream ss(s);
+		std::string item;
+
+		while (std::getline(ss, item, delim)) {
+			result.push_back(item);
+		}
+
+		return result;
 	}
 
 	const char** StringArray::GetStringArray(uint32_t* count_out)

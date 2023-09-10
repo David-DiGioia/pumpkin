@@ -676,7 +676,14 @@ void EditorGui::ParticleEditor()
 	bool shader_changed{ false };
 
 	ShaderProperty("Generation", &gen_shader_index_, &shader_changed);
+	if (gen_shader_index_ != renderer::NULL_INDEX) {
+		editor_->GetShader(gen_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT);
+	}
+
 	ShaderProperty("Update", &update_shader_index_, &shader_changed);
+	if (update_shader_index_ != renderer::NULL_INDEX) {
+		editor_->GetShader(update_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT);
+	}
 
 	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 

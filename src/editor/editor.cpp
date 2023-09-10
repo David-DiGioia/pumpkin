@@ -827,7 +827,7 @@ EditorTexture* Editor::GetTexture(uint32_t texture_index)
 uint32_t Editor::ImportShader(const std::filesystem::path& shader_path)
 {
 	std::filesystem::path spirv_path{ CompileShader(shader_path) };
-	EditorShader* shader{ new EditorShader{spirv_path, shader_path.filename().string()} };
+	EditorShader* shader{ new EditorShader{shader_path, spirv_path, shader_path.filename().string()} };
 	shaders_.push_back(shader);
 
 	return (uint32_t)(shaders_.size() - 1);
@@ -1041,10 +1041,16 @@ char* EditorTexture::GetNameBuffer() const
 	return name_buffer_;
 }
 
-EditorShader::EditorShader(const std::filesystem::path& spirv_path, const std::string& name)
-	: spirv_path_{ spirv_path }
+EditorShader::EditorShader(const std::filesystem::path& glsl_path, const std::filesystem::path& spirv_path, const std::string& name)
+	: custom_ubo_{}
+	, glsl_path_{ glsl_path }
+	, spirv_path_{ spirv_path }
 	, name_buffer_{ new char[NAME_BUFFER_SIZE] {} }
 {
+	ShaderParser parser{};
+	parser.Parse(glsl_path);
+	custom_ubo_ = parser.GetUniformBuffer();
+
 	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());
 }
 
@@ -1056,4 +1062,9 @@ EditorShader::~EditorShader()
 char* EditorShader::GetNameBuffer() const
 {
 	return name_buffer_;
+}
+
+UniformBuffer& EditorShader::GetCustomUniformBuffer()
+{
+	return custom_ubo_;
 }

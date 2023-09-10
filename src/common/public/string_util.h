@@ -19,6 +19,8 @@ namespace pmkutil
 	// Returns true if string s contains value.
 	bool Contains(const std::string& s, const std::string& value);
 
+	std::vector<std::string> Split(const std::string& s, char delim);
+
 	// Acts as a wrapper around a const char**, allowing you to return a StringArray from a function
 	// without dangling pointers / ownership problems.
 	class StringArray

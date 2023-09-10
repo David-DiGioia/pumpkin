@@ -12,6 +12,7 @@
 #include "pumpkin.h"
 #include "gui.h"
 #include "camera_controller.h"
+#include "user_shader_util.h"
 
 constexpr uint32_t NAME_BUFFER_SIZE{ 64 };
 
@@ -104,13 +105,17 @@ private:
 class EditorShader
 {
 public:
-	EditorShader(const std::filesystem::path& spirv_path, const std::string& name);
+	EditorShader(const std::filesystem::path& glsl_path, const std::filesystem::path& spirv_path, const std::string& name);
 
 	~EditorShader();
 
 	char* GetNameBuffer() const;
 
+	UniformBuffer& GetCustomUniformBuffer();
+
 private:
+	UniformBuffer custom_ubo_;
+	std::filesystem::path glsl_path_{};
 	std::filesystem::path spirv_path_{};
 	char* name_buffer_{};
 };
