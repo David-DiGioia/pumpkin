@@ -1,0 +1,44 @@
+#pragma once
+
+#include "glm/glm.hpp"
+
+#include "descriptor_set.h"
+#include "memory_allocator.h"
+
+namespace renderer
+{
+	enum class ParticleType : uint32_t
+	{
+		STONE,
+		EMPTY = 0xFFFFFFFF,
+	};
+
+	// Particles that are not being simulated.
+	struct StaticParticle
+	{
+		ParticleType type;
+	};
+
+	// Particles that are actively being simulated.
+	struct Particle
+	{
+		glm::vec3 position;
+		int geometry_index;
+	};
+
+	struct ParticleGenShaderResources
+	{
+		struct BuiltInUBO
+		{
+			glm::uvec3 chunk_coordinate;
+		};
+
+		DescriptorSetLayoutResource layout_resource;   // Layout resource for user-defined particle shaders.
+		DescriptorSetResource descriptor_set_resource; // Descriptor set resource for user-defined particle gen shader.
+		BufferResource built_in_ubo_buffer;            // Built-in data for the particle gen shader.
+		BufferResource custom_ubo_buffer;              // User-defined ubo buffer for the particle gen shader.
+		BufferResource particle_out_buffer;            // Shader outputs particles to this buffer.
+		uint32_t shader_idx;                           // Index into user_compute_shaders_.
+		bool should_invoke;                            // Set this to true to invoke particle gen on next frame.
+	};
+}

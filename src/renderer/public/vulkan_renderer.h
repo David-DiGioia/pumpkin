@@ -20,6 +20,7 @@
 #include "ray_tracing.h"
 #include "render_object.h"
 #include "renderer_constants.h"
+#include "particles.h"
 
 namespace renderer
 {
@@ -46,6 +47,18 @@ namespace renderer
 
 		// TODO: Move mesh generation into compute shader.
 		void GenerateParticleMesh(const std::vector<Particle>& particles, float particle_width);
+
+		// Invoke user-defined particle gen shader. Generates particles but not the particle mesh.
+		void InvokeParticleGenShader();
+
+		// Invoke user-defined particle update shader. Updates particles but not the particle mesh.
+		void InvokeParticleUpdateShader();
+
+		void SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer);
+
+		void ImportShader(const std::filesystem::path& spirv_path);
+
+		void ComputeWork();
 
 		uint32_t MeshCount() const;
 
@@ -155,6 +168,8 @@ namespace renderer
 
 		void InitializeFrameResources();
 
+		void InitializeParticleGenShader();
+
 		void InitializeCommandBuffers();
 
 		void InitializeSyncObjects();
@@ -225,13 +240,16 @@ namespace renderer
 		VulkanUtil vulkan_util_{};
 		RayTracingContext rt_context_{};
 
-		std::vector<Mesh*> meshes_{};                  // All meshes referenced by render objects.
-		std::vector<Material*> materials_{};           // All materials referenced by geometries. Buffer resource for materials is in RayTracingContext.
-		std::vector<ImageResource*> textures_{};       // All textures referenced by materials.
+		std::vector<Mesh*> meshes_{};                          // All meshes referenced by render objects.
+		std::vector<Material*> materials_{};                   // All materials referenced by geometries. Buffer resource for materials is in RayTracingContext.
+		std::vector<ImageResource*> textures_{};               // All textures referenced by materials.
+		std::vector<ComputePipeline*> user_compute_shaders_{}; // All user-defined compute shaders.
 		std::unordered_map<uint64_t, std::pair<uint64_t, uint32_t>> mesh_hash_map_{}; // To prevent duplicating vertex data when loading same file multiple times. (vertex_hash, (index_hash, mesh_idx)).
 		DescriptorSetLayoutResource camera_layout_resource_{};
 		DescriptorSetLayoutResource render_object_layout_resource_{};
 		DescriptorSetLayoutResource composite_layout_resource_{};
+
+		ParticleGenShaderResources particle_gen_{};
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};

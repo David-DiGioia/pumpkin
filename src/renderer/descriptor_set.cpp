@@ -123,7 +123,7 @@ namespace renderer
 
 		VkDescriptorPoolCreateInfo pool_info{
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+			.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT | VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
 			.maxSets = max_descriptor_sets,
 			.poolSizeCount = (uint32_t)pool_sizes.size(),
 			.pPoolSizes = pool_sizes.data(),
@@ -196,6 +196,12 @@ namespace renderer
 		CheckResult(result, "Failed to allocate descriptor sets.");
 
 		return resource;
+	}
+
+	void DescriptorAllocator::FreeDescriptorSet(VkDescriptorSet* descriptor_set)
+	{
+		VkResult result{ vkFreeDescriptorSets(context_->device, pool_, 1, descriptor_set) };
+		CheckResult(result, "Failed to free descriptor set resource.");
 	}
 }
 

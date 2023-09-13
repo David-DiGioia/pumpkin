@@ -11,6 +11,31 @@
 
 namespace renderer
 {
+	void CreatePipelineLayout(
+		VkDevice device,
+		const std::vector<DescriptorSetLayoutResource>& set_layouts,
+		const std::vector<VkPushConstantRange>& push_constant_ranges,
+		VkPipelineLayout* out_layout)
+	{
+		// Convert layout resources to Vulkan set layouts.
+		std::vector<VkDescriptorSetLayout> vk_set_layouts(set_layouts.size());
+		std::transform(set_layouts.begin(), set_layouts.end(), vk_set_layouts.begin(), [](const DescriptorSetLayoutResource& layout_resource) {
+			return layout_resource.layout;
+			});
+
+		VkPipelineLayoutCreateInfo layout_info{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			.flags = 0,
+			.setLayoutCount = (uint32_t)vk_set_layouts.size(),
+			.pSetLayouts = vk_set_layouts.data(),
+			.pushConstantRangeCount = (uint32_t)push_constant_ranges.size(),
+			.pPushConstantRanges = push_constant_ranges.data(),
+		};
+
+		VkResult result{ vkCreatePipelineLayout(device, &layout_info, nullptr, out_layout) };
+		CheckResult(result, "Failed to create pipeline layout.");
+	}
+
 	void GraphicsPipeline::Initialize(
 		Context* context,
 		const std::vector<DescriptorSetLayoutResource>& set_layouts,
@@ -169,7 +194,7 @@ namespace renderer
 			.pDynamicStates = dynamic_states.data(),
 		};
 
-		CreatePipelineLayout(set_layouts, push_constant_ranges);
+		CreatePipelineLayout(context_->device, set_layouts, push_constant_ranges, &layout);
 
 		// Dynamic rendering.
 		VkPipelineRenderingCreateInfo rendering_info{
@@ -216,26 +241,39 @@ namespace renderer
 		vkDestroyPipeline(context_->device, pipeline, nullptr);
 	}
 
-	void GraphicsPipeline::CreatePipelineLayout(
-		const std::vector<DescriptorSetLayoutResource>& set_layouts,
-		const std::vector<VkPushConstantRange>& push_constant_ranges)
+	void ComputePipeline::Initialize(Context* context, const std::vector<DescriptorSetLayoutResource>& set_layouts, const std::vector<VkPushConstantRange>& push_constant_ranges, const std::filesystem::path& shader_path)
 	{
-		// Convert layout resources to Vulkan set layouts.
-		std::vector<VkDescriptorSetLayout> vk_set_layouts(set_layouts.size());
-		std::transform(set_layouts.begin(), set_layouts.end(), vk_set_layouts.begin(), [](const DescriptorSetLayoutResource& layout_resource) {
-			return layout_resource.layout;
-			});
+		context_ = context;
 
-		VkPipelineLayoutCreateInfo layout_info{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-			.flags = 0,
-			.setLayoutCount = (uint32_t)vk_set_layouts.size(),
-			.pSetLayouts = vk_set_layouts.data(),
-			.pushConstantRangeCount = (uint32_t)push_constant_ranges.size(),
-			.pPushConstantRanges = push_constant_ranges.data(),
+		VkShaderModule shader{ LoadShaderModule(context_->device, shader_path) };
+
+		VkPipelineShaderStageCreateInfo shader_stage{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.flags = 0, // Flags are all about subgroup sizes.
+			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
+			.module = shader,
+			.pName = "main",
+			.pSpecializationInfo = nullptr,
 		};
 
-		VkResult result{ vkCreatePipelineLayout(context_->device, &layout_info, nullptr, &layout) };
-		CheckResult(result, "Failed to create pipeline layout.");
+		CreatePipelineLayout(context_->device, set_layouts, push_constant_ranges, &layout);
+
+		VkComputePipelineCreateInfo pipeline_info{
+			.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+			.flags = 0,
+			.stage = shader_stage,
+			.layout = layout,
+			.basePipelineHandle = VK_NULL_HANDLE,
+			.basePipelineIndex = -1,
+		};
+
+		VkResult result{ vkCreateComputePipelines(context_->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline) };
+		CheckResult(result, "Failed to create compute pipeline.");
+	}
+
+	void ComputePipeline::CleanUp()
+	{
+		vkDestroyPipelineLayout(context_->device, layout, nullptr);
+		vkDestroyPipeline(context_->device, pipeline, nullptr);
 	}
 }

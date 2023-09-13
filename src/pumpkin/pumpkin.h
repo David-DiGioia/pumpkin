@@ -83,6 +83,8 @@ namespace pmk
 
 		uint32_t GetTextureCount() const;
 
+		void ImportShader(const std::filesystem::path& spirv_path);
+
 	private:
 		// General work the host needs to do each frame.
 		void HostWork();

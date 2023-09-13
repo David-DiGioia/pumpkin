@@ -829,6 +829,7 @@ uint32_t Editor::ImportShader(const std::filesystem::path& shader_path)
 	std::filesystem::path spirv_path{};
 	if (CompileShader(shader_path, &spirv_path))
 	{
+		pumpkin_->ImportShader(spirv_path);
 		EditorShader* shader{ new EditorShader{shader_path, spirv_path, shader_path.filename().string()} };
 		shaders_.push_back(shader);
 		return (uint32_t)(shaders_.size() - 1);

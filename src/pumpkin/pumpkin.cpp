@@ -45,6 +45,7 @@ namespace pmk
 			renderer_.WaitForLastFrame();
 			HostRenderWork();
 			renderer_.BuildTlasAndUpdateBlases();
+			renderer_.ComputeWork();
 			renderer_.Render();
 		}
 	}
@@ -192,6 +193,11 @@ namespace pmk
 	uint32_t Pumpkin::GetTextureCount() const
 	{
 		return renderer_.GetTextureCount();
+	}
+
+	void Pumpkin::ImportShader(const std::filesystem::path& spirv_path)
+	{
+		renderer_.ImportShader(spirv_path);
 	}
 
 	void Pumpkin::UpdateDeltaTime()

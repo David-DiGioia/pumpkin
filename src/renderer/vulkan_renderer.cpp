@@ -97,6 +97,12 @@ namespace renderer
 	constexpr uint32_t COMPOSITE_DESCRIPTOR_SET{ 0 };
 	constexpr uint32_t COMPOSITE_RASTER_BINDING{ 0 };
 	constexpr uint32_t COMPOSITE_RT_IMAGE_BINDING{ 1 };
+	// User-defined compute shader descriptor set.
+	constexpr uint32_t PARTICLE_DESCRIPTOR_SET{ 0 };
+	constexpr uint32_t PARTICLE_BUILT_IN_UBO_BINDING{ 0 };
+	constexpr uint32_t PARTICLE_CUSTOM_UBO_BINDING{ 1 };
+	constexpr uint32_t PARTICLE_IN_PARTICLE_SSBO_BINDING{ 2 };
+	constexpr uint32_t PARTICLE_OUT_PARTICLE_SSBO_BINDING{ 3 };
 
 	constexpr VkFormat COLOR_TEXTURE_FORMAT{ VK_FORMAT_R8G8B8A8_SRGB };
 	constexpr VkFormat NON_COLOR_TEXTURE_FORMAT{ VK_FORMAT_R8G8B8A8_UNORM };
@@ -123,6 +129,7 @@ namespace renderer
 		allocator_.Initialize(&context_);
 		vulkan_util_.Initialize(&context_, &allocator_);
 		InitializeFrameResources();
+		InitializeParticleGenShader();
 		InitializeRayTracing();
 
 #ifdef EDITOR_ENABLED
@@ -195,6 +202,11 @@ namespace renderer
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&camera_layout_resource_);
 		descriptor_allocator_.DestroyDescriptorSetLayoutResource(&composite_layout_resource_);
 
+		for (Material* material : materials_) {
+			delete material;
+		}
+		materials_.clear();
+
 		for (Mesh* mesh : meshes_) {
 			DestroyMesh(mesh);
 		}
@@ -207,6 +219,14 @@ namespace renderer
 		allocator_.CleanUp();
 		raster_pipeline_.CleanUp();
 		composite_pipeline_.CleanUp();
+
+		for (ComputePipeline* compute_shader : user_compute_shaders_)
+		{
+			compute_shader->CleanUp();
+			delete compute_shader;
+		}
+		user_compute_shaders_.clear();
+
 		descriptor_allocator_.CleanUp();
 		swapchain_.CleanUp();
 		context_.CleanUp();
@@ -252,7 +272,6 @@ namespace renderer
 			composite_layout_resource_,
 		};
 
-
 		composite_pipeline_.Initialize(
 			&context_,
 			composite_layouts,
@@ -264,7 +283,6 @@ namespace renderer
 			SPIRV_PREFIX / "composite.frag.spv");
 		NameObject(context_.device, composite_pipeline_.pipeline, "Composite_Pipeline");
 		NameObject(context_.device, composite_pipeline_.layout, "Composite_Pipeline_Layout");
-
 	}
 
 	void VulkanRenderer::InitializeRayTracing()
@@ -1147,6 +1165,8 @@ namespace renderer
 
 		composite_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(composite_bindings, 0);
 		NameObject(context_.device, composite_layout_resource_.layout, "Composite_Descriptor_Set_Layout");
+
+		// Note: particle_gen_.layout_resource is initialized in InitializeParticleGenShader().
 	}
 
 	void VulkanRenderer::InitializeFrameResources()
@@ -1157,6 +1177,72 @@ namespace renderer
 
 		//InitializeRayTraceImages();
 		InitializeDepthImages();
+	}
+
+	void VulkanRenderer::InitializeParticleGenShader()
+	{
+		// Make descriptor set layout.
+		VkDescriptorSetLayoutBinding built_in_ubo_binding{
+			.binding = PARTICLE_BUILT_IN_UBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding custom_ubo_binding{
+			.binding = PARTICLE_CUSTOM_UBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding in_particle_ubo{
+			.binding = PARTICLE_IN_PARTICLE_SSBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding out_particle_ubo{
+			.binding = PARTICLE_OUT_PARTICLE_SSBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> layout_bindings{
+			built_in_ubo_binding,
+			custom_ubo_binding,
+			in_particle_ubo,
+			out_particle_ubo,
+		};
+
+		particle_gen_.layout_resource = descriptor_allocator_.CreateDescriptorSetLayoutResource(layout_bindings, 0);
+		NameObject(context_.device, particle_gen_.layout_resource.layout, "Particle_Compute_Set_Layout");
+
+		// Make descriptor set.
+		particle_gen_.descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(particle_gen_.layout_resource);
+
+		// Create and link built-in UBO buffer.
+		particle_gen_.built_in_ubo_buffer = allocator_.CreateBufferResource(
+			sizeof(ParticleGenShaderResources::BuiltInUBO),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_BUILT_IN_UBO_BINDING, particle_gen_.built_in_ubo_buffer);
+
+		// Create and link static particle output buffer.
+		constexpr uint32_t output_buffer_size{ sizeof(StaticParticle) * PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
+		particle_gen_.particle_out_buffer = allocator_.CreateBufferResource(
+			output_buffer_size,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_OUT_PARTICLE_SSBO_BINDING, particle_gen_.particle_out_buffer);
+
+			// Note: custom_ubo_buffer will be made when SetParticleGenShader() is called.
 	}
 
 	void VulkanRenderer::InitializeCommandBuffers()
@@ -1287,11 +1373,11 @@ namespace renderer
 				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				GetDepthImageFormat());
-		}
+	}
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
 #endif
-	}
+}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{
@@ -1420,6 +1506,77 @@ namespace renderer
 
 		meshes_.push_back(mesh);
 		rt_context_.UpdateObjectBuffers(meshes_);
+	}
+
+	void VulkanRenderer::InvokeParticleGenShader()
+	{
+		ComputePipeline* compute_pipeline{ user_compute_shaders_[particle_gen_.shader_idx] };
+
+		// Update built in UBO before invoking shader.
+		ParticleGenShaderResources::BuiltInUBO built_in_ubo{
+			.chunk_coordinate = {0, 0, 0},
+		};
+		void* data{};
+		vkMapMemory(context_.device, *particle_gen_.built_in_ubo_buffer.memory, particle_gen_.built_in_ubo_buffer.offset, particle_gen_.built_in_ubo_buffer.size, 0, &data);
+		memcpy(data, &built_in_ubo, sizeof(ParticleGenShaderResources::BuiltInUBO));
+		vkUnmapMemory(context_.device, *particle_gen_.built_in_ubo_buffer.memory);
+
+		// Record and submit command buffer.
+		VkCommandBuffer cmd{ vulkan_util_.Begin() };
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline->layout, PARTICLE_DESCRIPTOR_SET, 1, &particle_gen_.descriptor_set_resource.descriptor_set, 0, nullptr);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline->pipeline);
+		// Work group count of 16 on each dimension with local_group size of 4 on each access for 64x64x64 dispatch size.
+		vkCmdDispatch(cmd, 16, 16, 16);
+		vulkan_util_.Submit();
+	}
+
+	void VulkanRenderer::InvokeParticleUpdateShader()
+	{
+
+	}
+
+	void VulkanRenderer::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)
+	{
+		particle_gen_.shader_idx = shader_idx;
+
+		if (particle_gen_.custom_ubo_buffer.buffer != VK_NULL_HANDLE)
+		{
+			allocator_.DestroyBufferResource(&particle_gen_.custom_ubo_buffer);
+			particle_gen_.custom_ubo_buffer.buffer = VK_NULL_HANDLE;
+		}
+
+		particle_gen_.custom_ubo_buffer = allocator_.CreateBufferResource(
+			(VkDeviceSize)custom_ubo_buffer.size(),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_CUSTOM_UBO_BINDING, particle_gen_.custom_ubo_buffer);
+	}
+
+	void VulkanRenderer::ImportShader(const std::filesystem::path& spirv_path)
+	{
+		ComputePipeline* compute_pipeline{ new ComputePipeline{} };
+
+		std::vector<DescriptorSetLayoutResource> compute_layouts{
+			particle_gen_.layout_resource,
+		};
+
+		compute_pipeline->Initialize(&context_, compute_layouts, {}, spirv_path);
+		NameObject(context_.device, compute_pipeline->pipeline, "Compute_Pipeline");
+		NameObject(context_.device, compute_pipeline->layout, "Compute_Pipeline_Layout");
+
+		user_compute_shaders_.push_back(compute_pipeline);
+	}
+
+	void VulkanRenderer::ComputeWork()
+	{
+		if (particle_gen_.should_invoke)
+		{
+			InvokeParticleGenShader();
+			particle_gen_.should_invoke = false;
+		}
+
+		InvokeParticleUpdateShader();
 	}
 
 	void VulkanRenderer::UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh)

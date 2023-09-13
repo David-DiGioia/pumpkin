@@ -51,6 +51,8 @@ namespace renderer
 
 		DescriptorSetResource CreateDescriptorSetResource(const DescriptorSetLayoutResource& layout_resource);
 
+		void FreeDescriptorSet(VkDescriptorSet* descriptor_set);
+
 	private:
 		Context* context_{};
 		VkDescriptorPool pool_{};

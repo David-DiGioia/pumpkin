@@ -234,7 +234,6 @@ bool CompileShader(const std::filesystem::path& shader_path, std::filesystem::pa
 		// Close process and thread handles. 
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
-
 	}
 
 	return compilation_succeeded;

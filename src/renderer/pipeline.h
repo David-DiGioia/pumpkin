@@ -31,10 +31,25 @@ namespace renderer
 		VkPipelineLayout layout{};
 
 	private:
-		void CreatePipelineLayout(
-			const std::vector<DescriptorSetLayoutResource>& set_layouts,
-			const std::vector<VkPushConstantRange>& push_constant_ranges);
+		Context* context_{};
+	};
 
+	class ComputePipeline
+	{
+	public:
+		void Initialize(
+			Context* context,
+			const std::vector<DescriptorSetLayoutResource>& set_layouts,
+			const std::vector<VkPushConstantRange>& push_constant_ranges,
+			const std::filesystem::path& shader_path
+		);
+
+		void CleanUp();
+
+		VkPipeline pipeline{};
+		VkPipelineLayout layout{};
+
+	private:
 		Context* context_{};
 	};
 }
