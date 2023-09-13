@@ -7,6 +7,9 @@
 
 namespace renderer
 {
+	constexpr uint32_t PARTICLE_CHUNK_SIZE{64};  // Total size of particle chunk dimension.
+	constexpr uint32_t PARTICLE_GROUP_COUNT{16}; // Number of workgroups in each dimension.
+
 	enum class ParticleType : uint32_t
 	{
 		STONE,

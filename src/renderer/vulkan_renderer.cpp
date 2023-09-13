@@ -1526,7 +1526,7 @@ namespace renderer
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline->layout, PARTICLE_DESCRIPTOR_SET, 1, &particle_gen_.descriptor_set_resource.descriptor_set, 0, nullptr);
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline->pipeline);
 		// Work group count of 16 on each dimension with local_group size of 4 on each access for 64x64x64 dispatch size.
-		vkCmdDispatch(cmd, 16, 16, 16);
+		vkCmdDispatch(cmd, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT);
 		vulkan_util_.Submit();
 	}
 
