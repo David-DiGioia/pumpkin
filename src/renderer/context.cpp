@@ -159,9 +159,15 @@ namespace renderer
 
 		CheckDeviceExtensionsSupported(required_device_extensions);
 
+		VkPhysicalDeviceMaintenance4Features maintenance4_features{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES,
+			.pNext = nullptr,
+			.maintenance4 = VK_TRUE,
+		};
+
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-			.pNext = nullptr,
+			.pNext = &maintenance4_features,
 			.accelerationStructure = VK_TRUE,
 			.accelerationStructureCaptureReplay = VK_FALSE,
 			.accelerationStructureIndirectBuild = VK_FALSE,

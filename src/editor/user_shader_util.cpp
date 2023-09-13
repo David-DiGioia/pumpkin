@@ -199,6 +199,7 @@ bool CompileShader(const std::filesystem::path& shader_path, std::filesystem::pa
 	const std::filesystem::path vulkan_sdk_path{ getenv("VULKAN_SDK") };
 	const std::filesystem::path glsl_validator{ vulkan_sdk_path / "Bin/glslangValidator.exe" };
 	const std::filesystem::path spirv_path{ shader_path.parent_path() / (shader_path.filename().string() + ".spv") };
+	*out_spirv_path = spirv_path;
 
 	const std::string command_line{ glsl_validator.string() + " -V " + shader_path.string() + " -o " + spirv_path.string() + " --target-env spirv1.6" };
 	bool compilation_succeeded{ true };
