@@ -1540,6 +1540,8 @@ namespace renderer
 
 			vulkan_util_.Submit();
 
+			constexpr float particle_size{ 0.1f };
+
 			std::vector<Particle> particles{};
 			for (uint32_t i{ 0 }; i < chunk_volume; ++i)
 			{
@@ -1548,13 +1550,13 @@ namespace renderer
 				}
 
 				Particle particle{
-					.position = glm::vec3(ParticleIndexToCoordinate(i)),
+					.position = particle_size * glm::vec3(ParticleIndexToCoordinate(i)),
 					.geometry_index = 0,
 				};
 				particles.push_back(particle);
 			}
 
-			return CreateRenderObjectFromParticles(particles, 1.0f, { 0 });
+			return CreateRenderObjectFromParticles(particles, particle_size, { 0 });
 		}
 		else
 		{
