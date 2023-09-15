@@ -96,6 +96,15 @@ namespace renderer
 			TransferBufferToDevice(host_buffer.data(), (uint32_t)host_buffer.size() * sizeof(T), device_buffer);
 		}
 
+		void TransferBufferToHost(void* host_buffer, uint32_t size, const BufferResource& device_buffer);
+
+		// Use staging buffer to transfer host memory to DEVICE_LOCAL buffer.
+		template <typename T>
+		void TransferBufferToHost(std::vector<T>& host_buffer, const BufferResource& device_buffer)
+		{
+			TransferBufferToHost(host_buffer.data(), (uint32_t)host_buffer.size() * sizeof(T), device_buffer);
+		}
+
 		void TransferImageToDevice(const void* host_buffer, uint32_t size, ImageResource& image, uint32_t width, uint32_t height);
 
 		void TransferImageToBuffer(BufferResource& buffer, uint32_t size, const ImageResource& image, uint32_t width, uint32_t height);
@@ -108,6 +117,12 @@ namespace renderer
 			VkImageAspectFlags image_aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		);
 
+		void PipelineBarrier(
+			VkBuffer buffer,
+			VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+			VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask
+		);
+
 		void CleanUp();
 
 		// Call this before issuing any commands.
@@ -118,11 +133,18 @@ namespace renderer
 		void Submit();
 
 	private:
+		struct QueuedHostCopy
+		{
+			BufferResource staging_buffer;
+			void* dst;
+		};
+
 		Context* context_{};
 		Allocator* alloc_{};
 		VkCommandPool command_pool_{};
 		VkCommandBuffer cmd_{};
-		std::vector<BufferResource> destroy_queue_{}; // Staging buffers are destroyed after each submit.
+		std::vector<BufferResource> destroy_queue_{};   // Staging buffers are destroyed after each submit.
+		std::vector<QueuedHostCopy> host_copy_queue_{}; // Staging buffers that need to be copied to the host after queue submission.
 		VkFence fence_{};
 	};
 

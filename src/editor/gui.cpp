@@ -680,8 +680,15 @@ void EditorGui::ParticleEditor()
 	ImGui::Text("Particle shaders");
 
 	ShaderProperty("Generation", &gen_shader_index_, &gen_shader_compile_error_);
-	if (gen_shader_index_ != renderer::NULL_INDEX) {
+	if (gen_shader_index_ != renderer::NULL_INDEX)
+	{
 		editor_->GetShader(gen_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT);
+
+		ImGui::Dummy({});
+		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+		if (ImGui::Button("Generate particles")) {
+			editor_->GenerateParticles();
+		}
 	}
 
 	ShaderProperty("Update", &update_shader_index_, &update_shader_compile_error_);
@@ -689,11 +696,7 @@ void EditorGui::ParticleEditor()
 		editor_->GetShader(update_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT);
 	}
 
-	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
-
-	if (ImGui::Button("Generate particles")) {
-		editor_->GenerateParticleRenderData();
-	}
+	//ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 
 	ImGui::End();
 

@@ -49,7 +49,7 @@ namespace renderer
 		void GenerateParticleMesh(const std::vector<Particle>& particles, float particle_width);
 
 		// Invoke user-defined particle gen shader. Generates particles but not the particle mesh.
-		void InvokeParticleGenShader();
+		RenderObjectHandle InvokeParticleGenShader();
 
 		// Invoke user-defined particle update shader. Updates particles but not the particle mesh.
 		void InvokeParticleUpdateShader();

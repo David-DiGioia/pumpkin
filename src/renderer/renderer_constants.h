@@ -13,4 +13,7 @@ namespace renderer
 	constexpr uint64_t NULL_HANDLE{ std::numeric_limits<uint64_t>().max() }; // Handle specifying null or invalid.
 	constexpr uint32_t NULL_INDEX{ std::numeric_limits<uint32_t>().max() };  // Index specifying null or invalid.
 	constexpr uint32_t MAX_BINDLESS_TEXTURES{ 512 };                         // Maximum number of texture descriptors in the bindless array.
+
+	// Flags to change renderer functionality.
+	constexpr bool PARTICLE_MESH_CPU_BUILD{ true };
 }

@@ -316,7 +316,7 @@ namespace renderer
 	void VulkanUtil::TransferBufferToDevice(const void* host_buffer, uint32_t size, BufferResource& device_buffer)
 	{
 		BufferResource staging{ alloc_->CreateBufferResource(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
-		NameObject(context_->device, staging.buffer, std::string{ "Vulkan_Util_Transfer_Staging_Buffer" });
+		NameObject(context_->device, staging.buffer, std::string{ "Vulkan_Util_Transfer_To_Device_Staging_Buffer" });
 
 		// Copy data to staging buffer.
 		void* data{};
@@ -333,6 +333,25 @@ namespace renderer
 
 		vkCmdCopyBuffer(cmd_, staging.buffer, device_buffer.buffer, 1, &buffer_copy);
 
+		destroy_queue_.push_back(staging);
+	}
+
+	void VulkanUtil::TransferBufferToHost(void* host_buffer, uint32_t size, const BufferResource& device_buffer)
+	{
+		BufferResource staging{ alloc_->CreateBufferResource(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
+		NameObject(context_->device, staging.buffer, std::string{ "Vulkan_Util_Transfer_To_Host_Staging_Buffer" });
+
+		// Transfer from device to staging.
+		VkBufferCopy buffer_copy{
+			.srcOffset = 0,
+			.dstOffset = 0,
+			.size = staging.size,
+		};
+
+		vkCmdCopyBuffer(cmd_, device_buffer.buffer, staging.buffer, 1, &buffer_copy);
+
+		// Queue the copy for after the queue gets submitted so staging buffer will be populated.
+		host_copy_queue_.push_back({ staging, host_buffer });
 		destroy_queue_.push_back(staging);
 	}
 
@@ -405,6 +424,14 @@ namespace renderer
 		renderer::PipelineBarrier(cmd_, image, old_layout, new_layout, src_stage_mask, dst_stage_mask, src_access_mask, dst_access_mask, image_aspect);
 	}
 
+	void VulkanUtil::PipelineBarrier(
+		VkBuffer buffer,
+		VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+		VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask)
+	{
+		renderer::PipelineBarrier(cmd_, buffer, src_stage_mask, dst_stage_mask, src_access_mask, dst_access_mask);
+	}
+
 	void VulkanUtil::CleanUp()
 	{
 		for (BufferResource& resource : destroy_queue_) {
@@ -452,6 +479,16 @@ namespace renderer
 		CheckResult(result, "Error waiting for VulkanUtil render_fence.");
 		result = vkResetFences(context_->device, 1, &fence_);
 		CheckResult(result, "Error resetting VulkanUtil render_fence.");
+
+		// Copy all queued device->host data, since it needs to happen after queue submission.
+		for (QueuedHostCopy& host_copy : host_copy_queue_)
+		{
+			void* data{};
+			vkMapMemory(context_->device, *host_copy.staging_buffer.memory, host_copy.staging_buffer.offset, host_copy.staging_buffer.size, 0, &data);
+			memcpy(host_copy.dst, data, host_copy.staging_buffer.size);
+			vkUnmapMemory(context_->device, *host_copy.staging_buffer.memory);
+		}
+		host_copy_queue_.clear();
 
 		for (BufferResource& resource : destroy_queue_) {
 			alloc_->DestroyBufferResource(&resource);

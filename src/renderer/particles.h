@@ -44,4 +44,7 @@ namespace renderer
 		uint32_t shader_idx;                           // Index into user_compute_shaders_.
 		bool should_invoke;                            // Set this to true to invoke particle gen on next frame.
 	};
+
+	// Convert a particle 1D buffer index into a 3D coordiante in the chunk.
+	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
 }

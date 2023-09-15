@@ -101,8 +101,7 @@ namespace renderer
 	constexpr uint32_t PARTICLE_DESCRIPTOR_SET{ 0 };
 	constexpr uint32_t PARTICLE_BUILT_IN_UBO_BINDING{ 0 };
 	constexpr uint32_t PARTICLE_CUSTOM_UBO_BINDING{ 1 };
-	constexpr uint32_t PARTICLE_IN_PARTICLE_SSBO_BINDING{ 2 };
-	constexpr uint32_t PARTICLE_OUT_PARTICLE_SSBO_BINDING{ 3 };
+	constexpr uint32_t PARTICLE_OUT_PARTICLE_SSBO_BINDING{ 2 };
 
 	constexpr VkFormat COLOR_TEXTURE_FORMAT{ VK_FORMAT_R8G8B8A8_SRGB };
 	constexpr VkFormat NON_COLOR_TEXTURE_FORMAT{ VK_FORMAT_R8G8B8A8_UNORM };
@@ -1198,14 +1197,6 @@ namespace renderer
 			.pImmutableSamplers = nullptr,
 		};
 
-		VkDescriptorSetLayoutBinding in_particle_ubo{
-			.binding = PARTICLE_IN_PARTICLE_SSBO_BINDING,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-			.pImmutableSamplers = nullptr,
-		};
-
 		VkDescriptorSetLayoutBinding out_particle_ubo{
 			.binding = PARTICLE_OUT_PARTICLE_SSBO_BINDING,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -1217,7 +1208,6 @@ namespace renderer
 		std::vector<VkDescriptorSetLayoutBinding> layout_bindings{
 			built_in_ubo_binding,
 			custom_ubo_binding,
-			in_particle_ubo,
 			out_particle_ubo,
 		};
 
@@ -1226,23 +1216,30 @@ namespace renderer
 
 		// Make descriptor set.
 		particle_gen_.descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(particle_gen_.layout_resource);
+		NameObject(context_.device, particle_gen_.descriptor_set_resource.descriptor_set, "Particle_Compute_Set");
 
 		// Create and link built-in UBO buffer.
 		particle_gen_.built_in_ubo_buffer = allocator_.CreateBufferResource(
 			sizeof(ParticleGenShaderResources::BuiltInUBO),
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		NameObject(context_.device, particle_gen_.built_in_ubo_buffer.buffer, "Built_In_UBO_Buffer");
 		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_BUILT_IN_UBO_BINDING, particle_gen_.built_in_ubo_buffer);
 
 		// Create and link static particle output buffer.
+		VkBufferUsageFlags usage_flags{ VK_BUFFER_USAGE_STORAGE_BUFFER_BIT };
+		if (PARTICLE_MESH_CPU_BUILD) {
+			usage_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		}
 		constexpr uint32_t output_buffer_size{ sizeof(StaticParticle) * PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
 		particle_gen_.particle_out_buffer = allocator_.CreateBufferResource(
 			output_buffer_size,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			usage_flags,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_.device, particle_gen_.particle_out_buffer.buffer, "Particle_Out_Buffer");
 		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_OUT_PARTICLE_SSBO_BINDING, particle_gen_.particle_out_buffer);
 
-			// Note: custom_ubo_buffer will be made when SetParticleGenShader() is called.
+		// Note: custom_ubo_buffer will be made when SetParticleGenShader() is called.
 	}
 
 	void VulkanRenderer::InitializeCommandBuffers()
@@ -1373,11 +1370,11 @@ namespace renderer
 				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				GetDepthImageFormat());
-	}
+		}
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
 #endif
-}
+	}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{
@@ -1508,7 +1505,7 @@ namespace renderer
 		rt_context_.UpdateObjectBuffers(meshes_);
 	}
 
-	void VulkanRenderer::InvokeParticleGenShader()
+	RenderObjectHandle VulkanRenderer::InvokeParticleGenShader()
 	{
 		ComputePipeline* compute_pipeline{ user_compute_shaders_[particle_gen_.shader_idx] };
 
@@ -1527,7 +1524,44 @@ namespace renderer
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline->pipeline);
 		// Work group count of 16 on each dimension with local_group size of 4 on each access for 64x64x64 dispatch size.
 		vkCmdDispatch(cmd, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT);
-		vulkan_util_.Submit();
+
+		// TODO: Use static particles with a properly optimized mesh later.
+
+		if (PARTICLE_MESH_CPU_BUILD)
+		{
+			vulkan_util_.PipelineBarrier(
+				particle_gen_.particle_out_buffer.buffer,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+
+			constexpr uint32_t chunk_volume{ PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
+			std::vector<StaticParticle> static_particles(chunk_volume);
+			vulkan_util_.TransferBufferToHost(static_particles, particle_gen_.particle_out_buffer);
+
+			vulkan_util_.Submit();
+
+			std::vector<Particle> particles{};
+			for (uint32_t i{ 0 }; i < chunk_volume; ++i)
+			{
+				if (static_particles[i].type == ParticleType::EMPTY) {
+					continue;
+				}
+
+				Particle particle{
+					.position = glm::vec3(ParticleIndexToCoordinate(i)),
+					.geometry_index = 0,
+				};
+				particles.push_back(particle);
+			}
+
+			return CreateRenderObjectFromParticles(particles, 1.0f, { 0 });
+		}
+		else
+		{
+			vulkan_util_.Submit();
+		}
+
+		return {}; // TODO: Gpu implementation.
 	}
 
 	void VulkanRenderer::InvokeParticleUpdateShader()

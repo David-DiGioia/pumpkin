@@ -512,11 +512,11 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	}
 }
 
-void Editor::GenerateParticleRenderData()
+void Editor::GenerateParticles()
 {
 	std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
 	uint32_t node_idx{ (uint32_t)nodes.size() };
-	pumpkin_->GetScene().GenerateParticleRenderData();
+	pumpkin_->GetScene().GenerateParticles();
 
 	// Create wrapper EditorNode for generated pmk::Node.
 	EditorNode* editor_node{ new EditorNode{ nodes[node_idx], "particle_node"} };
