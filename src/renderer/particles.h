@@ -10,10 +10,10 @@ namespace renderer
 	constexpr uint32_t PARTICLE_CHUNK_SIZE{64};  // Total size of particle chunk dimension.
 	constexpr uint32_t PARTICLE_GROUP_COUNT{16}; // Number of workgroups in each dimension.
 
-	enum class ParticleType : uint32_t
+	enum class ParticleType : uint8_t
 	{
+		EMPTY,
 		STONE,
-		EMPTY = 0xFFFFFFFF,
 	};
 
 	// Particles that are not being simulated.
@@ -47,4 +47,6 @@ namespace renderer
 
 	// Convert a particle 1D buffer index into a 3D coordiante in the chunk.
 	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
+
+	void GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, float particle_width);
 }
