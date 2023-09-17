@@ -12,8 +12,11 @@ namespace renderer
 		return glm::uvec3{ x, y, z };
 	}
 
-	void GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, float particle_width)
+	void GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
 	{
+		// TODO: Experiment and measure speed with reinterpretting particles as uint64_t.
+		constexpr uint64_t empty_particles{ 0 };
+		constexpr uint64_t all_sides{ 0x3F3f3f3f3F3f3f3f };
 
 	}
 }

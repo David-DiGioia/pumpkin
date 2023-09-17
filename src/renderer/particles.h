@@ -16,6 +16,18 @@ namespace renderer
 		STONE,
 	};
 
+	// Encodes whether each of the 6 particle neighbors are occupied or not.
+	enum class ParticleSidesFlagBits : uint8_t
+	{
+		X_POSITIVE = 0x01,
+		X_NEGATIVE = 0x02,
+		Y_POSITIVE = 0x04,
+		Y_NEGATIVE = 0x08,
+		Z_POSITIVE = 0x10,
+		Z_NEGATIVE = 0x20,
+		ALL_SIDES  = 0x3F,
+	};
+
 	// Particles that are not being simulated.
 	struct StaticParticle
 	{

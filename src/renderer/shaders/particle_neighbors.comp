@@ -1,0 +1,75 @@
+#version 450
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+
+struct StaticParticle
+{
+    uint8_t type;
+};
+
+layout(set = 0, binding = 0) readonly buffer ParticleBufferIn {
+   StaticParticle particles_in[];
+};
+
+layout(set = 0, binding = 1) writeonly buffer SidesBufferOut {
+   uint8_t sides_out[];
+};
+
+layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+// Encodes whether each of the 6 particle neighbors are occupied or not.
+const uint8_t X_POSITIVE = uint8_t(0x01);
+const uint8_t X_NEGATIVE = uint8_t(0x02);
+const uint8_t Y_POSITIVE = uint8_t(0x04);
+const uint8_t Y_NEGATIVE = uint8_t(0x08);
+const uint8_t Z_POSITIVE = uint8_t(0x10);
+const uint8_t Z_NEGATIVE = uint8_t(0x20);
+const uint8_t ALL_SIDES  = uint8_t(0x3F);
+
+const uint8_t PARTICLE_TYPE_EMPTY = uint8_t(0);
+
+uint global_x_size = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+uint global_y_size = gl_NumWorkGroups.y * gl_WorkGroupSize.y;
+uint global_z_size = gl_NumWorkGroups.z * gl_WorkGroupSize.z;
+
+uint IndexFromCoordinate(uvec3 coord)
+{
+    return coord.x + coord.y * global_x_size + coord.z * global_x_size * global_y_size;
+}
+
+bool NeighborOccupied(uvec3 coord, ivec3 offset)
+{
+    uvec3 neighbor_coord = coord + offset;
+    uint neighbor_index = IndexFromCoordinate(neighbor_coord);
+    return particles_in[neighbor_index].type != PARTICLE_TYPE_EMPTY;
+}
+
+void main() 
+{
+    uvec3 coord = gl_GlobalInvocationID.xyz;
+    uint index = IndexFromCoordinate(coord);
+    uint8_t neighbors = uint8_t(0);
+
+    // X-axis neighbors.
+    if (coord.x != global_x_size - 1 && NeighborOccupied(coord, ivec3(1, 0, 0))) {
+        neighbors |= X_POSITIVE;
+    }
+    if (coord.x != 0 && NeighborOccupied(coord, ivec3(-1, 0, 0))) {
+        neighbors |= X_NEGATIVE;
+    }
+    // Y-axis neighbors.
+    if (coord.y != global_y_size - 1 && NeighborOccupied(coord, ivec3(0, 1, 0))) {
+        neighbors |= Y_POSITIVE;
+    }
+    if (coord.y != 0 && NeighborOccupied(coord, ivec3(0, -1, 0))) {
+        neighbors |= Y_NEGATIVE;
+    }
+    // Y-axis neighbors.
+    if (coord.z != global_z_size - 1 && NeighborOccupied(coord, ivec3(0, 0, 1))) {
+        neighbors |= Z_POSITIVE;
+    }
+    if (coord.z != 0 && NeighborOccupied(coord, ivec3(0, 0, -1))) {
+        neighbors |= Z_NEGATIVE;
+    }
+
+    sides_out[index] = neighbors;
+}
