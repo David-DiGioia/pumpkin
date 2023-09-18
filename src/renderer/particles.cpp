@@ -125,25 +125,10 @@ namespace renderer
 
 	RenderObjectHandle ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
 	{
-		if (CONVERT_STATIC_PARTICLES_TO_DYNAMIC)
-		{
-			std::vector<Particle> dynamic_particles{};
-			for (uint32_t i{ 0 }; i < PARTICLE_CHUNK_VOLUME; ++i)
-			{
-				if (particles[i].type == ParticleType::EMPTY) {
-					continue;
-				}
-
-				Particle particle{
-					.position = particle_width * glm::vec3(ParticleIndexToCoordinate(i)),
-					.geometry_index = 0,
-				};
-				dynamic_particles.push_back(particle);
-			}
-
-			return GenerateDynamicParticleMesh(dynamic_particles, particle_width);
+		// When enabled, forces to always generate dynamic particle meshes for debugging purposes.
+		if (CONVERT_STATIC_PARTICLES_TO_DYNAMIC) {
+			return GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, particle_width), particle_width);
 		}
-
 
 		// TODO: Experiment and measure speed with reinterpretting particles as uint64_t.
 		constexpr uint64_t empty_particles{ 0 };
@@ -292,7 +277,25 @@ namespace renderer
 		};
 	}
 
-	glm::uvec3 ParticleContext::ParticleIndexToCoordinate(uint32_t index)
+	std::vector<Particle> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, float particle_width) const
+	{
+		std::vector<Particle> dynamic_particles{};
+		for (uint32_t i{ 0 }; i < PARTICLE_CHUNK_VOLUME; ++i)
+		{
+			if (static_particles[i].type == ParticleType::EMPTY) {
+				continue;
+			}
+
+			Particle particle{
+				.position = particle_width * glm::vec3(ParticleIndexToCoordinate(i)),
+				.geometry_index = 0,
+			};
+			dynamic_particles.push_back(particle);
+		}
+		return dynamic_particles;
+	}
+
+	glm::uvec3 ParticleContext::ParticleIndexToCoordinate(uint32_t index) const
 	{
 		uint32_t slice_area{ PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
 		uint32_t z{ index / slice_area };

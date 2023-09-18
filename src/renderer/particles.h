@@ -64,13 +64,15 @@ namespace renderer
 
 	private:
 		// Convert a particle 1D buffer index into a 3D coordiante in the chunk.
-		glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
+		glm::uvec3 ParticleIndexToCoordinate(uint32_t index) const;
 
 		// Get the vertex data for a single particle, eg a cube.
 		std::vector<Vertex> GetParticleVertices(float particle_width) const;
 
 		// Get the index data for a single particle, eg a cube.
 		std::vector<uint32_t> GetParticleIndices() const;
+
+		std::vector<Particle> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, float particle_width) const;
 
 		struct ParticleGenShaderResources
 		{
