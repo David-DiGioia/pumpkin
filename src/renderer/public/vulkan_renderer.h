@@ -45,14 +45,8 @@ namespace renderer
 		// If out_material_names is not null, then loaded material names will be written into it.
 		std::vector<int> LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names);
 
-		// TODO: Move mesh generation into compute shader.
-		void GenerateParticleMesh(const std::vector<Particle>& particles, float particle_width);
-
 		// Invoke user-defined particle gen shader. Generates particles but not the particle mesh.
 		RenderObjectHandle InvokeParticleGenShader();
-
-		// Invoke user-defined particle update shader. Updates particles but not the particle mesh.
-		void InvokeParticleUpdateShader();
 
 		void SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer);
 
@@ -66,8 +60,7 @@ namespace renderer
 		// with the render object data.
 		RenderObjectHandle CreateRenderObject(uint32_t mesh_index, const std::vector<int>& material_indices);
 
-		// Create a RenderObject from a vector of particles.
-		RenderObjectHandle CreateRenderObjectFromParticles(const std::vector<Particle>& particles, float particle_width, const std::vector<int>& material_indices);
+		RenderObjectHandle CreateRenderObjectFromMesh(Mesh* mesh, const std::vector<int>& material_indices);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
@@ -168,8 +161,6 @@ namespace renderer
 
 		void InitializeFrameResources();
 
-		void InitializeParticleGenShader();
-
 		void InitializeCommandBuffers();
 
 		void InitializeSyncObjects();
@@ -189,12 +180,6 @@ namespace renderer
 		void DestroyMesh(Mesh* mesh);
 
 		bool GetViewportMinimized() const;
-
-		// Get the vertex data for a single particle, eg a cube.
-		std::vector<Vertex> GetParticleVertices(float particle_width) const;
-
-		// Get the index data for a single particle, eg a cube.
-		std::vector<uint32_t> GetParticleIndices() const;
 
 		struct FrameResources
 		{
@@ -226,6 +211,7 @@ namespace renderer
 
 		friend class EditorBackend;
 		friend class ImGuiBackend;
+		friend class ParticleContext;
 #ifdef EDITOR_ENABLED
 		EditorBackend editor_backend_{};
 #endif
@@ -239,6 +225,7 @@ namespace renderer
 		DescriptorAllocator descriptor_allocator_{};
 		VulkanUtil vulkan_util_{};
 		RayTracingContext rt_context_{};
+		ParticleContext particle_context_{};
 
 		std::vector<Mesh*> meshes_{};                          // All meshes referenced by render objects.
 		std::vector<Material*> materials_{};                   // All materials referenced by geometries. Buffer resource for materials is in RayTracingContext.
@@ -248,8 +235,6 @@ namespace renderer
 		DescriptorSetLayoutResource camera_layout_resource_{};
 		DescriptorSetLayoutResource render_object_layout_resource_{};
 		DescriptorSetLayoutResource composite_layout_resource_{};
-
-		ParticleGenShaderResources particle_gen_{};
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};

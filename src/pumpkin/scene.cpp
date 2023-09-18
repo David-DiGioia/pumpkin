@@ -243,8 +243,6 @@ namespace pmk
 
 	void Scene::GenerateParticles()
 	{
-		// TODO: pick up here.
-
 		std::vector<renderer::Particle> particles{
 			{
 				.position = glm::vec3{0.0, 0.0, 0.0},
@@ -268,10 +266,8 @@ namespace pmk
 			},
 		};
 
-		renderer::RenderObjectHandle render_object{ renderer_->InvokeParticleGenShader() };
-
 		Node* node{ CreateNode() };
-		//renderer::RenderObjectHandle render_object{ renderer_->CreateRenderObjectFromParticles(particles, 0.1f, { 0 }) };
+		renderer::RenderObjectHandle render_object{ renderer_->InvokeParticleGenShader() };
 		AddRenderObjectToNode(node, render_object);
 		renderer_->UpdateMaterials();
 	}
