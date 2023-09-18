@@ -5,6 +5,7 @@
 #include "descriptor_set.h"
 #include "memory_allocator.h"
 #include "mesh.h"
+#include "pipeline.h"
 
 namespace renderer
 {
@@ -65,6 +66,10 @@ namespace renderer
 		DescriptorSetLayoutResource& GetParticleGenLayoutResource();
 
 	private:
+		void InitializeParticleGenShaderResources();
+
+		void InitializeParticleNeighborsShaderResources();
+
 		// Convert a particle 1D buffer index into a 3D coordiante in the chunk.
 		glm::uvec3 ParticleIndexToCoordinate(uint32_t index) const;
 
@@ -74,7 +79,7 @@ namespace renderer
 		// Get the index data for a single particle, eg a cube.
 		std::vector<uint32_t> GetParticleIndices() const;
 
-		std::vector<Particle> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, float particle_width) const;
+		std::vector<Particle> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags, float particle_width) const;
 
 		struct ParticleGenShaderResources
 		{
@@ -89,11 +94,18 @@ namespace renderer
 			BufferResource custom_ubo_buffer;              // User-defined ubo buffer for the particle gen shader.
 			BufferResource particle_out_buffer;            // Shader outputs particles to this buffer.
 			uint32_t shader_idx;                           // Index into user_compute_shaders_.
-		}particle_gen_{};;
+		}particle_gen_{};
+
+		struct ParticleNeighborShaderResources
+		{
+			DescriptorSetLayoutResource layout_resource;
+			DescriptorSetResource descriptor_set_resource;
+			BufferResource* particle_in_buffer;            // Particles to calculate neighbors from. Not owned by this resource, which is why it's a pointer.
+			BufferResource neighbor_out_buffer;            // Buffer to write neighbor data to.
+			ComputePipeline pipeline;
+		}particle_neighbors_{};
 
 		Context* context_{};
 		VulkanRenderer* renderer_{};
 	};
-
-
 }

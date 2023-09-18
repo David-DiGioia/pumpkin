@@ -70,8 +70,8 @@ COMPILE_SHADER("composite.frag")
 COMPILE_SHADER("raycast.rgen")
 COMPILE_SHADER("raycast.rchit")
 COMPILE_SHADER("raycast.rmiss")
+COMPILE_SHADER("particle_neighbors.comp")
 HEADER_SHADER("common.glsl")
-HEADER_SHADER("particle_neighbors.comp")
 
 add_custom_target(
     Shaders

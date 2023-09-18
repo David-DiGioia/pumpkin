@@ -5,77 +5,24 @@
 
 namespace renderer
 {
-	// User-defined compute shader descriptor set.
-	constexpr uint32_t PARTICLE_DESCRIPTOR_SET{ 0 };
+	// Particle gen shader descriptor set.
+	constexpr uint32_t PARTICLE_GEN_DESCRIPTOR_SET{ 0 };
 	constexpr uint32_t PARTICLE_BUILT_IN_UBO_BINDING{ 0 };
 	constexpr uint32_t PARTICLE_CUSTOM_UBO_BINDING{ 1 };
 	constexpr uint32_t PARTICLE_OUT_PARTICLE_SSBO_BINDING{ 2 };
+	// Particle neighbor shader descriptor set.
+	constexpr uint32_t PARTICLE_NEIGHBOR_DESCRIPTOR_SET{ 0 };
+	constexpr uint32_t PARTICLE_NEIGHBOR_IN_PARTICLE_SSBO_BINDING{ 0 };
+	constexpr uint32_t PARTICLE_NEIGHBOR_OUT_NEIGHBOR_SSBO_BINDING{ 1 };
+
 
 	void ParticleContext::Initialize(Context* context, VulkanRenderer* renderer)
 	{
 		context_ = context;
 		renderer_ = renderer;
 
-		// Make descriptor set layout.
-		VkDescriptorSetLayoutBinding built_in_ubo_binding{
-			.binding = PARTICLE_BUILT_IN_UBO_BINDING,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-			.pImmutableSamplers = nullptr,
-		};
-
-		VkDescriptorSetLayoutBinding custom_ubo_binding{
-			.binding = PARTICLE_CUSTOM_UBO_BINDING,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-			.pImmutableSamplers = nullptr,
-		};
-
-		VkDescriptorSetLayoutBinding out_particle_ubo{
-			.binding = PARTICLE_OUT_PARTICLE_SSBO_BINDING,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-			.pImmutableSamplers = nullptr,
-		};
-
-		std::vector<VkDescriptorSetLayoutBinding> layout_bindings{
-			built_in_ubo_binding,
-			custom_ubo_binding,
-			out_particle_ubo,
-		};
-
-		particle_gen_.layout_resource = renderer_->descriptor_allocator_.CreateDescriptorSetLayoutResource(layout_bindings, 0);
-		NameObject(context_->device, particle_gen_.layout_resource.layout, "Particle_Compute_Set_Layout");
-
-		// Make descriptor set.
-		particle_gen_.descriptor_set_resource = renderer_->descriptor_allocator_.CreateDescriptorSetResource(particle_gen_.layout_resource);
-		NameObject(context_->device, particle_gen_.descriptor_set_resource.descriptor_set, "Particle_Compute_Set");
-
-		// Create and link built-in UBO buffer.
-		particle_gen_.built_in_ubo_buffer = renderer_->allocator_.CreateBufferResource(
-			sizeof(ParticleGenShaderResources::BuiltInUBO),
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-		NameObject(context_->device, particle_gen_.built_in_ubo_buffer.buffer, "Built_In_UBO_Buffer");
-		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_BUILT_IN_UBO_BINDING, particle_gen_.built_in_ubo_buffer);
-
-		// Create and link static particle output buffer.
-		VkBufferUsageFlags usage_flags{ VK_BUFFER_USAGE_STORAGE_BUFFER_BIT };
-		if (DYNAMIC_PARTICLE_MESH_CPU_BUILD) {
-			usage_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		}
-		constexpr uint32_t output_buffer_size{ sizeof(StaticParticle) * PARTICLE_CHUNK_VOLUME };
-		particle_gen_.particle_out_buffer = renderer_->allocator_.CreateBufferResource(
-			output_buffer_size,
-			usage_flags,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		NameObject(context_->device, particle_gen_.particle_out_buffer.buffer, "Particle_Out_Buffer");
-		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_OUT_PARTICLE_SSBO_BINDING, particle_gen_.particle_out_buffer);
-
-		// Note: custom_ubo_buffer will be made when SetParticleGenShader() is called.
+		InitializeParticleGenShaderResources();
+		InitializeParticleNeighborsShaderResources();
 	}
 
 	void ParticleContext::CleanUp()
@@ -83,6 +30,8 @@ namespace renderer
 		renderer_->allocator_.DestroyBufferResource(&particle_gen_.built_in_ubo_buffer);
 		renderer_->allocator_.DestroyBufferResource(&particle_gen_.particle_out_buffer);
 		renderer_->descriptor_allocator_.DestroyDescriptorSetLayoutResource(&particle_gen_.layout_resource);
+
+		renderer_->allocator_.DestroyBufferResource(&particle_neighbors_.neighbor_out_buffer);
 	}
 
 	RenderObjectHandle ParticleContext::GenerateDynamicParticleMesh(const std::vector<Particle>& particles, float particle_width)
@@ -134,7 +83,7 @@ namespace renderer
 	{
 		// When enabled, forces to always generate dynamic particle meshes for debugging purposes.
 		if (DISABLE_STATIC_PARTICLE_MESH) {
-			return GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, particle_width), particle_width);
+			return GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, side_flags, particle_width), particle_width);
 		}
 
 		// TODO: Experiment and measure speed with reinterpretting particles as uint64_t.
@@ -146,7 +95,7 @@ namespace renderer
 
 	RenderObjectHandle ParticleContext::InvokeParticleGenShader()
 	{
-		ComputePipeline* compute_pipeline{ renderer_->user_compute_shaders_[particle_gen_.shader_idx] };
+		ComputePipeline* particle_gen_pipeline{ renderer_->user_compute_shaders_[particle_gen_.shader_idx] };
 
 		// Update built in UBO before invoking shader.
 		ParticleGenShaderResources::BuiltInUBO built_in_ubo{
@@ -159,12 +108,21 @@ namespace renderer
 
 		// Record and submit command buffer.
 		VkCommandBuffer cmd{ renderer_->vulkan_util_.Begin() };
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline->layout, PARTICLE_DESCRIPTOR_SET, 1, &particle_gen_.descriptor_set_resource.descriptor_set, 0, nullptr);
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline->pipeline);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_gen_pipeline->layout, PARTICLE_GEN_DESCRIPTOR_SET, 1, &particle_gen_.descriptor_set_resource.descriptor_set, 0, nullptr);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_gen_pipeline->pipeline);
+		// Calculate static particles.
 		// Work group count of 16 on each dimension with local_group size of 4 on each access for 64x64x64 dispatch size.
 		vkCmdDispatch(cmd, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT);
 
-		// TODO: Use static particles with a properly optimized mesh later.
+		renderer_->vulkan_util_.PipelineBarrier(
+			particle_gen_.particle_out_buffer.buffer,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+		// Calculate neighbors of static particles.
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_neighbors_.pipeline.layout, PARTICLE_NEIGHBOR_DESCRIPTOR_SET, 1, &particle_neighbors_.descriptor_set_resource.descriptor_set, 0, nullptr);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_neighbors_.pipeline.pipeline);
+		vkCmdDispatch(cmd, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT);
 
 		renderer_->vulkan_util_.PipelineBarrier(
 			particle_gen_.particle_out_buffer.buffer,
@@ -175,8 +133,14 @@ namespace renderer
 		renderer_->vulkan_util_.TransferBufferToHost(static_particles, particle_gen_.particle_out_buffer);
 		renderer_->vulkan_util_.Submit();
 
+		// Copy the particle neighbor data to a vector.
+		std::vector<uint8_t> side_flags(PARTICLE_CHUNK_VOLUME);
+		vkMapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory, particle_neighbors_.neighbor_out_buffer.offset, particle_neighbors_.neighbor_out_buffer.size, 0, &data);
+		std::memcpy(side_flags.data(), data, sizeof(uint8_t) * PARTICLE_CHUNK_VOLUME);
+		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
+
 		constexpr float particle_size{ 0.1f };
-		return GenerateStaticParticleMesh(static_particles, {}, particle_size);
+		return GenerateStaticParticleMesh(static_particles, side_flags, particle_size);
 	}
 
 	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)
@@ -200,6 +164,122 @@ namespace renderer
 	DescriptorSetLayoutResource& ParticleContext::GetParticleGenLayoutResource()
 	{
 		return particle_gen_.layout_resource;
+	}
+
+	void ParticleContext::InitializeParticleGenShaderResources()
+	{
+		// Make descriptor set layout.
+		VkDescriptorSetLayoutBinding built_in_ubo_binding{
+			.binding = PARTICLE_BUILT_IN_UBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding custom_ubo_binding{
+			.binding = PARTICLE_CUSTOM_UBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding out_particle_ssbo{
+			.binding = PARTICLE_OUT_PARTICLE_SSBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> layout_bindings{
+			built_in_ubo_binding,
+			custom_ubo_binding,
+			out_particle_ssbo,
+		};
+
+		particle_gen_.layout_resource = renderer_->descriptor_allocator_.CreateDescriptorSetLayoutResource(layout_bindings, 0);
+		NameObject(context_->device, particle_gen_.layout_resource.layout, "Particle_Compute_Set_Layout");
+
+		// Make descriptor set.
+		particle_gen_.descriptor_set_resource = renderer_->descriptor_allocator_.CreateDescriptorSetResource(particle_gen_.layout_resource);
+		NameObject(context_->device, particle_gen_.descriptor_set_resource.descriptor_set, "Particle_Compute_Set");
+
+		// Create and link built-in UBO buffer.
+		particle_gen_.built_in_ubo_buffer = renderer_->allocator_.CreateBufferResource(
+			sizeof(ParticleGenShaderResources::BuiltInUBO),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		NameObject(context_->device, particle_gen_.built_in_ubo_buffer.buffer, "Built_In_UBO_Buffer");
+		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_BUILT_IN_UBO_BINDING, particle_gen_.built_in_ubo_buffer);
+
+		// Create and link static particle output buffer.
+		VkBufferUsageFlags usage_flags{ VK_BUFFER_USAGE_STORAGE_BUFFER_BIT };
+		if (DYNAMIC_PARTICLE_MESH_CPU_BUILD) {
+			usage_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		}
+		particle_gen_.particle_out_buffer = renderer_->allocator_.CreateBufferResource(
+			sizeof(StaticParticle) * PARTICLE_CHUNK_VOLUME,
+			usage_flags,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_->device, particle_gen_.particle_out_buffer.buffer, "Particle_Out_Buffer");
+		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_OUT_PARTICLE_SSBO_BINDING, particle_gen_.particle_out_buffer);
+
+		// Note: custom_ubo_buffer will be made when SetParticleGenShader() is called.
+	}
+
+	void ParticleContext::InitializeParticleNeighborsShaderResources()
+	{
+		// Make descriptor set layout.
+		VkDescriptorSetLayoutBinding in_particle_ssbo{
+			.binding = PARTICLE_NEIGHBOR_IN_PARTICLE_SSBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding out_neighbor_ssbo{
+			.binding = PARTICLE_NEIGHBOR_OUT_NEIGHBOR_SSBO_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> layout_bindings{
+			in_particle_ssbo,
+			out_neighbor_ssbo,
+		};
+
+		particle_neighbors_.layout_resource = renderer_->descriptor_allocator_.CreateDescriptorSetLayoutResource(layout_bindings, 0);
+		NameObject(context_->device, particle_neighbors_.layout_resource.layout, "Particle_Neighbor_Set_Layout");
+
+		// Make descriptor set.
+		particle_neighbors_.descriptor_set_resource = renderer_->descriptor_allocator_.CreateDescriptorSetResource(particle_neighbors_.layout_resource);
+		NameObject(context_->device, particle_neighbors_.descriptor_set_resource.descriptor_set, "Particle_Neighbor_Set");
+
+		// Assign and link particle in-buffer.
+		particle_neighbors_.particle_in_buffer = &particle_gen_.particle_out_buffer;
+		particle_neighbors_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_NEIGHBOR_IN_PARTICLE_SSBO_BINDING, *particle_neighbors_.particle_in_buffer);
+
+		// Create and link neighbor out-buffer.
+		particle_neighbors_.neighbor_out_buffer = renderer_->allocator_.CreateBufferResource(
+			sizeof(ParticleSidesFlagBits) * PARTICLE_CHUNK_VOLUME,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		NameObject(context_->device, particle_neighbors_.neighbor_out_buffer.buffer, "Neighbor_Out_Buffer");
+		particle_neighbors_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_NEIGHBOR_OUT_NEIGHBOR_SSBO_BINDING, particle_neighbors_.neighbor_out_buffer);
+
+		// Make the compute pipeline.
+		std::vector<DescriptorSetLayoutResource> compute_layouts{
+			particle_neighbors_.layout_resource,
+		};
+
+		particle_neighbors_.pipeline.Initialize(context_, compute_layouts, {}, SPIRV_PREFIX / "particle_neighbors.comp.spv");
+		NameObject(context_->device, particle_neighbors_.pipeline.pipeline, "Particle_Neighbor_Pipeline");
+		NameObject(context_->device, particle_neighbors_.pipeline.layout, "Particle_Neighbor_Pipeline_Layout");
 	}
 
 	std::vector<Vertex> ParticleContext::GetParticleVertices(float particle_width) const
@@ -284,12 +364,15 @@ namespace renderer
 		};
 	}
 
-	std::vector<Particle> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, float particle_width) const
+	std::vector<Particle> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags, float particle_width) const
 	{
 		std::vector<Particle> dynamic_particles{};
 		for (uint32_t i{ 0 }; i < PARTICLE_CHUNK_VOLUME; ++i)
 		{
-			if (static_particles[i].type == ParticleType::EMPTY) {
+			bool empty{ static_particles[i].type == ParticleType::EMPTY };
+			bool occluded{ side_flags[i] == (uint8_t)ParticleSidesFlagBits::ALL_SIDES };
+
+			if (empty || occluded) {
 				continue;
 			}
 

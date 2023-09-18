@@ -10,7 +10,7 @@ layout(set = 0, binding = 0) readonly buffer ParticleBufferIn {
    StaticParticle particles_in[];
 };
 
-layout(set = 0, binding = 1) writeonly buffer SidesBufferOut {
+layout(set = 0, binding = 1) writeonly buffer NeighborsBufferOut {
    uint8_t sides_out[];
 };
 
