@@ -67,7 +67,7 @@ namespace renderer
 		if (DYNAMIC_PARTICLE_MESH_CPU_BUILD) {
 			usage_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		}
-		constexpr uint32_t output_buffer_size{ sizeof(StaticParticle) * PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
+		constexpr uint32_t output_buffer_size{ sizeof(StaticParticle) * PARTICLE_CHUNK_VOLUME };
 		particle_gen_.particle_out_buffer = renderer_->allocator_.CreateBufferResource(
 			output_buffer_size,
 			usage_flags,
@@ -76,6 +76,13 @@ namespace renderer
 		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_OUT_PARTICLE_SSBO_BINDING, particle_gen_.particle_out_buffer);
 
 		// Note: custom_ubo_buffer will be made when SetParticleGenShader() is called.
+	}
+
+	void ParticleContext::CleanUp()
+	{
+		renderer_->allocator_.DestroyBufferResource(&particle_gen_.built_in_ubo_buffer);
+		renderer_->allocator_.DestroyBufferResource(&particle_gen_.particle_out_buffer);
+		renderer_->descriptor_allocator_.DestroyDescriptorSetLayoutResource(&particle_gen_.layout_resource);
 	}
 
 	RenderObjectHandle ParticleContext::GenerateDynamicParticleMesh(const std::vector<Particle>& particles, float particle_width)
@@ -126,7 +133,7 @@ namespace renderer
 	RenderObjectHandle ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
 	{
 		// When enabled, forces to always generate dynamic particle meshes for debugging purposes.
-		if (CONVERT_STATIC_PARTICLES_TO_DYNAMIC) {
+		if (DISABLE_STATIC_PARTICLE_MESH) {
 			return GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, particle_width), particle_width);
 		}
 

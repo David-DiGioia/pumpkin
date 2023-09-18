@@ -15,6 +15,6 @@ namespace renderer
 	constexpr uint32_t MAX_BINDLESS_TEXTURES{ 512 };                         // Maximum number of texture descriptors in the bindless array.
 
 	// Flags to change renderer functionality.
-	constexpr bool DYNAMIC_PARTICLE_MESH_CPU_BUILD{ true };
-	constexpr bool CONVERT_STATIC_PARTICLES_TO_DYNAMIC{ true }; // For debugging. Draws static particles as individual cubes, not a shell.
+	constexpr bool DYNAMIC_PARTICLE_MESH_CPU_BUILD{ true }; // Build dynamic particle meshes on CPU instead of GPU.
+	constexpr bool DISABLE_STATIC_PARTICLE_MESH{ true };    // For debugging. Draws static particles as individual cubes, not a shell.
 }

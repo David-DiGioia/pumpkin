@@ -209,6 +209,7 @@ namespace renderer
 		// Destroying command pool frees all command buffers allocated from it.
 		vkDestroyCommandPool(context_.device, command_pool_, nullptr);
 
+		particle_context_.CleanUp();
 		vulkan_util_.CleanUp();
 		allocator_.CleanUp();
 		raster_pipeline_.CleanUp();

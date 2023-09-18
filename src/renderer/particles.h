@@ -50,6 +50,8 @@ namespace renderer
 	public:
 		void Initialize(Context* context, VulkanRenderer* renderer);
 
+		void CleanUp();
+
 		// Generates triangles for each individual particle as a cube. Can be done on host or device.
 		RenderObjectHandle GenerateDynamicParticleMesh(const std::vector<Particle>& particles, float particle_width);
 
