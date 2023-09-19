@@ -32,6 +32,8 @@ namespace renderer
 		renderer_->descriptor_allocator_.DestroyDescriptorSetLayoutResource(&particle_gen_.layout_resource);
 
 		renderer_->allocator_.DestroyBufferResource(&particle_neighbors_.neighbor_out_buffer);
+		renderer_->descriptor_allocator_.DestroyDescriptorSetLayoutResource(&particle_neighbors_.layout_resource);
+		particle_neighbors_.pipeline.CleanUp();
 	}
 
 	RenderObjectHandle ParticleContext::InvokeParticleGenShader()

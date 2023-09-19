@@ -269,6 +269,8 @@ namespace renderer
 
 		VkResult result{ vkCreateComputePipelines(context_->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline) };
 		CheckResult(result, "Failed to create compute pipeline.");
+
+		vkDestroyShaderModule(context_->device, shader, nullptr);
 	}
 
 	void ComputePipeline::CleanUp()
