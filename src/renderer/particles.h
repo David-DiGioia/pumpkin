@@ -53,12 +53,6 @@ namespace renderer
 
 		void CleanUp();
 
-		// Generates triangles for each individual particle as a cube. Can be done on host or device.
-		RenderObjectHandle GenerateDynamicParticleMesh(const std::vector<Particle>& particles, float particle_width);
-
-		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
-		RenderObjectHandle GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
-
 		RenderObjectHandle InvokeParticleGenShader();
 
 		void SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer);
@@ -69,6 +63,12 @@ namespace renderer
 		void InitializeParticleGenShaderResources();
 
 		void InitializeParticleNeighborsShaderResources();
+
+		// Generates triangles for each individual particle as a cube. Can be done on host or device.
+		RenderObjectHandle GenerateDynamicParticleMesh(const std::vector<Particle>& particles, float particle_width);
+
+		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
+		RenderObjectHandle GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
 
 		// Convert a particle 1D buffer index into a 3D coordiante in the chunk.
 		glm::uvec3 ParticleIndexToCoordinate(uint32_t index) const;

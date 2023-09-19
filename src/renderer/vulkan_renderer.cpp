@@ -1084,7 +1084,6 @@ namespace renderer
 	RenderObjectHandle VulkanRenderer::CreateRenderObjectFromMesh(Mesh* mesh, const std::vector<int>& material_indices)
 	{
 		uint32_t mesh_index{ (uint32_t)meshes_.size() };
-		//Mesh* mesh = particle_context_.GenerateDynamicParticleMesh(particles, particle_width);
 
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 		UploadMeshToDevice(vulkan_util_, *mesh);
@@ -1169,8 +1168,6 @@ namespace renderer
 
 		composite_layout_resource_ = descriptor_allocator_.CreateDescriptorSetLayoutResource(composite_bindings, 0);
 		NameObject(context_.device, composite_layout_resource_.layout, "Composite_Descriptor_Set_Layout");
-
-		// Note: particle_gen_.layout_resource is initialized in InitializeParticleGenShader().
 	}
 
 	void VulkanRenderer::InitializeFrameResources()

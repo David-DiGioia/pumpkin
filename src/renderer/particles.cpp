@@ -34,65 +34,6 @@ namespace renderer
 		renderer_->allocator_.DestroyBufferResource(&particle_neighbors_.neighbor_out_buffer);
 	}
 
-	RenderObjectHandle ParticleContext::GenerateDynamicParticleMesh(const std::vector<Particle>& particles, float particle_width)
-	{
-		Mesh* mesh{ new Mesh{} };
-		mesh->geometries.resize(1);
-
-		// Generate vertices.
-		uint32_t particle_vert_count{};
-		{
-			std::vector<Vertex> particle_vertices{ GetParticleVertices(particle_width) };
-			particle_vert_count = (uint32_t)particle_vertices.size();
-			uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
-			mesh->geometries[0].vertices.resize(vertex_count);
-
-			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
-			{
-				for (uint32_t v{ 0 }; v < particle_vert_count; ++v)
-				{
-					uint32_t vert_buffer_idx{ p * particle_vert_count + v };
-					mesh->geometries[0].vertices[vert_buffer_idx] = particle_vertices[v];
-					mesh->geometries[0].vertices[vert_buffer_idx].position += glm::vec4{ particles[p].position, 0.0f };
-				}
-			}
-		}
-
-		// Generate indices.
-		{
-			std::vector<uint32_t> particle_indices{ GetParticleIndices() };
-			uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
-			mesh->geometries[0].indices.resize(index_count);
-
-			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
-			{
-				for (uint32_t i{ 0 }; i < (uint32_t)particle_indices.size(); ++i)
-				{
-					uint32_t idx_buffer_idx{ p * (uint32_t)particle_indices.size() + i };
-					mesh->geometries[0].indices[idx_buffer_idx] = p * particle_vert_count + particle_indices[i];
-				}
-			}
-		}
-
-		CalculateTangents(mesh);
-		return renderer_->CreateRenderObjectFromMesh(mesh, { 0 });
-	}
-
-
-	RenderObjectHandle ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
-	{
-		// When enabled, forces to always generate dynamic particle meshes for debugging purposes.
-		if (DISABLE_STATIC_PARTICLE_MESH) {
-			return GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, side_flags, particle_width), particle_width);
-		}
-
-		// TODO: Experiment and measure speed with reinterpretting particles as uint64_t.
-		constexpr uint64_t empty_particles{ 0 };
-		constexpr uint64_t all_sides{ 0x3F3f3f3f3F3f3f3f };
-
-		return {};
-	}
-
 	RenderObjectHandle ParticleContext::InvokeParticleGenShader()
 	{
 		ComputePipeline* particle_gen_pipeline{ renderer_->user_compute_shaders_[particle_gen_.shader_idx] };
@@ -282,6 +223,103 @@ namespace renderer
 		NameObject(context_->device, particle_neighbors_.pipeline.layout, "Particle_Neighbor_Pipeline_Layout");
 	}
 
+	RenderObjectHandle ParticleContext::GenerateDynamicParticleMesh(const std::vector<Particle>& particles, float particle_width)
+	{
+		Mesh* mesh{ new Mesh{} };
+		mesh->geometries.resize(1);
+
+		// Generate vertices.
+		uint32_t particle_vert_count{};
+		{
+			std::vector<Vertex> particle_vertices{ GetParticleVertices(particle_width) };
+			particle_vert_count = (uint32_t)particle_vertices.size();
+			uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
+			mesh->geometries[0].vertices.resize(vertex_count);
+
+			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+			{
+				for (uint32_t v{ 0 }; v < particle_vert_count; ++v)
+				{
+					uint32_t vert_buffer_idx{ p * particle_vert_count + v };
+					mesh->geometries[0].vertices[vert_buffer_idx] = particle_vertices[v];
+					mesh->geometries[0].vertices[vert_buffer_idx].position += glm::vec4{ particles[p].position, 0.0f };
+				}
+			}
+		}
+
+		// Generate indices.
+		{
+			std::vector<uint32_t> particle_indices{ GetParticleIndices() };
+			uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
+			mesh->geometries[0].indices.resize(index_count);
+
+			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+			{
+				for (uint32_t i{ 0 }; i < (uint32_t)particle_indices.size(); ++i)
+				{
+					uint32_t idx_buffer_idx{ p * (uint32_t)particle_indices.size() + i };
+					mesh->geometries[0].indices[idx_buffer_idx] = p * particle_vert_count + particle_indices[i];
+				}
+			}
+		}
+
+		CalculateTangents(mesh);
+		return renderer_->CreateRenderObjectFromMesh(mesh, { 0 });
+	}
+
+
+	RenderObjectHandle ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
+	{
+		// When enabled, forces to always generate dynamic particle meshes for debugging purposes.
+		if (DISABLE_STATIC_PARTICLE_MESH) {
+			return GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, side_flags, particle_width), particle_width);
+		}
+
+		// TODO: Experiment and measure speed with reinterpretting particles as uint64_t.
+		//constexpr uint64_t empty_particles{ 0 };
+		//constexpr uint64_t all_sides{ 0x3F3f3f3f3F3f3f3f };
+
+
+		struct PartialRectangle
+		{
+			uint32_t start;
+			uint32_t end;
+			uint32_t height;
+		};
+
+		std::vector<uint32_t> rectangle_indices{}; // rectangle_indices[j] contains the index into x_positive_partial_rectangles which contains this coordinate in its range. Otherwise contains null index.
+		rectangle_indices.resize(PARTICLE_CHUNK_SIZE, NULL_INDEX);
+		 
+		std::vector<PartialRectangle> x_positive_rectangles{};
+
+		for (uint32_t i{ 0 }; i < (uint32_t)particles.size(); ++i)
+		{
+			glm::uvec3 coord{ ParticleIndexToCoordinate(i) };
+
+			// Check if face needs to be part of rectangle.
+			if (side_flags[i] | (uint8_t)ParticleSidesFlagBits::X_POSITIVE)
+			{
+				// Check if it's part of an existing rectangle.
+				if (rectangle_indices[coord.x] != NULL_INDEX)
+				{
+					x_positive_rectangles[rectangle_indices[coord.x]].end = coord.x;
+				}
+			}
+		}
+
+		return {};
+	}
+
+	glm::uvec3 ParticleContext::ParticleIndexToCoordinate(uint32_t index) const
+	{
+		uint32_t slice_area{ PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
+		uint32_t z{ index / slice_area };
+		uint32_t y{ (index % slice_area) / PARTICLE_CHUNK_SIZE };
+		uint32_t x{ index % PARTICLE_CHUNK_SIZE };
+
+		return glm::uvec3{ x, y, z };
+	}
+
 	std::vector<Vertex> ParticleContext::GetParticleVertices(float particle_width) const
 	{
 		uint32_t vert_count{ 24 }; // Cube with 3 normals per corner so 8 * 3 vertices.
@@ -383,15 +421,5 @@ namespace renderer
 			dynamic_particles.push_back(particle);
 		}
 		return dynamic_particles;
-	}
-
-	glm::uvec3 ParticleContext::ParticleIndexToCoordinate(uint32_t index) const
-	{
-		uint32_t slice_area{ PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
-		uint32_t z{ index / slice_area };
-		uint32_t y{ (index % slice_area) / PARTICLE_CHUNK_SIZE };
-		uint32_t x{ index % PARTICLE_CHUNK_SIZE };
-
-		return glm::uvec3{ x, y, z };
 	}
 }
