@@ -46,6 +46,36 @@ namespace renderer
 		int geometry_index;
 	};
 
+	// Convert a particle 1D buffer index into a 3D coordiante in the chunk.
+	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
+
+	class StaticParticleMeshGenerator
+	{
+	public:
+		Mesh* Generate(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
+
+	private:
+		struct Rectangle
+		{
+			uint32_t start_x;   // Inclusive.
+			uint32_t end_x;     // Inclusive.
+			uint32_t start_y;   // Inclusive.
+			bool trianglulated; // Whether this rectangle has been added to the triangle buffer.
+		};
+
+		void TriangulateRectangle(uint32_t rect_idx, const glm::uvec3& coord);
+
+		// Clear indices to a rectangle in rectangles_ between rectangle's start and end.
+		void ClearRectangleIndices(uint32_t rect_idx, const Rectangle& rectangle);
+
+		// Set indices to a rectangle in rectangles_ between rectangle's start and end.
+		void SetRectangleIndices(uint32_t rect_idx, const Rectangle& rectangle);
+
+		std::vector<uint32_t> rectangle_indices_{};  // rectangle_indices[j] contains the index into x_positive_partial_rectangles which contains this coordinate in its range. Otherwise contains null index.
+		std::vector<Rectangle> rectangles_{};        // The WIP rectangles that have not been triangulated yet.
+		Mesh* mesh_{};                               // The output mesh.
+	};
+
 	class ParticleContext
 	{
 	public:
@@ -69,9 +99,6 @@ namespace renderer
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
 		RenderObjectHandle GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
-
-		// Convert a particle 1D buffer index into a 3D coordiante in the chunk.
-		glm::uvec3 ParticleIndexToCoordinate(uint32_t index) const;
 
 		// Get the vertex data for a single particle, eg a cube.
 		std::vector<Vertex> GetParticleVertices(float particle_width) const;
