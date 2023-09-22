@@ -302,58 +302,58 @@ namespace renderer
 		float particle_radius{ particle_width / 2.0f };
 
 		// Position. Three of each since there are three different normals at each corner.
-		verts[0].position = glm::vec4{ -1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[1].position = glm::vec4{ -1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[2].position = glm::vec4{ -1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[3].position = glm::vec4{ -1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[4].position = glm::vec4{ -1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[5].position = glm::vec4{ -1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[6].position = glm::vec4{ -1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[7].position = glm::vec4{ -1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[8].position = glm::vec4{ -1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[9].position = glm::vec4{ -1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[10].position = glm::vec4{ -1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[11].position = glm::vec4{ -1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[0].position = glm::vec4{ -1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[1].position = glm::vec4{ -1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[2].position = glm::vec4{ -1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[3].position = glm::vec4{ -1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[4].position = glm::vec4{ -1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[5].position = glm::vec4{ -1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[6].position = glm::vec4{ -1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[7].position = glm::vec4{ -1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[8].position = glm::vec4{ -1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[9].position = glm::vec4{ -1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[10].position = glm::vec4{ -1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[11].position = glm::vec4{ -1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
 
-		verts[12].position = glm::vec4{ 1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[13].position = glm::vec4{ 1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[14].position = glm::vec4{ 1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[15].position = glm::vec4{ 1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[16].position = glm::vec4{ 1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[17].position = glm::vec4{ 1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[18].position = glm::vec4{ 1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[19].position = glm::vec4{ 1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[20].position = glm::vec4{ 1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[21].position = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[22].position = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[23].position = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[12].position = glm::vec4{ 1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[13].position = glm::vec4{ 1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[14].position = glm::vec4{ 1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[15].position = glm::vec4{ 1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[16].position = glm::vec4{ 1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[17].position = glm::vec4{ 1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[18].position = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[19].position = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[20].position = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[21].position = glm::vec4{ 1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[22].position = glm::vec4{ 1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[23].position = glm::vec4{ 1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
 
 		// Normals.
-		verts[0].normal = glm::vec4{ -1.0f, 0.0f, 0.0f, 0.0f }; // 0 vertex.
-		verts[1].normal = glm::vec4{ 0.0f, -1.0f, 0.0f, 0.0f }; // 0 vertex.
-		verts[2].normal = glm::vec4{ 0.0f, 0.0f, -1.0f, 0.0f }; // 0 vertex.
-		verts[3].normal = glm::vec4{ -1.0f, 0.0f, 0.0f, 0.0f }; // 1 vertex.
-		verts[4].normal = glm::vec4{ 0.0f, -1.0f, 0.0f, 0.0f }; // 1 vertex.
-		verts[5].normal = glm::vec4{ 0.0f, 0.0f, 1.0f, 0.0f };  // 1 vertex.
-		verts[6].normal = glm::vec4{ -1.0f, 0.0f, 0.0f, 0.0f }; // 2 vertex.
-		verts[7].normal = glm::vec4{ 0.0f, 1.0f, 0.0f, 0.0f };  // 2 vertex.
-		verts[8].normal = glm::vec4{ 0.0f, 0.0f, -1.0f, 0.0f }; // 2 vertex.
-		verts[9].normal = glm::vec4{ -1.0f, 0.0f, 0.0f, 0.0f }; // 3 vertex.
-		verts[10].normal = glm::vec4{ 0.0f, 1.0f, 0.0f, 0.0f }; // 3 vertex.
-		verts[11].normal = glm::vec4{ 0.0f, 0.0f, 1.0f, 0.0f }; // 3 vertex.
+		verts[0].normal = glm::vec4{ -1.0f, 0.0f, 0.0f, 0.0f };  // 0 vertex.
+		verts[1].normal = glm::vec4{ 0.0f, -1.0f, 0.0f, 0.0f };  // 0 vertex.
+		verts[2].normal = glm::vec4{ 0.0f, 0.0f, 1.0f, 0.0f };   // 0 vertex.
+		verts[3].normal = glm::vec4{ -1.0f, 0.0f, 0.0f, 0.0f };  // 1 vertex.
+		verts[4].normal = glm::vec4{ 0.0f, -1.0f, 0.0f, 0.0f };  // 1 vertex.
+		verts[5].normal = glm::vec4{ 0.0f, 0.0f, -1.0f, 0.0f };  // 1 vertex.
+		verts[6].normal = glm::vec4{ -1.0f, 0.0f, 0.0f, 0.0f };  // 2 vertex.
+		verts[7].normal = glm::vec4{ 0.0f, 1.0f, 0.0f, 0.0f };   // 2 vertex.
+		verts[8].normal = glm::vec4{ 0.0f, 0.0f, 1.0f, 0.0f };   // 2 vertex.
+		verts[9].normal = glm::vec4{ -1.0f, 0.0f, 0.0f, 0.0f };  // 3 vertex.
+		verts[10].normal = glm::vec4{ 0.0f, 1.0f, 0.0f, 0.0f };  // 3 vertex.
+		verts[11].normal = glm::vec4{ 0.0f, 0.0f, -1.0f, 0.0f }; // 3 vertex.
 
 		verts[12].normal = glm::vec4{ 1.0f, 0.0f, 0.0f, 0.0f };  // 4 vertex.
 		verts[13].normal = glm::vec4{ 0.0f, -1.0f, 0.0f, 0.0f }; // 4 vertex.
-		verts[14].normal = glm::vec4{ 0.0f, 0.0f, -1.0f, 0.0f }; // 4 vertex.
+		verts[14].normal = glm::vec4{ 0.0f, 0.0f, 1.0f, 0.0f };  // 4 vertex.
 		verts[15].normal = glm::vec4{ 1.0f, 0.0f, 0.0f, 0.0f };  // 5 vertex.
 		verts[16].normal = glm::vec4{ 0.0f, -1.0f, 0.0f, 0.0f }; // 5 vertex.
-		verts[17].normal = glm::vec4{ 0.0f, 0.0f, 1.0f, 0.0f };  // 5 vertex.
+		verts[17].normal = glm::vec4{ 0.0f, 0.0f, -1.0f, 0.0f }; // 5 vertex.
 		verts[18].normal = glm::vec4{ 1.0f, 0.0f, 0.0f, 0.0f };  // 6 vertex.
 		verts[19].normal = glm::vec4{ 0.0f, 1.0f, 0.0f, 0.0f };  // 6 vertex.
-		verts[20].normal = glm::vec4{ 0.0f, 0.0f, -1.0f, 0.0f }; // 6 vertex.
+		verts[20].normal = glm::vec4{ 0.0f, 0.0f, 1.0f, 0.0f };  // 6 vertex.
 		verts[21].normal = glm::vec4{ 1.0f, 0.0f, 0.0f, 0.0f };  // 7 vertex.
 		verts[22].normal = glm::vec4{ 0.0f, 1.0f, 0.0f, 0.0f };  // 7 vertex.
-		verts[23].normal = glm::vec4{ 0.0f, 0.0f, 1.0f, 0.0f };  // 7 vertex.
+		verts[23].normal = glm::vec4{ 0.0f, 0.0f, -1.0f, 0.0f }; // 7 vertex.
 
 		return verts;
 
@@ -361,19 +361,20 @@ namespace renderer
 
 	std::vector<uint32_t> ParticleContext::GetParticleIndices() const
 	{
+		// Seems that Vulkan RT API has counter clockwise hardcoded as front face.
 		return {
-			2, 8, 20,   // Z- plane.
-			2, 20, 14,  // Z- plane.
-			0, 3, 6,    // X- plane.
-			3, 9, 6,    // X- plane.
-			5, 23, 11,  // Z+ plane.
-			5, 17, 23,  // Z+ plane.
-			15, 18, 21, // X+ plane.
-			15, 12, 18, // X+ plane.
-			19, 7, 10,  // Y+ plane.
-			19, 10, 22, // Y+ plane.
-			1, 13, 4,   // Y- plane.
-			13, 16, 4,  // Y- plane.
+			8, 2, 20,   // Z- plane.
+			20, 2, 14,  // Z- plane.
+			3, 0, 6,    // X- plane.
+			9, 3, 6,    // X- plane.
+			23, 5, 11,  // Z+ plane.
+			17, 5, 23,  // Z+ plane.
+			18, 15, 21, // X+ plane.
+			12, 15, 18, // X+ plane.
+			7, 19, 10,  // Y+ plane.
+			10, 19, 22, // Y+ plane.
+			13, 1, 4,   // Y- plane.
+			16, 13, 4,  // Y- plane.
 		};
 	}
 
@@ -504,19 +505,20 @@ namespace renderer
 			.normal = {0.0f, 0.0f, 1.0f, 0.0f},
 		};
 
-		uint32_t prev_index{ (uint32_t)mesh_->geometries[0].vertices.size() };
+		uint32_t start_index{ (uint32_t)mesh_->geometries[0].vertices.size() };
 
 		mesh_->geometries[0].vertices.push_back(top_left);
 		mesh_->geometries[0].vertices.push_back(top_right);
 		mesh_->geometries[0].vertices.push_back(bottom_right);
 		mesh_->geometries[0].vertices.push_back(bottom_left);
 
-		mesh_->geometries[0].indices.push_back(prev_index + 0);
-		mesh_->geometries[0].indices.push_back(prev_index + 1);
-		mesh_->geometries[0].indices.push_back(prev_index + 3);
-		mesh_->geometries[0].indices.push_back(prev_index + 1);
-		mesh_->geometries[0].indices.push_back(prev_index + 2);
-		mesh_->geometries[0].indices.push_back(prev_index + 3);
+		// Seems that Vulkan RT API has counter clockwise hardcoded as front face.
+		mesh_->geometries[0].indices.push_back(start_index + 1);
+		mesh_->geometries[0].indices.push_back(start_index + 0);
+		mesh_->geometries[0].indices.push_back(start_index + 3);
+		mesh_->geometries[0].indices.push_back(start_index + 3);
+		mesh_->geometries[0].indices.push_back(start_index + 2);
+		mesh_->geometries[0].indices.push_back(start_index + 1);
 
 		rectangles_[rect_idx].trianglulated = true;
 	}
