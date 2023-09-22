@@ -55,7 +55,7 @@ namespace renderer
 	class StaticParticleMeshGenerator
 	{
 	public:
-		Mesh* Generate(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
+		Mesh* Generate(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
 
 	private:
 		struct Rectangle
@@ -67,19 +67,33 @@ namespace renderer
 		};
 
 		// Generate a single side of all the voxels. Will need to be called 6 times for full mesh generation.
-		void GenerateSide(ParticleSidesFlagBits side, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
+		void GenerateSide(ParticleSidesFlagBits side, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
 
-		void TriangulateRectangle(uint32_t rect_idx, const glm::uvec3& coord);
+		void TriangulateRectangle(ParticleSidesFlagBits side, uint32_t rect_idx, uint32_t vertical, uint32_t depth);
 
 		// Clear indices to a rectangle in rectangles_ between rectangle's start and end.
-		void ClearRectangleIndices(uint32_t rect_idx, const Rectangle& rectangle);
+		void ClearRectangleIndices(uint32_t rect_idx);
 
 		// Set indices to a rectangle in rectangles_ between rectangle's start and end.
-		void SetRectangleIndices(uint32_t rect_idx, const Rectangle& rectangle);
+		void SetRectangleIndices(uint32_t rect_idx);
+
+		// Get reference to chunk coordinate currently acting as the horizontal access.
+		uint32_t& GetHorizontalReference(ParticleSidesFlagBits side);
+
+		// Get reference to chunk coordinate currently acting as the vertical access.
+		uint32_t& GetVerticalReference(ParticleSidesFlagBits side);
+
+		// Get reference to chunk coordinate currently acting as the depth access.
+		uint32_t& GetDepthReference(ParticleSidesFlagBits side);
 
 		std::vector<uint32_t> rectangle_indices_{};  // rectangle_indices[j] contains the index into x_positive_partial_rectangles which contains this coordinate in its range. Otherwise contains null index.
 		std::vector<Rectangle> rectangles_{};        // The WIP rectangles that have not been triangulated yet.
 		Mesh* mesh_{};                               // The output mesh.
+
+		// These coordinates will not be accessed directly, but instead will be reference by horizontal/vertical/depth variables.
+		uint32_t x_{};
+		uint32_t y_{};
+		uint32_t z_{};
 	};
 
 	class ParticleContext

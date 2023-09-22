@@ -297,7 +297,7 @@ namespace renderer
 		//constexpr uint64_t all_sides{ 0x3F3f3f3f3F3f3f3f };
 
 		StaticParticleMeshGenerator gen{};
-		Mesh* mesh{ gen.Generate(particles, side_flags, particle_width) };
+		Mesh* mesh{ gen.Generate(particles, side_flags) };
 		return renderer_->CreateRenderObjectFromMesh(mesh, { 0 });
 	}
 
@@ -405,79 +405,88 @@ namespace renderer
 		return dynamic_particles;
 	}
 
-	Mesh* StaticParticleMeshGenerator::Generate(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
+	Mesh* StaticParticleMeshGenerator::Generate(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
 	{
 		mesh_ = new Mesh{};
 		mesh_->geometries.emplace_back();
-		
-		GenerateSide(ParticleSidesFlagBits::X_POSITIVE, particles, side_flags, particle_width);
+
+		//GenerateSide(ParticleSidesFlagBits::X_POSITIVE, particles, side_flags);
+		GenerateSide(ParticleSidesFlagBits::Y_POSITIVE, particles, side_flags);
+		//GenerateSide(ParticleSidesFlagBits::Z_POSITIVE, particles, side_flags);
 
 		CalculateTangents(mesh_);
 		return mesh_;
 	}
 
-	void StaticParticleMeshGenerator::GenerateSide(ParticleSidesFlagBits side, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
+	void StaticParticleMeshGenerator::GenerateSide(ParticleSidesFlagBits side, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
 	{
 		rectangle_indices_.resize(PARTICLE_CHUNK_SIZE, NULL_INDEX);
 		uint32_t rect_start{}; // Coordinate of start of current rectangle.
 
-		for (uint32_t i{ 0 }; i < (uint32_t)particles.size(); ++i)
+		// Abstract x_, y_, z_ coordinates so algorithm can be done for any sides of the voxels.
+		uint32_t& h{ GetHorizontalReference(side) };
+		uint32_t& v{ GetVerticalReference(side) };
+		uint32_t& d{ GetDepthReference(side) };
+
+		for (d = 0; d < PARTICLE_CHUNK_SIZE; ++d)
 		{
-			glm::uvec3 coord{ ParticleIndexToCoordinate(i) };
-
-			if (coord.x == 0) {
-				rect_start = NULL_INDEX;
-			}
-
-			if (coord.z == PARTICLE_CHUNK_SIZE - 1) {
-				uint32_t a = 1;
-			}
-
-			uint32_t current_rect_idx = rectangle_indices_[coord.x];
-			bool in_rectangle_domain{ current_rect_idx != NULL_INDEX };
-			bool solid_particle{ particles[i].type != ParticleType::EMPTY };
-			bool occluded{ (bool)(side_flags[i] & (uint8_t)ParticleSidesFlagBits::Z_POSITIVE) };
-			bool part_of_shell{ solid_particle && !occluded }; // Each solid and non-occluded face will be part of a the triangle shell.
-			bool end_of_row{ coord.x == PARTICLE_CHUNK_SIZE - 1 };
-
-			if (in_rectangle_domain)
+			for (v = 0; v < PARTICLE_CHUNK_SIZE; ++v)
 			{
-				if (part_of_shell)
+				for (h = 0; h < PARTICLE_CHUNK_SIZE; ++h)
 				{
-					// If null then we just entered a rectangle, so we mark the start of it.
-					if (rect_start == NULL_INDEX) {
-						rect_start = coord.x;
-					}
-					// Otherwise if we reached the end of the rectangle, then we clear the start marker.
-					else if (coord.x == rectangles_[current_rect_idx].end_h) {
+					uint32_t i{ CoordinateToParticlIndex({x_, y_, z_}) };
+
+					if (h == 0) {
 						rect_start = NULL_INDEX;
 					}
-				}
-				else
-				{
-					// In checking to see if a rectangle can get another row, we found empty block so rectangle is done.
-					TriangulateRectangle(current_rect_idx, coord);
-					ClearRectangleIndices(current_rect_idx, rectangles_[current_rect_idx]);
-				}
-			}
-			else
-			{
-				// Just entered a part of shell, so mark start of it.
-				if (part_of_shell && (rect_start == NULL_INDEX)) {
-					rect_start = coord.x;
-				}
-				// Otherwise we made it to the end of a streak of shell blocks, so create a new rectangle.
-				else if ((!part_of_shell || end_of_row) && (rect_start != NULL_INDEX))
-				{
-					Rectangle rect{
-						.start_h = rect_start,
-						.end_h = coord.x - 1,
-						.start_v = coord.y,
-					};
-					uint32_t rect_idx{ (uint32_t)rectangles_.size() };
-					rectangles_.push_back(rect);
-					SetRectangleIndices(rect_idx, rect);
-					rect_start = NULL_INDEX;
+
+					uint32_t current_rect_idx = rectangle_indices_[h];
+					bool in_rectangle_domain{ current_rect_idx != NULL_INDEX };
+					bool solid_particle{ particles[i].type != ParticleType::EMPTY };
+					bool occluded{ (bool)(side_flags[i] & (uint8_t)side) };
+					bool part_of_shell{ solid_particle && !occluded }; // Each solid and non-occluded face will be part of a the triangle shell.
+					bool end_of_row{ h == PARTICLE_CHUNK_SIZE - 1 };
+
+					if (in_rectangle_domain)
+					{
+						if (part_of_shell)
+						{
+							// If null then we just entered a rectangle, so we mark the start of it.
+							if (rect_start == NULL_INDEX) {
+								rect_start = h;
+							}
+							// Otherwise if we reached the end of the rectangle, then we clear the start marker.
+							else if (h == rectangles_[current_rect_idx].end_h) {
+								rect_start = NULL_INDEX;
+							}
+						}
+						else
+						{
+							// In checking to see if a rectangle can get another row, we found empty block so rectangle is done.
+							TriangulateRectangle(side, current_rect_idx, v, d);
+							ClearRectangleIndices(current_rect_idx);
+						}
+					}
+					else
+					{
+						// Just entered a part of shell, so mark start of it.
+						if (part_of_shell && (rect_start == NULL_INDEX)) {
+							rect_start = h;
+						}
+						// Otherwise we made it to the end of a streak of shell blocks, so create a new rectangle.
+						else if ((!part_of_shell || end_of_row) && (rect_start != NULL_INDEX))
+						{
+							Rectangle rect{
+								.start_h = rect_start,
+								.end_h = end_of_row ? h : h - 1,
+								.start_v = v,
+							};
+							uint32_t rect_idx{ (uint32_t)rectangles_.size() };
+							rectangles_.push_back(rect);
+							SetRectangleIndices(rect_idx);
+							rect_start = NULL_INDEX;
+						}
+					}
 				}
 			}
 		}
@@ -485,38 +494,51 @@ namespace renderer
 		for (uint32_t rect_idx{ 0 }; rect_idx < (uint32_t)rectangles_.size(); ++rect_idx)
 		{
 			if (!rectangles_[rect_idx].trianglulated) {
-				TriangulateRectangle(rect_idx, { PARTICLE_CHUNK_SIZE - 1, PARTICLE_CHUNK_SIZE - 1, PARTICLE_CHUNK_SIZE - 1 });
+				TriangulateRectangle(side, rect_idx, PARTICLE_CHUNK_SIZE - 1, PARTICLE_CHUNK_SIZE - 1);
 			}
 		}
 		rectangles_.clear();
 	}
 
-	void StaticParticleMeshGenerator::TriangulateRectangle(uint32_t rect_idx, const glm::uvec3& coord)
+	void StaticParticleMeshGenerator::TriangulateRectangle(ParticleSidesFlagBits side, uint32_t rect_idx, uint32_t vertical, uint32_t depth)
 	{
 		float left{ (float)rectangles_[rect_idx].start_h };
 		float right{ (float)rectangles_[rect_idx].end_h + 1 }; // Add one since triangle ends at rightmost edge of the block.
-		float top{ (float)coord.y };
+		float top{ (float)vertical };
 		float bottom{ (float)rectangles_[rect_idx].start_v };
 
-		Vertex top_left{
-			.position = {left, top, (float)coord.z, 0.0f},
-			.normal = {0.0f, 0.0f, 1.0f, 0.0f},
-		};
-
-		Vertex top_right{
-			.position = {right, top, (float)coord.z, 0.0f},
-			.normal = {0.0f, 0.0f, 1.0f, 0.0f},
-		};
-
-		Vertex bottom_right{
-			.position = {right, bottom, (float)coord.z, 0.0f},
-			.normal = {0.0f, 0.0f, 1.0f, 0.0f},
-		};
-
-		Vertex bottom_left{
-			.position = {left, bottom, (float)coord.z, 0.0f},
-			.normal = {0.0f, 0.0f, 1.0f, 0.0f},
-		};
+		Vertex top_left{};
+		Vertex top_right{};
+		Vertex bottom_right{};
+		Vertex bottom_left{};
+		bool switch_winding_order{}; // Need to switch winding order if z-coordinate is horizontal or vertical.
+		switch (side)
+		{
+		case ParticleSidesFlagBits::X_POSITIVE:
+		case ParticleSidesFlagBits::X_NEGATIVE:
+			top_left = { {     (float)depth, top,    left,  0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
+			top_right = { {    (float)depth, top,    right, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
+			bottom_right = { { (float)depth, bottom, right, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
+			bottom_left = { {  (float)depth, bottom, left,  0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
+			switch_winding_order = true;
+			break;
+		case ParticleSidesFlagBits::Y_POSITIVE:
+		case ParticleSidesFlagBits::Y_NEGATIVE:
+			top_left = { {     left,  (float)depth, top,    0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
+			top_right = { {    right, (float)depth, top,    0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
+			bottom_right = { { right, (float)depth, bottom, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
+			bottom_left = { {  left,  (float)depth, bottom, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
+			switch_winding_order = true;
+			break;
+		case ParticleSidesFlagBits::Z_POSITIVE:
+		case ParticleSidesFlagBits::Z_NEGATIVE:
+			top_left = { {     left,  top,    (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
+			top_right = { {    right, top,    (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
+			bottom_right = { { right, bottom, (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
+			bottom_left = { {  left,  bottom, (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
+			switch_winding_order = false;
+			break;
+		}
 
 		uint32_t start_index{ (uint32_t)mesh_->geometries[0].vertices.size() };
 
@@ -526,19 +548,17 @@ namespace renderer
 		mesh_->geometries[0].vertices.push_back(bottom_left);
 
 		// Seems that Vulkan RT API has counter clockwise hardcoded as front face.
-		mesh_->geometries[0].indices.push_back(start_index + 1);
-		mesh_->geometries[0].indices.push_back(start_index + 0);
-		mesh_->geometries[0].indices.push_back(start_index + 3);
-		mesh_->geometries[0].indices.push_back(start_index + 3);
-		mesh_->geometries[0].indices.push_back(start_index + 2);
-		mesh_->geometries[0].indices.push_back(start_index + 1);
+		std::vector<uint32_t> indices = switch_winding_order ? std::vector<uint32_t>{ 0, 1, 3, 2, 3, 1 } : std::vector<uint32_t>{ 1, 0, 3, 3, 2, 1 };
+		for (uint32_t i : indices) {
+			mesh_->geometries[0].indices.push_back(start_index + i);
+		}
 
 		rectangles_[rect_idx].trianglulated = true;
 	}
 
-	void StaticParticleMeshGenerator::ClearRectangleIndices(uint32_t rect_idx, const Rectangle& rectangle)
+	void StaticParticleMeshGenerator::ClearRectangleIndices(uint32_t rect_idx)
 	{
-		for (uint32_t i{ rectangle.start_h }; i <= rectangle.end_h; ++i)
+		for (uint32_t i{ rectangles_[rect_idx].start_h }; i <= rectangles_[rect_idx].end_h; ++i)
 		{
 			if (rectangle_indices_[i] == rect_idx) {
 				rectangle_indices_[i] = NULL_INDEX;
@@ -546,10 +566,76 @@ namespace renderer
 		}
 	}
 
-	void StaticParticleMeshGenerator::SetRectangleIndices(uint32_t rect_idx, const Rectangle& rectangle)
+	void StaticParticleMeshGenerator::SetRectangleIndices(uint32_t rect_idx)
 	{
-		for (uint32_t i{ rectangle.start_h }; i <= rectangle.end_h; ++i) {
+		for (uint32_t i{ rectangles_[rect_idx].start_h}; i <= rectangles_[rect_idx].end_h; ++i) {
 			rectangle_indices_[i] = rect_idx;
 		}
+	}
+
+	uint32_t& StaticParticleMeshGenerator::GetHorizontalReference(ParticleSidesFlagBits side)
+	{
+		switch (side)
+		{
+		case ParticleSidesFlagBits::X_POSITIVE:
+			return z_;
+		case ParticleSidesFlagBits::X_NEGATIVE:
+			return z_;
+		case ParticleSidesFlagBits::Y_POSITIVE:
+			return x_;
+		case ParticleSidesFlagBits::Y_NEGATIVE:
+			return x_;
+		case ParticleSidesFlagBits::Z_POSITIVE:
+			return x_;
+		case ParticleSidesFlagBits::Z_NEGATIVE:
+			return x_;
+		}
+
+		logger::Error("Failed to get horizontal reference.\n");
+		return x_;
+	}
+
+	uint32_t& StaticParticleMeshGenerator::GetVerticalReference(ParticleSidesFlagBits side)
+	{
+		switch (side)
+		{
+		case ParticleSidesFlagBits::X_POSITIVE:
+			return y_;
+		case ParticleSidesFlagBits::X_NEGATIVE:
+			return y_;
+		case ParticleSidesFlagBits::Y_POSITIVE:
+			return z_;
+		case ParticleSidesFlagBits::Y_NEGATIVE:
+			return z_;
+		case ParticleSidesFlagBits::Z_POSITIVE:
+			return y_;
+		case ParticleSidesFlagBits::Z_NEGATIVE:
+			return y_;
+		}
+
+		logger::Error("Failed to get vertical reference.\n");
+		return x_;
+	}
+
+	uint32_t& StaticParticleMeshGenerator::GetDepthReference(ParticleSidesFlagBits side)
+	{
+		switch (side)
+		{
+		case ParticleSidesFlagBits::X_POSITIVE:
+			return x_;
+		case ParticleSidesFlagBits::X_NEGATIVE:
+			return x_;
+		case ParticleSidesFlagBits::Y_POSITIVE:
+			return y_;
+		case ParticleSidesFlagBits::Y_NEGATIVE:
+			return y_;
+		case ParticleSidesFlagBits::Z_POSITIVE:
+			return z_;
+		case ParticleSidesFlagBits::Z_NEGATIVE:
+			return z_;
+		}
+
+		logger::Error("Failed to get depth reference.\n");
+		return x_;
 	}
 }
