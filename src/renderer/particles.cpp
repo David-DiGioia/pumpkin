@@ -473,8 +473,8 @@ namespace renderer
 						if (part_of_shell && (rect_start == NULL_INDEX)) {
 							rect_start = h;
 						}
-						// Otherwise we made it to the end of a streak of shell blocks, so create a new rectangle.
-						else if ((!part_of_shell || end_of_row) && (rect_start != NULL_INDEX))
+						// Otherwise we made it to the end of a streak of shell blocks, so create a new rectangle if it's not already a part of one.
+						else if ((!part_of_shell || end_of_row) && (rect_start != NULL_INDEX) && (rectangle_indices_[rect_start] == NULL_INDEX))
 						{
 							Rectangle rect{
 								.start_h = rect_start,
