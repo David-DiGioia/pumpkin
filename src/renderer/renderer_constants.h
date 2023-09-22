@@ -16,5 +16,5 @@ namespace renderer
 
 	// Flags to change renderer functionality.
 	constexpr bool DYNAMIC_PARTICLE_MESH_CPU_BUILD{ true }; // Build dynamic particle meshes on CPU instead of GPU.
-	constexpr bool DISABLE_STATIC_PARTICLE_MESH{ true };    // For debugging. Draws static particles as individual cubes, not a shell.
+	constexpr bool DISABLE_STATIC_PARTICLE_MESH{ false };   // For debugging. Draws static particles as individual cubes, not a shell.
 }

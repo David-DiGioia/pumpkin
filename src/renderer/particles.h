@@ -46,8 +46,11 @@ namespace renderer
 		int geometry_index;
 	};
 
-	// Convert a particle 1D buffer index into a 3D coordiante in the chunk.
+	// Convert a particle 1D buffer index into a 3D coordinate in the chunk.
 	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
+
+	// Convert 3D coordinate in the chunk into a 1D buffer index.
+	uint32_t CoordinateToParticlIndex(const glm::uvec3& coord);
 
 	class StaticParticleMeshGenerator
 	{
@@ -57,11 +60,14 @@ namespace renderer
 	private:
 		struct Rectangle
 		{
-			uint32_t start_x;   // Inclusive.
-			uint32_t end_x;     // Inclusive.
-			uint32_t start_y;   // Inclusive.
+			uint32_t start_h;   // Inclusive. Horizontal start.
+			uint32_t end_h;     // Inclusive. Horizontal end.
+			uint32_t start_v;   // Inclusive. Vertical start.
 			bool trianglulated; // Whether this rectangle has been added to the triangle buffer.
 		};
+
+		// Generate a single side of all the voxels. Will need to be called 6 times for full mesh generation.
+		void GenerateSide(ParticleSidesFlagBits side, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
 
 		void TriangulateRectangle(uint32_t rect_idx, const glm::uvec3& coord);
 

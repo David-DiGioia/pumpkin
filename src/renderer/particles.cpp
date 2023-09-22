@@ -25,6 +25,12 @@ namespace renderer
 		return glm::uvec3{ x, y, z };
 	}
 
+	uint32_t CoordinateToParticlIndex(const glm::uvec3& coord)
+	{
+		uint32_t slice_area{ PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
+		return coord.x + coord.y * PARTICLE_CHUNK_SIZE + coord.z * slice_area;
+	}
+
 	void ParticleContext::Initialize(Context* context, VulkanRenderer* renderer)
 	{
 		context_ = context;
@@ -403,6 +409,15 @@ namespace renderer
 	{
 		mesh_ = new Mesh{};
 		mesh_->geometries.emplace_back();
+		
+		GenerateSide(ParticleSidesFlagBits::X_POSITIVE, particles, side_flags, particle_width);
+
+		CalculateTangents(mesh_);
+		return mesh_;
+	}
+
+	void StaticParticleMeshGenerator::GenerateSide(ParticleSidesFlagBits side, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
+	{
 		rectangle_indices_.resize(PARTICLE_CHUNK_SIZE, NULL_INDEX);
 		uint32_t rect_start{}; // Coordinate of start of current rectangle.
 
@@ -434,7 +449,7 @@ namespace renderer
 						rect_start = coord.x;
 					}
 					// Otherwise if we reached the end of the rectangle, then we clear the start marker.
-					else if (coord.x == rectangles_[current_rect_idx].end_x) {
+					else if (coord.x == rectangles_[current_rect_idx].end_h) {
 						rect_start = NULL_INDEX;
 					}
 				}
@@ -455,9 +470,9 @@ namespace renderer
 				else if ((!part_of_shell || end_of_row) && (rect_start != NULL_INDEX))
 				{
 					Rectangle rect{
-						.start_x = rect_start,
-						.end_x = coord.x - 1,
-						.start_y = coord.y,
+						.start_h = rect_start,
+						.end_h = coord.x - 1,
+						.start_v = coord.y,
 					};
 					uint32_t rect_idx{ (uint32_t)rectangles_.size() };
 					rectangles_.push_back(rect);
@@ -473,17 +488,15 @@ namespace renderer
 				TriangulateRectangle(rect_idx, { PARTICLE_CHUNK_SIZE - 1, PARTICLE_CHUNK_SIZE - 1, PARTICLE_CHUNK_SIZE - 1 });
 			}
 		}
-
-		CalculateTangents(mesh_);
-		return mesh_;
+		rectangles_.clear();
 	}
 
 	void StaticParticleMeshGenerator::TriangulateRectangle(uint32_t rect_idx, const glm::uvec3& coord)
 	{
-		float left{ (float)rectangles_[rect_idx].start_x };
-		float right{ (float)rectangles_[rect_idx].end_x + 1 }; // Add one since triangle ends at rightmost edge of the block.
+		float left{ (float)rectangles_[rect_idx].start_h };
+		float right{ (float)rectangles_[rect_idx].end_h + 1 }; // Add one since triangle ends at rightmost edge of the block.
 		float top{ (float)coord.y };
-		float bottom{ (float)rectangles_[rect_idx].start_y };
+		float bottom{ (float)rectangles_[rect_idx].start_v };
 
 		Vertex top_left{
 			.position = {left, top, (float)coord.z, 0.0f},
@@ -525,7 +538,7 @@ namespace renderer
 
 	void StaticParticleMeshGenerator::ClearRectangleIndices(uint32_t rect_idx, const Rectangle& rectangle)
 	{
-		for (uint32_t i{ rectangle.start_x }; i <= rectangle.end_x; ++i)
+		for (uint32_t i{ rectangle.start_h }; i <= rectangle.end_h; ++i)
 		{
 			if (rectangle_indices_[i] == rect_idx) {
 				rectangle_indices_[i] = NULL_INDEX;
@@ -535,7 +548,7 @@ namespace renderer
 
 	void StaticParticleMeshGenerator::SetRectangleIndices(uint32_t rect_idx, const Rectangle& rectangle)
 	{
-		for (uint32_t i{ rectangle.start_x }; i <= rectangle.end_x; ++i) {
+		for (uint32_t i{ rectangle.start_h }; i <= rectangle.end_h; ++i) {
 			rectangle_indices_[i] = rect_idx;
 		}
 	}
