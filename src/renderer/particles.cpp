@@ -410,9 +410,9 @@ namespace renderer
 		mesh_ = new Mesh{};
 		mesh_->geometries.emplace_back();
 
-		//GenerateSide(ParticleSidesFlagBits::X_POSITIVE, particles, side_flags);
+		GenerateSide(ParticleSidesFlagBits::X_POSITIVE, particles, side_flags);
 		GenerateSide(ParticleSidesFlagBits::Y_POSITIVE, particles, side_flags);
-		//GenerateSide(ParticleSidesFlagBits::Z_POSITIVE, particles, side_flags);
+		GenerateSide(ParticleSidesFlagBits::Z_POSITIVE, particles, side_flags);
 
 		CalculateTangents(mesh_);
 		return mesh_;
@@ -515,6 +515,7 @@ namespace renderer
 		switch (side)
 		{
 		case ParticleSidesFlagBits::X_POSITIVE:
+			++depth;
 		case ParticleSidesFlagBits::X_NEGATIVE:
 			top_left = { {     (float)depth, top,    left,  0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
 			top_right = { {    (float)depth, top,    right, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
@@ -523,6 +524,7 @@ namespace renderer
 			switch_winding_order = true;
 			break;
 		case ParticleSidesFlagBits::Y_POSITIVE:
+			++depth;
 		case ParticleSidesFlagBits::Y_NEGATIVE:
 			top_left = { {     left,  (float)depth, top,    0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
 			top_right = { {    right, (float)depth, top,    0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
@@ -531,6 +533,7 @@ namespace renderer
 			switch_winding_order = true;
 			break;
 		case ParticleSidesFlagBits::Z_POSITIVE:
+			++depth;
 		case ParticleSidesFlagBits::Z_NEGATIVE:
 			top_left = { {     left,  top,    (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
 			top_right = { {    right, top,    (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
