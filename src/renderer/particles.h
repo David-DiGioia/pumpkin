@@ -63,7 +63,6 @@ namespace renderer
 			uint32_t start_h;   // Inclusive. Horizontal start.
 			uint32_t end_h;     // Inclusive. Horizontal end.
 			uint32_t start_v;   // Inclusive. Vertical start.
-			bool trianglulated; // Whether this rectangle has been added to the triangle buffer.
 		};
 
 		// Generate a single side of all the voxels. Will need to be called 6 times for full mesh generation.

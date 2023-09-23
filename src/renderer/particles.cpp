@@ -432,13 +432,10 @@ namespace renderer
 		{
 			for (v = 0; v < PARTICLE_CHUNK_SIZE; ++v)
 			{
+				rect_start = NULL_INDEX;
 				for (h = 0; h < PARTICLE_CHUNK_SIZE; ++h)
 				{
 					uint32_t i{ CoordinateToParticlIndex({x_, y_, z_}) };
-
-					if (h == 0) {
-						rect_start = NULL_INDEX;
-					}
 
 					uint32_t current_rect_idx = rectangle_indices_[h];
 					bool in_rectangle_domain{ current_rect_idx != NULL_INDEX };
@@ -489,15 +486,18 @@ namespace renderer
 					}
 				}
 			}
+
+			// Just finished slice, so triangulate all of the remaining rectangles.
+			for (uint32_t rect_idx : rectangle_indices_)
+			{
+				if (rect_idx != NULL_INDEX) {
+					TriangulateRectangle(side, rect_idx, PARTICLE_CHUNK_SIZE - 1, PARTICLE_CHUNK_SIZE - 1);
+					ClearRectangleIndices(rect_idx);
+				}
+			}
+			rectangles_.clear();
 		}
 
-		for (uint32_t rect_idx{ 0 }; rect_idx < (uint32_t)rectangles_.size(); ++rect_idx)
-		{
-			if (!rectangles_[rect_idx].trianglulated) {
-				TriangulateRectangle(side, rect_idx, PARTICLE_CHUNK_SIZE - 1, PARTICLE_CHUNK_SIZE - 1);
-			}
-		}
-		rectangles_.clear();
 	}
 
 	void StaticParticleMeshGenerator::TriangulateRectangle(ParticleSidesFlagBits side, uint32_t rect_idx, uint32_t vertical, uint32_t depth)
@@ -552,8 +552,6 @@ namespace renderer
 		for (uint32_t i : indices) {
 			mesh_->geometries[0].indices.push_back(start_index + i);
 		}
-
-		rectangles_[rect_idx].trianglulated = true;
 	}
 
 	void StaticParticleMeshGenerator::ClearRectangleIndices(uint32_t rect_idx)
@@ -568,7 +566,7 @@ namespace renderer
 
 	void StaticParticleMeshGenerator::SetRectangleIndices(uint32_t rect_idx)
 	{
-		for (uint32_t i{ rectangles_[rect_idx].start_h}; i <= rectangles_[rect_idx].end_h; ++i) {
+		for (uint32_t i{ rectangles_[rect_idx].start_h }; i <= rectangles_[rect_idx].end_h; ++i) {
 			rectangle_indices_[i] = rect_idx;
 		}
 	}
