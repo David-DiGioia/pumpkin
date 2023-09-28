@@ -101,6 +101,20 @@ namespace renderer
 	constexpr VkFormat COLOR_TEXTURE_FORMAT{ VK_FORMAT_R8G8B8A8_SRGB };
 	constexpr VkFormat NON_COLOR_TEXTURE_FORMAT{ VK_FORMAT_R8G8B8A8_UNORM };
 
+	// Choose default values for material. Later maybe should take more values from gltf material.
+	const Material default_material{
+		.color = glm::vec4{ 0.4f, 0.4f, 0.4f, 1.0f },
+		.metallic = 0.0f,
+		.roughness = 0.8f,
+		.emission = 0.0f,
+		.ior = 1.53f,
+		.color_index = NULL_INDEX,
+		.metallic_index = NULL_INDEX,
+		.roughness_index = NULL_INDEX,
+		.emission_index = NULL_INDEX,
+		.normal_index = NULL_INDEX,
+	};
+
 	void WindowResizedCallback(GLFWwindow* window, int width, int height)
 	{
 		auto renderer{ reinterpret_cast<VulkanRenderer*>(glfwGetWindowUserPointer(window)) };
@@ -1348,20 +1362,6 @@ namespace renderer
 			}
 		}
 
-		// Choose default values for material. Later maybe should take more values from gltf material.
-		Material default_material{
-			.color = glm::vec4{ 0.4f, 0.4f, 0.4f, 1.0f },
-			.metallic = 0.0f,
-			.roughness = 0.8f,
-			.emission = 0.0f,
-			.ior = 1.53f,
-			.color_index = NULL_INDEX,
-			.metallic_index = NULL_INDEX,
-			.roughness_index = NULL_INDEX,
-			.emission_index = NULL_INDEX,
-			.normal_index = NULL_INDEX,
-		};
-
 		// Load materials.
 		for (tinygltf::Material& tinygltf_material : model.materials)
 		{
@@ -1393,6 +1393,10 @@ namespace renderer
 
 	RenderObjectHandle VulkanRenderer::InvokeParticleGenShader()
 	{
+		if (materials_.empty()) {
+			materials_.push_back(new Material{ default_material });
+		}
+
 		return particle_context_.InvokeParticleGenShader();
 	}
 
