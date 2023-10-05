@@ -14,7 +14,19 @@ namespace renderer
 	constexpr uint32_t NULL_INDEX{ std::numeric_limits<uint32_t>().max() };  // Index specifying null or invalid.
 	constexpr uint32_t MAX_BINDLESS_TEXTURES{ 512 };                         // Maximum number of texture descriptors in the bindless array.
 
+	constexpr uint32_t CHUNK_ROW_VOXEL_COUNT{ 64 }; // Total size of particle chunk dimension.
+	constexpr uint32_t CHUNK_TOTAL_VOXEL_COUNT{ CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT };
+	constexpr uint32_t PARTICLE_GROUP_COUNT{ 16 };  // Number of workgroups in each dimension.
+
+	enum class MPMInterpolationKernel
+	{
+		LINEAR,
+		QUADRATIC,
+		CUBIC,
+	};
+
 	// Flags to change renderer functionality.
 	constexpr bool DYNAMIC_PARTICLE_MESH_CPU_BUILD{ true }; // Build dynamic particle meshes on CPU instead of GPU.
 	constexpr bool DISABLE_STATIC_PARTICLE_MESH{ false };   // For debugging. Draws static particles as individual cubes, not a shell.
+	constexpr MPMInterpolationKernel MPM_INTERPOLATION_KERNEL{ MPMInterpolationKernel::CUBIC };
 }

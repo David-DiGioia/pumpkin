@@ -25,6 +25,8 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/render_object.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/particles.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/particles.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/mpm.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/mpm.cpp"
 )
 
 add_library(Renderer "${SOURCES}")

@@ -2,6 +2,7 @@
 
 #include "vulkan_renderer.h"
 #include "vulkan_util.h"
+#include "renderer_constants.h"
 
 namespace renderer
 {
@@ -17,18 +18,18 @@ namespace renderer
 
 	glm::uvec3 ParticleIndexToCoordinate(uint32_t index)
 	{
-		uint32_t slice_area{ PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
+		uint32_t slice_area{ CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT };
 		uint32_t z{ index / slice_area };
-		uint32_t y{ (index % slice_area) / PARTICLE_CHUNK_SIZE };
-		uint32_t x{ index % PARTICLE_CHUNK_SIZE };
+		uint32_t y{ (index % slice_area) / CHUNK_ROW_VOXEL_COUNT };
+		uint32_t x{ index % CHUNK_ROW_VOXEL_COUNT };
 
 		return glm::uvec3{ x, y, z };
 	}
 
-	uint32_t CoordinateToParticlIndex(const glm::uvec3& coord)
+	uint32_t CoordinateToParticleIndex(const glm::uvec3& coord)
 	{
-		uint32_t slice_area{ PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
-		return coord.x + coord.y * PARTICLE_CHUNK_SIZE + coord.z * slice_area;
+		uint32_t slice_area{ CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT };
+		return coord.x + coord.y * CHUNK_ROW_VOXEL_COUNT + coord.z * slice_area;
 	}
 
 	void ParticleContext::Initialize(Context* context, VulkanRenderer* renderer)
@@ -87,14 +88,14 @@ namespace renderer
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
-		std::vector<StaticParticle> static_particles(PARTICLE_CHUNK_VOLUME);
+		std::vector<StaticParticle> static_particles(CHUNK_TOTAL_VOXEL_COUNT);
 		renderer_->vulkan_util_.TransferBufferToHost(static_particles, particle_gen_.particle_out_buffer);
 		renderer_->vulkan_util_.Submit();
 
 		// Copy the particle neighbor data to a vector.
-		std::vector<uint8_t> side_flags(PARTICLE_CHUNK_VOLUME);
+		std::vector<uint8_t> side_flags(CHUNK_TOTAL_VOXEL_COUNT);
 		vkMapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory, particle_neighbors_.neighbor_out_buffer.offset, particle_neighbors_.neighbor_out_buffer.size, 0, &data);
-		std::memcpy(side_flags.data(), data, sizeof(uint8_t) * PARTICLE_CHUNK_VOLUME);
+		std::memcpy(side_flags.data(), data, sizeof(uint8_t) * CHUNK_TOTAL_VOXEL_COUNT);
 		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
 
 		constexpr float particle_size{ 0.1f };
@@ -178,7 +179,7 @@ namespace renderer
 			usage_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		}
 		particle_gen_.particle_out_buffer = renderer_->allocator_.CreateBufferResource(
-			sizeof(StaticParticle) * PARTICLE_CHUNK_VOLUME,
+			sizeof(StaticParticle) * CHUNK_TOTAL_VOXEL_COUNT,
 			usage_flags,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		NameObject(context_->device, particle_gen_.particle_out_buffer.buffer, "Particle_Out_Buffer");
@@ -224,7 +225,7 @@ namespace renderer
 
 		// Create and link neighbor out-buffer.
 		particle_neighbors_.neighbor_out_buffer = renderer_->allocator_.CreateBufferResource(
-			sizeof(ParticleSidesFlagBits) * PARTICLE_CHUNK_VOLUME,
+			sizeof(ParticleSidesFlagBits) * CHUNK_TOTAL_VOXEL_COUNT,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		NameObject(context_->device, particle_neighbors_.neighbor_out_buffer.buffer, "Neighbor_Out_Buffer");
@@ -387,7 +388,7 @@ namespace renderer
 	std::vector<Particle> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags, float particle_width) const
 	{
 		std::vector<Particle> dynamic_particles{};
-		for (uint32_t i{ 0 }; i < PARTICLE_CHUNK_VOLUME; ++i)
+		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{
 			bool empty{ static_particles[i].type == ParticleType::EMPTY };
 			bool occluded{ side_flags[i] == (uint8_t)ParticleSidesFlagBits::ALL_SIDES };
@@ -420,7 +421,7 @@ namespace renderer
 
 	void StaticParticleMeshGenerator::GenerateSide(ParticleSidesFlagBits side, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
 	{
-		rectangle_indices_.resize(PARTICLE_CHUNK_SIZE, NULL_INDEX);
+		rectangle_indices_.resize(CHUNK_ROW_VOXEL_COUNT, NULL_INDEX);
 		uint32_t rect_start{}; // Coordinate of start of current rectangle.
 
 		// Abstract x_, y_, z_ coordinates so algorithm can be done for any sides of the voxels.
@@ -428,21 +429,21 @@ namespace renderer
 		uint32_t& v{ GetVerticalReference(side) };
 		uint32_t& d{ GetDepthReference(side) };
 
-		for (d = 0; d < PARTICLE_CHUNK_SIZE; ++d)
+		for (d = 0; d < CHUNK_ROW_VOXEL_COUNT; ++d)
 		{
-			for (v = 0; v < PARTICLE_CHUNK_SIZE; ++v)
+			for (v = 0; v < CHUNK_ROW_VOXEL_COUNT; ++v)
 			{
 				rect_start = NULL_INDEX;
-				for (h = 0; h < PARTICLE_CHUNK_SIZE; ++h)
+				for (h = 0; h < CHUNK_ROW_VOXEL_COUNT; ++h)
 				{
-					uint32_t i{ CoordinateToParticlIndex({x_, y_, z_}) };
+					uint32_t i{ CoordinateToParticleIndex({x_, y_, z_}) };
 
 					uint32_t current_rect_idx = rectangle_indices_[h];
 					bool in_rectangle_domain{ current_rect_idx != NULL_INDEX };
 					bool solid_particle{ particles[i].type != ParticleType::EMPTY };
 					bool occluded{ (bool)(side_flags[i] & (uint8_t)side) };
 					bool part_of_shell{ solid_particle && !occluded }; // Each solid and non-occluded face will be part of a the triangle shell.
-					bool end_of_row{ h == PARTICLE_CHUNK_SIZE - 1 };
+					bool end_of_row{ h == CHUNK_ROW_VOXEL_COUNT - 1 };
 
 					if (in_rectangle_domain)
 					{
@@ -491,7 +492,7 @@ namespace renderer
 			for (uint32_t rect_idx : rectangle_indices_)
 			{
 				if (rect_idx != NULL_INDEX) {
-					TriangulateRectangle(side, rect_idx, PARTICLE_CHUNK_SIZE - 1, PARTICLE_CHUNK_SIZE - 1);
+					TriangulateRectangle(side, rect_idx, CHUNK_ROW_VOXEL_COUNT - 1, CHUNK_ROW_VOXEL_COUNT - 1);
 					ClearRectangleIndices(rect_idx);
 				}
 			}

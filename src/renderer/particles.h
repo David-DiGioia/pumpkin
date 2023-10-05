@@ -11,10 +11,6 @@ namespace renderer
 {
 	class VulkanRenderer;
 
-	constexpr uint32_t PARTICLE_CHUNK_SIZE{ 64 };  // Total size of particle chunk dimension.
-	constexpr uint32_t PARTICLE_CHUNK_VOLUME{ PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE * PARTICLE_CHUNK_SIZE };
-	constexpr uint32_t PARTICLE_GROUP_COUNT{ 16 }; // Number of workgroups in each dimension.
-
 	enum class ParticleType : uint8_t
 	{
 		EMPTY,
@@ -50,7 +46,7 @@ namespace renderer
 	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
 
 	// Convert 3D coordinate in the chunk into a 1D buffer index.
-	uint32_t CoordinateToParticlIndex(const glm::uvec3& coord);
+	uint32_t CoordinateToParticleIndex(const glm::uvec3& coord);
 
 	class StaticParticleMeshGenerator
 	{
