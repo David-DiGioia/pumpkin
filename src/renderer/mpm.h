@@ -14,6 +14,7 @@ namespace renderer
 		glm::vec3 position;
 		glm::vec3 velocity;
 		glm::mat3 affine_matrix;
+		glm::mat3 deformation_gradient;
 	};
 
 	struct GridNode
@@ -23,6 +24,7 @@ namespace renderer
 		glm::vec3 position;
 		glm::vec3 velocity;
 		glm::vec3 momentum;
+		glm::vec3 force;
 	};
 
 	class MPMContext
@@ -41,9 +43,9 @@ namespace renderer
 
 		void ComputeExplicitGridForces();
 
-		void UpdateGridVelocity();
+		void UpdateGridVelocity(float delta_time);
 
-		void UpdateParticleDeformationGradient();
+		void UpdateParticleDeformationGradient(float delta_time);
 
 		void GridToParticle();
 
@@ -52,7 +54,13 @@ namespace renderer
 		// Kernel for interpolation function.
 		float CubicKernel(float x) const;
 
-		float Interpolate(const glm::vec3& node_pos, const glm::vec3& particle_pos) const;
+		float CubicKernelDerivative(float x) const;
+
+		float GetWeight(const glm::vec3& node_pos, const glm::vec3& particle_pos) const;
+
+		glm::vec3 GetWeightGradient(const glm::vec3& node_pos, const glm::vec3& particle_pos) const;
+
+		glm::mat3 GetPiolaKirchoffStress(const MaterialPoint& p) const;
 
 		float GetDInverse() const;
 
@@ -62,5 +70,6 @@ namespace renderer
 		std::vector<GridNode> nodes_{};
 		float grid_spacing_{};
 		float particle_radius_{};
+		float particle_initial_volume_{};
 	};
 }
