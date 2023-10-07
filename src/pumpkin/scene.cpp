@@ -241,34 +241,13 @@ namespace pmk
 		renderer_->UpdateMaterials();
 	}
 
-	void Scene::GenerateParticles()
+	void Scene::GenerateParticlesOnNode(Node* node)
 	{
-		std::vector<renderer::Particle> particles{
-			{
-				.position = glm::vec3{0.0, 0.0, 0.0},
-				.geometry_index = 0,
-			},
-			{
-				.position = glm::vec3{1.0, 1.0, 0.0},
-				.geometry_index = 0,
-			},
-			{
-				.position = glm::vec3{0.0, 2.0, 1.0},
-				.geometry_index = 0,
-			},
-			{
-				.position = glm::vec3{-1.0, 1.0, 0.0},
-				.geometry_index = 0,
-			},
-			{
-				.position = glm::vec3{-1.0, 2.0, 0.0},
-				.geometry_index = 0,
-			},
-		};
+		if (node->render_object == renderer::NULL_HANDLE) {
+			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
+		}
 
-		Node* node{ CreateNode() };
-		renderer::RenderObjectHandle render_object{ renderer_->InvokeParticleGenShader() };
-		AddRenderObjectToNode(node, render_object);
+		renderer_->InvokeParticleGenShader(node->render_object);
 		renderer_->UpdateMaterials();
 	}
 

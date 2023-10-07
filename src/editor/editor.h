@@ -319,6 +319,8 @@ private:
 
 	void UpdateSelectionOutlines() const;
 
+	EditorNode* CreateNode(const std::string& name);
+
 	friend class EditorGui;
 
 	pmk::Pumpkin* pumpkin_{};
@@ -340,6 +342,8 @@ private:
 	bool multi_select_enabled_{ false }; // Selecting a selectable does not deselect all others when enabled.
 
 	TransformInfo transform_info_{};
+
+	EditorNode* particle_node_{};
 
 	EditorSettings editor_settings_{}; // Settings loaded from AppData.
 };

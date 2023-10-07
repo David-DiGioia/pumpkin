@@ -45,8 +45,8 @@ namespace renderer
 		// If out_material_names is not null, then loaded material names will be written into it.
 		std::vector<int> LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names);
 
-		// Invoke user-defined particle gen shader. Generates particles but not the particle mesh.
-		RenderObjectHandle InvokeParticleGenShader();
+		// Invoke user-defined particle gen shader. Generated render object will replace ro_target.
+		void InvokeParticleGenShader(RenderObjectHandle ro_target);
 
 		void SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer);
 
@@ -61,6 +61,12 @@ namespace renderer
 		RenderObjectHandle CreateRenderObject(uint32_t mesh_index, const std::vector<int>& material_indices);
 
 		RenderObjectHandle CreateRenderObjectFromMesh(Mesh* mesh, const std::vector<int>& material_indices);
+
+		// Get a blank render object to be used as a render object target when generating a mesh later.
+		RenderObjectHandle CreateBlankRenderObject();
+
+		// Doesn't take mesh index since it reuses the mesh index that the previous render object used.
+		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
@@ -176,6 +182,8 @@ namespace renderer
 		void InitializeDescriptorSetLayouts();
 
 		void UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh);
+
+		void DestroyRenderObject(RenderObjectHandle render_object_handle);
 
 		void DestroyMesh(Mesh* mesh);
 

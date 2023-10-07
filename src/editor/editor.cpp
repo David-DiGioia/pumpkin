@@ -514,13 +514,10 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 
 void Editor::GenerateParticles()
 {
-	std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
-	uint32_t node_idx{ (uint32_t)nodes.size() };
-	pumpkin_->GetScene().GenerateParticles();
-
-	// Create wrapper EditorNode for generated pmk::Node.
-	EditorNode* editor_node{ new EditorNode{ nodes[node_idx], "particle_node"} };
-	node_map_[nodes[node_idx]->node_id] = editor_node;
+	if (!particle_node_) {
+		particle_node_ = CreateNode("particle_node");
+	}
+	pumpkin_->GetScene().GenerateParticlesOnNode(particle_node_->node);
 }
 
 void Editor::SetMultiselect(bool multiselect)
@@ -968,6 +965,14 @@ void Editor::UpdateSelectionOutlines() const
 		std::vector<renderer::RenderObjectHandle> active_selection_set{ active_selection_node_->node->render_object };
 		pumpkin_->AddOutlineSet(active_selection_set, ACTIVE_SELECTION_COLOR);
 	}
+}
+
+EditorNode* Editor::CreateNode(const std::string& name)
+{
+	pmk::Node* node{ pumpkin_->GetScene().CreateNode() };
+	EditorNode* editor_node{ new EditorNode{ node, name } };
+	node_map_[node->node_id] = editor_node;
+	return editor_node;
 }
 
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)

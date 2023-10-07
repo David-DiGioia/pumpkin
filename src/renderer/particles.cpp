@@ -61,7 +61,7 @@ namespace renderer
 		particle_neighbors_.pipeline.CleanUp();
 	}
 
-	RenderObjectHandle ParticleContext::InvokeParticleGenShader()
+	void ParticleContext::InvokeParticleGenShader(RenderObjectHandle ro_target)
 	{
 		ComputePipeline* particle_gen_pipeline{ renderer_->user_compute_shaders_[particle_gen_.shader_idx] };
 
@@ -108,7 +108,7 @@ namespace renderer
 		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
 
 		constexpr float particle_size{ 0.1f };
-		return GenerateStaticParticleMesh(static_particles_, side_flags, particle_size);
+		GenerateStaticParticleMesh(ro_target, static_particles_, side_flags, particle_size);
 	}
 
 	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)
@@ -250,7 +250,7 @@ namespace renderer
 		NameObject(context_->device, particle_neighbors_.pipeline.layout, "Particle_Neighbor_Pipeline_Layout");
 	}
 
-	RenderObjectHandle ParticleContext::GenerateDynamicParticleMesh(const std::vector<Particle>& particles, float particle_width)
+	void ParticleContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::vector<MaterialPoint>& particles, float particle_width)
 	{
 		Mesh* mesh{ new Mesh{} };
 		mesh->geometries.resize(1);
@@ -291,15 +291,17 @@ namespace renderer
 		}
 
 		CalculateTangents(mesh);
-		return renderer_->CreateRenderObjectFromMesh(mesh, { 0 });
+		renderer_->ReplaceRenderObject(ro_target, mesh, { 0 });
 	}
 
 
-	RenderObjectHandle ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
+	void ParticleContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
 	{
 		// When enabled, forces to always generate dynamic particle meshes for debugging purposes.
-		if (DISABLE_STATIC_PARTICLE_MESH) {
-			return GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, side_flags, particle_width), particle_width);
+		if (DISABLE_STATIC_PARTICLE_MESH)
+		{
+			GenerateDynamicParticleMesh(ro_target, StaticParticleToDynamic(particles, side_flags, particle_width), particle_width);
+			return;
 		}
 
 		// TODO: Experiment and measure speed with reinterpretting particles as uint64_t.
@@ -308,7 +310,7 @@ namespace renderer
 
 		StaticParticleMeshGenerator gen{};
 		Mesh* mesh{ gen.Generate(particles, side_flags) };
-		return renderer_->CreateRenderObjectFromMesh(mesh, { 0 });
+		renderer_->ReplaceRenderObject(ro_target, mesh, { 0 });
 	}
 
 	std::vector<Vertex> ParticleContext::GetParticleVertices(float particle_width) const
@@ -394,9 +396,9 @@ namespace renderer
 		};
 	}
 
-	std::vector<Particle> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags, float particle_width) const
+	std::vector<MaterialPoint> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags, float particle_width) const
 	{
-		std::vector<Particle> dynamic_particles{};
+		std::vector<MaterialPoint> dynamic_particles{};
 		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{
 			bool empty{ static_particles[i].type == ParticleType::EMPTY };
@@ -406,9 +408,8 @@ namespace renderer
 				continue;
 			}
 
-			Particle particle{
+			MaterialPoint particle{
 				.position = particle_width * glm::vec3(ParticleIndexToCoordinate(i)),
-				.geometry_index = 0,
 			};
 			dynamic_particles.push_back(particle);
 		}

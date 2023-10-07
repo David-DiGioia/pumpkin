@@ -36,13 +36,6 @@ namespace renderer
 		ParticleType type;
 	};
 
-	// Particles that are actively being simulated.
-	struct Particle
-	{
-		glm::vec3 position;
-		int geometry_index;
-	};
-
 	// Convert a particle 1D buffer index into a 3D coordinate in the chunk.
 	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
 
@@ -101,7 +94,8 @@ namespace renderer
 
 		void CleanUp();
 
-		RenderObjectHandle InvokeParticleGenShader();
+		// Generated render object will replace ro_target.
+		void InvokeParticleGenShader(RenderObjectHandle ro_target);
 
 		void SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer);
 
@@ -113,10 +107,10 @@ namespace renderer
 		void InitializeParticleNeighborsShaderResources();
 
 		// Generates triangles for each individual particle as a cube. Can be done on host or device.
-		RenderObjectHandle GenerateDynamicParticleMesh(const std::vector<Particle>& particles, float particle_width);
+		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::vector<MaterialPoint>& particles, float particle_width);
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
-		RenderObjectHandle GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
+		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
 
 		// Get the vertex data for a single particle, eg a cube.
 		std::vector<Vertex> GetParticleVertices(float particle_width) const;
@@ -124,7 +118,7 @@ namespace renderer
 		// Get the index data for a single particle, eg a cube.
 		std::vector<uint32_t> GetParticleIndices() const;
 
-		std::vector<Particle> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags, float particle_width) const;
+		std::vector<MaterialPoint> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags, float particle_width) const;
 
 		struct ParticleGenShaderResources
 		{
