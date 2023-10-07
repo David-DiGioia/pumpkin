@@ -41,6 +41,15 @@ namespace renderer
 		InitializeParticleNeighborsShaderResources();
 	}
 
+	void ParticleContext::PhysicsUpdate(float delta_time)
+	{
+		if (!update_physics_) {
+			return;
+		}
+
+		mpm_context_.SimulateStep(delta_time);
+	}
+
 	void ParticleContext::CleanUp()
 	{
 		renderer_->allocator_.DestroyBufferResource(&particle_gen_.built_in_ubo_buffer);
@@ -88,8 +97,8 @@ namespace renderer
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
-		std::vector<StaticParticle> static_particles(CHUNK_TOTAL_VOXEL_COUNT);
-		renderer_->vulkan_util_.TransferBufferToHost(static_particles, particle_gen_.particle_out_buffer);
+		static_particles_.resize(CHUNK_TOTAL_VOXEL_COUNT);
+		renderer_->vulkan_util_.TransferBufferToHost(static_particles_, particle_gen_.particle_out_buffer);
 		renderer_->vulkan_util_.Submit();
 
 		// Copy the particle neighbor data to a vector.
@@ -99,7 +108,7 @@ namespace renderer
 		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
 
 		constexpr float particle_size{ 0.1f };
-		return GenerateStaticParticleMesh(static_particles, side_flags, particle_size);
+		return GenerateStaticParticleMesh(static_particles_, side_flags, particle_size);
 	}
 
 	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)

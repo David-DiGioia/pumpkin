@@ -6,6 +6,7 @@
 #include "memory_allocator.h"
 #include "mesh.h"
 #include "pipeline.h"
+#include "mpm.h"
 
 namespace renderer
 {
@@ -96,6 +97,8 @@ namespace renderer
 	public:
 		void Initialize(Context* context, VulkanRenderer* renderer);
 
+		void PhysicsUpdate(float delta_time);
+
 		void CleanUp();
 
 		RenderObjectHandle InvokeParticleGenShader();
@@ -147,6 +150,9 @@ namespace renderer
 			ComputePipeline pipeline;
 		}particle_neighbors_{};
 
+		std::vector<StaticParticle> static_particles_{};
+		bool update_physics_{};
+		MPMContext mpm_context_{};
 		Context* context_{};
 		VulkanRenderer* renderer_{};
 	};
