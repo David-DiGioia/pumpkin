@@ -49,7 +49,7 @@ namespace renderer
 
 		void GridToParticle();
 
-		void AdvectParticles();
+		void AdvectParticles(float delta_time);
 
 		// Kernel for interpolation function.
 		float CubicKernel(float x) const;

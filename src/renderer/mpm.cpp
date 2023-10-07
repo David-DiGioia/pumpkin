@@ -10,6 +10,11 @@ namespace renderer
 	constexpr uint32_t GRID_NODE_ROW_COUNT{ (CHUNK_ROW_VOXEL_COUNT / GRID_SIZE) + 1 };
 	constexpr uint32_t GRID_NODE_COUNT{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
 
+	glm::mat3 OuterProduct(const glm::vec3& v1, const glm::vec3& v2)
+	{
+		return glm::mat3{ v1 * v2.x, v1 * v2.y, v1 * v2.z };
+	}
+
 	void MPMContext::Initialize(std::vector<MaterialPoint>&& particles, float chunk_width)
 	{
 		particles_ = std::move(particles);
@@ -35,7 +40,7 @@ namespace renderer
 		UpdateGridVelocity(delta_time);
 		UpdateParticleDeformationGradient(delta_time);
 		GridToParticle();
-		AdvectParticles();
+		AdvectParticles(delta_time);
 	}
 
 	const std::vector<MaterialPoint>& MPMContext::GetParticles() const
@@ -96,11 +101,8 @@ namespace renderer
 		for (MaterialPoint& p : particles_)
 		{
 			glm::mat3 sum{};
-			for (const GridNode& node : nodes_)
-			{
-				glm::vec3 w_gradient{ GetWeightGradient(node.position, p.position) };
-				glm::mat3 v_times_w_transpose{ node.velocity * w_gradient.x, node.velocity * w_gradient.y, node.velocity * w_gradient.z };
-				sum += v_times_w_transpose;
+			for (const GridNode& node : nodes_) {
+				sum += OuterProduct(node.velocity, GetWeightGradient(node.position, p.position));
 			}
 
 			p.deformation_gradient = (glm::mat3(1.0f) + delta_time * sum) * p.deformation_gradient; // Equation (181).
@@ -109,11 +111,24 @@ namespace renderer
 
 	void MPMContext::GridToParticle()
 	{
-		// TODO: Pick up here.
+		for (MaterialPoint& p : particles_)
+		{
+			p.velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
+			p.affine_matrix = glm::mat3{ 0.0f };
+			for (const GridNode& node : nodes_)
+			{
+				float w{ GetWeight(node.position, p.position) };
+				p.velocity += w * node.velocity;                                                // Equation (175).
+				p.affine_matrix += w * OuterProduct(node.velocity, node.position - p.position); // Equation (176).
+			}
+		}
 	}
 
-	void MPMContext::AdvectParticles()
+	void MPMContext::AdvectParticles(float delta_time)
 	{
+		for (MaterialPoint& p : particles_) {
+			p.position += delta_time * p.velocity;
+		}
 	}
 
 	// Equation (122).
