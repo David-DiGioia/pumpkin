@@ -98,6 +98,7 @@ private:
 	bool open_project_selection_popup_{ true };
 	char* popup_name_buffer_;
 	bool pumpkin_proj_selected_{ false };
+	bool pumpkin_proj_loaded_{ false };
 
 	uint32_t gen_shader_index_{ renderer::NULL_INDEX };
 	bool gen_shader_compile_error_{ false };

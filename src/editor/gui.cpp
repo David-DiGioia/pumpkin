@@ -65,7 +65,6 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 {
 	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
-	CheckProjectSelectionPopup();
 	MainMenu();
 	TreeView();
 	//ImGui::ShowDemoWindow();
@@ -75,6 +74,7 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	CameraControls();
 	ParticleEditor();
 	Debug();
+	CheckProjectSelectionPopup();
 }
 
 void EditorGui::CheckProjectSelectionPopup()
@@ -471,14 +471,17 @@ void EditorGui::EngineViewport(ImTextureID* rendered_image_id)
 		return;
 	}
 
-	input_.ProcessViewportAllInput(editor_, viewport_extent_);
+	if (pumpkin_proj_loaded_)
+	{
+		input_.ProcessViewportAllInput(editor_, viewport_extent_);
 
-	if (ImGui::IsWindowFocused()) {
-		input_.ProcessViewportFocusInput(editor_, viewport_extent_);
-	}
+		if (ImGui::IsWindowFocused()) {
+			input_.ProcessViewportFocusInput(editor_, viewport_extent_);
+		}
 
-	if ((viewport_extent_.width != 0) && (viewport_extent_.height != 0)) {
-		ImGui::Image(*rendered_image_id, ImGui::GetContentRegionAvail());
+		if ((viewport_extent_.width != 0) && (viewport_extent_.height != 0)) {
+			ImGui::Image(*rendered_image_id, ImGui::GetContentRegionAvail());
+		}
 	}
 
 	ImGui::End();
@@ -764,6 +767,7 @@ void EditorGui::LoadProject()
 	editor_->LoadProject(popup_selected_file_);
 	popup_selected_file_ = {};
 	pumpkin_proj_selected_ = false;
+	pumpkin_proj_loaded_ = true;
 }
 
 std::set<EditorNode*, EditorNodeCmp> EditorGui::GetSortedChildren(EditorNode* node)
