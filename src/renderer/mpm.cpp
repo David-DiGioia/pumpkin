@@ -4,12 +4,9 @@
 #include "logger.h"
 #include "common_constants.h"
 
-//#include <float.h>
-//unsigned int fp_control_state = _controlfp(_EM_INEXACT, _MCW_EM);
-
 namespace renderer
 {
-	constexpr uint32_t GRID_SIZE{ 8 }; // Grid cell width in units of voxels.
+	constexpr uint32_t GRID_SIZE{ 4 }; // Grid cell width in units of voxels.
 	constexpr uint32_t GRID_NODE_ROW_COUNT{ (CHUNK_ROW_VOXEL_COUNT / GRID_SIZE) + 1 };
 	constexpr uint32_t GRID_NODE_COUNT{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
 
@@ -63,7 +60,13 @@ namespace renderer
 
 	void MPMContext::ParticleToGrid()
 	{
-		float d_inverse{ GetDInverse() };
+		//float d_inverse{ GetDInverse() };
+
+		//std::vector<glm::mat3> d_inverses{};
+		//d_inverses.reserve(particles_.size());
+		//for (const MaterialPoint& p : particles_) {
+		//	d_inverses.push_back(GetDInverse2(p.position));
+		//}
 
 		// TODO: Later, should only iterate over particles within radius. Or approximately so. Will requiring binning the particles.
 		for (GridNode& node : nodes_)
@@ -71,12 +74,14 @@ namespace renderer
 			node.mass = 0.0f;
 			node.momentum = glm::vec3{ 0.0f, 0.0f, 0.0f };
 
+			uint32_t p_idx{0};
 			for (const MaterialPoint& p : particles_)
 			{
 				float weight{ GetWeight(node.position, p.position) };
 
 				node.mass += weight * p.mass;                                                                                 // Equation (172).
-				node.momentum += weight * p.mass * (p.velocity + p.affine_matrix * d_inverse * (node.position - p.position)); // Equation (173).
+				//node.momentum += weight * p.mass * (p.velocity + p.affine_matrix * d_inverses[p_idx++] * (node.position - p.position)); // Equation (173).
+				node.momentum += weight * p.mass * p.velocity;
 			}
 		}
 	}
@@ -86,10 +91,11 @@ namespace renderer
 		// TODO: This can later be put into ParticleToGrid(). Probably will me more efficient.
 		for (GridNode& node : nodes_)
 		{
-			if (node.mass == 0.0f) {
-				continue;
-			}
 			node.velocity = (node.mass == 0.0f) ? glm::vec3{ 0.0f, 0.0f, 0.0f } : node.momentum / node.mass;
+
+			if (std::isnan(node.velocity.x)) {
+				__debugbreak();
+			}
 		}
 	}
 
@@ -107,6 +113,10 @@ namespace renderer
 			}
 
 			node.force = -particle_initial_volume_ * sum;
+
+			if (std::isnan(node.force.x)) {
+				__debugbreak();
+			}
 		}
 	}
 
@@ -118,6 +128,10 @@ namespace renderer
 				continue;
 			}
 			node.velocity += delta_time * (node.force / node.mass);
+
+			if ((node.position.y == 0.0f) && (node.velocity.y < 0.0f)) {
+				node.velocity.y = 0.0f;
+			}
 		}
 	}
 
@@ -260,10 +274,14 @@ namespace renderer
 	{
 		glm::mat3 f_inv_transpose{ glm::transpose(glm::inverse(p.deformation_gradient)) };
 		float j{ glm::determinant(p.deformation_gradient) };
-		return p.mu * (p.deformation_gradient - f_inv_transpose) + p.lambda * std::logf(j) * f_inv_transpose; // Equation (48).
+		auto tmp = p.mu * (p.deformation_gradient - f_inv_transpose) + p.lambda * std::logf(j) * f_inv_transpose; // Equation (48).
+		if (std::isnan(tmp[0][0])) {
+			__debugbreak();
+		}
+		return tmp;
 	}
 
-	float MPMContext::GetDInverse() const
+	float MPMContext::GetDInverse(float delta_x) const
 	{
 		float d{};
 
@@ -273,16 +291,25 @@ namespace renderer
 			logger::Error("Linear D^-1 does not exist. Do not call this function when using a linear interpolation kernel.\n");
 			break;
 		case MPMInterpolationKernel::QUADRATIC:
-			d = (1.0f / 4.0f) * particle_radius_ * particle_radius_; // From paragraph after equation (176).
+			d = (1.0f / 4.0f) * delta_x * delta_x; // From paragraph after equation (176).
 			break;
 		case MPMInterpolationKernel::CUBIC:
-			d = (1.0f / 3.0f) * particle_radius_ * particle_radius_; // From paragraph after equation (176).
+			d = (1.0f / 3.0f) * delta_x * delta_x; // From paragraph after equation (176).
 			break;
 		default:
 			logger::Error("Unrecognized MPM interpolation kernel.\n");
 		}
 
 		return 1.0f / d;
+	}
+
+	glm::mat3 MPMContext::GetDInverse2(const glm::vec3& particle_pos) const
+	{
+		glm::mat3 sum{};
+		for (const GridNode& node : nodes_) {
+			sum += GetWeight(node.position, particle_pos) * OuterProduct(node.position - particle_pos, node.position - particle_pos);
+		}
+		return sum;
 	}
 
 	glm::uvec3 MPMContext::GridNodeIndexToCoordinate(uint32_t index) const
