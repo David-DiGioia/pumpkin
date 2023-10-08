@@ -4,15 +4,28 @@
 #include "logger.h"
 #include "common_constants.h"
 
+//#include <float.h>
+//unsigned int fp_control_state = _controlfp(_EM_INEXACT, _MCW_EM);
+
 namespace renderer
 {
-	constexpr uint32_t GRID_SIZE{ 4 }; // Grid cell width in units of voxels.
+	constexpr uint32_t GRID_SIZE{ 8 }; // Grid cell width in units of voxels.
 	constexpr uint32_t GRID_NODE_ROW_COUNT{ (CHUNK_ROW_VOXEL_COUNT / GRID_SIZE) + 1 };
 	constexpr uint32_t GRID_NODE_COUNT{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
 
 	glm::mat3 OuterProduct(const glm::vec3& v1, const glm::vec3& v2)
 	{
 		return glm::mat3{ v1 * v2.x, v1 * v2.y, v1 * v2.z };
+	}
+
+	float CalculateMu(float youngs_modulus, float poissons_ratio)
+	{
+		return youngs_modulus / (2.0f * (1.0f + poissons_ratio));
+	}
+
+	float CalculateLambda(float youngs_modulus, float poissons_ratio)
+	{
+		return (youngs_modulus * poissons_ratio) / ((1.0f + poissons_ratio) * (1.0f - 2.0f * poissons_ratio));
 	}
 
 	void MPMContext::Initialize(std::vector<MaterialPoint>&& particles, float chunk_width)
@@ -71,7 +84,11 @@ namespace renderer
 	void MPMContext::ComputeGridVelocities()
 	{
 		// TODO: This can later be put into ParticleToGrid(). Probably will me more efficient.
-		for (GridNode& node : nodes_) {
+		for (GridNode& node : nodes_)
+		{
+			if (node.mass == 0.0f) {
+				continue;
+			}
 			node.velocity = (node.mass == 0.0f) ? glm::vec3{ 0.0f, 0.0f, 0.0f } : node.momentum / node.mass;
 		}
 	}
@@ -80,6 +97,10 @@ namespace renderer
 	{
 		for (GridNode& node : nodes_)
 		{
+			if (node.mass == 0.0f) {
+				continue;
+			}
+
 			glm::vec3 sum{};
 			for (const MaterialPoint& p : particles_) {
 				sum += GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient) * GetWeightGradient(node.position, p.position);
@@ -91,7 +112,11 @@ namespace renderer
 
 	void MPMContext::UpdateGridVelocity(float delta_time)
 	{
-		for (GridNode& node : nodes_) {
+		for (GridNode& node : nodes_)
+		{
+			if (node.mass == 0.0f) {
+				continue;
+			}
 			node.velocity += delta_time * (node.force / node.mass);
 		}
 	}
@@ -101,7 +126,11 @@ namespace renderer
 		for (MaterialPoint& p : particles_)
 		{
 			glm::mat3 sum{};
-			for (const GridNode& node : nodes_) {
+			for (const GridNode& node : nodes_)
+			{
+				if (node.mass == 0.0f) {
+					continue;
+				}
 				sum += OuterProduct(node.velocity, GetWeightGradient(node.position, p.position));
 			}
 
@@ -117,6 +146,9 @@ namespace renderer
 			p.affine_matrix = glm::mat3{ 0.0f };
 			for (const GridNode& node : nodes_)
 			{
+				if (node.mass == 0.0f) {
+					continue;
+				}
 				float w{ GetWeight(node.position, p.position) };
 				p.velocity += w * node.velocity;                                                // Equation (175).
 				p.affine_matrix += w * OuterProduct(node.velocity, node.position - p.position); // Equation (176).

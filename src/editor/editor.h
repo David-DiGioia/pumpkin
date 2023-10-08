@@ -241,6 +241,8 @@ public:
 
 	void GenerateParticles();
 
+	void PlayParticleSimulation();
+
 	void SetMultiselect(bool multiselect);
 
 	EditorNode* GetActiveSelectionNode();

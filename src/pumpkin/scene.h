@@ -94,6 +94,8 @@ namespace pmk
 		// Generate particles and attach render object to specified node.
 		void GenerateParticlesOnNode(Node* node);
 
+		void PlayParticleSimulation();
+
 		// Update all render objects transforms to reflect their containing node.
 		void UploadRenderObjects();
 

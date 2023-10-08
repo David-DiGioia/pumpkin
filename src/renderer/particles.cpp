@@ -48,6 +48,7 @@ namespace renderer
 		}
 
 		mpm_context_.SimulateStep(delta_time);
+		GenerateDynamicParticleMesh(mpm_context_.GetParticles(), 1.0f);
 	}
 
 	void ParticleContext::CleanUp()
@@ -61,7 +62,7 @@ namespace renderer
 		particle_neighbors_.pipeline.CleanUp();
 	}
 
-	void ParticleContext::InvokeParticleGenShader(RenderObjectHandle ro_target)
+	void ParticleContext::InvokeParticleGenShader()
 	{
 		ComputePipeline* particle_gen_pipeline{ renderer_->user_compute_shaders_[particle_gen_.shader_idx] };
 
@@ -108,7 +109,7 @@ namespace renderer
 		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
 
 		constexpr float particle_size{ 0.1f };
-		GenerateStaticParticleMesh(ro_target, static_particles_, side_flags, particle_size);
+		GenerateStaticParticleMesh(static_particles_, side_flags, particle_size);
 	}
 
 	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)
@@ -132,6 +133,45 @@ namespace renderer
 	DescriptorSetLayoutResource& ParticleContext::GetParticleGenLayoutResource()
 	{
 		return particle_gen_.layout_resource;
+	}
+
+	void ParticleContext::EnablePhysicsUpdate()
+	{
+		TransferStaticParticlesToMPM();
+		update_physics_ = true;
+	}
+
+	void ParticleContext::TransferStaticParticlesToMPM()
+	{
+		std::vector<MaterialPoint> mpm_particles{};
+
+		constexpr float youngs_modulus{ 3.0f };
+		constexpr float poissons_ratio{ 0.4f };
+		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
+		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
+
+		for (uint32_t i{ 0 }; i < (uint32_t)static_particles_.size(); ++i)
+		{
+			if (static_particles_[i].type == ParticleType::EMPTY) {
+				continue;
+			}
+
+			glm::uvec3 coord{ ParticleIndexToCoordinate(i) };
+
+			MaterialPoint mpm_particle{
+				.mass = 1.0f,
+				.mu = mu,
+				.lambda = lambda,
+				.position = glm::vec3{coord},
+				.velocity = glm::vec3{0.1f, 0.0f, 0.0f},
+				.affine_matrix = {},
+				.deformation_gradient = glm::mat3{1.0f},
+			};
+
+			mpm_particles.push_back(mpm_particle);
+		}
+
+		mpm_context_.Initialize(std::move(mpm_particles), 64.0f);
 	}
 
 	void ParticleContext::InitializeParticleGenShaderResources()
@@ -250,7 +290,12 @@ namespace renderer
 		NameObject(context_->device, particle_neighbors_.pipeline.layout, "Particle_Neighbor_Pipeline_Layout");
 	}
 
-	void ParticleContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::vector<MaterialPoint>& particles, float particle_width)
+	void ParticleContext::SetTargetRenderObject(RenderObjectHandle ro_target)
+	{
+		ro_target_ = ro_target;
+	}
+
+	void ParticleContext::GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles, float particle_width)
 	{
 		Mesh* mesh{ new Mesh{} };
 		mesh->geometries.resize(1);
@@ -291,16 +336,16 @@ namespace renderer
 		}
 
 		CalculateTangents(mesh);
-		renderer_->ReplaceRenderObject(ro_target, mesh, { 0 });
+		renderer_->ReplaceRenderObject(ro_target_, mesh, { 0 });
 	}
 
 
-	void ParticleContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
+	void ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
 	{
 		// When enabled, forces to always generate dynamic particle meshes for debugging purposes.
 		if (DISABLE_STATIC_PARTICLE_MESH)
 		{
-			GenerateDynamicParticleMesh(ro_target, StaticParticleToDynamic(particles, side_flags, particle_width), particle_width);
+			GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, side_flags, particle_width), particle_width);
 			return;
 		}
 
@@ -310,7 +355,7 @@ namespace renderer
 
 		StaticParticleMeshGenerator gen{};
 		Mesh* mesh{ gen.Generate(particles, side_flags) };
-		renderer_->ReplaceRenderObject(ro_target, mesh, { 0 });
+		renderer_->ReplaceRenderObject(ro_target_, mesh, { 0 });
 	}
 
 	std::vector<Vertex> ParticleContext::GetParticleVertices(float particle_width) const

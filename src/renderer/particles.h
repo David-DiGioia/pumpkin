@@ -95,22 +95,29 @@ namespace renderer
 		void CleanUp();
 
 		// Generated render object will replace ro_target.
-		void InvokeParticleGenShader(RenderObjectHandle ro_target);
+		void InvokeParticleGenShader();
 
 		void SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer);
 
 		DescriptorSetLayoutResource& GetParticleGenLayoutResource();
+
+		void EnablePhysicsUpdate();
+
+		void TransferStaticParticlesToMPM();
+
+		void SetTargetRenderObject(RenderObjectHandle ro_target);
 
 	private:
 		void InitializeParticleGenShaderResources();
 
 		void InitializeParticleNeighborsShaderResources();
 
+
 		// Generates triangles for each individual particle as a cube. Can be done on host or device.
-		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::vector<MaterialPoint>& particles, float particle_width);
+		void GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles, float particle_width);
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
-		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
+		void GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
 
 		// Get the vertex data for a single particle, eg a cube.
 		std::vector<Vertex> GetParticleVertices(float particle_width) const;
@@ -146,6 +153,7 @@ namespace renderer
 
 		std::vector<StaticParticle> static_particles_{};
 		bool update_physics_{};
+		RenderObjectHandle ro_target_{}; // Target render object for updating during particle simulation.
 		MPMContext mpm_context_{};
 		Context* context_{};
 		VulkanRenderer* renderer_{};

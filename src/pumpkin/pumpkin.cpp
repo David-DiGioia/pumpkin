@@ -5,6 +5,8 @@
 
 namespace pmk
 {
+	constexpr float PHYSICS_UPDATE_TIME{ 1.0f / 60.0f };
+
 	void Pumpkin::Initialize()
 	{
 		logger::Print("Pumpkin Engine Version %d.%d\n\n", config::PUMPKIN_VERSION_MAJOR, config::PUMPKIN_VERSION_MINOR);
@@ -26,6 +28,12 @@ namespace pmk
 
 	void Pumpkin::HostWork()
 	{
+		physics_time_accumulator_ += delta_time_;
+		if (physics_time_accumulator_ >= PHYSICS_UPDATE_TIME)
+		{
+			renderer_.ParticleUpdate(PHYSICS_UPDATE_TIME);
+			physics_time_accumulator_ = 0.0f;
+		}
 	}
 
 	void Pumpkin::HostRenderWork()

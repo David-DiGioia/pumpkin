@@ -689,6 +689,16 @@ void EditorGui::ParticleEditor()
 		if (ImGui::Button("Generate particles")) {
 			editor_->GenerateParticles();
 		}
+
+		ImGui::Dummy({});
+		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+		if (ImGui::Button("Play")) {
+			editor_->PlayParticleSimulation();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Pause")) {
+			//editor_->PauseParticleSimulation();
+		}
 	}
 
 	ShaderProperty("Update", &update_shader_index_, &update_shader_compile_error_);

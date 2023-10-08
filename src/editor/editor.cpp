@@ -520,6 +520,11 @@ void Editor::GenerateParticles()
 	pumpkin_->GetScene().GenerateParticlesOnNode(particle_node_->node);
 }
 
+void Editor::PlayParticleSimulation()
+{
+	pumpkin_->GetScene().PlayParticleSimulation();
+}
+
 void Editor::SetMultiselect(bool multiselect)
 {
 	multi_select_enabled_ = multiselect;

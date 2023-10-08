@@ -1449,12 +1449,23 @@ namespace renderer
 			materials_.push_back(new Material{ default_material });
 		}
 
-		particle_context_.InvokeParticleGenShader(ro_target);
+		particle_context_.SetTargetRenderObject(ro_target);
+		particle_context_.InvokeParticleGenShader();
 	}
 
 	void VulkanRenderer::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)
 	{
 		particle_context_.SetParticleGenShader(shader_idx, custom_ubo_buffer);
+	}
+
+	void VulkanRenderer::PlayParticleSimulation()
+	{
+		particle_context_.EnablePhysicsUpdate();
+	}
+
+	void VulkanRenderer::ParticleUpdate(float delta_time)
+	{
+		particle_context_.PhysicsUpdate(delta_time);
 	}
 
 	void VulkanRenderer::ImportShader(const std::filesystem::path& spirv_path)

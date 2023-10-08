@@ -251,6 +251,11 @@ namespace pmk
 		renderer_->UpdateMaterials();
 	}
 
+	void Scene::PlayParticleSimulation()
+	{
+		renderer_->PlayParticleSimulation();
+	}
+
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
 	{
 		glm::mat4 local_transform{ root->GetLocalTransform() };

@@ -50,8 +50,14 @@ namespace renderer
 
 		void SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer);
 
+		void PlayParticleSimulation();
+
+		// Called at regular intervals to advance particles by one time step.
+		void ParticleUpdate(float delta_time);
+
 		void ImportShader(const std::filesystem::path& spirv_path);
 
+		// GPU work for renderer to do each frame.
 		void ComputeWork();
 
 		uint32_t MeshCount() const;

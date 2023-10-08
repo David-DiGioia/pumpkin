@@ -8,7 +8,6 @@ namespace renderer
 	struct MaterialPoint
 	{
 		float mass;
-		float volume;
 		float mu;
 		float lambda;
 		glm::vec3 position;
@@ -26,6 +25,10 @@ namespace renderer
 		glm::vec3 momentum;
 		glm::vec3 force;
 	};
+
+	float CalculateMu(float youngs_modulus, float poissons_ratio);
+
+	float CalculateLambda(float youngs_modulus, float poissons_ratio);
 
 	class MPMContext
 	{

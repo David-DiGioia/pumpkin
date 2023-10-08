@@ -99,6 +99,7 @@ namespace pmk
 		Scene scene_{};
 
 		float delta_time_{};
+		float physics_time_accumulator_{};
 		std::chrono::steady_clock::time_point last_time_{};
 
 		std::vector<renderer::Raycast> queued_raycasts_{};
