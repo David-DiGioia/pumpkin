@@ -52,6 +52,12 @@ namespace renderer
 
 		void PlayParticleSimulation();
 
+		void PauseParticleSimulation();
+
+		void ResetParticleSimulation();
+
+		bool GetParticleSimulationEnabled() const;
+
 		// Called at regular intervals to advance particles by one time step.
 		void ParticleUpdate(float delta_time);
 

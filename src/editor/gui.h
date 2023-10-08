@@ -100,7 +100,5 @@ private:
 	bool pumpkin_proj_selected_{ false };
 
 	uint32_t gen_shader_index_{ renderer::NULL_INDEX };
-	uint32_t update_shader_index_{ renderer::NULL_INDEX };
 	bool gen_shader_compile_error_{ false };
-	bool update_shader_compile_error_{ false };
 };

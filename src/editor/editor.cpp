@@ -525,6 +525,21 @@ void Editor::PlayParticleSimulation()
 	pumpkin_->GetScene().PlayParticleSimulation();
 }
 
+void Editor::PauseParticleSimulation()
+{
+	pumpkin_->GetScene().PauseParticleSimulation();
+}
+
+void Editor::ResetParticleSimulation()
+{
+	pumpkin_->GetScene().ResetParticleSimulation();
+}
+
+bool Editor::GetParticleSimulationEnabled() const
+{
+	return pumpkin_->GetScene().GetParticleSimulationEnabled();
+}
+
 void Editor::SetMultiselect(bool multiselect)
 {
 	multi_select_enabled_ = multiselect;

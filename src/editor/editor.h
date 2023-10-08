@@ -243,6 +243,12 @@ public:
 
 	void PlayParticleSimulation();
 
+	void PauseParticleSimulation();
+
+	void ResetParticleSimulation();
+
+	bool GetParticleSimulationEnabled() const;
+
 	void SetMultiselect(bool multiselect);
 
 	EditorNode* GetActiveSelectionNode();

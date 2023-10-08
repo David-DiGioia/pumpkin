@@ -103,6 +103,12 @@ namespace renderer
 
 		void EnablePhysicsUpdate();
 
+		void DisablePhysicsUpdate();
+
+		void ResetParticles();
+
+		bool GetPhysicsUpdateEnabled() const;
+
 		void TransferStaticParticlesToMPM();
 
 		void SetTargetRenderObject(RenderObjectHandle ro_target);
@@ -152,6 +158,7 @@ namespace renderer
 		}particle_neighbors_{};
 
 		std::vector<StaticParticle> static_particles_{};
+		bool has_played_{}; // True if the particle simulation has been played yet.
 		bool update_physics_{};
 		RenderObjectHandle ro_target_{}; // Target render object for updating during particle simulation.
 		MPMContext mpm_context_{};

@@ -137,8 +137,30 @@ namespace renderer
 
 	void ParticleContext::EnablePhysicsUpdate()
 	{
-		TransferStaticParticlesToMPM();
+		if (!has_played_)
+		{
+			has_played_ = true;
+			TransferStaticParticlesToMPM();
+		}
 		update_physics_ = true;
+	}
+
+	void ParticleContext::DisablePhysicsUpdate()
+	{
+		update_physics_ = false;
+	}
+
+	void ParticleContext::ResetParticles()
+	{
+		TransferStaticParticlesToMPM();
+		if (!update_physics_) {
+			GenerateDynamicParticleMesh(mpm_context_.GetParticles(), 1.0f);
+		}
+	}
+
+	bool ParticleContext::GetPhysicsUpdateEnabled() const
+	{
+		return update_physics_;
 	}
 
 	void ParticleContext::TransferStaticParticlesToMPM()

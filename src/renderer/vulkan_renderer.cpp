@@ -1463,6 +1463,21 @@ namespace renderer
 		particle_context_.EnablePhysicsUpdate();
 	}
 
+	void VulkanRenderer::PauseParticleSimulation()
+	{
+		particle_context_.DisablePhysicsUpdate();
+	}
+
+	void VulkanRenderer::ResetParticleSimulation()
+	{
+		particle_context_.ResetParticles();
+	}
+
+	bool VulkanRenderer::GetParticleSimulationEnabled() const
+	{
+		return particle_context_.GetPhysicsUpdateEnabled();
+	}
+
 	void VulkanRenderer::ParticleUpdate(float delta_time)
 	{
 		particle_context_.PhysicsUpdate(delta_time);

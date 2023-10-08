@@ -692,24 +692,26 @@ void EditorGui::ParticleEditor()
 
 		ImGui::Dummy({});
 		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
-		if (ImGui::Button("Play")) {
-			editor_->PlayParticleSimulation();
+
+		if (editor_->GetParticleSimulationEnabled())
+		{
+			if (ImGui::Button("Pause")) {
+				editor_->PauseParticleSimulation();
+			}
+		}
+		else
+		{
+			if (ImGui::Button("Play ")) {
+				editor_->PlayParticleSimulation();
+			}
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Pause")) {
-			//editor_->PauseParticleSimulation();
+		if (ImGui::Button("Reset")) {
+			editor_->ResetParticleSimulation();
 		}
 	}
 
-	ShaderProperty("Update", &update_shader_index_, &update_shader_compile_error_);
-	if (update_shader_index_ != renderer::NULL_INDEX) {
-		editor_->GetShader(update_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT);
-	}
-
-	//ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
-
 	ImGui::End();
-
 }
 
 void EditorGui::Debug()
