@@ -97,7 +97,7 @@ void EditorInput::ProcessViewportAllInput(Editor* editor, const renderer::Extent
 		editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
 		constexpr float raycast_radius{ 3.0f }; // If mouse moves out of this pixel radius between clicking and releasing, ray is not cast.
 
-		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left, false))
+		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left, false) && (editor->GetActiveTransformType() == TransformType::NONE))
 		{
 			mouse_down_pos_ = mouse_pos;
 			should_cast_ray_on_release_ = true;
@@ -182,8 +182,6 @@ void EditorInput::ProcessViewportFocusInput(Editor* editor, const renderer::Exte
 		float radius{ 5.0f };
 		controller.Focus(editor->GetSelectedNodesAveragePosition(), radius);
 	}
-
-	// from here. TODO: erase this comment.
 
 	// Zoom / change speed with scroll wheel.
 	float wheel{ ImGui::GetIO().MouseWheel };
