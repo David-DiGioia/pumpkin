@@ -76,7 +76,7 @@ private:
 
 	void ShaderProperty(const std::string& name, uint32_t* shader_index, bool* compile_error);
 
-	std::set<EditorNode*, EditorNodeCmp> GetSortedChildren(EditorNode* node);
+	std::multiset<EditorNode*, EditorNodeCmp> GetSortedChildren(EditorNode* node);
 
 	Editor* editor_{};
 	EditorInput input_{};

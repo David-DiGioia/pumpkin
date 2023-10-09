@@ -770,10 +770,10 @@ void EditorGui::LoadProject()
 	pumpkin_proj_loaded_ = true;
 }
 
-std::set<EditorNode*, EditorNodeCmp> EditorGui::GetSortedChildren(EditorNode* node)
+std::multiset<EditorNode*, EditorNodeCmp> EditorGui::GetSortedChildren(EditorNode* node)
 {
 	auto node_set{ node->node->GetChildren() };
-	std::set<EditorNode*, EditorNodeCmp> sorted_editor_nodes{};
+	std::multiset<EditorNode*, EditorNodeCmp> sorted_editor_nodes{};
 
 	for (pmk::Node* node : node->node->GetChildren()) {
 		sorted_editor_nodes.insert(editor_->NodeToEditorNode(node));
