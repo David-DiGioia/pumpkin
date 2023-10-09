@@ -540,6 +540,11 @@ bool Editor::GetParticleSimulationEnabled() const
 	return pumpkin_->GetScene().GetParticleSimulationEnabled();
 }
 
+bool Editor::GetParticleSimulationEmpty() const
+{
+	return pumpkin_->GetScene().GetParticleSimulationEmpty();
+}
+
 void Editor::SetMultiselect(bool multiselect)
 {
 	multi_select_enabled_ = multiselect;

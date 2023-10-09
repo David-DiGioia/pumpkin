@@ -109,6 +109,8 @@ namespace renderer
 
 		bool GetPhysicsUpdateEnabled() const;
 
+		bool GetParticlesEmpty() const;
+
 		void TransferStaticParticlesToMPM();
 
 		void SetTargetRenderObject(RenderObjectHandle ro_target);

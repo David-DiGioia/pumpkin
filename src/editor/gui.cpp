@@ -696,21 +696,24 @@ void EditorGui::ParticleEditor()
 		ImGui::Dummy({});
 		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
 
-		if (editor_->GetParticleSimulationEnabled())
+		if (!editor_->GetParticleSimulationEmpty())
 		{
-			if (ImGui::Button("Pause")) {
-				editor_->PauseParticleSimulation();
+			if (editor_->GetParticleSimulationEnabled())
+			{
+				if (ImGui::Button("Pause")) {
+					editor_->PauseParticleSimulation();
+				}
 			}
-		}
-		else
-		{
-			if (ImGui::Button("Play ")) {
-				editor_->PlayParticleSimulation();
+			else
+			{
+				if (ImGui::Button("Play ")) {
+					editor_->PlayParticleSimulation();
+				}
 			}
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Reset")) {
-			editor_->ResetParticleSimulation();
+			ImGui::SameLine();
+			if (ImGui::Button("Reset")) {
+				editor_->ResetParticleSimulation();
+			}
 		}
 	}
 

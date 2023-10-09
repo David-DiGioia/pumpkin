@@ -1478,6 +1478,11 @@ namespace renderer
 		return particle_context_.GetPhysicsUpdateEnabled();
 	}
 
+	bool VulkanRenderer::GetParticleSimulationEmpty() const
+	{
+		return particle_context_.GetParticlesEmpty();
+	}
+
 	void VulkanRenderer::ParticleUpdate(float delta_time)
 	{
 		particle_context_.PhysicsUpdate(delta_time);

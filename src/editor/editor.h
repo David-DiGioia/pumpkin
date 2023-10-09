@@ -249,6 +249,8 @@ public:
 
 	bool GetParticleSimulationEnabled() const;
 
+	bool GetParticleSimulationEmpty() const;
+
 	void SetMultiselect(bool multiselect);
 
 	EditorNode* GetActiveSelectionNode();

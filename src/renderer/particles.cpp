@@ -163,6 +163,11 @@ namespace renderer
 		return update_physics_;
 	}
 
+	bool ParticleContext::GetParticlesEmpty() const
+	{
+		return static_particles_.empty();
+	}
+
 	void ParticleContext::TransferStaticParticlesToMPM()
 	{
 		std::vector<MaterialPoint> mpm_particles{};

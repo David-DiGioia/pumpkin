@@ -271,6 +271,11 @@ namespace pmk
 		return renderer_->GetParticleSimulationEnabled();
 	}
 
+	bool Scene::GetParticleSimulationEmpty() const
+	{
+		return renderer_->GetParticleSimulationEmpty();
+	}
+
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
 	{
 		glm::mat4 local_transform{ root->GetLocalTransform() };

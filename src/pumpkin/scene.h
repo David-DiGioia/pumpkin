@@ -102,6 +102,8 @@ namespace pmk
 
 		bool GetParticleSimulationEnabled() const;
 
+		bool GetParticleSimulationEmpty() const;
+
 		// Update all render objects transforms to reflect their containing node.
 		void UploadRenderObjects();
 
