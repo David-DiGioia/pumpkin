@@ -387,6 +387,10 @@ namespace renderer
 		NameObject(context_->device, outline_pipeline_.pipeline, "Outline_Pipeline");
 		NameObject(context_->device, outline_pipeline_.layout, "Outline_Pipeline_Layout");
 
+		//grid_pipeline_.Initialize(
+
+		//);
+
 		InitializeFrameResources();
 	}
 
@@ -458,13 +462,13 @@ namespace renderer
 		outline_objects_.clear();
 	}
 
-	void EditorBackend::SetMPMGrid(float chunk_width, uint32_t grid_row_count, uint32_t render_object_index)
+	void EditorBackend::SetMPMGrid(const glm::vec3& color, float chunk_width, uint32_t grid_row_count, uint32_t render_object_index)
 	{
-		grid_.chunk_width = chunk_width;
 		grid_.render_object_index = render_object_index;
+		grid_.color = color;
 
 		// Construct vertex buffer for grid lines.
-
+		// TODO: This.
 	}
 
 	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
@@ -656,6 +660,65 @@ namespace renderer
 
 	void EditorBackend::RenderMPMGrid(VkCommandBuffer cmd)
 	{
-		// TODO: Pickup here.
+		Extent viewport_extents{ renderer_->GetViewportExtent() };
+		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.0f, 1.0f };
+
+		VkRenderingAttachmentInfo color_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = imgui_backend_.GetViewportImage().image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingInfo rendering_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = { viewport_extents.width, viewport_extents.height },
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr,
+		};
+
+		vkCmdBeginRendering(cmd, &rendering_info);
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			grid_pipeline_.layout,
+			EDITOR_CAMERA_UBO_SET,
+			1,
+			&renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, grid_pipeline_.pipeline);
+
+		VkDeviceSize zero_offset{ 0 };
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[grid_.render_object_index] };
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			grid_pipeline_.layout,
+			EDITOR_RENDER_OBJECT_UBO_SET,
+			1,
+			&render_object->ubo_descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
+
+		vkCmdBindVertexBuffers(cmd, 0, 1, &grid_.vertices.buffer, &zero_offset);
+		vkCmdDraw(cmd, grid_.vertex_count, 1, 0, 0);
+		vkCmdEndRendering(cmd);
 	}
 }
