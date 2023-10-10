@@ -717,6 +717,15 @@ void EditorGui::ParticleEditor()
 		}
 	}
 
+	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+	ImGui::Text("Debug rendering");
+
+	ImGui::Text("Show grid");
+	ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+	if (ImGui::Checkbox("##ShowMPMGrid", &show_particle_overlay_)) {
+		logger::Print("Checkbox clicked?\n");
+	}
+
 	ImGui::End();
 }
 

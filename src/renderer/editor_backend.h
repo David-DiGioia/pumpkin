@@ -112,6 +112,8 @@ namespace renderer
 
 		void ClearOutlineSets();
 
+		void SetMPMGrid(float chunk_width, uint32_t grid_row_count, uint32_t render_object_index);
+
 	private:
 		struct OutlineObjects
 		{
@@ -122,9 +124,16 @@ namespace renderer
 		struct FrameResources
 		{
 			ImageResource mask_image;
-			DescriptorSetResource outline_set_resource_{};
+			DescriptorSetResource outline_set_resource;
 		};
 
+		struct MPMGrid
+		{
+			float chunk_width;
+			uint32_t render_object_index;
+			uint32_t vertex_count;
+			BufferResource vertices;
+		};
 
 		FrameResources& GetCurrentFrame();
 
@@ -134,9 +143,13 @@ namespace renderer
 
 		void DestroyFrameImages();
 
+		void RenderOutlines(VkCommandBuffer cmd);
+
 		void MaskRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set);
 
 		void OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set);
+
+		void RenderMPMGrid(VkCommandBuffer cmd);
 
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 
@@ -147,5 +160,6 @@ namespace renderer
 		GraphicsPipeline outline_pipeline_{};
 		std::vector<OutlineObjects> outline_objects_{}; // Editor render pass will draw outlines around these sets of render objects.
 		DescriptorSetLayoutResource outline_layout_resource_{};
+		MPMGrid grid_{};
 	};
 }

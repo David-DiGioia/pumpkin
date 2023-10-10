@@ -102,4 +102,5 @@ private:
 
 	uint32_t gen_shader_index_{ renderer::NULL_INDEX };
 	bool gen_shader_compile_error_{ false };
+	bool show_particle_overlay_{ false };
 };

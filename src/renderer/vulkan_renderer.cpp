@@ -272,6 +272,7 @@ namespace renderer
 			VK_FORMAT_R8G8B8A8_UNORM,
 			GetDepthImageFormat(),
 			VertexAttributes::POSITION_NORMAL,
+			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 			SPIRV_PREFIX / "default.vert.spv",
 			SPIRV_PREFIX / "default.frag.spv");
 		NameObject(context_.device, raster_pipeline_.pipeline, "Raster_Pipeline");
@@ -288,6 +289,7 @@ namespace renderer
 			GetViewportImageFormat(),
 			VK_FORMAT_UNDEFINED,
 			VertexAttributes::NONE,
+			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 			SPIRV_PREFIX / "fullscreen_triangle.vert.spv",
 			SPIRV_PREFIX / "composite.frag.spv");
 		NameObject(context_.device, composite_pipeline_.pipeline, "Composite_Pipeline");

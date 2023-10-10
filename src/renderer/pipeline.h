@@ -21,6 +21,7 @@ namespace renderer
 			VkFormat color_attachment_format,
 			VkFormat depth_format,
 			VertexAttributes attributes,
+			VkPrimitiveTopology topology,
 			const std::filesystem::path& vertex_shader_path,
 			const std::filesystem::path& fragment_shader_path
 		);

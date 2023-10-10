@@ -358,6 +358,7 @@ namespace renderer
 			MASK_COLOR_FORMAT,
 			VK_FORMAT_UNDEFINED,
 			VertexAttributes::POSITION,
+			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 			SPIRV_PREFIX / "mask.vert.spv",
 			SPIRV_PREFIX / "mask.frag.spv");
 		NameObject(context_->device, mask_pipeline_.pipeline, "Mask_Pipeline");
@@ -380,6 +381,7 @@ namespace renderer
 			FINAL_IMAGE_FORMAT,
 			VK_FORMAT_UNDEFINED,
 			VertexAttributes::NONE,
+			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 			SPIRV_PREFIX / "fullscreen_triangle.vert.spv",
 			SPIRV_PREFIX / "outline.frag.spv");
 		NameObject(context_->device, outline_pipeline_.pipeline, "Outline_Pipeline");
@@ -440,6 +442,71 @@ namespace renderer
 
 	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd)
 	{
+		RenderMPMGrid(cmd);
+		RenderOutlines(cmd);
+	}
+
+	void EditorBackend::AddOutlineSet(std::vector<uint32_t>&& selection_set, const glm::vec4& color)
+	{
+		OutlineObjects& outline_set{ outline_objects_.emplace_back() };
+		outline_set.render_object_indices = std::move(selection_set);
+		outline_set.color = color;
+	}
+
+	void EditorBackend::ClearOutlineSets()
+	{
+		outline_objects_.clear();
+	}
+
+	void EditorBackend::SetMPMGrid(float chunk_width, uint32_t grid_row_count, uint32_t render_object_index)
+	{
+		grid_.chunk_width = chunk_width;
+		grid_.render_object_index = render_object_index;
+
+		// Construct vertex buffer for grid lines.
+
+	}
+
+	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
+	{
+		return frame_resources_[renderer_->current_frame_];
+	}
+
+	void EditorBackend::InitializeFrameResources()
+	{
+		// We don't create images yet since the viewport size isn't set until the imgui viewport is drawn.
+		for (FrameResources& resource : frame_resources_)
+		{
+			resource.outline_set_resource = renderer_->descriptor_allocator_.CreateDescriptorSetResource(outline_layout_resource_);
+			NameObject(context_->device, resource.outline_set_resource.descriptor_set, "Outline_Descriptor_Set");
+		}
+	}
+
+	void EditorBackend::CreateFrameImages()
+	{
+		for (FrameResources& resource : frame_resources_)
+		{
+			resource.mask_image = renderer_->allocator_.CreateImageResource(
+				renderer_->GetViewportExtent(),
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				MASK_COLOR_FORMAT);
+			NameObject(context_->device, resource.mask_image.image, "Outline_Mask_Image");
+			NameObject(context_->device, resource.mask_image.image_view, "Outline_Mask_Image_View");
+
+			resource.outline_set_resource.LinkImageToBinding(EDITOR_MASK_TEXTURE_BINDING, resource.mask_image, VK_IMAGE_LAYOUT_GENERAL);
+		}
+	}
+
+	void EditorBackend::DestroyFrameImages()
+	{
+		for (FrameResources& resource : frame_resources_) {
+			renderer_->allocator_.DestroyImageResource(&resource.mask_image);
+		}
+	}
+
+	void EditorBackend::RenderOutlines(VkCommandBuffer cmd)
+	{
 		for (const OutlineObjects& outline_set : outline_objects_)
 		{
 			// Transition mask image to render to as color attachment.
@@ -466,56 +533,6 @@ namespace renderer
 				VK_IMAGE_ASPECT_COLOR_BIT);
 
 			OutlineRenderPass(cmd, outline_set);
-		}
-	}
-
-	void EditorBackend::AddOutlineSet(std::vector<uint32_t>&& selection_set, const glm::vec4& color)
-	{
-		OutlineObjects& outline_set{ outline_objects_.emplace_back() };
-		outline_set.render_object_indices = std::move(selection_set);
-		outline_set.color = color;
-	}
-
-	void EditorBackend::ClearOutlineSets()
-	{
-		outline_objects_.clear();
-	}
-
-	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
-	{
-		return frame_resources_[renderer_->current_frame_];
-	}
-
-	void EditorBackend::InitializeFrameResources()
-	{
-		// We don't create images yet since the viewport size isn't set until the imgui viewport is drawn.
-		for (FrameResources& resource : frame_resources_)
-		{
-			resource.outline_set_resource_ = renderer_->descriptor_allocator_.CreateDescriptorSetResource(outline_layout_resource_);
-			NameObject(context_->device, resource.outline_set_resource_.descriptor_set, "Outline_Descriptor_Set");
-		}
-	}
-
-	void EditorBackend::CreateFrameImages()
-	{
-		for (FrameResources& resource : frame_resources_)
-		{
-			resource.mask_image = renderer_->allocator_.CreateImageResource(
-				renderer_->GetViewportExtent(),
-				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				MASK_COLOR_FORMAT);
-			NameObject(context_->device, resource.mask_image.image, "Outline_Mask_Image");
-			NameObject(context_->device, resource.mask_image.image_view, "Outline_Mask_Image_View");
-
-			resource.outline_set_resource_.LinkImageToBinding(EDITOR_MASK_TEXTURE_BINDING, resource.mask_image, VK_IMAGE_LAYOUT_GENERAL);
-		}
-	}
-
-	void EditorBackend::DestroyFrameImages()
-	{
-		for (FrameResources& resource : frame_resources_) {
-			renderer_->allocator_.DestroyImageResource(&resource.mask_image);
 		}
 	}
 
@@ -626,7 +643,7 @@ namespace renderer
 
 		vkCmdBeginRendering(cmd, &rendering_info);
 
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, outline_pipeline_.layout, EDITOR_OUTLINE_SET, 1, &GetCurrentFrame().outline_set_resource_.descriptor_set, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, outline_pipeline_.layout, EDITOR_OUTLINE_SET, 1, &GetCurrentFrame().outline_set_resource.descriptor_set, 0, nullptr);
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, outline_pipeline_.pipeline);
 		vkCmdPushConstants(cmd, outline_pipeline_.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), &outline_set.color);
@@ -635,5 +652,10 @@ namespace renderer
 		vkCmdDraw(cmd, 3, 1, 0, 0);
 
 		vkCmdEndRendering(cmd);
+	}
+
+	void EditorBackend::RenderMPMGrid(VkCommandBuffer cmd)
+	{
+		// TODO: Pickup here.
 	}
 }
