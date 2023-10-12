@@ -415,8 +415,11 @@ namespace renderer
 	{
 		imgui_backend_.CleanUp();
 
+		renderer_->allocator_.DestroyBufferResource(&grid_.vertices);
+
 		mask_pipeline_.CleanUp();
 		outline_pipeline_.CleanUp();
+		grid_pipeline_.CleanUp();
 
 		for (FrameResources& resource : frame_resources_) {
 			renderer_->allocator_.DestroyImageResource(&resource.mask_image);
