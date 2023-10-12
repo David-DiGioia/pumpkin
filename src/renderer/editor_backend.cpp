@@ -406,6 +406,8 @@ namespace renderer
 		NameObject(context_->device, grid_pipeline_.pipeline, "Grid_Pipeline");
 		NameObject(context_->device, grid_pipeline_.layout, "Grid_Pipeline_Layout");
 
+		grid_.render_object_index = NULL_INDEX;
+
 		InitializeFrameResources();
 	}
 
@@ -461,7 +463,7 @@ namespace renderer
 
 	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd)
 	{
-		if (grid_enabled_) {
+		if (grid_enabled_ && (grid_.render_object_index != NULL_INDEX)) {
 			RenderMPMGrid(cmd);
 		}
 		RenderOutlines(cmd);
@@ -484,40 +486,50 @@ namespace renderer
 		grid_.render_object_index = render_object_index;
 
 		// Construct vertex buffer for grid lines.
-		uint32_t grid_row_count{ CHUNK_ROW_VOXEL_COUNT + 1 };
-		uint32_t line_count{ 3 * grid_row_count * grid_row_count };
-		std::vector<glm::vec3> vertices{};
+		uint32_t line_count{ 3 * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
+		std::vector<Vertex> vertices{};
 		vertices.reserve((size_t)line_count * 2);
+		float grid_spacing = chunk_width / (float)(GRID_NODE_ROW_COUNT - 1);
+		Vertex v{};
 
-		for (uint32_t x{ 0 }; x < grid_row_count; ++x)
+		for (uint32_t x{ 0 }; x < GRID_NODE_ROW_COUNT; ++x)
 		{
-			for (uint32_t y{ 0 }; y < grid_row_count; ++y)
+			for (uint32_t y{ 0 }; y < GRID_NODE_ROW_COUNT; ++y)
 			{
-				vertices.push_back(glm::vec3{ x * chunk_width, y * chunk_width, 0.0f });
-				vertices.push_back(glm::vec3{ x * chunk_width, y * chunk_width, chunk_width });
+				v.position = { x * grid_spacing, y * grid_spacing, 0.0f, 0.0f };
+				vertices.push_back(v);
+				v.position = { x * grid_spacing, y * grid_spacing, chunk_width, 0.0f };
+				vertices.push_back(v);
 			}
 		}
 
-		for (uint32_t x{ 0 }; x < grid_row_count; ++x)
+		for (uint32_t x{ 0 }; x < GRID_NODE_ROW_COUNT; ++x)
 		{
-			for (uint32_t z{ 0 }; z < grid_row_count; ++z)
+			for (uint32_t z{ 0 }; z < GRID_NODE_ROW_COUNT; ++z)
 			{
-				vertices.push_back(glm::vec3{ x * chunk_width, 0.0f, z * chunk_width });
-				vertices.push_back(glm::vec3{ x * chunk_width, chunk_width, z * chunk_width });
+				v.position = { x * grid_spacing, 0.0f, z * grid_spacing, 0.0f };
+				vertices.push_back(v);
+				v.position = { x * grid_spacing, chunk_width, z * grid_spacing, 0.0f };
+				vertices.push_back(v);
 			}
 		}
 
-		for (uint32_t y{ 0 }; y < grid_row_count; ++y)
+		for (uint32_t y{ 0 }; y < GRID_NODE_ROW_COUNT; ++y)
 		{
-			for (uint32_t z{ 0 }; z < grid_row_count; ++z)
+			for (uint32_t z{ 0 }; z < GRID_NODE_ROW_COUNT; ++z)
 			{
-				vertices.push_back(glm::vec3{ 0.0f, y * chunk_width, z * chunk_width });
-				vertices.push_back(glm::vec3{ chunk_width, y * chunk_width, z * chunk_width });
+				v.position = { 0.0f, y * grid_spacing, z * grid_spacing, 0.0f };
+				vertices.push_back(v);
+				v.position = { chunk_width, y * grid_spacing, z * grid_spacing, 0.0f };
+				vertices.push_back(v);
 			}
 		}
 
 		grid_.vertex_count = (uint32_t)vertices.size();
-		grid_.vertices = renderer_->allocator_.CreateBufferResource(vertices.size() * sizeof(glm::vec3), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		grid_.vertices = renderer_->allocator_.CreateBufferResource(
+			vertices.size() * sizeof(Vertex),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		NameObject(context_->device, grid_.vertices.buffer, "Grid_Vertex_Buffer");
 
 		renderer_->vulkan_util_.Begin();

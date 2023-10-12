@@ -177,6 +177,7 @@ void Editor::SelectNode(EditorNode* node)
     selected_nodes_.insert(node);
     active_selection_node_ = node;
     UpdateSelectionOutlines();
+    UpdateParticleOverlay();
 }
 
 void Editor::DeselectNode(EditorNode* node)

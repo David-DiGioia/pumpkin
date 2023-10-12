@@ -6,8 +6,6 @@
 
 namespace renderer
 {
-	constexpr uint32_t GRID_SIZE{ 4 }; // Grid cell width in units of voxels.
-	constexpr uint32_t GRID_NODE_ROW_COUNT{ (CHUNK_ROW_VOXEL_COUNT / GRID_SIZE) + 1 };
 	constexpr uint32_t GRID_NODE_COUNT{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
 
 	glm::mat3 OuterProduct(const glm::vec3& v1, const glm::vec3& v2)
