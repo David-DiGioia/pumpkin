@@ -156,13 +156,23 @@ namespace renderer
 		editor_backend_.SetViewportSize(extent);
 	}
 
-	void VulkanRenderer::AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color)
+	void VulkanRenderer::AddOutlineSet(const std::vector<RenderObjectHandle>& selection_set, const glm::vec4& color)
 	{
 		std::vector<uint32_t> transformed_selection_set(selection_set.size());
 		std::transform(selection_set.begin(), selection_set.end(), transformed_selection_set.begin(), [&](renderer::RenderObjectHandle handle) {
 			return (uint32_t)handle;
 			});
 		editor_backend_.AddOutlineSet(std::move(transformed_selection_set), color);
+	}
+
+	void VulkanRenderer::SetParticleOverlayEnabled(bool enabled)
+	{
+		editor_backend_.SetGridEnabled(enabled);
+	}
+
+	void VulkanRenderer::SetParticleOverlay(RenderObjectHandle render_object)
+	{
+		editor_backend_.SetMPMGrid(particle_context_.GetChunkWidth(), (uint32_t)render_object);
 	}
 
 	void VulkanRenderer::ClearOutlineSets()

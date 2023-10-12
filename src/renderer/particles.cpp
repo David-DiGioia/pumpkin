@@ -48,7 +48,7 @@ namespace renderer
 		}
 
 		mpm_context_.SimulateStep(delta_time);
-		GenerateDynamicParticleMesh(mpm_context_.GetParticles(), 1.0f);
+		GenerateDynamicParticleMesh(mpm_context_.GetParticles());
 	}
 
 	void ParticleContext::CleanUp()
@@ -108,8 +108,7 @@ namespace renderer
 		std::memcpy(side_flags.data(), data, sizeof(uint8_t) * CHUNK_TOTAL_VOXEL_COUNT);
 		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
 
-		constexpr float particle_size{ 0.1f };
-		GenerateStaticParticleMesh(static_particles_, side_flags, particle_size);
+		GenerateStaticParticleMesh(static_particles_, side_flags);
 	}
 
 	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)
@@ -154,7 +153,7 @@ namespace renderer
 	{
 		TransferStaticParticlesToMPM();
 		if (!update_physics_) {
-			GenerateDynamicParticleMesh(mpm_context_.GetParticles(), 1.0f);
+			GenerateDynamicParticleMesh(mpm_context_.GetParticles());
 		}
 	}
 
@@ -177,6 +176,8 @@ namespace renderer
 		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
 		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
 
+		const float particle_width{ chunk_width_ / CHUNK_ROW_VOXEL_COUNT };
+
 		for (uint32_t i{ 0 }; i < (uint32_t)static_particles_.size(); ++i)
 		{
 			if (static_particles_[i].type == ParticleType::EMPTY) {
@@ -189,7 +190,7 @@ namespace renderer
 				.mass = 1.0f,
 				.mu = mu,
 				.lambda = lambda,
-				.position = glm::vec3{coord},
+				.position = particle_width * glm::vec3{coord},
 				.velocity = glm::vec3{0.0f, -30.0f, 0.0f},
 				.affine_matrix = glm::mat3{1.0f},
 				.deformation_gradient = glm::mat3{1.0f},
@@ -198,7 +199,7 @@ namespace renderer
 			mpm_particles.push_back(mpm_particle);
 		}
 
-		mpm_context_.Initialize(std::move(mpm_particles), 64.0f);
+		mpm_context_.Initialize(std::move(mpm_particles), chunk_width_);
 	}
 
 	void ParticleContext::InitializeParticleGenShaderResources()
@@ -322,7 +323,17 @@ namespace renderer
 		ro_target_ = ro_target;
 	}
 
-	void ParticleContext::GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles, float particle_width)
+	void ParticleContext::SetChunkWidth(float chunk_width)
+	{
+		chunk_width_ = chunk_width;
+	}
+
+	float ParticleContext::GetChunkWidth() const
+	{
+		return chunk_width_;
+	}
+
+	void ParticleContext::GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles)
 	{
 		Mesh* mesh{ new Mesh{} };
 		mesh->geometries.resize(1);
@@ -330,7 +341,7 @@ namespace renderer
 		// Generate vertices.
 		uint32_t particle_vert_count{};
 		{
-			std::vector<Vertex> particle_vertices{ GetParticleVertices(particle_width) };
+			std::vector<Vertex> particle_vertices{ GetParticleVertices() };
 			particle_vert_count = (uint32_t)particle_vertices.size();
 			uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
 			mesh->geometries[0].vertices.resize(vertex_count);
@@ -367,12 +378,12 @@ namespace renderer
 	}
 
 
-	void ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width)
+	void ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
 	{
 		// When enabled, forces to always generate dynamic particle meshes for debugging purposes.
 		if (DISABLE_STATIC_PARTICLE_MESH)
 		{
-			GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, side_flags, particle_width), particle_width);
+			GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, side_flags));
 			return;
 		}
 
@@ -385,10 +396,11 @@ namespace renderer
 		renderer_->ReplaceRenderObject(ro_target_, mesh, { 0 });
 	}
 
-	std::vector<Vertex> ParticleContext::GetParticleVertices(float particle_width) const
+	std::vector<Vertex> ParticleContext::GetParticleVertices() const
 	{
 		uint32_t vert_count{ 24 }; // Cube with 3 normals per corner so 8 * 3 vertices.
 		std::vector<Vertex> verts(vert_count);
+		float particle_width{ chunk_width_ / CHUNK_ROW_VOXEL_COUNT };
 		float particle_radius{ particle_width / 2.0f };
 
 		// Position. Three of each since there are three different normals at each corner.
@@ -468,8 +480,9 @@ namespace renderer
 		};
 	}
 
-	std::vector<MaterialPoint> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags, float particle_width) const
+	std::vector<MaterialPoint> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const
 	{
+		float particle_width{ chunk_width_ / CHUNK_ROW_VOXEL_COUNT };
 		std::vector<MaterialPoint> dynamic_particles{};
 		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{

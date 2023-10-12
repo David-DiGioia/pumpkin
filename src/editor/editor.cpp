@@ -973,7 +973,7 @@ std::filesystem::path Editor::GetDefaultLayoutSaveLocation() const
 	return app_data_dir / SETTINGS_DEFAULT_LAYOUT_NAME;
 }
 
-void Editor::UpdateSelectionOutlines() const
+void Editor::UpdateSelectionOutlines()
 {
 	pumpkin_->ClearOutlineSets();
 
@@ -990,6 +990,20 @@ void Editor::UpdateSelectionOutlines() const
 		std::vector<renderer::RenderObjectHandle> active_selection_set{ active_selection_node_->node->render_object };
 		pumpkin_->AddOutlineSet(active_selection_set, ACTIVE_SELECTION_COLOR);
 	}
+}
+
+void Editor::UpdateParticleOverlay()
+{
+	if (active_selection_node_)
+	{
+		renderer::RenderObjectHandle render_object{ active_selection_node_->node->render_object };
+		pumpkin_->SetParticleOverlay(render_object);
+	}
+}
+
+void Editor::UpdateParticleOverlayEnabled()
+{
+	pumpkin_->SetParticleOverlayEnabled(show_particle_overlay_);
 }
 
 EditorNode* Editor::CreateNode(const std::string& name)

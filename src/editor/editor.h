@@ -327,7 +327,13 @@ private:
 	// Get the path to a suitable location to save the imgui default layout file.
 	std::filesystem::path GetDefaultLayoutSaveLocation() const;
 
-	void UpdateSelectionOutlines() const;
+	void UpdateSelectionOutlines();
+
+	// Update the data for the particle overlay like render object index and grid dimensions.
+	void UpdateParticleOverlay();
+
+	// Update whether or not the particle overlay is enabled.
+	void UpdateParticleOverlayEnabled();
 
 	EditorNode* CreateNode(const std::string& name);
 
@@ -354,6 +360,7 @@ private:
 	TransformInfo transform_info_{};
 
 	EditorNode* particle_node_{};
+	bool show_particle_overlay_{};
 
 	EditorSettings editor_settings_{}; // Settings loaded from AppData.
 };

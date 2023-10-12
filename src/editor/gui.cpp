@@ -722,8 +722,8 @@ void EditorGui::ParticleEditor()
 
 	ImGui::Text("Show grid");
 	ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
-	if (ImGui::Checkbox("##ShowMPMGrid", &show_particle_overlay_)) {
-		logger::Print("Checkbox clicked?\n");
+	if (ImGui::Checkbox("##ShowMPMGrid", &editor_->show_particle_overlay_)) {
+		editor_->UpdateParticleOverlayEnabled();
 	}
 
 	ImGui::End();

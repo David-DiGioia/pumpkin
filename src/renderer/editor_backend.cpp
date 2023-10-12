@@ -387,9 +387,24 @@ namespace renderer
 		NameObject(context_->device, outline_pipeline_.pipeline, "Outline_Pipeline");
 		NameObject(context_->device, outline_pipeline_.layout, "Outline_Pipeline_Layout");
 
-		//grid_pipeline_.Initialize(
+		std::vector<DescriptorSetLayoutResource> grid_set_layouts{
+			renderer_->camera_layout_resource_,
+			renderer_->render_object_layout_resource_,
+		};
 
-		//);
+		grid_pipeline_.Initialize(
+			context,
+			grid_set_layouts,
+			{},
+			FINAL_IMAGE_FORMAT,
+			VK_FORMAT_UNDEFINED,
+			VertexAttributes::POSITION,
+			VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+			SPIRV_PREFIX / "mask.vert.spv",
+			SPIRV_PREFIX / "grid.frag.spv"
+		);
+		NameObject(context_->device, grid_pipeline_.pipeline, "Grid_Pipeline");
+		NameObject(context_->device, grid_pipeline_.layout, "Grid_Pipeline_Layout");
 
 		InitializeFrameResources();
 	}
@@ -446,7 +461,9 @@ namespace renderer
 
 	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd)
 	{
-		RenderMPMGrid(cmd);
+		if (grid_enabled_) {
+			RenderMPMGrid(cmd);
+		}
 		RenderOutlines(cmd);
 	}
 
@@ -462,13 +479,55 @@ namespace renderer
 		outline_objects_.clear();
 	}
 
-	void EditorBackend::SetMPMGrid(const glm::vec3& color, float chunk_width, uint32_t grid_row_count, uint32_t render_object_index)
+	void EditorBackend::SetMPMGrid(float chunk_width, uint32_t render_object_index)
 	{
 		grid_.render_object_index = render_object_index;
-		grid_.color = color;
 
 		// Construct vertex buffer for grid lines.
-		// TODO: This.
+		uint32_t grid_row_count{ CHUNK_ROW_VOXEL_COUNT + 1 };
+		uint32_t line_count{ 3 * grid_row_count * grid_row_count };
+		std::vector<glm::vec3> vertices{};
+		vertices.reserve((size_t)line_count * 2);
+
+		for (uint32_t x{ 0 }; x < grid_row_count; ++x)
+		{
+			for (uint32_t y{ 0 }; y < grid_row_count; ++y)
+			{
+				vertices.push_back(glm::vec3{ x * chunk_width, y * chunk_width, 0.0f });
+				vertices.push_back(glm::vec3{ x * chunk_width, y * chunk_width, chunk_width });
+			}
+		}
+
+		for (uint32_t x{ 0 }; x < grid_row_count; ++x)
+		{
+			for (uint32_t z{ 0 }; z < grid_row_count; ++z)
+			{
+				vertices.push_back(glm::vec3{ x * chunk_width, 0.0f, z * chunk_width });
+				vertices.push_back(glm::vec3{ x * chunk_width, chunk_width, z * chunk_width });
+			}
+		}
+
+		for (uint32_t y{ 0 }; y < grid_row_count; ++y)
+		{
+			for (uint32_t z{ 0 }; z < grid_row_count; ++z)
+			{
+				vertices.push_back(glm::vec3{ 0.0f, y * chunk_width, z * chunk_width });
+				vertices.push_back(glm::vec3{ chunk_width, y * chunk_width, z * chunk_width });
+			}
+		}
+
+		grid_.vertex_count = (uint32_t)vertices.size();
+		grid_.vertices = renderer_->allocator_.CreateBufferResource(vertices.size() * sizeof(glm::vec3), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_->device, grid_.vertices.buffer, "Grid_Vertex_Buffer");
+
+		renderer_->vulkan_util_.Begin();
+		renderer_->vulkan_util_.TransferBufferToDevice(vertices, grid_.vertices);
+		renderer_->vulkan_util_.Submit();
+	}
+
+	void EditorBackend::SetGridEnabled(bool enabled)
+	{
+		grid_enabled_ = enabled;
 	}
 
 	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()

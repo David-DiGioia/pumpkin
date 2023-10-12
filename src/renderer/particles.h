@@ -115,6 +115,10 @@ namespace renderer
 
 		void SetTargetRenderObject(RenderObjectHandle ro_target);
 
+		void SetChunkWidth(float chunk_width);
+
+		float GetChunkWidth() const;
+
 	private:
 		void InitializeParticleGenShaderResources();
 
@@ -122,18 +126,18 @@ namespace renderer
 
 
 		// Generates triangles for each individual particle as a cube. Can be done on host or device.
-		void GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles, float particle_width);
+		void GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles);
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
-		void GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags, float particle_width);
+		void GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
 
 		// Get the vertex data for a single particle, eg a cube.
-		std::vector<Vertex> GetParticleVertices(float particle_width) const;
+		std::vector<Vertex> GetParticleVertices() const;
 
 		// Get the index data for a single particle, eg a cube.
 		std::vector<uint32_t> GetParticleIndices() const;
 
-		std::vector<MaterialPoint> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags, float particle_width) const;
+		std::vector<MaterialPoint> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const;
 
 		struct ParticleGenShaderResources
 		{
@@ -162,6 +166,7 @@ namespace renderer
 		std::vector<StaticParticle> static_particles_{};
 		bool has_played_{}; // True if the particle simulation has been played yet.
 		bool update_physics_{};
+		float chunk_width_{ 5.0f };
 		RenderObjectHandle ro_target_{}; // Target render object for updating during particle simulation.
 		MPMContext mpm_context_{};
 		Context* context_{};

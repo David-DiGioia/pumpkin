@@ -159,6 +159,16 @@ namespace pmk
 		renderer_.AddOutlineSet(selection_set, color);
 	}
 
+	void Pumpkin::SetParticleOverlayEnabled(bool enabled)
+	{
+		renderer_.SetParticleOverlayEnabled(enabled);
+	}
+
+	void Pumpkin::SetParticleOverlay(renderer::RenderObjectHandle render_object)
+	{
+		renderer_.SetParticleOverlay(render_object);
+	}
+
 	void Pumpkin::QueueRaycast(const glm::vec3& origin, const glm::vec3& direction)
 	{
 		queued_raycasts_.push_back({ glm::vec4{origin, 0.0f}, glm::vec4{direction, 0.0f} });

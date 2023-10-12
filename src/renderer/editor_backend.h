@@ -112,7 +112,9 @@ namespace renderer
 
 		void ClearOutlineSets();
 
-		void SetMPMGrid(const glm::vec3& color, float chunk_width, uint32_t grid_row_count, uint32_t render_object_index);
+		void SetMPMGrid(float chunk_width, uint32_t render_object_index);
+
+		void SetGridEnabled(bool enabled);
 
 	private:
 		struct OutlineObjects
@@ -132,7 +134,6 @@ namespace renderer
 			uint32_t render_object_index;
 			uint32_t vertex_count;
 			BufferResource vertices;
-			glm::vec3 color;
 		};
 
 		FrameResources& GetCurrentFrame();
@@ -162,5 +163,6 @@ namespace renderer
 		std::vector<OutlineObjects> outline_objects_{}; // Editor render pass will draw outlines around these sets of render objects.
 		DescriptorSetLayoutResource outline_layout_resource_{};
 		MPMGrid grid_{};
+		bool grid_enabled_{};
 	};
 }

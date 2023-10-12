@@ -71,6 +71,10 @@ namespace pmk
 
 		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color);
 
+		void SetParticleOverlayEnabled(bool enabled);
+
+		void SetParticleOverlay(renderer::RenderObjectHandle render_object);
+
 		void QueueRaycast(const glm::vec3& origin, const glm::vec3& direction);
 
 		std::vector<pmk::Rayhit> CastQueuedRays();
