@@ -888,8 +888,10 @@ namespace renderer
 
 		// Use less fine-grained memory barrier (instead of buffer memory barrier) since there's a buffer for each geometry,
 		// and that would be a lot of pipeline barriers.
-		PipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
+		PipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
@@ -1113,6 +1115,10 @@ namespace renderer
 
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 		UploadMeshToDevice(vulkan_util_, *mesh);
+		PipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 		rt_context_.QueueBlas(mesh);
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
@@ -1136,6 +1142,11 @@ namespace renderer
 		// Upload mesh and build BLAS.
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 		UploadMeshToDevice(vulkan_util_, *mesh);
+		PipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+		
 		rt_context_.QueueBlas(mesh);
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
@@ -1445,6 +1456,11 @@ namespace renderer
 
 			materials_.push_back(new Material{ default_material });
 		}
+
+		PipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();

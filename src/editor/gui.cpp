@@ -517,6 +517,7 @@ void EditorGui::ProjectSelectionPopup()
 		editor_->NewProject(project_dir);
 		current_directory_ = project_dir / ASSETS_RELATIVE_PATH;
 		texture_popup_current_directory_ = project_dir / ASSETS_RELATIVE_PATH;
+		pumpkin_proj_loaded_ = true;
 		ImGui::CloseCurrentPopup();
 	}
 	ImGui::EndDisabled();
