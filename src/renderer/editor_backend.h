@@ -125,8 +125,12 @@ namespace renderer
 
 		struct FrameResources
 		{
+			// Outlines.
 			ImageResource mask_image;
 			DescriptorSetResource outline_set_resource;
+
+			// Grid.
+			ImageResource particle_depth;
 		};
 
 		struct MPMGrid
@@ -152,6 +156,10 @@ namespace renderer
 
 		void RenderMPMGrid(VkCommandBuffer cmd);
 
+		void ParticleDepthRenderPass(VkCommandBuffer cmd);
+
+		void GridRenderPass(VkCommandBuffer cmd);
+
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 
 		Context* context_{};
@@ -159,6 +167,7 @@ namespace renderer
 		ImGuiBackend imgui_backend_{};
 		GraphicsPipeline mask_pipeline_{};
 		GraphicsPipeline outline_pipeline_{};
+		GraphicsPipeline particle_depth_pipeline_{};
 		GraphicsPipeline grid_pipeline_{};
 		std::vector<OutlineObjects> outline_objects_{}; // Editor render pass will draw outlines around these sets of render objects.
 		DescriptorSetLayoutResource outline_layout_resource_{};

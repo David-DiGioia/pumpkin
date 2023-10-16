@@ -18,6 +18,7 @@ namespace renderer
 
 	constexpr uint32_t EDITOR_OUTLINE_SET{ 0 };
 	constexpr uint32_t EDITOR_MASK_TEXTURE_BINDING{ 0 };
+
 	constexpr VkFormat MASK_COLOR_FORMAT{ VK_FORMAT_R8_UINT };
 	constexpr VkFormat FINAL_IMAGE_FORMAT{ VK_FORMAT_R8G8B8A8_UNORM };
 
@@ -359,7 +360,7 @@ namespace renderer
 			VK_FORMAT_UNDEFINED,
 			VertexAttributes::POSITION,
 			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-			SPIRV_PREFIX / "mask.vert.spv",
+			SPIRV_PREFIX / "render_object_transform.vert.spv",
 			SPIRV_PREFIX / "mask.frag.spv");
 		NameObject(context_->device, mask_pipeline_.pipeline, "Mask_Pipeline");
 		NameObject(context_->device, mask_pipeline_.layout, "Mask_Pipeline_Layout");
@@ -397,14 +398,26 @@ namespace renderer
 			grid_set_layouts,
 			{},
 			FINAL_IMAGE_FORMAT,
-			VK_FORMAT_UNDEFINED,
+			renderer_->GetDepthImageFormat(),
 			VertexAttributes::POSITION,
 			VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-			SPIRV_PREFIX / "mask.vert.spv",
-			SPIRV_PREFIX / "grid.frag.spv"
-		);
+			SPIRV_PREFIX / "render_object_transform.vert.spv",
+			SPIRV_PREFIX / "grid.frag.spv");
 		NameObject(context_->device, grid_pipeline_.pipeline, "Grid_Pipeline");
 		NameObject(context_->device, grid_pipeline_.layout, "Grid_Pipeline_Layout");
+
+		particle_depth_pipeline_.Initialize(
+			context,
+			grid_set_layouts,
+			{},
+			FINAL_IMAGE_FORMAT,
+			renderer_->GetDepthImageFormat(),
+			VertexAttributes::POSITION,
+			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+			SPIRV_PREFIX / "render_object_transform.vert.spv",
+			SPIRV_PREFIX / "particles.frag.spv");
+		NameObject(context_->device, particle_depth_pipeline_.pipeline, "Particle_Depth_Pipeline");
+		NameObject(context_->device, particle_depth_pipeline_.layout, "Particle_Depth_Pipeline_Layout");
 
 		grid_.render_object_index = NULL_INDEX;
 
@@ -420,9 +433,12 @@ namespace renderer
 		mask_pipeline_.CleanUp();
 		outline_pipeline_.CleanUp();
 		grid_pipeline_.CleanUp();
+		particle_depth_pipeline_.CleanUp();
 
-		for (FrameResources& resource : frame_resources_) {
+		for (FrameResources& resource : frame_resources_)
+		{
 			renderer_->allocator_.DestroyImageResource(&resource.mask_image);
+			renderer_->allocator_.DestroyImageResource(&resource.particle_depth);
 		}
 
 		renderer_->descriptor_allocator_.DestroyDescriptorSetLayoutResource(&outline_layout_resource_);
@@ -562,8 +578,11 @@ namespace renderer
 
 	void EditorBackend::CreateFrameImages()
 	{
+		VkCommandBuffer cmd{ renderer_->vulkan_util_.Begin() };
+
 		for (FrameResources& resource : frame_resources_)
 		{
+			// Outline resources.
 			resource.mask_image = renderer_->allocator_.CreateImageResource(
 				renderer_->GetViewportExtent(),
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
@@ -573,13 +592,33 @@ namespace renderer
 			NameObject(context_->device, resource.mask_image.image_view, "Outline_Mask_Image_View");
 
 			resource.outline_set_resource.LinkImageToBinding(EDITOR_MASK_TEXTURE_BINDING, resource.mask_image, VK_IMAGE_LAYOUT_GENERAL);
+
+			// Grid resources.
+			resource.particle_depth = renderer_->allocator_.CreateImageResource(
+				renderer_->GetViewportExtent(),
+				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				renderer_->GetDepthImageFormat(),
+				VK_IMAGE_ASPECT_DEPTH_BIT);
+			NameObject(renderer_->context_.device, resource.particle_depth.image, "Particle_Depth_Image");
+			NameObject(renderer_->context_.device, resource.particle_depth.image_view, "Particle_Depth_Image_View");
+
+			// Transition depth image to depth layout.
+			PipelineBarrier(cmd, resource.particle_depth.image,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_ACCESS_NONE, VK_ACCESS_NONE,
+				VK_IMAGE_ASPECT_DEPTH_BIT);
 		}
+
+		renderer_->vulkan_util_.Submit();
 	}
 
 	void EditorBackend::DestroyFrameImages()
 	{
 		for (FrameResources& resource : frame_resources_) {
 			renderer_->allocator_.DestroyImageResource(&resource.mask_image);
+			renderer_->allocator_.DestroyImageResource(&resource.particle_depth);
 		}
 	}
 
@@ -734,8 +773,22 @@ namespace renderer
 
 	void EditorBackend::RenderMPMGrid(VkCommandBuffer cmd)
 	{
+		ParticleDepthRenderPass(cmd);
+
+		// No transitions needed here, just barrier for writing and reading depth.
+		PipelineBarrier(cmd, GetCurrentFrame().particle_depth.image,
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+			VK_IMAGE_ASPECT_DEPTH_BIT);
+
+		GridRenderPass(cmd);
+	}
+
+	void EditorBackend::ParticleDepthRenderPass(VkCommandBuffer cmd)
+	{
 		Extent viewport_extents{ renderer_->GetViewportExtent() };
-		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.0f, 1.0f };
+		VkClearColorValue clear_color{ 1.0f, 1.0f, 1.0f, 1.0f };
 
 		VkRenderingAttachmentInfo color_attachment_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -745,6 +798,18 @@ namespace renderer
 			.resolveImageView = VK_NULL_HANDLE,
 			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingAttachmentInfo depth_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = GetCurrentFrame().particle_depth.image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 			.clearValue = clear_color,
 		};
@@ -760,7 +825,89 @@ namespace renderer
 			.viewMask = 0,
 			.colorAttachmentCount = 1,
 			.pColorAttachments = &color_attachment_info,
-			.pDepthAttachment = nullptr,
+			.pDepthAttachment = &depth_attachment_info,
+			.pStencilAttachment = nullptr,
+		};
+
+		vkCmdBeginRendering(cmd, &rendering_info);
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			mask_pipeline_.layout,
+			EDITOR_CAMERA_UBO_SET,
+			1,
+			&renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, particle_depth_pipeline_.pipeline);
+
+		VkDeviceSize zero_offset{ 0 };
+
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[grid_.render_object_index] };
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			mask_pipeline_.layout,
+			EDITOR_RENDER_OBJECT_UBO_SET,
+			1,
+			&render_object->ubo_descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
+
+		for (auto& geometry : renderer_->meshes_[render_object->mesh_idx]->geometries)
+		{
+			VkIndexType index_type{ std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
+			vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
+			vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, index_type);
+			vkCmdDrawIndexed(cmd, (uint32_t)geometry.indices.size(), 1, 0, 0, 0);
+		}
+		vkCmdEndRendering(cmd);
+	}
+
+	void EditorBackend::GridRenderPass(VkCommandBuffer cmd)
+	{
+		Extent viewport_extents{ renderer_->GetViewportExtent() };
+		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.0f, 1.0f };
+
+		VkRenderingAttachmentInfo color_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = imgui_backend_.GetViewportImage().image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingAttachmentInfo depth_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = GetCurrentFrame().particle_depth.image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingInfo rendering_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = { viewport_extents.width, viewport_extents.height },
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = &depth_attachment_info,
 			.pStencilAttachment = nullptr,
 		};
 
