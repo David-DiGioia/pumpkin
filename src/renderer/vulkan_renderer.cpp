@@ -167,12 +167,13 @@ namespace renderer
 
 	void VulkanRenderer::SetParticleOverlayEnabled(bool enabled)
 	{
+		particle_context_.SetMPMDebugGeometryGenEnabled(enabled);
 		editor_backend_.SetGridEnabled(enabled);
 	}
 
 	void VulkanRenderer::SetParticleOverlay(RenderObjectHandle render_object)
 	{
-		editor_backend_.SetMPMGrid(particle_context_.GetChunkWidth(), (uint32_t)render_object);
+		editor_backend_.SetRenderObjectInfoInfo(particle_context_.GetChunkWidth(), (uint32_t)render_object);
 	}
 
 	void VulkanRenderer::ClearOutlineSets()

@@ -406,34 +406,44 @@ namespace renderer
 		NameObject(context_->device, grid_pipeline_.pipeline, "Grid_Pipeline");
 		NameObject(context_->device, grid_pipeline_.layout, "Grid_Pipeline_Layout");
 
-		particle_depth_pipeline_.Initialize(
+		particle_raster_pipeline_.Initialize(
 			context,
 			grid_set_layouts,
 			{},
 			FINAL_IMAGE_FORMAT,
 			renderer_->GetDepthImageFormat(),
-			VertexAttributes::POSITION,
+			VertexAttributes::MPM,
 			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-			SPIRV_PREFIX / "render_object_transform.vert.spv",
-			SPIRV_PREFIX / "particles.frag.spv");
-		NameObject(context_->device, particle_depth_pipeline_.pipeline, "Particle_Depth_Pipeline");
-		NameObject(context_->device, particle_depth_pipeline_.layout, "Particle_Depth_Pipeline_Layout");
+			SPIRV_PREFIX / "mpm_render_object_transform.vert.spv",
+			SPIRV_PREFIX / "mpm_particles.frag.spv");
+		NameObject(context_->device, particle_raster_pipeline_.pipeline, "Particle_Raster_Pipeline");
+		NameObject(context_->device, particle_raster_pipeline_.layout, "Particle_Raster_Pipeline_Layout");
 
-		grid_.render_object_index = NULL_INDEX;
+		mpm_debug_.render_object_index = NULL_INDEX;
 
 		InitializeFrameResources();
+
+		// Initialize grid buffer (but don't generate vertices yet).
+		uint32_t line_count{ 3 * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
+		mpm_debug_.grid_vertex_count = line_count * 2;
+		mpm_debug_.grid_vertices = renderer_->allocator_.CreateBufferResource(
+			mpm_debug_.grid_vertex_count * sizeof(Vertex),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_->device, mpm_debug_.grid_vertices.buffer, "Grid_Vertex_Buffer");
 	}
 
 	void EditorBackend::CleanUp()
 	{
 		imgui_backend_.CleanUp();
 
-		renderer_->allocator_.DestroyBufferResource(&grid_.vertices);
+		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.particle_vertices);
+		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.grid_vertices);
 
 		mask_pipeline_.CleanUp();
 		outline_pipeline_.CleanUp();
 		grid_pipeline_.CleanUp();
-		particle_depth_pipeline_.CleanUp();
+		particle_raster_pipeline_.CleanUp();
 
 		for (FrameResources& resource : frame_resources_)
 		{
@@ -482,8 +492,8 @@ namespace renderer
 
 	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd)
 	{
-		if (grid_enabled_ && (grid_.render_object_index != NULL_INDEX)) {
-			RenderMPMGrid(cmd);
+		if (grid_enabled_ && (mpm_debug_.render_object_index != NULL_INDEX)) {
+			RenderMPMGridAndRasterParticles(cmd);
 		}
 		RenderOutlines(cmd);
 	}
@@ -500,14 +510,14 @@ namespace renderer
 		outline_objects_.clear();
 	}
 
-	void EditorBackend::SetMPMGrid(float chunk_width, uint32_t render_object_index)
+	void EditorBackend::SetRenderObjectInfoInfo(float chunk_width, uint32_t render_object_index)
 	{
-		grid_.render_object_index = render_object_index;
+		mpm_debug_.render_object_index = render_object_index;
 
 		// Construct vertex buffer for grid lines.
 		uint32_t line_count{ 3 * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
-		std::vector<Vertex> vertices{};
-		vertices.reserve((size_t)line_count * 2);
+		std::vector<Vertex> grid_vertices{};
+		grid_vertices.reserve((size_t)line_count * 2);
 		float grid_spacing = chunk_width / (float)(GRID_NODE_ROW_COUNT - 1);
 		Vertex v{};
 
@@ -516,9 +526,9 @@ namespace renderer
 			for (uint32_t y{ 0 }; y < GRID_NODE_ROW_COUNT; ++y)
 			{
 				v.position = { x * grid_spacing, y * grid_spacing, 0.0f, 0.0f };
-				vertices.push_back(v);
+				grid_vertices.push_back(v);
 				v.position = { x * grid_spacing, y * grid_spacing, chunk_width, 0.0f };
-				vertices.push_back(v);
+				grid_vertices.push_back(v);
 			}
 		}
 
@@ -527,9 +537,9 @@ namespace renderer
 			for (uint32_t z{ 0 }; z < GRID_NODE_ROW_COUNT; ++z)
 			{
 				v.position = { x * grid_spacing, 0.0f, z * grid_spacing, 0.0f };
-				vertices.push_back(v);
+				grid_vertices.push_back(v);
 				v.position = { x * grid_spacing, chunk_width, z * grid_spacing, 0.0f };
-				vertices.push_back(v);
+				grid_vertices.push_back(v);
 			}
 		}
 
@@ -538,21 +548,14 @@ namespace renderer
 			for (uint32_t z{ 0 }; z < GRID_NODE_ROW_COUNT; ++z)
 			{
 				v.position = { 0.0f, y * grid_spacing, z * grid_spacing, 0.0f };
-				vertices.push_back(v);
+				grid_vertices.push_back(v);
 				v.position = { chunk_width, y * grid_spacing, z * grid_spacing, 0.0f };
-				vertices.push_back(v);
+				grid_vertices.push_back(v);
 			}
 		}
 
-		grid_.vertex_count = (uint32_t)vertices.size();
-		grid_.vertices = renderer_->allocator_.CreateBufferResource(
-			vertices.size() * sizeof(Vertex),
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		NameObject(context_->device, grid_.vertices.buffer, "Grid_Vertex_Buffer");
-
 		renderer_->vulkan_util_.Begin();
-		renderer_->vulkan_util_.TransferBufferToDevice(vertices, grid_.vertices);
+		renderer_->vulkan_util_.TransferBufferToDevice(grid_vertices, mpm_debug_.grid_vertices);
 		renderer_->vulkan_util_.Submit();
 	}
 
@@ -771,9 +774,10 @@ namespace renderer
 		vkCmdEndRendering(cmd);
 	}
 
-	void EditorBackend::RenderMPMGrid(VkCommandBuffer cmd)
+	void EditorBackend::RenderMPMGridAndRasterParticles(VkCommandBuffer cmd)
 	{
-		ParticleDepthRenderPass(cmd);
+		UpdateMPMDebugGeometry();
+		ParticleRasterRenderPass(cmd);
 
 		// No transitions needed here, just barrier for writing and reading depth.
 		PipelineBarrier(cmd, GetCurrentFrame().particle_depth.image,
@@ -785,7 +789,7 @@ namespace renderer
 		GridRenderPass(cmd);
 	}
 
-	void EditorBackend::ParticleDepthRenderPass(VkCommandBuffer cmd)
+	void EditorBackend::ParticleRasterRenderPass(VkCommandBuffer cmd)
 	{
 		Extent viewport_extents{ renderer_->GetViewportExtent() };
 		VkClearColorValue clear_color{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -841,11 +845,11 @@ namespace renderer
 			0,
 			nullptr);
 
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, particle_depth_pipeline_.pipeline);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, particle_raster_pipeline_.pipeline);
 
 		VkDeviceSize zero_offset{ 0 };
 
-		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[grid_.render_object_index] };
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[mpm_debug_.render_object_index] };
 
 		vkCmdBindDescriptorSets(
 			cmd,
@@ -857,13 +861,11 @@ namespace renderer
 			0,
 			nullptr);
 
-		for (auto& geometry : renderer_->meshes_[render_object->mesh_idx]->geometries)
-		{
-			VkIndexType index_type{ std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
-			vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
-			vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, index_type);
-			vkCmdDrawIndexed(cmd, (uint32_t)geometry.indices.size(), 1, 0, 0, 0);
-		}
+		VkIndexType index_type{ std::is_same<uint32_t, decltype(MPMDebugGeometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
+		vkCmdBindVertexBuffers(cmd, 0, 1, &mpm_debug_.particle_vertices.buffer, &zero_offset);
+		vkCmdBindIndexBuffer(cmd, mpm_debug_.particle_indices.buffer, 0, index_type);
+		vkCmdDrawIndexed(cmd, mpm_debug_.particle_index_count, 1, 0, 0, 0);
+
 		vkCmdEndRendering(cmd);
 	}
 
@@ -926,7 +928,7 @@ namespace renderer
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, grid_pipeline_.pipeline);
 
 		VkDeviceSize zero_offset{ 0 };
-		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[grid_.render_object_index] };
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[mpm_debug_.render_object_index] };
 
 		vkCmdBindDescriptorSets(
 			cmd,
@@ -938,8 +940,33 @@ namespace renderer
 			0,
 			nullptr);
 
-		vkCmdBindVertexBuffers(cmd, 0, 1, &grid_.vertices.buffer, &zero_offset);
-		vkCmdDraw(cmd, grid_.vertex_count, 1, 0, 0);
+		vkCmdBindVertexBuffers(cmd, 0, 1, &mpm_debug_.grid_vertices.buffer, &zero_offset);
+		vkCmdDraw(cmd, mpm_debug_.grid_vertex_count, 1, 0, 0);
 		vkCmdEndRendering(cmd);
+	}
+
+	void EditorBackend::UpdateMPMDebugGeometry()
+	{
+		MPMDebugGeometry mpm_geometry{ renderer_->particle_context_.GetMPMDebugGeometry() };
+		mpm_debug_.particle_vertex_count = (uint32_t)mpm_geometry.vertices.size();
+		mpm_debug_.particle_index_count = (uint32_t)mpm_geometry.indices.size();
+
+		renderer_->allocator_.ExpandOrReuseBuffer(
+			mpm_debug_.particle_vertex_count * sizeof(MPMDebugVertex),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			mpm_debug_.particle_vertices);
+
+		renderer_->allocator_.ExpandOrReuseBuffer(
+			mpm_debug_.particle_index_count * sizeof(decltype(MPMDebugGeometry::indices)::value_type),
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			mpm_debug_.particle_indices);
+
+		// TODO: Could make this part of the same command buffer being submitted for rasterizing particles.
+		renderer_->vulkan_util_.Begin();
+		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.vertices, mpm_debug_.particle_vertices);
+		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.indices, mpm_debug_.particle_indices);
+		renderer_->vulkan_util_.Submit();
 	}
 }

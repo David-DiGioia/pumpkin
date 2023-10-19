@@ -83,7 +83,16 @@ namespace renderer
 			.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
 		};
 
-		std::vector<VkVertexInputAttributeDescription> vertex_attributes{ Vertex::GetVertexAttributes(attributes) };
+		std::vector<VkVertexInputAttributeDescription> vertex_attributes{};
+
+		switch (attributes)
+		{
+		case VertexAttributes::MPM:
+			vertex_attributes = MPMDebugVertex::GetVertexAttributes();
+			break;
+		default:
+			vertex_attributes = Vertex::GetVertexAttributes(attributes);
+		}
 
 		VkPipelineVertexInputStateCreateInfo vertex_input_info{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
 

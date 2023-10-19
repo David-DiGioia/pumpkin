@@ -17,6 +17,16 @@
 		.offset = offsetof(Vertex, attr),						\
 	}
 
+#ifdef EDITOR_ENABLED
+#define MPM_VERTEX_ATTRIBUTE(loc, attr)									\
+	VkVertexInputAttributeDescription{									\
+		.location = loc,												\
+		.binding = VERTEX_BINDING,										\
+		.format = GetVulkanFormat<decltype(MPMDebugVertex::attr)>(),	\
+		.offset = offsetof(MPMDebugVertex, attr),						\
+	}
+#endif
+
 namespace renderer
 {
 	void CheckResult(VkResult result, const std::string& msg);

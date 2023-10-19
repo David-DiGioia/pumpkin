@@ -171,7 +171,7 @@ namespace renderer
 	{
 		std::vector<MaterialPoint> mpm_particles{};
 
-		constexpr float youngs_modulus{ 300.0f };
+		constexpr float youngs_modulus{ 100.0f };
 		constexpr float poissons_ratio{ 0.4f };
 		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
 		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
@@ -187,12 +187,11 @@ namespace renderer
 			glm::uvec3 coord{ ParticleIndexToCoordinate(i) };
 
 			MaterialPoint mpm_particle{
-				.mass = .0001f,
+				.mass = .01f,
 				.mu = mu,
 				.lambda = lambda,
 				.position = particle_width * glm::vec3{coord},
-				//.velocity = glm::vec3{0.0f, 64.0f * (((float)coord.x - 32.0) / 32.0f), 0.0f},
-				.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
+				.velocity = glm::vec3{0.0f, -8.0f, 0.0f},
 				.affine_matrix = glm::mat3{1.0f},
 				.deformation_gradient = glm::mat3{1.0f},
 			};
@@ -334,8 +333,26 @@ namespace renderer
 		return chunk_width_;
 	}
 
+#ifdef EDITOR_ENABLED
+	void ParticleContext::SetMPMDebugGeometryGenEnabled(bool enabled)
+	{
+		generate_mpm_geometry_ = enabled;
+	}
+
+	const MPMDebugGeometry& ParticleContext::GetMPMDebugGeometry() const
+	{
+		return mpm_geometry_;
+	}
+#endif
+
 	void ParticleContext::GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles)
 	{
+#ifdef EDITOR_ENABLED
+		//if (generate_mpm_geometry_) {
+			GenerateDynamicDebugMPMParticleMesh(particles);
+		//}
+#endif
+
 		Mesh* mesh{ new Mesh{} };
 		mesh->geometries.resize(1);
 
@@ -378,6 +395,53 @@ namespace renderer
 		renderer_->ReplaceRenderObject(ro_target_, mesh, { 0 });
 	}
 
+#ifdef EDITOR_ENABLED
+	void ParticleContext::GenerateDynamicDebugMPMParticleMesh(const std::vector<MaterialPoint>& particles)
+	{
+		// Generate vertices.
+		uint32_t particle_vert_count{};
+		{
+			std::vector<MPMDebugVertex> mpm_vertices{ GetMPMParticleVertices() };
+			particle_vert_count = (uint32_t)mpm_vertices.size();
+			uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
+			mpm_geometry_.vertices.resize(vertex_count);
+
+			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+			{
+				for (uint32_t v{ 0 }; v < particle_vert_count; ++v)
+				{
+					mpm_vertices[v].mass = particles[p].mass;
+					mpm_vertices[v].mu = particles[p].mu;
+					mpm_vertices[v].lambda = particles[p].lambda;
+					mpm_vertices[v].velocity = particles[p].velocity;
+					mpm_vertices[v].deformation_gradient_col_0 = particles[p].deformation_gradient[0];
+					mpm_vertices[v].deformation_gradient_col_1 = particles[p].deformation_gradient[1];
+					mpm_vertices[v].deformation_gradient_col_2 = particles[p].deformation_gradient[2];
+
+					uint32_t vert_buffer_idx{ p * particle_vert_count + v };
+					mpm_geometry_.vertices[vert_buffer_idx] = mpm_vertices[v];
+					mpm_geometry_.vertices[vert_buffer_idx].position += glm::vec3{ particles[p].position };
+				}
+			}
+		}
+
+		// Generate indices.
+		{
+			std::vector<uint32_t> particle_indices{ GetParticleIndices() };
+			uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
+			mpm_geometry_.indices.resize(index_count);
+
+			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+			{
+				for (uint32_t i{ 0 }; i < (uint32_t)particle_indices.size(); ++i)
+				{
+					uint32_t idx_buffer_idx{ p * (uint32_t)particle_indices.size() + i };
+					mpm_geometry_.indices[idx_buffer_idx] = p * particle_vert_count + particle_indices[i];
+				}
+			}
+		}
+	}
+#endif
 
 	void ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
 	{
@@ -459,7 +523,27 @@ namespace renderer
 		verts[23].normal = glm::vec4{ 0.0f, 0.0f, -1.0f, 0.0f }; // 7 vertex.
 
 		return verts;
+	}
 
+	std::vector<MPMDebugVertex> ParticleContext::GetMPMParticleVertices() const
+	{
+		uint32_t vert_count{ 8 };
+		std::vector<MPMDebugVertex> verts(vert_count);
+		float particle_width{ chunk_width_ / CHUNK_ROW_VOXEL_COUNT };
+		float particle_radius{ particle_width / 2.0f };
+
+		// Position. Three of each since there are three different normals at each corner.
+		verts[0].position = glm::vec4{ -1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[1].position = glm::vec4{ -1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[2].position = glm::vec4{ -1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[3].position = glm::vec4{ -1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
+
+		verts[4].position = glm::vec4{ 1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[5].position = glm::vec4{ 1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
+		verts[6].position = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
+		verts[7].position = glm::vec4{ 1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
+
+		return verts;
 	}
 
 	std::vector<uint32_t> ParticleContext::GetParticleIndices() const

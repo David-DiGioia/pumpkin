@@ -10,6 +10,7 @@
 #include "renderer_types.h"
 #include "render_object.h"
 #include "pipeline.h"
+#include "mesh.h"
 
 namespace renderer
 {
@@ -112,7 +113,7 @@ namespace renderer
 
 		void ClearOutlineSets();
 
-		void SetMPMGrid(float chunk_width, uint32_t render_object_index);
+		void SetRenderObjectInfoInfo(float chunk_width, uint32_t render_object_index);
 
 		void SetGridEnabled(bool enabled);
 
@@ -133,11 +134,16 @@ namespace renderer
 			ImageResource particle_depth;
 		};
 
-		struct MPMGrid
+		struct MPMDebugInfo
 		{
 			uint32_t render_object_index;
-			uint32_t vertex_count;
-			BufferResource vertices;
+			uint32_t particle_vertex_count;
+			uint32_t particle_index_count;
+			BufferResource particle_vertices; // Of type MPMDebugVertex.
+			BufferResource particle_indices;
+
+			uint32_t grid_vertex_count;
+			BufferResource grid_vertices; // Of type Vertex.
 		};
 
 		FrameResources& GetCurrentFrame();
@@ -154,11 +160,14 @@ namespace renderer
 
 		void OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set);
 
-		void RenderMPMGrid(VkCommandBuffer cmd);
+		void RenderMPMGridAndRasterParticles(VkCommandBuffer cmd);
 
-		void ParticleDepthRenderPass(VkCommandBuffer cmd);
+		// Render particle depth buffer and optionally color.
+		void ParticleRasterRenderPass(VkCommandBuffer cmd);
 
 		void GridRenderPass(VkCommandBuffer cmd);
+
+		void UpdateMPMDebugGeometry();
 
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 
@@ -167,11 +176,11 @@ namespace renderer
 		ImGuiBackend imgui_backend_{};
 		GraphicsPipeline mask_pipeline_{};
 		GraphicsPipeline outline_pipeline_{};
-		GraphicsPipeline particle_depth_pipeline_{};
+		GraphicsPipeline particle_raster_pipeline_{};
 		GraphicsPipeline grid_pipeline_{};
 		std::vector<OutlineObjects> outline_objects_{}; // Editor render pass will draw outlines around these sets of render objects.
 		DescriptorSetLayoutResource outline_layout_resource_{};
-		MPMGrid grid_{};
+		MPMDebugInfo mpm_debug_{};
 		bool grid_enabled_{};
 	};
 }

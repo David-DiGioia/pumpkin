@@ -37,6 +37,22 @@ namespace renderer
 		}
 	}
 
+#ifdef EDITOR_ENABLED
+	std::vector<VkVertexInputAttributeDescription> MPMDebugVertex::GetVertexAttributes()
+	{
+		return {
+			MPM_VERTEX_ATTRIBUTE(0, mass),
+			MPM_VERTEX_ATTRIBUTE(1, mu),
+			MPM_VERTEX_ATTRIBUTE(2, lambda),
+			MPM_VERTEX_ATTRIBUTE(3, position),
+			MPM_VERTEX_ATTRIBUTE(4, velocity),
+			MPM_VERTEX_ATTRIBUTE(5, deformation_gradient_col_0),
+			MPM_VERTEX_ATTRIBUTE(6, deformation_gradient_col_1),
+			MPM_VERTEX_ATTRIBUTE(7, deformation_gradient_col_2),
+		};
+	}
+#endif
+
 	uint64_t HashVertex(const Vertex& v, uint32_t i)
 	{
 		uint64_t pos_sum{ (uint64_t)((i + 13) * (v.position.x + v.position.y + v.position.z)) };

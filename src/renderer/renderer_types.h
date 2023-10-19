@@ -28,6 +28,7 @@ namespace renderer
 		POSITION_NORMAL_COORD,
 		POSITION_NORMAL,
 		POSITION,
+		MPM,
 		NONE,
 	};
 

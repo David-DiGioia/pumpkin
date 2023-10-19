@@ -23,8 +23,7 @@ namespace renderer
 			VertexAttributes attributes,
 			VkPrimitiveTopology topology,
 			const std::filesystem::path& vertex_shader_path,
-			const std::filesystem::path& fragment_shader_path
-		);
+			const std::filesystem::path& fragment_shader_path);
 
 		void CleanUp();
 
