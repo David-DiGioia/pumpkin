@@ -181,10 +181,11 @@ namespace renderer
 #endif
 
 		std::vector<StaticParticle> static_particles_{};
-		bool has_played_{}; // True if the particle simulation has been played yet.
+		std::vector<uint8_t> side_flags_; // Neighbor information of static particles.
+		bool has_played_{};               // True if the particle simulation has been played yet.
 		bool update_physics_{};
 		float chunk_width_{ 5.0f };
-		RenderObjectHandle ro_target_{}; // Target render object for updating during particle simulation.
+		RenderObjectHandle ro_target_{};  // Target render object for updating during particle simulation.
 		MPMContext mpm_context_{};
 		Context* context_{};
 		VulkanRenderer* renderer_{};

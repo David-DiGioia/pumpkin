@@ -113,9 +113,11 @@ namespace renderer
 
 		void ClearOutlineSets();
 
-		void SetRenderObjectInfoInfo(float chunk_width, uint32_t render_object_index);
+		void SetRenderObjectInfo(float chunk_width, uint32_t render_object_index);
 
 		void SetGridEnabled(bool enabled);
+
+		void UpdateMPMDebugGeometry(const MPMDebugGeometry& mpm_geometry);
 
 	private:
 		struct OutlineObjects
@@ -136,11 +138,19 @@ namespace renderer
 
 		struct MPMDebugInfo
 		{
+			// Use FRAMES_IN_FLIGHT geometry buffers so even if we rewrite the geometry every frame
+			// we won't write to resources in use. But don't make part of FrameResources since we
+			// don't rewrite geometry every frame.
+			struct Geometry
+			{
+				BufferResource particle_vertices; // Of type MPMDebugVertex.
+				BufferResource particle_indices;
+			} geometry_buffer[FRAMES_IN_FLIGHT];
+			uint32_t geo_idx; // Current index into geometry_buffer.
+
 			uint32_t render_object_index;
 			uint32_t particle_vertex_count;
 			uint32_t particle_index_count;
-			BufferResource particle_vertices; // Of type MPMDebugVertex.
-			BufferResource particle_indices;
 
 			uint32_t grid_vertex_count;
 			BufferResource grid_vertices; // Of type Vertex.
@@ -166,8 +176,6 @@ namespace renderer
 		void ParticleRasterRenderPass(VkCommandBuffer cmd);
 
 		void GridRenderPass(VkCommandBuffer cmd);
-
-		void UpdateMPMDebugGeometry();
 
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 

@@ -103,12 +103,12 @@ namespace renderer
 		renderer_->vulkan_util_.Submit();
 
 		// Copy the particle neighbor data to a vector.
-		std::vector<uint8_t> side_flags(CHUNK_TOTAL_VOXEL_COUNT);
+		side_flags_.resize(CHUNK_TOTAL_VOXEL_COUNT);
 		vkMapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory, particle_neighbors_.neighbor_out_buffer.offset, particle_neighbors_.neighbor_out_buffer.size, 0, &data);
-		std::memcpy(side_flags.data(), data, sizeof(uint8_t) * CHUNK_TOTAL_VOXEL_COUNT);
+		std::memcpy(side_flags_.data(), data, sizeof(uint8_t) * CHUNK_TOTAL_VOXEL_COUNT);
 		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
 
-		GenerateStaticParticleMesh(static_particles_, side_flags);
+		GenerateStaticParticleMesh(static_particles_, side_flags_);
 	}
 
 	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)
@@ -337,6 +337,16 @@ namespace renderer
 	void ParticleContext::SetMPMDebugGeometryGenEnabled(bool enabled)
 	{
 		generate_mpm_geometry_ = enabled;
+
+		// If we've already generated a dynamic particle mesh before enabling,
+		// we won't have the MPM debug mesh when we need it.
+		if (enabled)
+		{
+			const std::vector<MaterialPoint>& particles{ has_played_ ? mpm_context_.GetParticles() : StaticParticleToDynamic(static_particles_, side_flags_) };
+			if (!particles.empty()) {
+				GenerateDynamicDebugMPMParticleMesh(particles);
+			}
+		}
 	}
 
 	const MPMDebugGeometry& ParticleContext::GetMPMDebugGeometry() const
@@ -348,9 +358,9 @@ namespace renderer
 	void ParticleContext::GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles)
 	{
 #ifdef EDITOR_ENABLED
-		//if (generate_mpm_geometry_) {
+		if (generate_mpm_geometry_) {
 			GenerateDynamicDebugMPMParticleMesh(particles);
-		//}
+		}
 #endif
 
 		Mesh* mesh{ new Mesh{} };
@@ -440,6 +450,8 @@ namespace renderer
 				}
 			}
 		}
+
+		renderer_->editor_backend_.UpdateMPMDebugGeometry(mpm_geometry_);
 	}
 #endif
 
@@ -567,6 +579,10 @@ namespace renderer
 
 	std::vector<MaterialPoint> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const
 	{
+		if (static_particles.empty()) {
+			return {};
+		}
+
 		float particle_width{ chunk_width_ / CHUNK_ROW_VOXEL_COUNT };
 		std::vector<MaterialPoint> dynamic_particles{};
 		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
