@@ -79,7 +79,7 @@ namespace renderer
 
 		VkVertexInputBindingDescription vertex_input_binding{
 			.binding = 0,
-			.stride = sizeof(Vertex),
+			.stride = 0, // Assigned in switch case below.
 			.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
 		};
 
@@ -89,9 +89,12 @@ namespace renderer
 		{
 		case VertexAttributes::MPM:
 			vertex_attributes = MPMDebugVertex::GetVertexAttributes();
+			vertex_input_binding.stride = sizeof(MPMDebugVertex);
 			break;
 		default:
 			vertex_attributes = Vertex::GetVertexAttributes(attributes);
+			vertex_input_binding.stride = sizeof(Vertex);
+
 		}
 
 		VkPipelineVertexInputStateCreateInfo vertex_input_info{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };

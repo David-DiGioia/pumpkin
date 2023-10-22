@@ -437,7 +437,7 @@ namespace renderer
 
 		// Generate indices.
 		{
-			std::vector<uint32_t> particle_indices{ GetParticleIndices() };
+			std::vector<uint32_t> particle_indices{ GetMPMParticleIndices() };
 			uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
 			mpm_geometry_.indices.resize(index_count);
 
@@ -574,6 +574,25 @@ namespace renderer
 			10, 19, 22, // Y+ plane.
 			13, 1, 4,   // Y- plane.
 			16, 13, 4,  // Y- plane.
+		};
+	}
+
+	std::vector<uint32_t> ParticleContext::GetMPMParticleIndices() const
+	{
+		// Seems that Vulkan RT API has counter clockwise hardcoded as front face.
+		return {
+			2, 0, 6, // Z- plane.
+			6, 0, 4, // Z- plane.
+			1, 0, 2, // X- plane.
+			3, 1, 2, // X- plane.
+			7, 1, 3, // Z+ plane.
+			5, 1, 7, // Z+ plane.
+			6, 5, 7, // X+ plane.
+			4, 5, 6, // X+ plane.
+			2, 6, 3, // Y+ plane.
+			3, 6, 7, // Y+ plane.
+			4, 0, 1, // Y- plane.
+			5, 4, 1, // Y- plane.
 		};
 	}
 
