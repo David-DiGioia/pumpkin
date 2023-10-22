@@ -9,7 +9,19 @@ layout (location = 5) in float in_j;
 
 layout (location = 0) out vec3 out_color;
 
+const float PI = 3.14159265359;
+
+vec3 Heatmap(float val, float lower, float upper)
+{
+    // Map val from [lower, upper] to [0, 1].
+    val = (val - lower) / upper - lower;
+    // Map val from [0, 1] to [0, pi / 2].
+    val *= PI / 2.0;
+
+    return vec3(sin(val), sin(val * 2.0), cos(val));
+}
+
 void main()
 {
-    out_color = vec3(in_j);
+    out_color = Heatmap(1.0 - in_j, 0.0, 1.0);
 }
