@@ -361,6 +361,7 @@ private:
 
 	EditorNode* particle_node_{};
 	bool show_particle_overlay_{};
+	ParticleColorMode particle_color_mode_{};
 
 	EditorSettings editor_settings_{}; // Settings loaded from AppData.
 };

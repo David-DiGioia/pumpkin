@@ -23,5 +23,6 @@ vec3 Heatmap(float val, float lower, float upper)
 
 void main()
 {
-    out_color = Heatmap(1.0 - in_j, 0.0, 1.0);
+    //out_color = Heatmap(1.0 - in_j, 0.0, 1.0);
+    //out_color = in_velocity;
 }

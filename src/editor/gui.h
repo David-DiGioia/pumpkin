@@ -19,6 +19,29 @@ struct EditorNodeCmp
 	bool operator()(EditorNode* a, EditorNode* b) const;
 };
 
+enum class ParticleColorMode
+{
+	NONE,
+	MASS,
+	MU,
+	LAMBDA,
+	VELOCITY,
+	COMPRESSION,
+	TENSION,
+
+	COLOR_MODE_COUNT,
+};
+
+const std::array<std::string, (uint32_t)ParticleColorMode::COLOR_MODE_COUNT> particle_color_mode_names{
+	"None",
+	"Mass",
+	"Mu",
+	"Lambda",
+	"Velocity",
+	"Compression",
+	"Tension",
+};
+
 class EditorGui
 {
 public:
