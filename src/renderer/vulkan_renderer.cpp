@@ -180,6 +180,11 @@ namespace renderer
 	{
 		editor_backend_.ClearOutlineSets();
 	}
+
+	void VulkanRenderer::SetParticleColorMode(uint32_t color_mode)
+	{
+		editor_backend_.SetParticleColorMode(color_mode, 1.0f);
+	}
 #endif
 
 	void VulkanRenderer::CleanUp()

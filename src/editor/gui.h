@@ -26,8 +26,8 @@ enum class ParticleColorMode
 	MU,
 	LAMBDA,
 	VELOCITY,
-	COMPRESSION,
-	TENSION,
+	COMPRESSIVE_STRAIN,
+	TENSILE_STRAIN,
 
 	COLOR_MODE_COUNT,
 };
@@ -38,8 +38,8 @@ const std::array<std::string, (uint32_t)ParticleColorMode::COLOR_MODE_COUNT> par
 	"Mu",
 	"Lambda",
 	"Velocity",
-	"Compression",
-	"Tension",
+	"Compressive strain",
+	"Tensile strain",
 };
 
 class EditorGui

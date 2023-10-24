@@ -149,6 +149,7 @@ namespace pmk
 		renderer_.LoadRenderData(j, vertex_path, index_path, texture_path, out_material_indices);
 	}
 
+#ifdef EDITOR_ENABLED
 	void Pumpkin::ClearOutlineSets()
 	{
 		renderer_.ClearOutlineSets();
@@ -168,6 +169,12 @@ namespace pmk
 	{
 		renderer_.SetParticleOverlay(render_object);
 	}
+
+	void Pumpkin::SetParticleColorMode(uint32_t color_mode)
+	{
+		renderer_.SetParticleColorMode(color_mode);
+	}
+#endif
 
 	void Pumpkin::QueueRaycast(const glm::vec3& origin, const glm::vec3& direction)
 	{

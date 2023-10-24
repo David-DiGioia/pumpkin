@@ -67,6 +67,7 @@ namespace pmk
 			const std::filesystem::path& texture_path,
 			std::vector<int>* out_material_indices);
 
+#ifdef EDITOR_ENABLED
 		void ClearOutlineSets();
 
 		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color);
@@ -74,6 +75,9 @@ namespace pmk
 		void SetParticleOverlayEnabled(bool enabled);
 
 		void SetParticleOverlay(renderer::RenderObjectHandle render_object);
+
+		void SetParticleColorMode(uint32_t color_mode);
+#endif
 
 		void QueueRaycast(const glm::vec3& origin, const glm::vec3& direction);
 

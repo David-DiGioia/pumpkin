@@ -291,6 +291,8 @@ public:
 
 	EditorShader* GetShader(uint32_t shader_index);
 
+	void SetParticleColorMode(ParticleColorMode color_mode);
+
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);
 

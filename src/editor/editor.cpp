@@ -874,6 +874,12 @@ EditorShader* Editor::GetShader(uint32_t shader_index)
 	return shaders_[shader_index];
 }
 
+void Editor::SetParticleColorMode(ParticleColorMode color_mode)
+{
+	particle_color_mode_ = color_mode;
+	pumpkin_->SetParticleColorMode((uint32_t)color_mode);
+}
+
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
 {
 	const renderer::Extent& viewport_extent{ gui_.GetViewportExtent() };

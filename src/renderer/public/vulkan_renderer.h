@@ -142,6 +142,8 @@ namespace renderer
 		void SetParticleOverlay(RenderObjectHandle render_object);
 
 		void ClearOutlineSets();
+
+		void SetParticleColorMode(uint32_t color_mode);
 #endif
 
 	private:

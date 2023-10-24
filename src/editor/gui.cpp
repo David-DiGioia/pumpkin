@@ -737,7 +737,7 @@ void EditorGui::ParticleEditor()
 			bool selected{ color_mode == (uint32_t)editor_->particle_color_mode_ };
 
 			if (ImGui::Selectable(particle_color_mode_names[color_mode].c_str(), selected)) {
-				editor_->particle_color_mode_ = (ParticleColorMode)color_mode;
+				editor_->SetParticleColorMode((ParticleColorMode)color_mode);
 			}
 		}
 		ImGui::EndCombo();

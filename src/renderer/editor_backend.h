@@ -119,6 +119,8 @@ namespace renderer
 
 		void UpdateMPMDebugGeometry(const MPMDebugGeometry& mpm_geometry);
 
+		void SetParticleColorMode(uint32_t color_mode, float max_value);
+
 	private:
 		struct OutlineObjects
 		{
@@ -134,6 +136,12 @@ namespace renderer
 
 			// Grid.
 			ImageResource particle_depth;
+		};
+
+		struct ParticleRasterPushConstant
+		{
+			uint32_t particle_color_mode{};
+			float max_value{};
 		};
 
 		struct MPMDebugInfo
@@ -154,6 +162,8 @@ namespace renderer
 
 			uint32_t grid_vertex_count;
 			BufferResource grid_vertices; // Of type Vertex.
+
+			ParticleRasterPushConstant particle_push_constant;
 		};
 
 		FrameResources& GetCurrentFrame();

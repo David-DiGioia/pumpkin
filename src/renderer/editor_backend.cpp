@@ -406,10 +406,18 @@ namespace renderer
 		NameObject(context_->device, grid_pipeline_.pipeline, "Grid_Pipeline");
 		NameObject(context_->device, grid_pipeline_.layout, "Grid_Pipeline_Layout");
 
+		VkPushConstantRange particle_raster_constant_range{
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.offset = 0,
+			.size = sizeof(ParticleRasterPushConstant),
+		};
+
+		std::vector<VkPushConstantRange> particle_raster_constant_ranges{ particle_raster_constant_range };
+
 		particle_raster_pipeline_.Initialize(
 			context,
 			grid_set_layouts,
-			{},
+			particle_raster_constant_ranges,
 			FINAL_IMAGE_FORMAT,
 			renderer_->GetDepthImageFormat(),
 			VertexAttributes::MPM,
@@ -596,6 +604,12 @@ namespace renderer
 		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.vertices, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_vertices);
 		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.indices, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_indices);
 		renderer_->vulkan_util_.Submit();
+	}
+
+	void EditorBackend::SetParticleColorMode(uint32_t color_mode, float max_value)
+	{
+		mpm_debug_.particle_push_constant.particle_color_mode = color_mode;
+		mpm_debug_.particle_push_constant.max_value = max_value;
 	}
 
 	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
@@ -871,7 +885,7 @@ namespace renderer
 		vkCmdBindDescriptorSets(
 			cmd,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			mask_pipeline_.layout,
+			particle_raster_pipeline_.layout,
 			EDITOR_CAMERA_UBO_SET,
 			1,
 			&renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set,
@@ -880,6 +894,14 @@ namespace renderer
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, particle_raster_pipeline_.pipeline);
 
+		vkCmdPushConstants(
+			cmd,
+			particle_raster_pipeline_.layout,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			0,
+			sizeof(ParticleRasterPushConstant),
+			&mpm_debug_.particle_push_constant);
+
 		VkDeviceSize zero_offset{ 0 };
 
 		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[mpm_debug_.render_object_index] };
@@ -887,7 +909,7 @@ namespace renderer
 		vkCmdBindDescriptorSets(
 			cmd,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			mask_pipeline_.layout,
+			particle_raster_pipeline_.layout,
 			EDITOR_RENDER_OBJECT_UBO_SET,
 			1,
 			&render_object->ubo_descriptor_set_resource.descriptor_set,
