@@ -14,6 +14,7 @@ layout (push_constant) uniform PushConstant {
     float max_value;
 } constants;
 
+// This makes the depth test happen earlier before we discard fragments for COLOR_MODE_NONE.
 layout(early_fragment_tests) in;
 
 const uint COLOR_MODE_NONE               = 0;
