@@ -165,10 +165,11 @@ namespace renderer
 		editor_backend_.AddOutlineSet(std::move(transformed_selection_set), color);
 	}
 
-	void VulkanRenderer::SetParticleOverlayEnabled(bool enabled)
+	void VulkanRenderer::SetParticleOverlayEnabled(bool grid_enabled, bool particles_enabled)
 	{
-		particle_context_.SetMPMDebugGeometryGenEnabled(enabled);
-		editor_backend_.SetGridEnabled(enabled);
+		particle_context_.SetMPMDebugGeometryGenEnabled(grid_enabled || particles_enabled);
+		editor_backend_.SetGridEnabled(grid_enabled);
+		editor_backend_.SetRasterParticlesEnabled(grid_enabled || particles_enabled);
 	}
 
 	void VulkanRenderer::SetParticleOverlay(RenderObjectHandle render_object)

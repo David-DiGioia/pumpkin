@@ -160,9 +160,9 @@ namespace pmk
 		renderer_.AddOutlineSet(selection_set, color);
 	}
 
-	void Pumpkin::SetParticleOverlayEnabled(bool enabled)
+	void Pumpkin::SetParticleOverlayEnabled(bool grid_enabled, bool particles_enabled)
 	{
-		renderer_.SetParticleOverlayEnabled(enabled);
+		renderer_.SetParticleOverlayEnabled(grid_enabled, particles_enabled);
 	}
 
 	void Pumpkin::SetParticleOverlay(renderer::RenderObjectHandle render_object)

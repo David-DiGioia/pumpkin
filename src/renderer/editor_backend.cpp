@@ -505,7 +505,7 @@ namespace renderer
 
 	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd)
 	{
-		if (grid_enabled_ && (mpm_debug_.render_object_index != NULL_INDEX)) {
+		if (mpm_debug_.render_object_index != NULL_INDEX) {
 			RenderMPMGridAndRasterParticles(cmd);
 		}
 		RenderOutlines(cmd);
@@ -575,6 +575,11 @@ namespace renderer
 	void EditorBackend::SetGridEnabled(bool enabled)
 	{
 		grid_enabled_ = enabled;
+	}
+
+	void EditorBackend::SetRasterParticlesEnabled(bool enabled)
+	{
+		raster_particles_enabled_ = enabled;
 	}
 
 	void EditorBackend::UpdateMPMDebugGeometry(const MPMDebugGeometry& mpm_geometry)
@@ -824,16 +829,25 @@ namespace renderer
 
 	void EditorBackend::RenderMPMGridAndRasterParticles(VkCommandBuffer cmd)
 	{
-		ParticleRasterRenderPass(cmd);
+		if (raster_particles_enabled_) {
+			ParticleRasterRenderPass(cmd);
+		}
 
-		// No transitions needed here, just barrier for writing and reading depth.
-		PipelineBarrier(cmd, GetCurrentFrame().particle_depth.image,
-			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
-			VK_IMAGE_ASPECT_DEPTH_BIT);
+		if (raster_particles_enabled_ && grid_enabled_)
+		{
 
-		GridRenderPass(cmd);
+			// No transitions needed here, just barrier for writing and reading depth.
+			PipelineBarrier(cmd, GetCurrentFrame().particle_depth.image,
+				VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+				VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+				VK_IMAGE_ASPECT_DEPTH_BIT);
+		}
+
+		if (grid_enabled_)
+		{
+			GridRenderPass(cmd);
+		}
 	}
 
 	void EditorBackend::ParticleRasterRenderPass(VkCommandBuffer cmd)

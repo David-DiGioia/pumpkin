@@ -362,7 +362,8 @@ private:
 	TransformInfo transform_info_{};
 
 	EditorNode* particle_node_{};
-	bool show_particle_overlay_{};
+	bool show_particle_grid_{};
+	bool show_particle_colors_{};
 	ParticleColorMode particle_color_mode_{};
 
 	EditorSettings editor_settings_{}; // Settings loaded from AppData.

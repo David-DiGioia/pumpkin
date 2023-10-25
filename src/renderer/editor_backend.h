@@ -117,6 +117,8 @@ namespace renderer
 
 		void SetGridEnabled(bool enabled);
 
+		void SetRasterParticlesEnabled(bool enabled);
+
 		void UpdateMPMDebugGeometry(const MPMDebugGeometry& mpm_geometry);
 
 		void SetParticleColorMode(uint32_t color_mode, float max_value);
@@ -200,5 +202,6 @@ namespace renderer
 		DescriptorSetLayoutResource outline_layout_resource_{};
 		MPMDebugInfo mpm_debug_{};
 		bool grid_enabled_{};
+		bool raster_particles_enabled_{};
 	};
 }

@@ -877,7 +877,9 @@ EditorShader* Editor::GetShader(uint32_t shader_index)
 void Editor::SetParticleColorMode(ParticleColorMode color_mode)
 {
 	particle_color_mode_ = color_mode;
+	show_particle_colors_ = color_mode != ParticleColorMode::NONE;
 	pumpkin_->SetParticleColorMode((uint32_t)color_mode);
+	UpdateParticleOverlayEnabled();
 }
 
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
@@ -1019,10 +1021,10 @@ void Editor::UpdateParticleOverlay()
 void Editor::UpdateParticleOverlayEnabled()
 {
 	if (active_selection_node_ == particle_node_) {
-		pumpkin_->SetParticleOverlayEnabled(show_particle_overlay_);
+		pumpkin_->SetParticleOverlayEnabled(show_particle_grid_, show_particle_colors_);
 	}
 	else {
-		pumpkin_->SetParticleOverlayEnabled(false);
+		pumpkin_->SetParticleOverlayEnabled(false, false);
 	}
 }
 

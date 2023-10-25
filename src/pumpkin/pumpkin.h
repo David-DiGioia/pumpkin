@@ -72,7 +72,7 @@ namespace pmk
 
 		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color);
 
-		void SetParticleOverlayEnabled(bool enabled);
+		void SetParticleOverlayEnabled(bool grid_enabled, bool particles_enabled);
 
 		void SetParticleOverlay(renderer::RenderObjectHandle render_object);
 
