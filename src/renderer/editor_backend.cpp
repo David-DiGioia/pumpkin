@@ -652,7 +652,7 @@ namespace renderer
 			// Grid resources.
 			resource.particle_depth = renderer_->allocator_.CreateImageResource(
 				renderer_->GetViewportExtent(),
-				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				renderer_->GetDepthImageFormat(),
 				VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -941,7 +941,7 @@ namespace renderer
 	void EditorBackend::GridRenderPass(VkCommandBuffer cmd)
 	{
 		Extent viewport_extents{ renderer_->GetViewportExtent() };
-		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.0f, 1.0f };
+		VkClearColorValue clear_color{ 1.0f, 1.0f, 1.0f, 1.0f };
 
 		VkRenderingAttachmentInfo color_attachment_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -962,7 +962,7 @@ namespace renderer
 			.resolveMode = VK_RESOLVE_MODE_NONE,
 			.resolveImageView = VK_NULL_HANDLE,
 			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.loadOp = raster_particles_enabled_ ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
 			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 			.clearValue = clear_color,
 		};

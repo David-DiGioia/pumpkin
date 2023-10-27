@@ -17,13 +17,14 @@ layout (push_constant) uniform PushConstant {
 // This makes the depth test happen earlier before we discard fragments for COLOR_MODE_NONE.
 layout(early_fragment_tests) in;
 
-const uint COLOR_MODE_NONE               = 0;
-const uint COLOR_MODE_MASS               = 1;
-const uint COLOR_MODE_MU                 = 2;
-const uint COLOR_MODE_LAMBDA             = 3;
-const uint COLOR_MODE_VELOCITY           = 4;
-const uint COLOR_MODE_COMPRESSIVE_STRAIN = 5;
-const uint COLOR_MODE_TENSILE_STRAIN     = 6;
+const uint COLOR_MODE_FINAL_SHADING      = 0;
+const uint COLOR_MODE_HIDDEN             = 1;
+const uint COLOR_MODE_MASS               = 2;
+const uint COLOR_MODE_MU                 = 3;
+const uint COLOR_MODE_LAMBDA             = 4;
+const uint COLOR_MODE_VELOCITY           = 5;
+const uint COLOR_MODE_COMPRESSIVE_STRAIN = 6;
+const uint COLOR_MODE_TENSILE_STRAIN     = 7;
 
 const float PI = 3.14159265359;
 
@@ -42,7 +43,8 @@ void main()
 {
     switch (constants.particle_color_mode)
     {
-    case COLOR_MODE_NONE:
+    case COLOR_MODE_FINAL_SHADING:
+    case COLOR_MODE_HIDDEN:
         discard;
         break;
     case COLOR_MODE_MASS:

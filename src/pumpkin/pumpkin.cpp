@@ -160,9 +160,9 @@ namespace pmk
 		renderer_.AddOutlineSet(selection_set, color);
 	}
 
-	void Pumpkin::SetParticleOverlayEnabled(bool grid_enabled, bool particles_enabled)
+	void Pumpkin::SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles)
 	{
-		renderer_.SetParticleOverlayEnabled(grid_enabled, particles_enabled);
+		renderer_.SetParticleOverlayEnabled(render_grid, rasterize_particles);
 	}
 
 	void Pumpkin::SetParticleOverlay(renderer::RenderObjectHandle render_object)
@@ -208,6 +208,11 @@ namespace pmk
 	void Pumpkin::AddRenderObjectToNode(Node* node, renderer::RenderObjectHandle handle)
 	{
 		scene_.AddRenderObjectToNode(node, handle);
+	}
+
+	void Pumpkin::SetRenderObjectVisible(renderer::RenderObjectHandle render_object_handle, bool visible)
+	{
+		renderer_.SetRenderObjectVisible(render_object_handle, visible);
 	}
 
 	uint32_t Pumpkin::CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels, bool color_data)

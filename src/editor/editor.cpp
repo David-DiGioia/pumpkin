@@ -877,7 +877,8 @@ EditorShader* Editor::GetShader(uint32_t shader_index)
 void Editor::SetParticleColorMode(ParticleColorMode color_mode)
 {
 	particle_color_mode_ = color_mode;
-	show_particle_colors_ = color_mode != ParticleColorMode::NONE;
+	show_particle_colors_ = color_mode != ParticleColorMode::FINAL_SHADING;
+	pumpkin_->SetRenderObjectVisible(active_selection_node_->node->render_object, color_mode != ParticleColorMode::HIDDEN);
 	pumpkin_->SetParticleColorMode((uint32_t)color_mode);
 	UpdateParticleOverlayEnabled();
 }
@@ -1020,8 +1021,10 @@ void Editor::UpdateParticleOverlay()
 
 void Editor::UpdateParticleOverlayEnabled()
 {
-	if (active_selection_node_ == particle_node_) {
-		pumpkin_->SetParticleOverlayEnabled(show_particle_grid_, show_particle_colors_);
+	if (active_selection_node_ == particle_node_)
+	{
+		bool particles_hidden{ particle_color_mode_ == ParticleColorMode::HIDDEN };
+		pumpkin_->SetParticleOverlayEnabled(show_particle_grid_, (show_particle_grid_ || show_particle_colors_) && !particles_hidden);
 	}
 	else {
 		pumpkin_->SetParticleOverlayEnabled(false, false);

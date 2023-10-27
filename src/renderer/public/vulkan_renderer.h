@@ -84,6 +84,8 @@ namespace renderer
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
+		void SetRenderObjectVisible(RenderObjectHandle render_object_handle, bool visible);
+
 		void SetCameraMatrix(const glm::mat4& view, const glm::mat4& projection);
 
 		Extent GetViewportExtent();
@@ -137,7 +139,7 @@ namespace renderer
 
 		void AddOutlineSet(const std::vector<RenderObjectHandle>& selection_set, const glm::vec4& color);
 
-		void SetParticleOverlayEnabled(bool grid_enabled, bool particles_enabled);
+		void SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles);
 
 		void SetParticleOverlay(RenderObjectHandle render_object);
 

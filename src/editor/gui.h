@@ -21,7 +21,8 @@ struct EditorNodeCmp
 
 enum class ParticleColorMode
 {
-	NONE,
+	FINAL_SHADING,
+	HIDDEN,
 	MASS,
 	MU,
 	LAMBDA,
@@ -33,7 +34,8 @@ enum class ParticleColorMode
 };
 
 const std::array<std::string, (uint32_t)ParticleColorMode::COLOR_MODE_COUNT> particle_color_mode_names{
-	"None",
+	"Final shading",
+	"Hidden",
 	"Mass",
 	"Mu",
 	"Lambda",

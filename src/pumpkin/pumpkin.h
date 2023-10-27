@@ -72,7 +72,7 @@ namespace pmk
 
 		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color);
 
-		void SetParticleOverlayEnabled(bool grid_enabled, bool particles_enabled);
+		void SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles);
 
 		void SetParticleOverlay(renderer::RenderObjectHandle render_object);
 
@@ -86,6 +86,8 @@ namespace pmk
 		Node* GetNodeByRenderObject(renderer::RenderObjectHandle handle);
 
 		void AddRenderObjectToNode(Node* node, renderer::RenderObjectHandle handle);
+
+		void SetRenderObjectVisible(renderer::RenderObjectHandle render_object_handle, bool visible);
 
 		uint32_t CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels, bool color_data);
 

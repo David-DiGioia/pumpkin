@@ -165,11 +165,11 @@ namespace renderer
 		editor_backend_.AddOutlineSet(std::move(transformed_selection_set), color);
 	}
 
-	void VulkanRenderer::SetParticleOverlayEnabled(bool grid_enabled, bool particles_enabled)
+	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles)
 	{
-		particle_context_.SetMPMDebugGeometryGenEnabled(grid_enabled || particles_enabled);
-		editor_backend_.SetGridEnabled(grid_enabled);
-		editor_backend_.SetRasterParticlesEnabled(grid_enabled || particles_enabled);
+		particle_context_.SetMPMDebugGeometryGenEnabled(rasterize_particles);
+		editor_backend_.SetRasterParticlesEnabled(rasterize_particles);
+		editor_backend_.SetGridEnabled(render_grid);
 	}
 
 	void VulkanRenderer::SetParticleOverlay(RenderObjectHandle render_object)
@@ -1100,6 +1100,7 @@ namespace renderer
 			RenderObject* render_object{ new RenderObject{
 				.mesh_idx = mesh_index,
 				.material_indices = material_indices,
+				.visible = true,
 				.uniform_buffer = {
 					.transform = glm::mat4(1.0f),
 				},
@@ -1178,6 +1179,7 @@ namespace renderer
 			RenderObject* render_object{ new RenderObject{
 				.mesh_idx = mesh_index,
 				.material_indices = material_indices,
+				.visible = true,
 				.uniform_buffer = {
 					.transform = glm::mat4(1.0f),
 				},
@@ -1194,6 +1196,7 @@ namespace renderer
 
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
 	{
+		// This is called every frame by Pumpkin so we only update for the current frame resources.
 		RenderObject* render_object{ GetCurrentFrame().render_objects[render_object_handle] };
 		render_object->uniform_buffer.transform = transform;
 
@@ -1201,6 +1204,13 @@ namespace renderer
 		vkMapMemory(context_.device, *render_object->ubo_buffer_resource.memory, render_object->ubo_buffer_resource.offset, render_object->ubo_buffer_resource.size, 0, &data);
 		memcpy(data, &render_object->uniform_buffer, sizeof(RenderObject::UniformBuffer));
 		vkUnmapMemory(context_.device, *render_object->ubo_buffer_resource.memory);
+	}
+
+	void VulkanRenderer::SetRenderObjectVisible(RenderObjectHandle render_object_handle, bool visible)
+	{
+		for (auto& frame : frame_resources_) {
+			frame.render_objects[render_object_handle]->visible = visible;
+		}
 	}
 
 	void VulkanRenderer::SetCameraMatrix(const glm::mat4& view, const glm::mat4& projection)
