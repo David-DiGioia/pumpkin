@@ -30,7 +30,7 @@ namespace renderer
 	};
 
 #ifdef EDITOR_ENABLED
-	struct MPMDebugInstance
+	struct MPMDebugParticleInstance
 	{
 		float mass;
 		float mu;
@@ -45,11 +45,15 @@ namespace renderer
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};
 
-	struct MPMDebugGeometry
+	struct MPMDebugNodeInstance
 	{
-		std::vector<MPMDebugInstance> instances;
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
+		float mass;
+		glm::vec3 position;
+		glm::vec3 velocity;
+		glm::vec3 momentum;
+		glm::vec3 force;
+
+		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};
 #endif
 

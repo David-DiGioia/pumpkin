@@ -141,7 +141,10 @@ namespace renderer
 		InitializeRayTracing();
 
 #ifdef EDITOR_ENABLED
-		editor_backend_.Initialize(&context_, this);
+		editor_backend_.Initialize(
+			particle_context_.GetParticleVertices(),
+			particle_context_.GetParticleIndices(),
+			&context_, this);
 #endif
 	}
 
@@ -167,7 +170,7 @@ namespace renderer
 
 	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles)
 	{
-		particle_context_.SetMPMDebugGeometryGenEnabled(rasterize_particles);
+		particle_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
 		editor_backend_.SetRasterParticlesEnabled(rasterize_particles);
 		editor_backend_.SetGridEnabled(render_grid);
 	}

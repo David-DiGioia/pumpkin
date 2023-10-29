@@ -119,10 +119,16 @@ namespace renderer
 
 		float GetChunkWidth() const;
 
-#ifdef EDITOR_ENABLED
-		void SetMPMDebugGeometryGenEnabled(bool enabled);
+		// Get the vertex data for a single particle, eg a cube.
+		std::vector<Vertex> GetParticleVertices() const;
 
-		const MPMDebugGeometry& GetMPMDebugGeometry() const;
+		// Get the index data for a single particle, eg a cube.
+		std::vector<uint32_t> GetParticleIndices() const;
+
+#ifdef EDITOR_ENABLED
+		void SetMPMDebugParticleGenEnabled(bool enabled);
+
+		const std::vector<MPMDebugParticleInstance>& GetMPMDebugGeometry() const;
 #endif
 
 	private:
@@ -140,12 +146,6 @@ namespace renderer
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
 		void GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
-
-		// Get the vertex data for a single particle, eg a cube.
-		std::vector<Vertex> GetParticleVertices() const;
-
-		// Get the index data for a single particle, eg a cube.
-		std::vector<uint32_t> GetParticleIndices() const;
 
 		std::vector<MaterialPoint> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const;
 
@@ -174,8 +174,8 @@ namespace renderer
 		}particle_neighbors_{};
 
 #ifdef EDITOR_ENABLED
-		bool generate_mpm_geometry_{};
-		MPMDebugGeometry mpm_geometry_{};
+		bool generate_mpm_particle_instances_{};
+		std::vector<MPMDebugParticleInstance> mpm_particle_instances_{};
 #endif
 
 		std::vector<StaticParticle> static_particles_{};

@@ -340,13 +340,39 @@ namespace renderer
 
 	// Editor backend ------------------------------------------------------------------------------------------------
 
-	void EditorBackend::Initialize(Context* context, VulkanRenderer* renderer)
+	void EditorBackend::Initialize(
+		const std::vector<Vertex>& cube_vertices,
+		const std::vector<uint32_t>& cube_indices,
+		Context* context,
+		VulkanRenderer* renderer)
 	{
 		context_ = context;
 		renderer_ = renderer;
 		imgui_backend_.Initialize(renderer);
 		InitializeDescriptorSetLayouts();
 
+		// Create cube vertex/index buffers.
+		mpm_debug_.particle_vertex_count = (uint32_t)cube_vertices.size();
+		mpm_debug_.particle_index_count = (uint32_t)cube_indices.size();
+
+		mpm_debug_.cube_vertices = renderer_->allocator_.CreateBufferResource(
+			mpm_debug_.particle_vertex_count * sizeof(Vertex),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_->device, mpm_debug_.cube_vertices.buffer, "Debug_Cube_Vertices");
+
+		mpm_debug_.cube_indices = renderer_->allocator_.CreateBufferResource(
+			mpm_debug_.particle_index_count * sizeof(uint32_t),
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_->device, mpm_debug_.cube_indices.buffer, "Debug_Cube_Indices");
+
+		renderer_->vulkan_util_.Begin();
+		renderer_->vulkan_util_.TransferBufferToDevice(cube_vertices, mpm_debug_.cube_vertices);
+		renderer_->vulkan_util_.TransferBufferToDevice(cube_indices, mpm_debug_.cube_indices);
+		renderer_->vulkan_util_.Submit();
+
+		// Make pipelines.
 		std::vector<DescriptorSetLayoutResource> mask_set_layouts{
 			renderer_->camera_layout_resource_,
 			renderer_->render_object_layout_resource_,
@@ -445,12 +471,16 @@ namespace renderer
 	{
 		imgui_backend_.CleanUp();
 
-		for (uint32_t geo_idx{ 0 }; geo_idx < FRAMES_IN_FLIGHT; ++geo_idx)
+		for (uint32_t i{ 0 }; i < FRAMES_IN_FLIGHT; ++i)
 		{
-			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.geometry_buffer[geo_idx].particle_instances);
-			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.geometry_buffer[geo_idx].particle_vertices);
-			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.geometry_buffer[geo_idx].particle_indices);
+			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.particle_instances[i]);
+			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.node_instances[i]);
 		}
+
+		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.cube_vertices);
+		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.cube_indices);
+		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.line_vertices);
+
 
 		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.grid_vertices);
 
@@ -583,41 +613,25 @@ namespace renderer
 		raster_particles_enabled_ = enabled;
 	}
 
-	void EditorBackend::UpdateMPMDebugGeometry(const MPMDebugGeometry& mpm_geometry)
+	void EditorBackend::UpdateMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances)
 	{
 		// Increment so we work on the next geometry in the buffer and don't interfere with one being used for rendering.
-		mpm_debug_.geo_idx = (mpm_debug_.geo_idx + 1) % FRAMES_IN_FLIGHT;
+		mpm_debug_.particle_idx = (mpm_debug_.particle_idx + 1) % FRAMES_IN_FLIGHT;
 
-		mpm_debug_.particle_instance_count = (uint32_t)mpm_geometry.instances.size();
-		mpm_debug_.particle_vertex_count = (uint32_t)mpm_geometry.vertices.size();
-		mpm_debug_.particle_index_count = (uint32_t)mpm_geometry.indices.size();
+		mpm_debug_.particle_instance_count = (uint32_t)particle_instances.size();
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
-			mpm_debug_.particle_instance_count * sizeof(MPMDebugInstance),
+			mpm_debug_.particle_instance_count * sizeof(MPMDebugParticleInstance),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_instances);
-		NameObject(context_->device, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_instances.buffer, "Debug_MPM_Instances");
+			mpm_debug_.particle_instances[mpm_debug_.particle_idx]);
+		NameObject(context_->device, mpm_debug_.particle_instances[mpm_debug_.particle_idx].buffer, "Debug_MPM_Instances");
 
-		renderer_->allocator_.ExpandOrReuseBuffer(
-			mpm_debug_.particle_vertex_count * sizeof(Vertex),
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_vertices);
-		NameObject(context_->device, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_vertices.buffer, "Debug_MPM_Vertices");
 
-		renderer_->allocator_.ExpandOrReuseBuffer(
-			mpm_debug_.particle_index_count * sizeof(decltype(MPMDebugGeometry::indices)::value_type),
-			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_indices);
-		NameObject(context_->device, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_indices.buffer, "Debug_MPM_Indices");
 
 		// TODO: Could make this part of the same command buffer being submitted for rasterizing particles.
 		renderer_->vulkan_util_.Begin();
-		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.instances, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_instances);
-		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.vertices, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_vertices);
-		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.indices, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_indices);
+		renderer_->vulkan_util_.TransferBufferToDevice(particle_instances, mpm_debug_.particle_instances[mpm_debug_.particle_idx]);
 		renderer_->vulkan_util_.Submit();
 	}
 
@@ -843,7 +857,7 @@ namespace renderer
 			ParticleRasterRenderPass(cmd);
 		}
 
-		if (raster_particles_enabled_ && grid_enabled_)
+		if (raster_particles_enabled_ && (grid_enabled_ || nodes_enabled_))
 		{
 
 			// No transitions needed here, just barrier for writing and reading depth.
@@ -854,9 +868,12 @@ namespace renderer
 				VK_IMAGE_ASPECT_DEPTH_BIT);
 		}
 
-		if (grid_enabled_)
-		{
+		if (grid_enabled_) {
 			GridRenderPass(cmd);
+		}
+
+		if (nodes_enabled_) {
+			NodeRenderPass(cmd);
 		}
 	}
 
@@ -938,12 +955,11 @@ namespace renderer
 			0,
 			nullptr);
 
-		VkIndexType index_type{ std::is_same<uint32_t, decltype(MPMDebugGeometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
-		VkBuffer vertex_buffers[2]{ mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_vertices.buffer, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_instances.buffer };
+		VkBuffer vertex_buffers[2]{ mpm_debug_.cube_vertices.buffer, mpm_debug_.particle_instances[mpm_debug_.particle_idx].buffer };
 		VkDeviceSize zero_offsets[2]{ 0, 0 };
 
 		vkCmdBindVertexBuffers(cmd, 0, 2, vertex_buffers, zero_offsets);
-		vkCmdBindIndexBuffer(cmd, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_indices.buffer, 0, index_type);
+		vkCmdBindIndexBuffer(cmd, mpm_debug_.cube_indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(cmd, mpm_debug_.particle_index_count, mpm_debug_.particle_instance_count, 0, 0, 0);
 
 		vkCmdEndRendering(cmd);
@@ -1023,5 +1039,10 @@ namespace renderer
 		vkCmdBindVertexBuffers(cmd, 0, 1, &mpm_debug_.grid_vertices.buffer, &zero_offset);
 		vkCmdDraw(cmd, mpm_debug_.grid_vertex_count, 1, 0, 0);
 		vkCmdEndRendering(cmd);
+	}
+
+	void EditorBackend::NodeRenderPass(VkCommandBuffer cmd)
+	{
+
 	}
 }

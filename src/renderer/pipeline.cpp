@@ -91,12 +91,12 @@ namespace renderer
 
 			VkVertexInputBindingDescription instance_input_binding{
 				.binding = INSTANCE_BINDING,
-				.stride = sizeof(MPMDebugInstance),
+				.stride = sizeof(MPMDebugParticleInstance),
 				.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE,
 			};
 
 			vertex_input_bindings = { vertex_input_binding, instance_input_binding };
-			vertex_attributes = MPMDebugInstance::GetVertexAttributes();
+			vertex_attributes = MPMDebugParticleInstance::GetVertexAttributes();
 			break;
 		}
 		default:

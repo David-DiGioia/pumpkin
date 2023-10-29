@@ -334,9 +334,9 @@ namespace renderer
 	}
 
 #ifdef EDITOR_ENABLED
-	void ParticleContext::SetMPMDebugGeometryGenEnabled(bool enabled)
+	void ParticleContext::SetMPMDebugParticleGenEnabled(bool enabled)
 	{
-		generate_mpm_geometry_ = enabled;
+		generate_mpm_particle_instances_ = enabled;
 
 		// If we've already generated a dynamic particle mesh before enabling,
 		// we won't have the MPM debug mesh when we need it.
@@ -349,16 +349,16 @@ namespace renderer
 		}
 	}
 
-	const MPMDebugGeometry& ParticleContext::GetMPMDebugGeometry() const
+	const std::vector<MPMDebugParticleInstance>& ParticleContext::GetMPMDebugGeometry() const
 	{
-		return mpm_geometry_;
+		return mpm_particle_instances_;
 	}
 #endif
 
 	void ParticleContext::GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles)
 	{
 #ifdef EDITOR_ENABLED
-		if (generate_mpm_geometry_) {
+		if (generate_mpm_particle_instances_) {
 			GenerateDynamicDebugMPMParticleMesh(particles);
 		}
 #endif
@@ -408,23 +408,24 @@ namespace renderer
 #ifdef EDITOR_ENABLED
 	void ParticleContext::GenerateDynamicDebugMPMParticleMesh(const std::vector<MaterialPoint>& particles)
 	{
-		mpm_geometry_.vertices = GetParticleVertices();
-		mpm_geometry_.indices = GetParticleIndices();
-		mpm_geometry_.instances.resize(particles.size());
+		// TODO: On initailization of editor_backend need to pass these vertices and indices.
+		//mpm_geometry_.vertices = GetParticleVertices();
+		//mpm_geometry_.indices = GetParticleIndices();
+		mpm_particle_instances_.resize(particles.size());
 
 		for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
 		{
-				mpm_geometry_.instances[p].mass = particles[p].mass;
-				mpm_geometry_.instances[p].mu = particles[p].mu;
-				mpm_geometry_.instances[p].lambda = particles[p].lambda;
-				mpm_geometry_.instances[p].position = particles[p].position;
-				mpm_geometry_.instances[p].velocity = particles[p].velocity;
-				mpm_geometry_.instances[p].deformation_gradient_col_0 = particles[p].deformation_gradient[0];
-				mpm_geometry_.instances[p].deformation_gradient_col_1 = particles[p].deformation_gradient[1];
-				mpm_geometry_.instances[p].deformation_gradient_col_2 = particles[p].deformation_gradient[2];
+			mpm_particle_instances_[p].mass = particles[p].mass;
+			mpm_particle_instances_[p].mu = particles[p].mu;
+			mpm_particle_instances_[p].lambda = particles[p].lambda;
+			mpm_particle_instances_[p].position = particles[p].position;
+			mpm_particle_instances_[p].velocity = particles[p].velocity;
+			mpm_particle_instances_[p].deformation_gradient_col_0 = particles[p].deformation_gradient[0];
+			mpm_particle_instances_[p].deformation_gradient_col_1 = particles[p].deformation_gradient[1];
+			mpm_particle_instances_[p].deformation_gradient_col_2 = particles[p].deformation_gradient[2];
 		}
 
-		renderer_->editor_backend_.UpdateMPMDebugGeometry(mpm_geometry_);
+		renderer_->editor_backend_.UpdateMPMDebugParticleInstances(mpm_particle_instances_);
 	}
 #endif
 

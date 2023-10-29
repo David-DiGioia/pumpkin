@@ -38,21 +38,36 @@ namespace renderer
 	}
 
 #ifdef EDITOR_ENABLED
-	std::vector<VkVertexInputAttributeDescription> MPMDebugInstance::GetVertexAttributes()
+	std::vector<VkVertexInputAttributeDescription> MPMDebugParticleInstance::GetVertexAttributes()
 	{
 		return {
 			// Vertex attributes.
 			VERTEX_ATTRIBUTE(0, position),
 
 			// Instance attributes.
-			MPM_VERTEX_ATTRIBUTE(1, mass),
-			MPM_VERTEX_ATTRIBUTE(2, mu),
-			MPM_VERTEX_ATTRIBUTE(3, lambda),
-			MPM_VERTEX_ATTRIBUTE(4, position),
-			MPM_VERTEX_ATTRIBUTE(5, velocity),
-			MPM_VERTEX_ATTRIBUTE(6, deformation_gradient_col_0),
-			MPM_VERTEX_ATTRIBUTE(7, deformation_gradient_col_1),
-			MPM_VERTEX_ATTRIBUTE(8, deformation_gradient_col_2),
+			MPM_PARTICLE_ATTRIBUTE(1, mass),
+			MPM_PARTICLE_ATTRIBUTE(2, mu),
+			MPM_PARTICLE_ATTRIBUTE(3, lambda),
+			MPM_PARTICLE_ATTRIBUTE(4, position),
+			MPM_PARTICLE_ATTRIBUTE(5, velocity),
+			MPM_PARTICLE_ATTRIBUTE(6, deformation_gradient_col_0),
+			MPM_PARTICLE_ATTRIBUTE(7, deformation_gradient_col_1),
+			MPM_PARTICLE_ATTRIBUTE(8, deformation_gradient_col_2),
+		};
+	}
+
+	std::vector<VkVertexInputAttributeDescription> MPMDebugNodeInstance::GetVertexAttributes()
+	{
+		return {
+			// Vertex attributes.
+			VERTEX_ATTRIBUTE(0, position),
+
+			// Instance attributes.
+			MPM_NODE_ATTRIBUTE(1, mass),
+			MPM_NODE_ATTRIBUTE(2, position),
+			MPM_NODE_ATTRIBUTE(3, velocity),
+			MPM_NODE_ATTRIBUTE(4, momentum),
+			MPM_NODE_ATTRIBUTE(5, force),
 		};
 	}
 #endif

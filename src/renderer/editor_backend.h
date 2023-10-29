@@ -95,7 +95,11 @@ namespace renderer
 	class EditorBackend
 	{
 	public:
-		void Initialize(Context* context, VulkanRenderer* renderer);
+		void Initialize(
+			const std::vector<Vertex>& cube_vertices,
+			const std::vector<uint32_t>& cube_indices,
+			Context* context,
+			VulkanRenderer* renderer);
 
 		void CleanUp();
 
@@ -119,7 +123,7 @@ namespace renderer
 
 		void SetRasterParticlesEnabled(bool enabled);
 
-		void UpdateMPMDebugGeometry(const MPMDebugGeometry& mpm_geometry);
+		void UpdateMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances);
 
 		void SetParticleColorMode(uint32_t color_mode, float max_value);
 
@@ -148,16 +152,21 @@ namespace renderer
 
 		struct MPMDebugInfo
 		{
+			// Vertices of particle sized cube used for both raster particles and node mass visualization.
+			BufferResource cube_vertices; // Of type Vertex.
+			BufferResource cube_indices;
+
+			// Vertices for line used to draw some visualizations of nodes.
+			BufferResource line_vertices;
+
 			// Use FRAMES_IN_FLIGHT geometry buffers so even if we rewrite the geometry every frame
 			// we won't write to resources in use. But don't make part of FrameResources since we
 			// don't rewrite geometry every frame.
-			struct Geometry
-			{
-				BufferResource particle_instances; // Of type MPMDebugInstance.
-				BufferResource particle_vertices; // Of type Vertex.
-				BufferResource particle_indices;
-			} geometry_buffer[FRAMES_IN_FLIGHT];
-			uint32_t geo_idx; // Current index into geometry_buffer.
+			BufferResource particle_instances[FRAMES_IN_FLIGHT]; // Of type MPMDebugParticleInstance.
+			uint32_t particle_idx;                               // Current index into particle_instances.
+
+			BufferResource node_instances[FRAMES_IN_FLIGHT]; // Of type MPMDebugNodeInstance.
+			uint32_t node_idx;                               // Current index into particle_instances.
 
 			uint32_t render_object_index;
 			uint32_t particle_instance_count;
@@ -191,6 +200,8 @@ namespace renderer
 
 		void GridRenderPass(VkCommandBuffer cmd);
 
+		void NodeRenderPass(VkCommandBuffer cmd);
+
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 
 		Context* context_{};
@@ -205,5 +216,6 @@ namespace renderer
 		MPMDebugInfo mpm_debug_{};
 		bool grid_enabled_{};
 		bool raster_particles_enabled_{};
+		bool nodes_enabled_{};
 	};
 }

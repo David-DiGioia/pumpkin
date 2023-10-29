@@ -18,12 +18,20 @@
 	}
 
 #ifdef EDITOR_ENABLED
-#define MPM_VERTEX_ATTRIBUTE(loc, attr)									\
-	VkVertexInputAttributeDescription{									\
-		.location = loc,												\
-		.binding = INSTANCE_BINDING,									\
-		.format = GetVulkanFormat<decltype(MPMDebugInstance::attr)>(),	\
-		.offset = offsetof(MPMDebugInstance, attr),						\
+#define MPM_PARTICLE_ATTRIBUTE(loc, attr)										\
+	VkVertexInputAttributeDescription{											\
+		.location = loc,														\
+		.binding = INSTANCE_BINDING,											\
+		.format = GetVulkanFormat<decltype(MPMDebugParticleInstance::attr)>(),	\
+		.offset = offsetof(MPMDebugParticleInstance, attr),						\
+	}
+
+#define MPM_NODE_ATTRIBUTE(loc, attr)										\
+	VkVertexInputAttributeDescription{										\
+		.location = loc,													\
+		.binding = INSTANCE_BINDING,										\
+		.format = GetVulkanFormat<decltype(MPMDebugNodeInstance::attr)>(),	\
+		.offset = offsetof(MPMDebugNodeInstance, attr),						\
 	}
 #endif
 
