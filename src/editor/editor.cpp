@@ -809,8 +809,10 @@ void Editor::CastSelectionRay(const glm::vec2& mouse_pos, const renderer::Extent
 			SelectNode(node);
 		}
 	}
-	else if (!multi_select_enabled_) {
+	else if (!multi_select_enabled_)
+	{
 		DeselectAllNodes();
+		UpdateParticleOverlayEnabled();
 	}
 }
 
@@ -878,7 +880,6 @@ void Editor::SetParticleColorMode(ParticleColorMode color_mode)
 {
 	particle_color_mode_ = color_mode;
 	show_particle_colors_ = color_mode != ParticleColorMode::FINAL_SHADING;
-	pumpkin_->SetRenderObjectVisible(active_selection_node_->node->render_object, color_mode != ParticleColorMode::HIDDEN);
 	pumpkin_->SetParticleColorMode((uint32_t)color_mode);
 	UpdateParticleOverlayEnabled();
 }
@@ -1025,9 +1026,13 @@ void Editor::UpdateParticleOverlayEnabled()
 	{
 		bool particles_hidden{ particle_color_mode_ == ParticleColorMode::HIDDEN };
 		pumpkin_->SetParticleOverlayEnabled(show_particle_grid_, (show_particle_grid_ || show_particle_colors_) && !particles_hidden);
+		pumpkin_->SetRenderObjectVisible(particle_node_->node->render_object, particle_color_mode_ != ParticleColorMode::HIDDEN);
 	}
 	else {
 		pumpkin_->SetParticleOverlayEnabled(false, false);
+		if (particle_node_) {
+			pumpkin_->SetRenderObjectVisible(particle_node_->node->render_object, true);
+		}
 	}
 }
 
