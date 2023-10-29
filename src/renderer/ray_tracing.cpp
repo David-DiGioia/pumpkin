@@ -343,6 +343,7 @@ namespace renderer
 		staging_buffers_.clear();
 
 		allocator_->DestroyBufferResource(&instance_buffer_);
+		instance_buffer_.buffer = VK_NULL_HANDLE;
 	}
 
 	void RayTracingContext::SetCameraMatrices(const glm::mat4& view, const glm::mat4& projection)

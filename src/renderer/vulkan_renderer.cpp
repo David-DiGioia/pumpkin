@@ -936,7 +936,7 @@ namespace renderer
 
 		// TODO: Update any BLASes that need to be updated here.
 
-		GetCurrentFrame().tlas = rt_context_.QueueTlas(GetCurrentFrame().render_objects);
+ 		GetCurrentFrame().tlas = rt_context_.QueueTlas(GetCurrentFrame().render_objects);
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 		rt_context_.CmdBuildQueuedTlases(cmd);
 		vulkan_util_.Submit();
@@ -1154,20 +1154,24 @@ namespace renderer
 			cmd,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
-		
+
 		rt_context_.QueueBlas(mesh);
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
 
 		// Either replace old mesh if it exists or create new one.
 		RenderObject* ro_ptr{ frame_resources_[0].render_objects[ro_target] };
+		bool visible{ true };
 		uint32_t mesh_index{};
-		if (ro_ptr) {
+		if (ro_ptr)
+		{
+			visible = ro_ptr->visible;
 			mesh_index = ro_ptr->mesh_idx;
 			DestroyRenderObject(ro_target);
 			meshes_[mesh_index] = mesh;
 		}
-		else {
+		else
+		{
 			mesh_index = (uint32_t)meshes_.size();
 			meshes_.push_back(mesh);
 		}
@@ -1179,7 +1183,7 @@ namespace renderer
 			RenderObject* render_object{ new RenderObject{
 				.mesh_idx = mesh_index,
 				.material_indices = material_indices,
-				.visible = true,
+				.visible = visible,
 				.uniform_buffer = {
 					.transform = glm::mat4(1.0f),
 				},
