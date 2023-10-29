@@ -144,12 +144,8 @@ namespace renderer
 		// Get the vertex data for a single particle, eg a cube.
 		std::vector<Vertex> GetParticleVertices() const;
 
-		std::vector<MPMDebugVertex> GetMPMParticleVertices() const;
-
 		// Get the index data for a single particle, eg a cube.
 		std::vector<uint32_t> GetParticleIndices() const;
-
-		std::vector<uint32_t> GetMPMParticleIndices() const;
 
 		std::vector<MaterialPoint> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const;
 

@@ -1,11 +1,15 @@
 #version 460
 
-layout (location = 0) in float mass;
-layout (location = 1) in float mu;
-layout (location = 2) in float lambda;
-layout (location = 3) in vec3 position;
-layout (location = 4) in vec3 velocity;
-layout (location = 5) in mat3 deformation_gradient;
+// Instance attributes.
+layout (location = 0) in vec3 instance_position;
+
+// Vertex attributes.
+layout (location = 1) in float mass;
+layout (location = 2) in float mu;
+layout (location = 3) in float lambda;
+layout (location = 4) in vec3 position;
+layout (location = 5) in vec3 velocity;
+layout (location = 6) in mat3 deformation_gradient;
 
 layout (location = 0) out float out_mass;
 layout (location = 1) out float out_mu;
@@ -24,11 +28,12 @@ layout (set = 1, binding = 0) uniform RenderObjectUBO {
 
 void main()
 {
+    vec3 final_position = instance_position + position;
     out_mass = mass;
     out_mu = mu;
     out_lambda = lambda;
-    out_position = position;
+    out_position = final_position;
     out_velocity = velocity;
     out_j = determinant(deformation_gradient);
-    gl_Position = camera_ubo.projection_view * render_object_ubo.transform * vec4(position, 1.0);
+    gl_Position = camera_ubo.projection_view * render_object_ubo.transform * vec4(final_position, 1.0);
 }

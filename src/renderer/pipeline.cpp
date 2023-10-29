@@ -76,25 +76,40 @@ namespace renderer
 
 		// Vertex input -----------------------------------------------------------------------
 
-
-		VkVertexInputBindingDescription vertex_input_binding{
-			.binding = 0,
-			.stride = 0, // Assigned in switch case below.
-			.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-		};
-
+		std::vector<VkVertexInputBindingDescription> vertex_input_bindings{};
 		std::vector<VkVertexInputAttributeDescription> vertex_attributes{};
 
 		switch (attributes)
 		{
 		case VertexAttributes::MPM:
-			vertex_attributes = MPMDebugVertex::GetVertexAttributes();
-			vertex_input_binding.stride = sizeof(MPMDebugVertex);
-			break;
-		default:
-			vertex_attributes = Vertex::GetVertexAttributes(attributes);
-			vertex_input_binding.stride = sizeof(Vertex);
+		{
+			VkVertexInputBindingDescription vertex_input_binding{
+				.binding = VERTEX_BINDING,
+				.stride = sizeof(Vertex),
+				.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+			};
 
+			VkVertexInputBindingDescription instance_input_binding{
+				.binding = INSTANCE_BINDING,
+				.stride = sizeof(MPMDebugInstance),
+				.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE,
+			};
+
+			vertex_input_bindings = { vertex_input_binding, instance_input_binding };
+			vertex_attributes = MPMDebugInstance::GetVertexAttributes();
+			break;
+		}
+		default:
+		{
+			VkVertexInputBindingDescription vertex_input_binding{
+				.binding = VERTEX_BINDING,
+				.stride = sizeof(Vertex),
+				.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+			};
+
+			vertex_input_bindings = { vertex_input_binding };
+			vertex_attributes = Vertex::GetVertexAttributes(attributes);
+		}
 		}
 
 		VkPipelineVertexInputStateCreateInfo vertex_input_info{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
@@ -104,8 +119,8 @@ namespace renderer
 			vertex_input_info = VkPipelineVertexInputStateCreateInfo{
 				.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 				.flags = 0, // Reserved.
-				.vertexBindingDescriptionCount = 1,
-				.pVertexBindingDescriptions = &vertex_input_binding,
+				.vertexBindingDescriptionCount = (uint32_t)vertex_input_bindings.size(),
+				.pVertexBindingDescriptions = vertex_input_bindings.data(),
 				.vertexAttributeDescriptionCount = (uint32_t)vertex_attributes.size(),
 				.pVertexAttributeDescriptions = vertex_attributes.data(),
 			};

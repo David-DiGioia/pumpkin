@@ -38,17 +38,21 @@ namespace renderer
 	}
 
 #ifdef EDITOR_ENABLED
-	std::vector<VkVertexInputAttributeDescription> MPMDebugVertex::GetVertexAttributes()
+	std::vector<VkVertexInputAttributeDescription> MPMDebugInstance::GetVertexAttributes()
 	{
 		return {
-			MPM_VERTEX_ATTRIBUTE(0, mass),
-			MPM_VERTEX_ATTRIBUTE(1, mu),
-			MPM_VERTEX_ATTRIBUTE(2, lambda),
-			MPM_VERTEX_ATTRIBUTE(3, position),
-			MPM_VERTEX_ATTRIBUTE(4, velocity),
-			MPM_VERTEX_ATTRIBUTE(5, deformation_gradient_col_0),
-			MPM_VERTEX_ATTRIBUTE(6, deformation_gradient_col_1),
-			MPM_VERTEX_ATTRIBUTE(7, deformation_gradient_col_2),
+			// Vertex attributes.
+			VERTEX_ATTRIBUTE(0, position),
+
+			// Instance attributes.
+			MPM_VERTEX_ATTRIBUTE(1, mass),
+			MPM_VERTEX_ATTRIBUTE(2, mu),
+			MPM_VERTEX_ATTRIBUTE(3, lambda),
+			MPM_VERTEX_ATTRIBUTE(4, position),
+			MPM_VERTEX_ATTRIBUTE(5, velocity),
+			MPM_VERTEX_ATTRIBUTE(6, deformation_gradient_col_0),
+			MPM_VERTEX_ATTRIBUTE(7, deformation_gradient_col_1),
+			MPM_VERTEX_ATTRIBUTE(8, deformation_gradient_col_2),
 		};
 	}
 #endif

@@ -408,47 +408,20 @@ namespace renderer
 #ifdef EDITOR_ENABLED
 	void ParticleContext::GenerateDynamicDebugMPMParticleMesh(const std::vector<MaterialPoint>& particles)
 	{
-		// Generate vertices.
-		uint32_t particle_vert_count{};
+		mpm_geometry_.vertices = GetParticleVertices();
+		mpm_geometry_.indices = GetParticleIndices();
+		mpm_geometry_.instances.resize(particles.size());
+
+		for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
 		{
-			std::vector<MPMDebugVertex> mpm_vertices{ GetMPMParticleVertices() };
-			particle_vert_count = (uint32_t)mpm_vertices.size();
-			uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
-			mpm_geometry_.vertices.resize(vertex_count);
-
-			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
-			{
-				for (uint32_t v{ 0 }; v < particle_vert_count; ++v)
-				{
-					mpm_vertices[v].mass = particles[p].mass;
-					mpm_vertices[v].mu = particles[p].mu;
-					mpm_vertices[v].lambda = particles[p].lambda;
-					mpm_vertices[v].velocity = particles[p].velocity;
-					mpm_vertices[v].deformation_gradient_col_0 = particles[p].deformation_gradient[0];
-					mpm_vertices[v].deformation_gradient_col_1 = particles[p].deformation_gradient[1];
-					mpm_vertices[v].deformation_gradient_col_2 = particles[p].deformation_gradient[2];
-
-					uint32_t vert_buffer_idx{ p * particle_vert_count + v };
-					mpm_geometry_.vertices[vert_buffer_idx] = mpm_vertices[v];
-					mpm_geometry_.vertices[vert_buffer_idx].position += glm::vec3{ particles[p].position };
-				}
-			}
-		}
-
-		// Generate indices.
-		{
-			std::vector<uint32_t> particle_indices{ GetMPMParticleIndices() };
-			uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
-			mpm_geometry_.indices.resize(index_count);
-
-			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
-			{
-				for (uint32_t i{ 0 }; i < (uint32_t)particle_indices.size(); ++i)
-				{
-					uint32_t idx_buffer_idx{ p * (uint32_t)particle_indices.size() + i };
-					mpm_geometry_.indices[idx_buffer_idx] = p * particle_vert_count + particle_indices[i];
-				}
-			}
+				mpm_geometry_.instances[p].mass = particles[p].mass;
+				mpm_geometry_.instances[p].mu = particles[p].mu;
+				mpm_geometry_.instances[p].lambda = particles[p].lambda;
+				mpm_geometry_.instances[p].position = particles[p].position;
+				mpm_geometry_.instances[p].velocity = particles[p].velocity;
+				mpm_geometry_.instances[p].deformation_gradient_col_0 = particles[p].deformation_gradient[0];
+				mpm_geometry_.instances[p].deformation_gradient_col_1 = particles[p].deformation_gradient[1];
+				mpm_geometry_.instances[p].deformation_gradient_col_2 = particles[p].deformation_gradient[2];
 		}
 
 		renderer_->editor_backend_.UpdateMPMDebugGeometry(mpm_geometry_);
@@ -537,27 +510,6 @@ namespace renderer
 		return verts;
 	}
 
-	std::vector<MPMDebugVertex> ParticleContext::GetMPMParticleVertices() const
-	{
-		uint32_t vert_count{ 8 };
-		std::vector<MPMDebugVertex> verts(vert_count);
-		float particle_width{ chunk_width_ / CHUNK_ROW_VOXEL_COUNT };
-		float particle_radius{ particle_width / 2.0f };
-
-		// Position. Three of each since there are three different normals at each corner.
-		verts[0].position = glm::vec4{ -1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[1].position = glm::vec4{ -1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[2].position = glm::vec4{ -1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[3].position = glm::vec4{ -1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
-
-		verts[4].position = glm::vec4{ 1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[5].position = glm::vec4{ 1.0f, -1.0f, -1.0f, 0.0f } *particle_radius;
-		verts[6].position = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f } *particle_radius;
-		verts[7].position = glm::vec4{ 1.0f, 1.0f, -1.0f, 0.0f } *particle_radius;
-
-		return verts;
-	}
-
 	std::vector<uint32_t> ParticleContext::GetParticleIndices() const
 	{
 		// Seems that Vulkan RT API has counter clockwise hardcoded as front face.
@@ -574,25 +526,6 @@ namespace renderer
 			10, 19, 22, // Y+ plane.
 			13, 1, 4,   // Y- plane.
 			16, 13, 4,  // Y- plane.
-		};
-	}
-
-	std::vector<uint32_t> ParticleContext::GetMPMParticleIndices() const
-	{
-		// Seems that Vulkan RT API has counter clockwise hardcoded as front face.
-		return {
-			2, 0, 6, // Z- plane.
-			6, 0, 4, // Z- plane.
-			1, 0, 2, // X- plane.
-			3, 1, 2, // X- plane.
-			7, 1, 3, // Z+ plane.
-			5, 1, 7, // Z+ plane.
-			6, 5, 7, // X+ plane.
-			4, 5, 6, // X+ plane.
-			2, 6, 3, // Y+ plane.
-			3, 6, 7, // Y+ plane.
-			4, 0, 1, // Y- plane.
-			5, 4, 1, // Y- plane.
 		};
 	}
 

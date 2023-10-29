@@ -153,12 +153,14 @@ namespace renderer
 			// don't rewrite geometry every frame.
 			struct Geometry
 			{
-				BufferResource particle_vertices; // Of type MPMDebugVertex.
+				BufferResource particle_instances; // Of type MPMDebugInstance.
+				BufferResource particle_vertices; // Of type Vertex.
 				BufferResource particle_indices;
 			} geometry_buffer[FRAMES_IN_FLIGHT];
 			uint32_t geo_idx; // Current index into geometry_buffer.
 
 			uint32_t render_object_index;
+			uint32_t particle_instance_count;
 			uint32_t particle_vertex_count;
 			uint32_t particle_index_count;
 

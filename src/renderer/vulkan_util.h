@@ -21,9 +21,9 @@
 #define MPM_VERTEX_ATTRIBUTE(loc, attr)									\
 	VkVertexInputAttributeDescription{									\
 		.location = loc,												\
-		.binding = VERTEX_BINDING,										\
-		.format = GetVulkanFormat<decltype(MPMDebugVertex::attr)>(),	\
-		.offset = offsetof(MPMDebugVertex, attr),						\
+		.binding = INSTANCE_BINDING,									\
+		.format = GetVulkanFormat<decltype(MPMDebugInstance::attr)>(),	\
+		.offset = offsetof(MPMDebugInstance, attr),						\
 	}
 #endif
 

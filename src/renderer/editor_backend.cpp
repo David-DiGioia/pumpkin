@@ -447,6 +447,7 @@ namespace renderer
 
 		for (uint32_t geo_idx{ 0 }; geo_idx < FRAMES_IN_FLIGHT; ++geo_idx)
 		{
+			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.geometry_buffer[geo_idx].particle_instances);
 			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.geometry_buffer[geo_idx].particle_vertices);
 			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.geometry_buffer[geo_idx].particle_indices);
 		}
@@ -587,11 +588,19 @@ namespace renderer
 		// Increment so we work on the next geometry in the buffer and don't interfere with one being used for rendering.
 		mpm_debug_.geo_idx = (mpm_debug_.geo_idx + 1) % FRAMES_IN_FLIGHT;
 
+		mpm_debug_.particle_instance_count = (uint32_t)mpm_geometry.instances.size();
 		mpm_debug_.particle_vertex_count = (uint32_t)mpm_geometry.vertices.size();
 		mpm_debug_.particle_index_count = (uint32_t)mpm_geometry.indices.size();
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
-			mpm_debug_.particle_vertex_count * sizeof(MPMDebugVertex),
+			mpm_debug_.particle_instance_count * sizeof(MPMDebugInstance),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_instances);
+		NameObject(context_->device, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_instances.buffer, "Debug_MPM_Instances");
+
+		renderer_->allocator_.ExpandOrReuseBuffer(
+			mpm_debug_.particle_vertex_count * sizeof(Vertex),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_vertices);
@@ -606,6 +615,7 @@ namespace renderer
 
 		// TODO: Could make this part of the same command buffer being submitted for rasterizing particles.
 		renderer_->vulkan_util_.Begin();
+		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.instances, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_instances);
 		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.vertices, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_vertices);
 		renderer_->vulkan_util_.TransferBufferToDevice(mpm_geometry.indices, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_indices);
 		renderer_->vulkan_util_.Submit();
@@ -916,8 +926,6 @@ namespace renderer
 			sizeof(ParticleRasterPushConstant),
 			&mpm_debug_.particle_push_constant);
 
-		VkDeviceSize zero_offset{ 0 };
-
 		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[mpm_debug_.render_object_index] };
 
 		vkCmdBindDescriptorSets(
@@ -931,9 +939,12 @@ namespace renderer
 			nullptr);
 
 		VkIndexType index_type{ std::is_same<uint32_t, decltype(MPMDebugGeometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
-		vkCmdBindVertexBuffers(cmd, 0, 1, &mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_vertices.buffer, &zero_offset);
+		VkBuffer vertex_buffers[2]{ mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_vertices.buffer, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_instances.buffer };
+		VkDeviceSize zero_offsets[2]{ 0, 0 };
+
+		vkCmdBindVertexBuffers(cmd, 0, 2, vertex_buffers, zero_offsets);
 		vkCmdBindIndexBuffer(cmd, mpm_debug_.geometry_buffer[mpm_debug_.geo_idx].particle_indices.buffer, 0, index_type);
-		vkCmdDrawIndexed(cmd, mpm_debug_.particle_index_count, 1, 0, 0, 0);
+		vkCmdDrawIndexed(cmd, mpm_debug_.particle_index_count, mpm_debug_.particle_instance_count, 0, 0, 0);
 
 		vkCmdEndRendering(cmd);
 	}

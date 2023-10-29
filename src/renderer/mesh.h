@@ -30,7 +30,7 @@ namespace renderer
 	};
 
 #ifdef EDITOR_ENABLED
-	struct MPMDebugVertex
+	struct MPMDebugInstance
 	{
 		float mass;
 		float mu;
@@ -47,7 +47,8 @@ namespace renderer
 
 	struct MPMDebugGeometry
 	{
-		std::vector<MPMDebugVertex> vertices;
+		std::vector<MPMDebugInstance> instances;
+		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
 	};
 #endif
