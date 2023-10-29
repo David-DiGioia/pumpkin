@@ -727,10 +727,10 @@ void EditorGui::ParticleEditor()
 		editor_->UpdateParticleOverlayEnabled();
 	}
 
-	const char* selected_color_named{ particle_color_mode_names[(uint32_t)editor_->particle_color_mode_].c_str() };
-	ImGui::Text("Color mode");
+	const char* selected_particle_color_named{ particle_color_mode_names[(uint32_t)editor_->particle_color_mode_].c_str() };
+	ImGui::Text("Particles");
 	ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
-	if (ImGui::BeginCombo("##ParticleColorMode", selected_color_named))
+	if (ImGui::BeginCombo("##ParticleColorMode", selected_particle_color_named))
 	{
 		for (uint32_t color_mode{ 0 }; color_mode < (uint32_t)ParticleColorMode::COLOR_MODE_COUNT; ++color_mode)
 		{
@@ -738,6 +738,22 @@ void EditorGui::ParticleEditor()
 
 			if (ImGui::Selectable(particle_color_mode_names[color_mode].c_str(), selected)) {
 				editor_->SetParticleColorMode((ParticleColorMode)color_mode);
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	const char* selected_node_color_named{ node_color_mode_names[(uint32_t)editor_->node_color_mode_].c_str() };
+	ImGui::Text("Nodes");
+	ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+	if (ImGui::BeginCombo("##NodeColorMode", selected_node_color_named))
+	{
+		for (uint32_t color_mode{ 0 }; color_mode < (uint32_t)NodeColorMode::COLOR_MODE_COUNT; ++color_mode)
+		{
+			bool selected{ color_mode == (uint32_t)editor_->node_color_mode_ };
+
+			if (ImGui::Selectable(node_color_mode_names[color_mode].c_str(), selected)) {
+				editor_->SetNodeColorMode((NodeColorMode)color_mode);
 			}
 		}
 		ImGui::EndCombo();

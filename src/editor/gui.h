@@ -44,6 +44,25 @@ const std::array<std::string, (uint32_t)ParticleColorMode::COLOR_MODE_COUNT> par
 	"Tensile strain",
 };
 
+enum class NodeColorMode
+{
+	NONE,
+	MASS,
+	VELOCITY,
+	MOMENTUM,
+	FORCE,
+
+	COLOR_MODE_COUNT,
+};
+
+const std::array<std::string, (uint32_t)NodeColorMode::COLOR_MODE_COUNT> node_color_mode_names{
+	"None",
+	"Mass",
+	"Velocity",
+	"Momentum",
+	"Force",
+};
+
 class EditorGui
 {
 public:

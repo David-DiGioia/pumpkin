@@ -293,6 +293,8 @@ public:
 
 	void SetParticleColorMode(ParticleColorMode color_mode);
 
+	void SetNodeColorMode(NodeColorMode color_mode);
+
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);
 
@@ -363,8 +365,8 @@ private:
 
 	EditorNode* particle_node_{};
 	bool show_particle_grid_{};
-	bool show_particle_colors_{};
 	ParticleColorMode particle_color_mode_{};
+	NodeColorMode node_color_mode_{};
 
 	EditorSettings editor_settings_{}; // Settings loaded from AppData.
 };
