@@ -19,6 +19,7 @@ namespace renderer
 	constexpr uint32_t PARTICLE_GROUP_COUNT{ 16 };  // Number of workgroups in each dimension.
 	constexpr uint32_t GRID_SIZE{ 8 };              // Grid cell width in units of voxels.
 	constexpr uint32_t GRID_NODE_ROW_COUNT{ (CHUNK_ROW_VOXEL_COUNT / GRID_SIZE) + 1 };
+	constexpr uint32_t GRID_NODE_COUNT{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
 
 	enum class MPMInterpolationKernel
 	{

@@ -160,9 +160,9 @@ namespace pmk
 		renderer_.AddOutlineSet(selection_set, color);
 	}
 
-	void Pumpkin::SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles)
+	void Pumpkin::SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles)
 	{
-		renderer_.SetParticleOverlayEnabled(render_grid, rasterize_particles);
+		renderer_.SetParticleOverlayEnabled(render_grid, render_nodes, rasterize_particles);
 	}
 
 	void Pumpkin::SetParticleOverlay(renderer::RenderObjectHandle render_object)
@@ -173,6 +173,11 @@ namespace pmk
 	void Pumpkin::SetParticleColorMode(uint32_t color_mode)
 	{
 		renderer_.SetParticleColorMode(color_mode);
+	}
+
+	void Pumpkin::SetNodeColorMode(uint32_t color_mode)
+	{
+		renderer_.SetNodeColorMode(color_mode);
 	}
 #endif
 

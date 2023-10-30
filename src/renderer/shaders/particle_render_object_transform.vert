@@ -1,9 +1,9 @@
 #version 460
 
-// Instance attributes.
-layout (location = 0) in vec3 instance_position;
-
 // Vertex attributes.
+layout (location = 0) in vec3 vertex_position;
+
+// Instance attributes.
 layout (location = 1) in float mass;
 layout (location = 2) in float mu;
 layout (location = 3) in float lambda;
@@ -28,7 +28,7 @@ layout (set = 1, binding = 0) uniform RenderObjectUBO {
 
 void main()
 {
-    vec3 final_position = instance_position + position;
+    vec3 final_position = position + vertex_position;
     out_mass = mass;
     out_mu = mu;
     out_lambda = lambda;

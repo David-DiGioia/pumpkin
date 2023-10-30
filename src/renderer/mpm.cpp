@@ -6,8 +6,6 @@
 
 namespace renderer
 {
-	constexpr uint32_t GRID_NODE_COUNT{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
-
 	glm::mat3 OuterProduct(const glm::vec3& v1, const glm::vec3& v2)
 	{
 		return glm::mat3{ v1 * v2.x, v1 * v2.y, v1 * v2.z };
@@ -54,6 +52,11 @@ namespace renderer
 	const std::vector<MaterialPoint>& MPMContext::GetParticles() const
 	{
 		return particles_;
+	}
+
+	const std::vector<GridNode>& MPMContext::GetNodes() const
+	{
+		return nodes_;
 	}
 
 	void MPMContext::ParticleToGrid()

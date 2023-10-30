@@ -81,7 +81,7 @@ namespace renderer
 
 		switch (attributes)
 		{
-		case VertexAttributes::MPM:
+		case VertexAttributes::MPM_PARTICLE:
 		{
 			VkVertexInputBindingDescription vertex_input_binding{
 				.binding = VERTEX_BINDING,
@@ -97,6 +97,24 @@ namespace renderer
 
 			vertex_input_bindings = { vertex_input_binding, instance_input_binding };
 			vertex_attributes = MPMDebugParticleInstance::GetVertexAttributes();
+			break;
+		}
+		case VertexAttributes::MPM_NODE:
+		{
+			VkVertexInputBindingDescription vertex_input_binding{
+				.binding = VERTEX_BINDING,
+				.stride = sizeof(Vertex),
+				.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+			};
+
+			VkVertexInputBindingDescription instance_input_binding{
+				.binding = INSTANCE_BINDING,
+				.stride = sizeof(MPMDebugNodeInstance),
+				.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE,
+			};
+
+			vertex_input_bindings = { vertex_input_binding, instance_input_binding };
+			vertex_attributes = MPMDebugNodeInstance::GetVertexAttributes();
 			break;
 		}
 		default:

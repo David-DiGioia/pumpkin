@@ -121,11 +121,17 @@ namespace renderer
 
 		void SetGridEnabled(bool enabled);
 
+		void SetNodesEnabled(bool enabled);
+
 		void SetRasterParticlesEnabled(bool enabled);
 
-		void UpdateMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances);
+		void SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances);
+
+		void SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& node_instances);
 
 		void SetParticleColorMode(uint32_t color_mode, float max_value);
+
+		void SetNodeColorMode(uint32_t color_mode, float max_value);
 
 	private:
 		struct OutlineObjects
@@ -144,7 +150,7 @@ namespace renderer
 			ImageResource particle_depth;
 		};
 
-		struct ParticleRasterPushConstant
+		struct ColorModePushConstant
 		{
 			uint32_t particle_color_mode{};
 			float max_value{};
@@ -172,11 +178,13 @@ namespace renderer
 			uint32_t particle_instance_count;
 			uint32_t particle_vertex_count;
 			uint32_t particle_index_count;
+			uint32_t node_instance_count;
 
 			uint32_t grid_vertex_count;
 			BufferResource grid_vertices; // Of type Vertex.
 
-			ParticleRasterPushConstant particle_push_constant;
+			ColorModePushConstant particle_push_constant;
+			ColorModePushConstant node_push_constant;
 		};
 
 		FrameResources& GetCurrentFrame();
@@ -211,6 +219,7 @@ namespace renderer
 		GraphicsPipeline outline_pipeline_{};
 		GraphicsPipeline particle_raster_pipeline_{};
 		GraphicsPipeline grid_pipeline_{};
+		GraphicsPipeline node_pipeline_{};
 		std::vector<OutlineObjects> outline_objects_{}; // Editor render pass will draw outlines around these sets of render objects.
 		DescriptorSetLayoutResource outline_layout_resource_{};
 		MPMDebugInfo mpm_debug_{};

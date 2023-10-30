@@ -344,14 +344,22 @@ namespace renderer
 		{
 			const std::vector<MaterialPoint>& particles{ has_played_ ? mpm_context_.GetParticles() : StaticParticleToDynamic(static_particles_, side_flags_) };
 			if (!particles.empty()) {
-				GenerateDynamicDebugMPMParticleMesh(particles);
+				GenerateDynamicDebugMPMParticleInstances(particles);
 			}
 		}
 	}
 
-	const std::vector<MPMDebugParticleInstance>& ParticleContext::GetMPMDebugGeometry() const
+	void ParticleContext::SetMPMDebugNodeGenEnabled(bool enabled)
 	{
-		return mpm_particle_instances_;
+		generate_mpm_node_instances_ = enabled;
+
+		if (enabled)
+		{
+			const std::vector<GridNode>& nodes{ has_played_ ? mpm_context_.GetNodes() : std::vector<GridNode>(GRID_NODE_COUNT)};
+			if (!nodes.empty()) {
+				GenerateDynamicDebugMPMNodeInstances(nodes);
+			}
+		}
 	}
 #endif
 
@@ -359,7 +367,11 @@ namespace renderer
 	{
 #ifdef EDITOR_ENABLED
 		if (generate_mpm_particle_instances_) {
-			GenerateDynamicDebugMPMParticleMesh(particles);
+			GenerateDynamicDebugMPMParticleInstances(particles);
+		}
+
+		if (generate_mpm_node_instances_) {
+			GenerateDynamicDebugMPMNodeInstances(mpm_context_.GetNodes());
 		}
 #endif
 
@@ -406,26 +418,39 @@ namespace renderer
 	}
 
 #ifdef EDITOR_ENABLED
-	void ParticleContext::GenerateDynamicDebugMPMParticleMesh(const std::vector<MaterialPoint>& particles)
+	void ParticleContext::GenerateDynamicDebugMPMParticleInstances(const std::vector<MaterialPoint>& particles)
 	{
-		// TODO: On initailization of editor_backend need to pass these vertices and indices.
-		//mpm_geometry_.vertices = GetParticleVertices();
-		//mpm_geometry_.indices = GetParticleIndices();
-		mpm_particle_instances_.resize(particles.size());
+		std::vector<MPMDebugParticleInstance> mpm_particle_instances(particles.size());
 
 		for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
 		{
-			mpm_particle_instances_[p].mass = particles[p].mass;
-			mpm_particle_instances_[p].mu = particles[p].mu;
-			mpm_particle_instances_[p].lambda = particles[p].lambda;
-			mpm_particle_instances_[p].position = particles[p].position;
-			mpm_particle_instances_[p].velocity = particles[p].velocity;
-			mpm_particle_instances_[p].deformation_gradient_col_0 = particles[p].deformation_gradient[0];
-			mpm_particle_instances_[p].deformation_gradient_col_1 = particles[p].deformation_gradient[1];
-			mpm_particle_instances_[p].deformation_gradient_col_2 = particles[p].deformation_gradient[2];
+			mpm_particle_instances[p].mass = particles[p].mass;
+			mpm_particle_instances[p].mu = particles[p].mu;
+			mpm_particle_instances[p].lambda = particles[p].lambda;
+			mpm_particle_instances[p].position = particles[p].position;
+			mpm_particle_instances[p].velocity = particles[p].velocity;
+			mpm_particle_instances[p].deformation_gradient_col_0 = particles[p].deformation_gradient[0];
+			mpm_particle_instances[p].deformation_gradient_col_1 = particles[p].deformation_gradient[1];
+			mpm_particle_instances[p].deformation_gradient_col_2 = particles[p].deformation_gradient[2];
 		}
 
-		renderer_->editor_backend_.UpdateMPMDebugParticleInstances(mpm_particle_instances_);
+		renderer_->editor_backend_.SetMPMDebugParticleInstances(mpm_particle_instances);
+	}
+
+	void ParticleContext::GenerateDynamicDebugMPMNodeInstances(const std::vector<GridNode>& nodes)
+	{
+		std::vector<MPMDebugNodeInstance> mpm_node_instances(nodes.size());
+
+		for (uint32_t n{ 0 }; n < (uint32_t)nodes.size(); ++n)
+		{
+			mpm_node_instances[n].mass = nodes[n].mass;
+			mpm_node_instances[n].position = nodes[n].position;
+			mpm_node_instances[n].velocity = nodes[n].velocity;
+			mpm_node_instances[n].momentum = nodes[n].momentum;
+			mpm_node_instances[n].force = nodes[n].force;
+		}
+
+		renderer_->editor_backend_.SetMPMDebugNodeInstances(mpm_node_instances);
 	}
 #endif
 

@@ -38,6 +38,8 @@ namespace renderer
 
 		const std::vector<MaterialPoint>& GetParticles() const;
 
+		const std::vector<GridNode>& GetNodes() const;
+
 	private:
 		void ParticleToGrid();
 

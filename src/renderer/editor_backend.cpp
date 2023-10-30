@@ -367,9 +367,26 @@ namespace renderer
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		NameObject(context_->device, mpm_debug_.cube_indices.buffer, "Debug_Cube_Indices");
 
+		// Create line vertices.
+		mpm_debug_.line_vertices = renderer_->allocator_.CreateBufferResource(
+			2 * sizeof(Vertex),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_->device, mpm_debug_.line_vertices.buffer, "Debug_Node_Line_Vertices");
+
+		Vertex v0{
+			.position = glm::vec4{0.0f, 0.0f, 0.0f, 0.0f},
+		};
+		Vertex v1{
+			.position = glm::vec4{1.0f, 0.0f, 0.0f, 0.0f},
+		};
+		std::vector<Vertex> line_vertices{ v0, v1 };
+
+		// Transfer vertex data to device.
 		renderer_->vulkan_util_.Begin();
 		renderer_->vulkan_util_.TransferBufferToDevice(cube_vertices, mpm_debug_.cube_vertices);
 		renderer_->vulkan_util_.TransferBufferToDevice(cube_indices, mpm_debug_.cube_indices);
+		renderer_->vulkan_util_.TransferBufferToDevice(line_vertices, mpm_debug_.line_vertices);
 		renderer_->vulkan_util_.Submit();
 
 		// Make pipelines.
@@ -432,13 +449,13 @@ namespace renderer
 		NameObject(context_->device, grid_pipeline_.pipeline, "Grid_Pipeline");
 		NameObject(context_->device, grid_pipeline_.layout, "Grid_Pipeline_Layout");
 
-		VkPushConstantRange particle_raster_constant_range{
+		VkPushConstantRange particle_constant_range{
 			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
 			.offset = 0,
-			.size = sizeof(ParticleRasterPushConstant),
+			.size = sizeof(ColorModePushConstant),
 		};
 
-		std::vector<VkPushConstantRange> particle_raster_constant_ranges{ particle_raster_constant_range };
+		std::vector<VkPushConstantRange> particle_raster_constant_ranges{ particle_constant_range };
 
 		particle_raster_pipeline_.Initialize(
 			context,
@@ -446,12 +463,38 @@ namespace renderer
 			particle_raster_constant_ranges,
 			FINAL_IMAGE_FORMAT,
 			renderer_->GetDepthImageFormat(),
-			VertexAttributes::MPM,
+			VertexAttributes::MPM_PARTICLE,
 			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-			SPIRV_PREFIX / "mpm_render_object_transform.vert.spv",
+			SPIRV_PREFIX / "particle_render_object_transform.vert.spv",
 			SPIRV_PREFIX / "mpm_particles.frag.spv");
 		NameObject(context_->device, particle_raster_pipeline_.pipeline, "Particle_Raster_Pipeline");
 		NameObject(context_->device, particle_raster_pipeline_.layout, "Particle_Raster_Pipeline_Layout");
+
+		std::vector<DescriptorSetLayoutResource> node_set_layouts{
+			renderer_->camera_layout_resource_,
+			renderer_->render_object_layout_resource_,
+		};
+
+		VkPushConstantRange node_constant_range{
+			.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+			.offset = 0,
+			.size = sizeof(ColorModePushConstant),
+		};
+
+		std::vector<VkPushConstantRange> node_constant_ranges{ node_constant_range };
+
+		node_pipeline_.Initialize(
+			context,
+			node_set_layouts,
+			node_constant_ranges,
+			FINAL_IMAGE_FORMAT,
+			renderer_->GetDepthImageFormat(),
+			VertexAttributes::MPM_NODE,
+			VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+			SPIRV_PREFIX / "node_render_object_transform.vert.spv",
+			SPIRV_PREFIX / "mpm_nodes.frag.spv");
+		NameObject(context_->device, node_pipeline_.pipeline, "Node_Pipeline");
+		NameObject(context_->device, node_pipeline_.layout, "Node_Pipeline_Layout");
 
 		mpm_debug_.render_object_index = NULL_INDEX;
 
@@ -488,6 +531,7 @@ namespace renderer
 		outline_pipeline_.CleanUp();
 		grid_pipeline_.CleanUp();
 		particle_raster_pipeline_.CleanUp();
+		node_pipeline_.CleanUp();
 
 		for (FrameResources& resource : frame_resources_)
 		{
@@ -608,14 +652,19 @@ namespace renderer
 		grid_enabled_ = enabled;
 	}
 
+	void EditorBackend::SetNodesEnabled(bool enabled)
+	{
+		nodes_enabled_ = enabled;
+	}
+
 	void EditorBackend::SetRasterParticlesEnabled(bool enabled)
 	{
 		raster_particles_enabled_ = enabled;
 	}
 
-	void EditorBackend::UpdateMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances)
+	void EditorBackend::SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances)
 	{
-		// Increment so we work on the next geometry in the buffer and don't interfere with one being used for rendering.
+		// Increment so we work on the next buffer in the array and don't interfere with one being used for rendering.
 		mpm_debug_.particle_idx = (mpm_debug_.particle_idx + 1) % FRAMES_IN_FLIGHT;
 
 		mpm_debug_.particle_instance_count = (uint32_t)particle_instances.size();
@@ -625,9 +674,7 @@ namespace renderer
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			mpm_debug_.particle_instances[mpm_debug_.particle_idx]);
-		NameObject(context_->device, mpm_debug_.particle_instances[mpm_debug_.particle_idx].buffer, "Debug_MPM_Instances");
-
-
+		NameObject(context_->device, mpm_debug_.particle_instances[mpm_debug_.particle_idx].buffer, "Debug_Particle_Instances");
 
 		// TODO: Could make this part of the same command buffer being submitted for rasterizing particles.
 		renderer_->vulkan_util_.Begin();
@@ -635,10 +682,35 @@ namespace renderer
 		renderer_->vulkan_util_.Submit();
 	}
 
+	void EditorBackend::SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& node_instances)
+	{
+		// Increment so we work on the next buffer in the array and don't interfere with one being used for rendering.
+		mpm_debug_.node_idx = (mpm_debug_.node_idx + 1) % FRAMES_IN_FLIGHT;
+
+		mpm_debug_.node_instance_count = (uint32_t)node_instances.size();
+
+		renderer_->allocator_.ExpandOrReuseBuffer(
+			mpm_debug_.node_instance_count * sizeof(MPMDebugNodeInstance),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			mpm_debug_.node_instances[mpm_debug_.node_idx]);
+		NameObject(context_->device, mpm_debug_.node_instances[mpm_debug_.node_idx].buffer, "Debug_Node_Instances");
+
+		renderer_->vulkan_util_.Begin();
+		renderer_->vulkan_util_.TransferBufferToDevice(node_instances, mpm_debug_.node_instances[mpm_debug_.node_idx]);
+		renderer_->vulkan_util_.Submit();
+	}
+
 	void EditorBackend::SetParticleColorMode(uint32_t color_mode, float max_value)
 	{
 		mpm_debug_.particle_push_constant.particle_color_mode = color_mode;
 		mpm_debug_.particle_push_constant.max_value = max_value;
+	}
+
+	void EditorBackend::SetNodeColorMode(uint32_t color_mode, float max_value)
+	{
+		mpm_debug_.node_push_constant.particle_color_mode = color_mode;
+		mpm_debug_.node_push_constant.max_value = max_value;
 	}
 
 	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
@@ -940,7 +1012,7 @@ namespace renderer
 			particle_raster_pipeline_.layout,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			0,
-			sizeof(ParticleRasterPushConstant),
+			sizeof(ColorModePushConstant),
 			&mpm_debug_.particle_push_constant);
 
 		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[mpm_debug_.render_object_index] };
@@ -990,7 +1062,7 @@ namespace renderer
 			.resolveImageView = VK_NULL_HANDLE,
 			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 			.loadOp = raster_particles_enabled_ ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
-			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 			.clearValue = clear_color,
 		};
 
@@ -1043,6 +1115,89 @@ namespace renderer
 
 	void EditorBackend::NodeRenderPass(VkCommandBuffer cmd)
 	{
+		Extent viewport_extents{ renderer_->GetViewportExtent() };
+		VkClearColorValue clear_color{ 1.0f, 1.0f, 1.0f, 1.0f };
+
+		VkRenderingAttachmentInfo color_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = imgui_backend_.GetViewportImage().image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingAttachmentInfo depth_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = GetCurrentFrame().particle_depth.image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = raster_particles_enabled_ ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingInfo rendering_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = { viewport_extents.width, viewport_extents.height },
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = &depth_attachment_info,
+			.pStencilAttachment = nullptr,
+		};
+
+		vkCmdBeginRendering(cmd, &rendering_info);
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			node_pipeline_.layout,
+			EDITOR_CAMERA_UBO_SET,
+			1,
+			&renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, node_pipeline_.pipeline);
+
+		vkCmdPushConstants(
+			cmd,
+			node_pipeline_.layout,
+			VK_SHADER_STAGE_VERTEX_BIT,
+			0,
+			sizeof(ColorModePushConstant),
+			&mpm_debug_.node_push_constant);
+
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[mpm_debug_.render_object_index] };
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			node_pipeline_.layout,
+			EDITOR_RENDER_OBJECT_UBO_SET,
+			1,
+			&render_object->ubo_descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
+
+		VkBuffer vertex_buffers[2]{ mpm_debug_.line_vertices.buffer, mpm_debug_.node_instances[mpm_debug_.node_idx].buffer };
+		VkDeviceSize zero_offsets[2]{ 0, 0 };
+
+		vkCmdBindVertexBuffers(cmd, 0, 2, vertex_buffers, zero_offsets);
+		vkCmdDraw(cmd, 2, mpm_debug_.node_instance_count, 0, 0);
+
+		vkCmdEndRendering(cmd);
 
 	}
 }

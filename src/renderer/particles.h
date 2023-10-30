@@ -128,7 +128,7 @@ namespace renderer
 #ifdef EDITOR_ENABLED
 		void SetMPMDebugParticleGenEnabled(bool enabled);
 
-		const std::vector<MPMDebugParticleInstance>& GetMPMDebugGeometry() const;
+		void SetMPMDebugNodeGenEnabled(bool enabled);
 #endif
 
 	private:
@@ -141,7 +141,9 @@ namespace renderer
 		void GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles);
 
 #ifdef EDITOR_ENABLED
-		void GenerateDynamicDebugMPMParticleMesh(const std::vector<MaterialPoint>& particles);
+		void GenerateDynamicDebugMPMParticleInstances(const std::vector<MaterialPoint>& particles);
+
+		void GenerateDynamicDebugMPMNodeInstances(const std::vector<GridNode>& nodes);
 #endif
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
@@ -175,7 +177,7 @@ namespace renderer
 
 #ifdef EDITOR_ENABLED
 		bool generate_mpm_particle_instances_{};
-		std::vector<MPMDebugParticleInstance> mpm_particle_instances_{};
+		bool generate_mpm_node_instances_{};
 #endif
 
 		std::vector<StaticParticle> static_particles_{};

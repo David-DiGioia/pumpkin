@@ -168,10 +168,12 @@ namespace renderer
 		editor_backend_.AddOutlineSet(std::move(transformed_selection_set), color);
 	}
 
-	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles)
+	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles)
 	{
 		particle_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
+		particle_context_.SetMPMDebugNodeGenEnabled(render_nodes);
 		editor_backend_.SetRasterParticlesEnabled(rasterize_particles);
+		editor_backend_.SetNodesEnabled(render_nodes);
 		editor_backend_.SetGridEnabled(render_grid);
 	}
 
@@ -188,6 +190,11 @@ namespace renderer
 	void VulkanRenderer::SetParticleColorMode(uint32_t color_mode)
 	{
 		editor_backend_.SetParticleColorMode(color_mode, 1.0f);
+	}
+
+	void VulkanRenderer::SetNodeColorMode(uint32_t color_mode)
+	{
+		editor_backend_.SetNodeColorMode(color_mode, 1.0f);
 	}
 #endif
 
