@@ -79,6 +79,10 @@ namespace pmk
 		void SetParticleColorMode(uint32_t color_mode);
 
 		void SetNodeColorMode(uint32_t color_mode);
+
+		void SetParticleColorModeMaxValue(float max_value);
+
+		void SetNodeColorModeMaxValue(float max_value);
 #endif
 
 		void QueueRaycast(const glm::vec3& origin, const glm::vec3& direction);

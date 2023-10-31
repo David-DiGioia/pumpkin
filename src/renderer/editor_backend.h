@@ -129,9 +129,13 @@ namespace renderer
 
 		void SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& node_instances);
 
-		void SetParticleColorMode(uint32_t color_mode, float max_value);
+		void SetParticleColorMode(uint32_t color_mode);
 
-		void SetNodeColorMode(uint32_t color_mode, float max_value);
+		void SetParticleColorModeMaxValue(float max_value);
+
+		void SetNodeColorMode(uint32_t color_mode);
+
+		void SetNodeColorModeMaxValue(float max_value);
 
 	private:
 		struct OutlineObjects

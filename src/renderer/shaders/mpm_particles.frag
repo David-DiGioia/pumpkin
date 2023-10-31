@@ -60,7 +60,7 @@ void main()
         out_color = abs(in_velocity / constants.max_value);
         break;
     case COLOR_MODE_COMPRESSIVE_STRAIN:
-        out_color = Heatmap(1.0 - in_j, 0.0, 1.0);
+        out_color = Heatmap(1.0 - in_j, 0.0, constants.max_value);
         break;
     case COLOR_MODE_TENSILE_STRAIN:
         out_color = Heatmap(in_j - 1.0, 0.0, constants.max_value);

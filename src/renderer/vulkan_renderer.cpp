@@ -189,12 +189,22 @@ namespace renderer
 
 	void VulkanRenderer::SetParticleColorMode(uint32_t color_mode)
 	{
-		editor_backend_.SetParticleColorMode(color_mode, 1.0f);
+		editor_backend_.SetParticleColorMode(color_mode);
+	}
+
+	void VulkanRenderer::SetParticleColorModeMaxValue(float max_value)
+	{
+		editor_backend_.SetParticleColorModeMaxValue(max_value);
 	}
 
 	void VulkanRenderer::SetNodeColorMode(uint32_t color_mode)
 	{
-		editor_backend_.SetNodeColorMode(color_mode, 1.0f);
+		editor_backend_.SetNodeColorMode(color_mode);
+	}
+
+	void VulkanRenderer::SetNodeColorModeMaxValue(float max_value)
+	{
+		editor_backend_.SetNodeColorModeMaxValue(max_value);
 	}
 #endif
 

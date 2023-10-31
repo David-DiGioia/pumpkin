@@ -84,6 +84,9 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	LoadEditorSettings();
 
 	gui_.Initialize(this);
+
+	UpdateParticleColorModeMaxValue();
+	UpdateNodeColorModeMaxValue();
 }
 
 void Editor::CleanUp()
@@ -888,6 +891,16 @@ void Editor::SetNodeColorMode(NodeColorMode color_mode)
 	node_color_mode_ = color_mode;
 	pumpkin_->SetNodeColorMode((uint32_t)color_mode);
 	UpdateParticleOverlayEnabled();
+}
+
+void Editor::UpdateParticleColorModeMaxValue()
+{
+	pumpkin_->SetParticleColorModeMaxValue(particle_color_max_value_);
+}
+
+void Editor::UpdateNodeColorModeMaxValue()
+{
+	pumpkin_->SetNodeColorModeMaxValue(node_color_max_value_);
 }
 
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const

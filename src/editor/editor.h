@@ -295,6 +295,10 @@ public:
 
 	void SetNodeColorMode(NodeColorMode color_mode);
 
+	void UpdateParticleColorModeMaxValue();
+
+	void UpdateNodeColorModeMaxValue();
+
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);
 
@@ -366,7 +370,9 @@ private:
 	EditorNode* particle_node_{};
 	bool show_particle_grid_{};
 	ParticleColorMode particle_color_mode_{};
+	float particle_color_max_value_{ 1.0f };
 	NodeColorMode node_color_mode_{};
+	float node_color_max_value_{ 1.0f };
 
 	EditorSettings editor_settings_{}; // Settings loaded from AppData.
 };

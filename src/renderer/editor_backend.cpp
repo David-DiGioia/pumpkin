@@ -701,15 +701,23 @@ namespace renderer
 		renderer_->vulkan_util_.Submit();
 	}
 
-	void EditorBackend::SetParticleColorMode(uint32_t color_mode, float max_value)
+	void EditorBackend::SetParticleColorMode(uint32_t color_mode)
 	{
 		mpm_debug_.particle_push_constant.particle_color_mode = color_mode;
+	}
+
+	void EditorBackend::SetParticleColorModeMaxValue(float max_value)
+	{
 		mpm_debug_.particle_push_constant.max_value = max_value;
 	}
 
-	void EditorBackend::SetNodeColorMode(uint32_t color_mode, float max_value)
+	void EditorBackend::SetNodeColorMode(uint32_t color_mode)
 	{
 		mpm_debug_.node_push_constant.particle_color_mode = color_mode;
+	}
+
+	void EditorBackend::SetNodeColorModeMaxValue(float max_value)
+	{
 		mpm_debug_.node_push_constant.max_value = max_value;
 	}
 
@@ -931,7 +939,6 @@ namespace renderer
 
 		if (raster_particles_enabled_ && (grid_enabled_ || nodes_enabled_))
 		{
-
 			// No transitions needed here, just barrier for writing and reading depth.
 			PipelineBarrier(cmd, GetCurrentFrame().particle_depth.image,
 				VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,

@@ -147,7 +147,11 @@ namespace renderer
 
 		void SetParticleColorMode(uint32_t color_mode);
 
+		void SetParticleColorModeMaxValue(float max_value);
+
 		void SetNodeColorMode(uint32_t color_mode);
+
+		void SetNodeColorModeMaxValue(float max_value);
 #endif
 
 	private:

@@ -179,6 +179,16 @@ namespace pmk
 	{
 		renderer_.SetNodeColorMode(color_mode);
 	}
+
+	void Pumpkin::SetParticleColorModeMaxValue(float max_value)
+	{
+		renderer_.SetParticleColorModeMaxValue(max_value);
+	}
+
+	void Pumpkin::SetNodeColorModeMaxValue(float max_value)
+	{
+		renderer_.SetNodeColorModeMaxValue(max_value);
+	}
 #endif
 
 	void Pumpkin::QueueRaycast(const glm::vec3& origin, const glm::vec3& direction)
