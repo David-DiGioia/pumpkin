@@ -180,7 +180,7 @@ void Editor::SelectNode(EditorNode* node)
 	selected_nodes_.insert(node);
 	active_selection_node_ = node;
 	UpdateSelectionOutlines();
-	UpdateParticleOverlay();
+	UpdateParticleOverlayRenderObject();
 	UpdateParticleOverlayEnabled();
 }
 
@@ -1030,7 +1030,7 @@ void Editor::UpdateSelectionOutlines()
 	}
 }
 
-void Editor::UpdateParticleOverlay()
+void Editor::UpdateParticleOverlayRenderObject()
 {
 	if (active_selection_node_ == particle_node_)
 	{
@@ -1045,12 +1045,13 @@ void Editor::UpdateParticleOverlayEnabled()
 	{
 		bool show_particle_colors = particle_color_mode_ != ParticleColorMode::FINAL_SHADING;
 		bool particles_hidden{ particle_color_mode_ == ParticleColorMode::HIDDEN };
-		bool nodes_hidden{ node_color_mode_ == NodeColorMode::NONE };
-		pumpkin_->SetParticleOverlayEnabled(show_particle_grid_, !nodes_hidden, (show_particle_grid_ || show_particle_colors) && !particles_hidden);
+		bool show_node_colors{ node_color_mode_ != NodeColorMode::NONE };
+		bool need_particle_depth{ (show_particle_grid_ || show_particle_colors || show_node_colors) && use_particle_depth_ };
+		pumpkin_->SetParticleOverlayEnabled(show_particle_grid_, show_node_colors, (need_particle_depth || show_particle_colors) && !particles_hidden, use_particle_depth_);
 		pumpkin_->SetRenderObjectVisible(particle_node_->node->render_object, particle_color_mode_ != ParticleColorMode::HIDDEN);
 	}
 	else {
-		pumpkin_->SetParticleOverlayEnabled(false, false, false);
+		pumpkin_->SetParticleOverlayEnabled(false, false, false, false);
 		if (particle_node_) {
 			pumpkin_->SetRenderObjectVisible(particle_node_->node->render_object, true);
 		}

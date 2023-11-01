@@ -139,7 +139,7 @@ namespace renderer
 
 		void AddOutlineSet(const std::vector<RenderObjectHandle>& selection_set, const glm::vec4& color);
 
-		void SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles);
+		void SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth);
 
 		void SetParticleOverlay(RenderObjectHandle render_object);
 

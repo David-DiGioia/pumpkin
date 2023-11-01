@@ -125,6 +125,9 @@ namespace renderer
 
 		void SetRasterParticlesEnabled(bool enabled);
 
+		// Whether to use raster particle's depth buffer to occlude the particle overlay.
+		void SetParticleDepthEnabled(bool enabled);
+
 		void SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances);
 
 		void SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& node_instances);
@@ -229,6 +232,7 @@ namespace renderer
 		MPMDebugInfo mpm_debug_{};
 		bool grid_enabled_{};
 		bool raster_particles_enabled_{};
+		bool use_particle_depth_{};
 		bool nodes_enabled_{};
 	};
 }

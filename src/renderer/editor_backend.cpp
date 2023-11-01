@@ -662,6 +662,11 @@ namespace renderer
 		raster_particles_enabled_ = enabled;
 	}
 
+	void EditorBackend::SetParticleDepthEnabled(bool enabled)
+	{
+		use_particle_depth_ = enabled;
+	}
+
 	void EditorBackend::SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances)
 	{
 		// Increment so we work on the next buffer in the array and don't interfere with one being used for rendering.
@@ -1068,7 +1073,7 @@ namespace renderer
 			.resolveMode = VK_RESOLVE_MODE_NONE,
 			.resolveImageView = VK_NULL_HANDLE,
 			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.loadOp = raster_particles_enabled_ ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.loadOp = (use_particle_depth_ && raster_particles_enabled_) ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
 			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 			.clearValue = clear_color,
 		};
@@ -1144,7 +1149,7 @@ namespace renderer
 			.resolveMode = VK_RESOLVE_MODE_NONE,
 			.resolveImageView = VK_NULL_HANDLE,
 			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.loadOp = raster_particles_enabled_ ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.loadOp = (use_particle_depth_ && raster_particles_enabled_) ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
 			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 			.clearValue = clear_color,
 		};

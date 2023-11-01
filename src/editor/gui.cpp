@@ -727,6 +727,12 @@ void EditorGui::ParticleEditor()
 		editor_->UpdateParticleOverlayEnabled();
 	}
 
+	ImGui::Text("Use depth");
+	ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+	if (ImGui::Checkbox("##UseDepth", &editor_->use_particle_depth_)) {
+		editor_->UpdateParticleOverlayEnabled();
+	}
+
 	constexpr float combo_width{ 155.0f };
 	constexpr float max_val_width{ 35.0f };
 

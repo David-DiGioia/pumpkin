@@ -168,13 +168,14 @@ namespace renderer
 		editor_backend_.AddOutlineSet(std::move(transformed_selection_set), color);
 	}
 
-	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles)
+	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth)
 	{
 		particle_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
 		particle_context_.SetMPMDebugNodeGenEnabled(render_nodes);
 		editor_backend_.SetRasterParticlesEnabled(rasterize_particles);
 		editor_backend_.SetNodesEnabled(render_nodes);
 		editor_backend_.SetGridEnabled(render_grid);
+		editor_backend_.SetParticleDepthEnabled(use_particle_depth);
 	}
 
 	void VulkanRenderer::SetParticleOverlay(RenderObjectHandle render_object)

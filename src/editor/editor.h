@@ -338,7 +338,7 @@ private:
 	void UpdateSelectionOutlines();
 
 	// Update the data for the particle overlay like render object index and grid dimensions.
-	void UpdateParticleOverlay();
+	void UpdateParticleOverlayRenderObject();
 
 	// Update whether or not the particle overlay is enabled.
 	void UpdateParticleOverlayEnabled();
@@ -369,10 +369,11 @@ private:
 
 	EditorNode* particle_node_{};
 	bool show_particle_grid_{};
+	bool use_particle_depth_{};
 	ParticleColorMode particle_color_mode_{};
 	float particle_color_max_value_{ 1.0f };
 	NodeColorMode node_color_mode_{};
-	float node_color_max_value_{ 1.0f };
+	float node_color_max_value_{ 10.0f };
 
 	EditorSettings editor_settings_{}; // Settings loaded from AppData.
 };
