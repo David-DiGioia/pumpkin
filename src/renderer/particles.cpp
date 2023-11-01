@@ -151,6 +151,7 @@ namespace renderer
 
 	void ParticleContext::ResetParticles()
 	{
+		has_played_ = false;
 		TransferStaticParticlesToMPM();
 		if (!update_physics_) {
 			GenerateDynamicParticleMesh(mpm_context_.GetParticles());
@@ -340,12 +341,8 @@ namespace renderer
 
 		// If we've already generated a dynamic particle mesh before enabling,
 		// we won't have the MPM debug mesh when we need it.
-		if (enabled)
-		{
-			const std::vector<MaterialPoint>& particles{ has_played_ ? mpm_context_.GetParticles() : StaticParticleToDynamic(static_particles_, side_flags_) };
-			if (!particles.empty()) {
-				GenerateDynamicDebugMPMParticleInstances(particles);
-			}
+		if (enabled) {
+			GenerateDynamicDebugMPMParticleInstances();
 		}
 	}
 
@@ -353,12 +350,8 @@ namespace renderer
 	{
 		generate_mpm_node_instances_ = enabled;
 
-		if (enabled)
-		{
-			const std::vector<GridNode>& nodes{ has_played_ ? mpm_context_.GetNodes() : std::vector<GridNode>(GRID_NODE_COUNT)};
-			if (!nodes.empty()) {
-				GenerateDynamicDebugMPMNodeInstances(nodes);
-			}
+		if (enabled) {
+			GenerateDynamicDebugMPMNodeInstances();
 		}
 	}
 #endif
@@ -367,11 +360,11 @@ namespace renderer
 	{
 #ifdef EDITOR_ENABLED
 		if (generate_mpm_particle_instances_) {
-			GenerateDynamicDebugMPMParticleInstances(particles);
+			GenerateDynamicDebugMPMParticleInstances();
 		}
 
 		if (generate_mpm_node_instances_) {
-			GenerateDynamicDebugMPMNodeInstances(mpm_context_.GetNodes());
+			GenerateDynamicDebugMPMNodeInstances();
 		}
 #endif
 
@@ -418,8 +411,13 @@ namespace renderer
 	}
 
 #ifdef EDITOR_ENABLED
-	void ParticleContext::GenerateDynamicDebugMPMParticleInstances(const std::vector<MaterialPoint>& particles)
+	void ParticleContext::GenerateDynamicDebugMPMParticleInstances()
 	{
+		const std::vector<MaterialPoint>& particles{ has_played_ ? mpm_context_.GetParticles() : StaticParticleToDynamic(static_particles_, side_flags_) };
+		if (particles.empty()) {
+			return;
+		}
+
 		std::vector<MPMDebugParticleInstance> mpm_particle_instances(particles.size());
 
 		for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
@@ -437,8 +435,13 @@ namespace renderer
 		renderer_->editor_backend_.SetMPMDebugParticleInstances(mpm_particle_instances);
 	}
 
-	void ParticleContext::GenerateDynamicDebugMPMNodeInstances(const std::vector<GridNode>& nodes)
+	void ParticleContext::GenerateDynamicDebugMPMNodeInstances()
 	{
+		const std::vector<GridNode>& nodes{ has_played_ ? mpm_context_.GetNodes() : std::vector<GridNode>(GRID_NODE_COUNT) };
+		if (nodes.empty()) {
+			return;
+		}
+
 		std::vector<MPMDebugNodeInstance> mpm_node_instances(nodes.size());
 
 		for (uint32_t n{ 0 }; n < (uint32_t)nodes.size(); ++n)
@@ -456,7 +459,9 @@ namespace renderer
 
 	void ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
 	{
-		// When enabled, forces to always generate dynamic particle meshes for debugging purposes.
+		has_played_ = false;
+
+		// When true, forces to always generate dynamic particle meshes for debugging purposes.
 		if (DISABLE_STATIC_PARTICLE_MESH)
 		{
 			GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, side_flags));

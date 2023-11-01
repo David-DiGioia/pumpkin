@@ -141,9 +141,9 @@ namespace renderer
 		void GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles);
 
 #ifdef EDITOR_ENABLED
-		void GenerateDynamicDebugMPMParticleInstances(const std::vector<MaterialPoint>& particles);
+		void GenerateDynamicDebugMPMParticleInstances();
 
-		void GenerateDynamicDebugMPMNodeInstances(const std::vector<GridNode>& nodes);
+		void GenerateDynamicDebugMPMNodeInstances();
 #endif
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
