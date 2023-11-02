@@ -47,7 +47,7 @@ vec3 Heatmap(float val, float lower, float upper)
 void main()
 {
     vec3 final_position;
-    const float mass_cube_scale = 3.0;
+    const float mass_cube_scale = 2.0;
 
     switch(constants.node_color_mode)
     {
