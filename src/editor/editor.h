@@ -299,6 +299,10 @@ public:
 
 	void UpdateNodeColorModeMaxValue();
 
+	void SetParticleGenShader(uint32_t shader_idx);
+
+	void UpdateParticleGenShaderCustomUBO();
+
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);
 
@@ -368,6 +372,7 @@ private:
 	TransformInfo transform_info_{};
 
 	EditorNode* particle_node_{};
+	uint32_t particle_gen_shader_idx_{};
 	bool show_particle_grid_{};
 	bool use_particle_depth_{};
 	ParticleColorMode particle_color_mode_{};

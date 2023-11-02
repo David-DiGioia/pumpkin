@@ -55,6 +55,7 @@ namespace renderer
 	{
 		renderer_->allocator_.DestroyBufferResource(&particle_gen_.built_in_ubo_buffer);
 		renderer_->allocator_.DestroyBufferResource(&particle_gen_.particle_out_buffer);
+		renderer_->allocator_.DestroyBufferResource(&particle_gen_.custom_ubo_buffer);
 		renderer_->descriptor_allocator_.DestroyDescriptorSetLayoutResource(&particle_gen_.layout_resource);
 
 		renderer_->allocator_.DestroyBufferResource(&particle_neighbors_.neighbor_out_buffer);
@@ -111,7 +112,7 @@ namespace renderer
 		GenerateStaticParticleMesh(static_particles_, side_flags_);
 	}
 
-	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)
+	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)
 	{
 		particle_gen_.shader_idx = shader_idx;
 
@@ -122,11 +123,19 @@ namespace renderer
 		}
 
 		particle_gen_.custom_ubo_buffer = renderer_->allocator_.CreateBufferResource(
-			(VkDeviceSize)custom_ubo_buffer.size(),
+			(VkDeviceSize)custom_ubo_size,
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		NameObject(context_->device, particle_gen_.custom_ubo_buffer.buffer, "Particle_Gen_Custom_Ubo_Buffer");
 
 		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_CUSTOM_UBO_BINDING, particle_gen_.custom_ubo_buffer);
+	}
+
+	void ParticleContext::UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo)
+	{
+		renderer_->vulkan_util_.Begin();
+		renderer_->vulkan_util_.TransferBufferToDevice(custom_ubo, particle_gen_.custom_ubo_buffer);
+		renderer_->vulkan_util_.Submit();
 	}
 
 	DescriptorSetLayoutResource& ParticleContext::GetParticleGenLayoutResource()

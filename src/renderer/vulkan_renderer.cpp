@@ -1528,9 +1528,14 @@ namespace renderer
 		particle_context_.InvokeParticleGenShader();
 	}
 
-	void VulkanRenderer::SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer)
+	void VulkanRenderer::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)
 	{
-		particle_context_.SetParticleGenShader(shader_idx, custom_ubo_buffer);
+		particle_context_.SetParticleGenShader(shader_idx, custom_ubo_size);
+	}
+
+	void VulkanRenderer::UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo)
+	{
+		particle_context_.UpdateParticleGenShaderCustomUBO(custom_ubo);
 	}
 
 	void VulkanRenderer::PlayParticleSimulation()

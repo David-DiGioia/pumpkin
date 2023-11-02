@@ -97,7 +97,9 @@ namespace renderer
 		// Generated render object will replace ro_target.
 		void InvokeParticleGenShader();
 
-		void SetParticleGenShader(uint32_t shader_idx, const std::vector<std::byte>& custom_ubo_buffer);
+		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
+
+		void UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo);
 
 		DescriptorSetLayoutResource& GetParticleGenLayoutResource();
 

@@ -85,6 +85,10 @@ namespace pmk
 		void SetNodeColorModeMaxValue(float max_value);
 
 		void SetRenderCubeNodesEnabled(bool enabled);
+
+		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
+
+		void UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo);
 #endif
 
 		void QueueRaycast(const glm::vec3& origin, const glm::vec3& direction);

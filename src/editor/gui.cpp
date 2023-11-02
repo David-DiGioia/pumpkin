@@ -274,9 +274,10 @@ bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_
 	return show_texture_ui;
 }
 
-void EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, bool* compile_error)
+bool EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, bool* compile_error)
 {
 	bool show_texture_ui{ true };
+	bool shader_loaded{ false };
 	ImGui::PushID(name.c_str());
 
 	ImGui::Text(name.c_str());
@@ -313,6 +314,10 @@ void EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 			uint32_t idx{ editor_->ImportShader(selection) };
 			*shader_index = idx;
 			*compile_error = (idx == renderer::NULL_INDEX);
+
+			if (!*compile_error) {
+				shader_loaded = true;
+			}
 		}
 	}
 
@@ -330,6 +335,7 @@ void EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 	}
 
 	ImGui::PopID();
+	return shader_loaded;
 }
 
 void EditorGui::NodeProperties()
@@ -683,10 +689,15 @@ void EditorGui::ParticleEditor()
 
 	ImGui::Text("Particle shaders");
 
-	ShaderProperty("Generation", &gen_shader_index_, &gen_shader_compile_error_);
+	if (ShaderProperty("Generation", &gen_shader_index_, &gen_shader_compile_error_)) {
+		editor_->SetParticleGenShader(gen_shader_index_);
+	}
+
 	if (gen_shader_index_ != renderer::NULL_INDEX)
 	{
-		editor_->GetShader(gen_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT);
+		if (editor_->GetShader(gen_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT)) {
+			editor_->UpdateParticleGenShaderCustomUBO();
+		}
 
 		ImGui::Dummy({});
 		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);

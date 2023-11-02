@@ -39,7 +39,8 @@ public:
 	const std::vector<std::byte>& GetBuffer() const;
 
 	// Draw the ImGui elements for each of the UBO members, that allow each member to be modified.
-	void DrawGui(uint32_t alignment);
+	// Return true if any of the gui values are changed this frame.
+	bool DrawGui(uint32_t alignment);
 
 private:
 	std::vector<MemberVariable> members_{};   // Type info about each of the members of the UBO struct.

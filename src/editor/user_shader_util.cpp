@@ -256,8 +256,9 @@ const std::vector<std::byte>& UniformBuffer::GetBuffer() const
 	return uniform_buffer_;
 }
 
-void UniformBuffer::DrawGui(uint32_t alignment)
+bool UniformBuffer::DrawGui(uint32_t alignment)
 {
+	bool value_changed{ false };
 	ImGui::PushID(members_.data());
 
 	for (const MemberVariable& member : members_)
@@ -270,28 +271,28 @@ void UniformBuffer::DrawGui(uint32_t alignment)
 		switch (member.type)
 		{
 		case MemberType::BOOL:
-			ImGui::Checkbox("##bool", (bool*)ptr);
+			value_changed |= ImGui::Checkbox("##bool", (bool*)ptr);
 			break;
 		case MemberType::INT:
-			ImGui::DragInt("##int", (int*)ptr);
+			value_changed |= ImGui::DragInt("##int", (int*)ptr);
 			break;
 		case MemberType::UINT:
-			ImGui::DragInt("##uint", (int*)ptr);
+			value_changed |= ImGui::DragInt("##uint", (int*)ptr);
 			break;
 		case MemberType::FLOAT:
-			ImGui::DragFloat("##float", (float*)ptr);
+			value_changed |= ImGui::DragFloat("##float", (float*)ptr);
 			break;
 		case MemberType::DOUBLE:
-			ImGui::DragFloat("##double", (float*)ptr);
+			value_changed |= ImGui::DragFloat("##double", (float*)ptr);
 			break;
 		case MemberType::VEC2:
-			ImGui::DragFloat2("##vec2", (float*)ptr);
+			value_changed |= ImGui::DragFloat2("##vec2", (float*)ptr);
 			break;
 		case MemberType::VEC3:
-			ImGui::DragFloat3("##vec3", (float*)ptr);
+			value_changed |= ImGui::DragFloat3("##vec3", (float*)ptr);
 			break;
 		case MemberType::VEC4:
-			ImGui::DragFloat4("##vec4", (float*)ptr);
+			value_changed |= ImGui::DragFloat4("##vec4", (float*)ptr);
 			break;
 		case MemberType::MAT2:
 			break;
@@ -303,4 +304,5 @@ void UniformBuffer::DrawGui(uint32_t alignment)
 	}
 
 	ImGui::PopID();
+	return value_changed;
 }

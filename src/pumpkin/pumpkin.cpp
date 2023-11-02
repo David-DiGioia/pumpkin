@@ -194,6 +194,16 @@ namespace pmk
 	{
 		renderer_.SetRenderCubeNodesEnabled(enabled);
 	}
+
+	void Pumpkin::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)
+	{
+		renderer_.SetParticleGenShader(shader_idx, custom_ubo_size);
+	}
+
+	void Pumpkin::UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo)
+	{
+		renderer_.UpdateParticleGenShaderCustomUBO(custom_ubo);
+	}
 #endif
 
 	void Pumpkin::QueueRaycast(const glm::vec3& origin, const glm::vec3& direction)

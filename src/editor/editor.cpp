@@ -904,6 +904,18 @@ void Editor::UpdateNodeColorModeMaxValue()
 	pumpkin_->SetNodeColorModeMaxValue(node_color_max_value_);
 }
 
+void Editor::SetParticleGenShader(uint32_t shader_idx)
+{
+	particle_gen_shader_idx_ = shader_idx;
+	pumpkin_->SetParticleGenShader(shader_idx, (uint32_t)shaders_[shader_idx]->GetCustomUniformBuffer().GetBuffer().size());
+}
+
+void Editor::UpdateParticleGenShaderCustomUBO()
+{
+	pumpkin_->UpdateParticleGenShaderCustomUBO(shaders_[particle_gen_shader_idx_]->GetCustomUniformBuffer().GetBuffer());
+	GenerateParticles();
+}
+
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
 {
 	const renderer::Extent& viewport_extent{ gui_.GetViewportExtent() };
