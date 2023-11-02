@@ -752,14 +752,18 @@ void EditorGui::ParticleEditor()
 		}
 		ImGui::EndCombo();
 	}
-	ImGui::SameLine();
-	ImGui::Text("Max");
-	ImGui::SameLine();
-	ImGui::PushItemWidth(max_val_width);
-	if (ImGui::DragFloat("##ParticleColorModeMaxValue", &editor_->particle_color_max_value_, 0.01f, 0.1f, 99.99f, "%.2f")) {
-		editor_->UpdateParticleColorModeMaxValue();
+
+	if ((editor_->particle_color_mode_ != ParticleColorMode::FINAL_SHADING) && (editor_->particle_color_mode_ != ParticleColorMode::HIDDEN))
+	{
+		ImGui::SameLine();
+		ImGui::Text("Max");
+		ImGui::SameLine();
+		ImGui::PushItemWidth(max_val_width);
+		if (ImGui::DragFloat("##ParticleColorModeMaxValue", &editor_->particle_color_max_value_, 0.01f, 0.1f, 99.99f, "%.2f")) {
+			editor_->UpdateParticleColorModeMaxValue();
+		}
+		ImGui::PopItemWidth();
 	}
-	ImGui::PopItemWidth();
 
 	const char* selected_node_color_named{ node_color_mode_names[(uint32_t)editor_->node_color_mode_].c_str() };
 	ImGui::Text("Nodes");
@@ -776,15 +780,18 @@ void EditorGui::ParticleEditor()
 		}
 		ImGui::EndCombo();
 	}
-	ImGui::SameLine();
-	ImGui::Text("Max");
-	ImGui::SameLine();
-	ImGui::PushItemWidth(max_val_width);
-	if (ImGui::DragFloat("##NodeColorModeMaxValue", &editor_->node_color_max_value_, 0.01f, 0.1f, 99.99f, "%.2f")) {
-		editor_->UpdateNodeColorModeMaxValue();
-	}
 
-	ImGui::PopItemWidth();
+	if (editor_->node_color_mode_ != NodeColorMode::NONE)
+	{
+		ImGui::SameLine();
+		ImGui::Text("Max");
+		ImGui::SameLine();
+		ImGui::PushItemWidth(max_val_width);
+		if (ImGui::DragFloat("##NodeColorModeMaxValue", &editor_->node_color_max_value_, 0.01f, 0.1f, 99.99f, "%.2f")) {
+			editor_->UpdateNodeColorModeMaxValue();
+		}
+		ImGui::PopItemWidth();
+	}
 
 	ImGui::End();
 }
