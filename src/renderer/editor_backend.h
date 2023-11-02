@@ -125,6 +125,9 @@ namespace renderer
 
 		void SetRasterParticlesEnabled(bool enabled);
 
+		// If true, nodes will be visualized as cubes instead of lines. Good for scalar values.
+		void SetRenderCubeNodesEnabled(bool enabled);
+
 		// Whether to use raster particle's depth buffer to occlude the particle overlay.
 		void SetParticleDepthEnabled(bool enabled);
 
@@ -183,8 +186,8 @@ namespace renderer
 
 			uint32_t render_object_index;
 			uint32_t particle_instance_count;
-			uint32_t particle_vertex_count;
-			uint32_t particle_index_count;
+			uint32_t cube_vertex_count;
+			uint32_t cube_index_count;
 			uint32_t node_instance_count;
 
 			uint32_t grid_vertex_count;
@@ -226,7 +229,8 @@ namespace renderer
 		GraphicsPipeline outline_pipeline_{};
 		GraphicsPipeline particle_raster_pipeline_{};
 		GraphicsPipeline grid_pipeline_{};
-		GraphicsPipeline node_pipeline_{};
+		GraphicsPipeline node_line_pipeline_{};
+		GraphicsPipeline node_cube_pipeline_{};
 		std::vector<OutlineObjects> outline_objects_{}; // Editor render pass will draw outlines around these sets of render objects.
 		DescriptorSetLayoutResource outline_layout_resource_{};
 		MPMDebugInfo mpm_debug_{};
@@ -234,5 +238,6 @@ namespace renderer
 		bool raster_particles_enabled_{};
 		bool use_particle_depth_{};
 		bool nodes_enabled_{};
+		bool render_nodes_as_cubes_{};
 	};
 }

@@ -890,6 +890,7 @@ void Editor::SetNodeColorMode(NodeColorMode color_mode)
 {
 	node_color_mode_ = color_mode;
 	pumpkin_->SetNodeColorMode((uint32_t)color_mode);
+	pumpkin_->SetRenderCubeNodesEnabled(color_mode == NodeColorMode::MASS);
 	UpdateParticleOverlayEnabled();
 }
 

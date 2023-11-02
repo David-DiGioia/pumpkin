@@ -207,6 +207,11 @@ namespace renderer
 	{
 		editor_backend_.SetNodeColorModeMaxValue(max_value);
 	}
+
+	void VulkanRenderer::SetRenderCubeNodesEnabled(bool enabled)
+	{
+		editor_backend_.SetRenderCubeNodesEnabled(enabled);
+	}
 #endif
 
 	void VulkanRenderer::CleanUp()

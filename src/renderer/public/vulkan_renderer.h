@@ -152,6 +152,8 @@ namespace renderer
 		void SetNodeColorMode(uint32_t color_mode);
 
 		void SetNodeColorModeMaxValue(float max_value);
+
+		void SetRenderCubeNodesEnabled(bool enabled);
 #endif
 
 	private:

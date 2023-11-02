@@ -189,6 +189,11 @@ namespace pmk
 	{
 		renderer_.SetNodeColorModeMaxValue(max_value);
 	}
+
+	void Pumpkin::SetRenderCubeNodesEnabled(bool enabled)
+	{
+		renderer_.SetRenderCubeNodesEnabled(enabled);
+	}
 #endif
 
 	void Pumpkin::QueueRaycast(const glm::vec3& origin, const glm::vec3& direction)

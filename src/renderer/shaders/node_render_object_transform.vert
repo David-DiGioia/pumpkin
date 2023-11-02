@@ -47,6 +47,7 @@ vec3 Heatmap(float val, float lower, float upper)
 void main()
 {
     vec3 final_position;
+    const float mass_cube_scale = 3.0;
 
     switch(constants.node_color_mode)
     {
@@ -54,7 +55,8 @@ void main()
         // We should never reach this case since the shader won't be invoked.
         break;
     case COLOR_MODE_MASS:
-        // TODO: Probably will use this same shader, except with cube geometry.
+        out_color = Heatmap(mass, 0.0, constants.max_value);
+        final_position = position + mass_cube_scale * vertex_position * mass / constants.max_value;
         break;
     case COLOR_MODE_VELOCITY:
         // The vertex_position.x is either 0.0 or 1.0 for the two line vertices.

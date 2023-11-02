@@ -83,6 +83,8 @@ namespace pmk
 		void SetParticleColorModeMaxValue(float max_value);
 
 		void SetNodeColorModeMaxValue(float max_value);
+
+		void SetRenderCubeNodesEnabled(bool enabled);
 #endif
 
 		void QueueRaycast(const glm::vec3& origin, const glm::vec3& direction);

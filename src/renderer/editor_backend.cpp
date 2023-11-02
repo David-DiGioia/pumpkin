@@ -22,6 +22,9 @@ namespace renderer
 	constexpr VkFormat MASK_COLOR_FORMAT{ VK_FORMAT_R8_UINT };
 	constexpr VkFormat FINAL_IMAGE_FORMAT{ VK_FORMAT_R8G8B8A8_UNORM };
 
+	constexpr uint32_t LINE_VERTEX_COUNT{ 2 };
+	constexpr VkIndexType CUBE_INDEX_TYPE{ VK_INDEX_TYPE_UINT32 };
+
 	// ImGui backend ------------------------------------------------------------------------------------------------
 
 	void ImGuiBackend::Initialize(VulkanRenderer* renderer)
@@ -352,24 +355,24 @@ namespace renderer
 		InitializeDescriptorSetLayouts();
 
 		// Create cube vertex/index buffers.
-		mpm_debug_.particle_vertex_count = (uint32_t)cube_vertices.size();
-		mpm_debug_.particle_index_count = (uint32_t)cube_indices.size();
+		mpm_debug_.cube_vertex_count = (uint32_t)cube_vertices.size();
+		mpm_debug_.cube_index_count = (uint32_t)cube_indices.size();
 
 		mpm_debug_.cube_vertices = renderer_->allocator_.CreateBufferResource(
-			mpm_debug_.particle_vertex_count * sizeof(Vertex),
+			mpm_debug_.cube_vertex_count * sizeof(Vertex),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		NameObject(context_->device, mpm_debug_.cube_vertices.buffer, "Debug_Cube_Vertices");
 
 		mpm_debug_.cube_indices = renderer_->allocator_.CreateBufferResource(
-			mpm_debug_.particle_index_count * sizeof(uint32_t),
+			mpm_debug_.cube_index_count * sizeof(uint32_t),
 			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		NameObject(context_->device, mpm_debug_.cube_indices.buffer, "Debug_Cube_Indices");
 
 		// Create line vertices.
 		mpm_debug_.line_vertices = renderer_->allocator_.CreateBufferResource(
-			2 * sizeof(Vertex),
+			LINE_VERTEX_COUNT * sizeof(Vertex),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		NameObject(context_->device, mpm_debug_.line_vertices.buffer, "Debug_Node_Line_Vertices");
@@ -483,7 +486,7 @@ namespace renderer
 
 		std::vector<VkPushConstantRange> node_constant_ranges{ node_constant_range };
 
-		node_pipeline_.Initialize(
+		node_line_pipeline_.Initialize(
 			context,
 			node_set_layouts,
 			node_constant_ranges,
@@ -493,8 +496,21 @@ namespace renderer
 			VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
 			SPIRV_PREFIX / "node_render_object_transform.vert.spv",
 			SPIRV_PREFIX / "mpm_nodes.frag.spv");
-		NameObject(context_->device, node_pipeline_.pipeline, "Node_Pipeline");
-		NameObject(context_->device, node_pipeline_.layout, "Node_Pipeline_Layout");
+		NameObject(context_->device, node_line_pipeline_.pipeline, "Node_Line_Pipeline");
+		NameObject(context_->device, node_line_pipeline_.layout, "Node_Line_Pipeline_Layout");
+
+		node_cube_pipeline_.Initialize(
+			context,
+			node_set_layouts,
+			node_constant_ranges,
+			FINAL_IMAGE_FORMAT,
+			renderer_->GetDepthImageFormat(),
+			VertexAttributes::MPM_NODE,
+			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+			SPIRV_PREFIX / "node_render_object_transform.vert.spv",
+			SPIRV_PREFIX / "mpm_nodes.frag.spv");
+		NameObject(context_->device, node_cube_pipeline_.pipeline, "Node_Cube_Pipeline");
+		NameObject(context_->device, node_cube_pipeline_.layout, "Node_Cube_Pipeline_Layout");
 
 		mpm_debug_.render_object_index = NULL_INDEX;
 
@@ -531,7 +547,8 @@ namespace renderer
 		outline_pipeline_.CleanUp();
 		grid_pipeline_.CleanUp();
 		particle_raster_pipeline_.CleanUp();
-		node_pipeline_.CleanUp();
+		node_line_pipeline_.CleanUp();
+		node_cube_pipeline_.CleanUp();
 
 		for (FrameResources& resource : frame_resources_)
 		{
@@ -660,6 +677,11 @@ namespace renderer
 	void EditorBackend::SetRasterParticlesEnabled(bool enabled)
 	{
 		raster_particles_enabled_ = enabled;
+	}
+
+	void EditorBackend::SetRenderCubeNodesEnabled(bool enabled)
+	{
+		render_nodes_as_cubes_ = enabled;
 	}
 
 	void EditorBackend::SetParticleDepthEnabled(bool enabled)
@@ -1043,8 +1065,8 @@ namespace renderer
 		VkDeviceSize zero_offsets[2]{ 0, 0 };
 
 		vkCmdBindVertexBuffers(cmd, 0, 2, vertex_buffers, zero_offsets);
-		vkCmdBindIndexBuffer(cmd, mpm_debug_.cube_indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(cmd, mpm_debug_.particle_index_count, mpm_debug_.particle_instance_count, 0, 0, 0);
+		vkCmdBindIndexBuffer(cmd, mpm_debug_.cube_indices.buffer, 0, CUBE_INDEX_TYPE);
+		vkCmdDrawIndexed(cmd, mpm_debug_.cube_index_count, mpm_debug_.particle_instance_count, 0, 0, 0);
 
 		vkCmdEndRendering(cmd);
 	}
@@ -1169,23 +1191,26 @@ namespace renderer
 			.pStencilAttachment = nullptr,
 		};
 
+		GraphicsPipeline& pipeline{ render_nodes_as_cubes_ ? node_cube_pipeline_ : node_line_pipeline_ };
+		BufferResource& vertex_buffer{ render_nodes_as_cubes_ ? mpm_debug_.cube_vertices : mpm_debug_.line_vertices };
+
 		vkCmdBeginRendering(cmd, &rendering_info);
 
 		vkCmdBindDescriptorSets(
 			cmd,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			node_pipeline_.layout,
+			pipeline.layout,
 			EDITOR_CAMERA_UBO_SET,
 			1,
 			&renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set,
 			0,
 			nullptr);
 
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, node_pipeline_.pipeline);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 
 		vkCmdPushConstants(
 			cmd,
-			node_pipeline_.layout,
+			pipeline.layout,
 			VK_SHADER_STAGE_VERTEX_BIT,
 			0,
 			sizeof(ColorModePushConstant),
@@ -1196,18 +1221,26 @@ namespace renderer
 		vkCmdBindDescriptorSets(
 			cmd,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			node_pipeline_.layout,
+			pipeline.layout,
 			EDITOR_RENDER_OBJECT_UBO_SET,
 			1,
 			&render_object->ubo_descriptor_set_resource.descriptor_set,
 			0,
 			nullptr);
 
-		VkBuffer vertex_buffers[2]{ mpm_debug_.line_vertices.buffer, mpm_debug_.node_instances[mpm_debug_.node_idx].buffer };
+		VkBuffer vertex_buffers[2]{ vertex_buffer.buffer, mpm_debug_.node_instances[mpm_debug_.node_idx].buffer };
 		VkDeviceSize zero_offsets[2]{ 0, 0 };
 
 		vkCmdBindVertexBuffers(cmd, 0, 2, vertex_buffers, zero_offsets);
-		vkCmdDraw(cmd, 2, mpm_debug_.node_instance_count, 0, 0);
+
+		if (render_nodes_as_cubes_)
+		{
+			vkCmdBindIndexBuffer(cmd, mpm_debug_.cube_indices.buffer, 0, CUBE_INDEX_TYPE);
+			vkCmdDrawIndexed(cmd, mpm_debug_.cube_index_count, mpm_debug_.node_instance_count, 0, 0, 0);
+		}
+		else {
+			vkCmdDraw(cmd, LINE_VERTEX_COUNT, mpm_debug_.node_instance_count, 0, 0);
+		}
 
 		vkCmdEndRendering(cmd);
 
