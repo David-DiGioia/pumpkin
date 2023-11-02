@@ -78,20 +78,6 @@ void EditorInput::ProcessViewportAllInput(Editor* editor, const renderer::Extent
 		return;
 	}
 
-	CameraController& controller{ editor->GetCameraController() };
-	constexpr float rotate_speed{ 0.003f };
-
-	// Revolve / rotate with mouse.
-	glm::vec2 mouse_delta{ CastVec2<glm::vec2>(ImGui::GetMouseDragDelta()) };
-
-	if (mouse_delta != glm::vec2(0.0f, 0.0f))
-	{
-		// We don't multiply by delta time since mouse delta is integer value of number of pixels moved,
-		// so often we just get the minimum of 1 pixel, so speed would become mainly determined by framerate which is undesirable.
-		controller.Rotate(-mouse_delta.x * rotate_speed, -mouse_delta.y * rotate_speed);
-		ImGui::ResetMouseDragDelta();
-	}
-
 	// Select object by clicking.
 	{
 		editor->SetMultiselect(ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_LeftCtrl));
@@ -119,10 +105,23 @@ void EditorInput::ProcessViewportFocusInput(Editor* editor, const renderer::Exte
 		return;
 	}
 
+	CameraController& controller{ editor->GetCameraController() };
+	constexpr float rotate_speed{ 0.003f };
+
+	// Revolve / rotate with mouse.
+	glm::vec2 mouse_delta{ CastVec2<glm::vec2>(ImGui::GetMouseDragDelta()) };
+
+	if (mouse_delta != glm::vec2(0.0f, 0.0f))
+	{
+		// We don't multiply by delta time since mouse delta is integer value of number of pixels moved,
+		// so often we just get the minimum of 1 pixel, so speed would become mainly determined by framerate which is undesirable.
+		controller.Rotate(-mouse_delta.x * rotate_speed, -mouse_delta.y * rotate_speed);
+		ImGui::ResetMouseDragDelta();
+	}
+
 	constexpr float zoom_speed{ 0.1f };
 	constexpr float movement_speed_scroll_speed{ 0.1f };
 
-	CameraController& controller{ editor->GetCameraController() };
 	float delta_time{ editor->GetPumpkin()->GetDeltaTime() };
 	glm::vec3 move_dir{};
 
