@@ -51,6 +51,7 @@ namespace pmk
 			UpdateDeltaTime();
 			HostWork();
 			renderer_.WaitForLastFrame();
+			renderer_.HostRenderWork();
 			HostRenderWork();
 			renderer_.BuildTlasAndUpdateBlases();
 			renderer_.ComputeWork();

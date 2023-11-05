@@ -67,6 +67,9 @@ namespace renderer
 
 		void ImportShader(const std::filesystem::path& spirv_path);
 
+		// CPU work for renderer to do each frame.
+		void HostRenderWork();
+
 		// GPU work for renderer to do each frame.
 		void ComputeWork();
 
@@ -215,7 +218,8 @@ namespace renderer
 
 		void UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh);
 
-		void DestroyRenderObject(RenderObjectHandle render_object_handle);
+		// Pass last_resource as true if all the other frame resources corresponding render objects have already been destroyed.
+		void DestroyRenderObject(RenderObject* ro_ptr, bool last_resource);
 
 		void DestroyMesh(Mesh* mesh);
 
@@ -275,6 +279,8 @@ namespace renderer
 		DescriptorSetLayoutResource camera_layout_resource_{};
 		DescriptorSetLayoutResource render_object_layout_resource_{};
 		DescriptorSetLayoutResource composite_layout_resource_{};
+
+		RenderObjectDestroyer render_object_destroyer_{}; // Render objects can't be destroyed while they're in use rendering in previous frame, so use special destroyer class.
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};

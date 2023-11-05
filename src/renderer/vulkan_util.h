@@ -2,12 +2,18 @@
 
 #include <string>
 #include <filesystem>
+#include <vector>
+#include <array>
+#include <functional>
+#include <unordered_map>
 #include "glm/glm.hpp"
 #include "volk.h"
 
 #include "logger.h"
 #include "memory_allocator.h"
 #include "renderer_types.h"
+#include "renderer_constants.h"
+#include "render_object.h"	
 
 #define VERTEX_ATTRIBUTE(loc, attr)								\
 	VkVertexInputAttributeDescription{							\
@@ -37,6 +43,113 @@
 
 namespace renderer
 {
+	class RenderObjectDestroyer
+	{
+	public:
+		void Initialize(
+			std::array<std::vector<RenderObject*>*, FRAMES_IN_FLIGHT>&& frame_resource,
+			std::function<void(RenderObject*, bool)> destroyer_func,
+			int32_t current_frame)
+		{
+			frame_resource_ = std::move(frame_resource);
+			destroyer_func_ = destroyer_func;
+			current_frame_ = current_frame;
+		}
+
+		void DestroyElement(uint32_t index)
+		{
+			DestroyElementCurrentFrame(index, false);
+
+			// We've immediately destroyed the current frame's render object, but we queue the other ones to be destroyed next frame.
+			std::array<RenderObject*, FRAMES_IN_FLIGHT - 1> other_render_objects{};
+			uint32_t j{ 0 };
+			for (uint32_t i{ 0 }; i < FRAMES_IN_FLIGHT; ++i)
+			{
+				if (i == current_frame_) {
+					continue;
+				}
+				std::vector<RenderObject*>& vec{ *frame_resource_[i] };
+				other_render_objects[j++] = vec[index];
+			}
+			destruction_queue_[index] = other_render_objects;
+
+			// Set all the renderer's resources to null since we've copied them here.
+			// From the renderer's point of view, they've all been deleted already.
+			std::vector<RenderObject*>& vec{ *frame_resource_[current_frame_] };
+			for (uint32_t i{ 0 }; i < (uint32_t)vec.size(); ++i) {
+				vec[i] = nullptr;
+			}
+		}
+
+		uint32_t PopVacantMeshIndex()
+		{
+			if (vacant_mesh_indices_.empty()) {
+				return NULL_INDEX;
+			}
+
+			uint32_t back{ vacant_mesh_indices_.back() };
+			vacant_mesh_indices_.pop_back();
+			return back;
+		}
+
+		// Call once per frame.
+		void FrameUpdate()
+		{
+			auto destruction_queue_copy{ destruction_queue_ };
+			for (const auto& [ro_index, render_objects] : destruction_queue_copy)
+			{
+				vacant_mesh_indices_.push_back(render_objects[0]->mesh_idx);
+				DestroyQueuedElement(ro_index);
+				destruction_queue_.erase(ro_index);
+			}
+
+			current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
+		}
+
+	private:
+		void DestroyElementCurrentFrame(uint32_t index, bool last_resource)
+		{
+			std::vector<RenderObject*>& vec{ *frame_resource_[current_frame_] };
+			destroyer_func_(vec[index], last_resource);
+			vec[index] = nullptr;
+		}
+
+		void DestroyQueuedElement(uint32_t index)
+		{
+			uint32_t i{ 0 };
+			for (RenderObject* ro_ptr : destruction_queue_[index])
+			{
+				bool last_element{ i == FRAMES_IN_FLIGHT - 2 }; // Since destruction queue element has FRAMES_IN_FLIGHT - 1 elements.
+				destroyer_func_(ro_ptr, last_element);
+				++i;
+			}
+		}
+
+		// Returns true if the element is destroyed in all but the current frame.
+		bool ElementDestroyedInAllOtherFrames(uint32_t index)
+		{
+			std::vector<RenderObject*>& vec{ *frame_resource_[current_frame_] };
+
+			for (uint32_t frame_idx{ 0 }; frame_idx < FRAMES_IN_FLIGHT; ++frame_idx)
+			{
+				if (current_frame_ == frame_idx) {
+					continue;
+				}
+				if (vec[frame_idx]) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		std::array<std::vector<RenderObject*>*, FRAMES_IN_FLIGHT> frame_resource_; // Points to renderer's resources so it is up to date.
+		std::function<void(RenderObject*, bool)> destroyer_func_;
+		uint32_t current_frame_;
+
+		std::unordered_map<uint32_t, std::array<RenderObject*, FRAMES_IN_FLIGHT - 1>> destruction_queue_; // Indices queued for destruction. Pairs of (ro_idx, render objects).
+		std::vector<uint32_t> vacant_mesh_indices_;                                                       // Destroyed indices ready to be reused.
+	};
+
 	void CheckResult(VkResult result, const std::string& msg);
 
 	std::string VkResultToString(VkResult result);

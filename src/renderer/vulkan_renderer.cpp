@@ -140,6 +140,15 @@ namespace renderer
 		particle_context_.Initialize(&context_, this);
 		InitializeRayTracing();
 
+		std::array<std::vector<RenderObject*>*, FRAMES_IN_FLIGHT> render_object_resources{};
+		for (uint32_t i{ 0 }; i < FRAMES_IN_FLIGHT; ++i) {
+			render_object_resources[i] = &frame_resources_[i].render_objects;
+		}
+		std::function<void(RenderObject*, bool)> render_object_destroyer{ [&](RenderObject* ro_ptr, bool last_resource) {
+			DestroyRenderObject(ro_ptr, last_resource);
+		}};
+		render_object_destroyer_.Initialize(std::move(render_object_resources), render_object_destroyer, current_frame_);
+
 #ifdef EDITOR_ENABLED
 		editor_backend_.Initialize(
 			particle_context_.GetParticleVertices(),
@@ -962,7 +971,7 @@ namespace renderer
 
 		// TODO: Update any BLASes that need to be updated here.
 
- 		GetCurrentFrame().tlas = rt_context_.QueueTlas(GetCurrentFrame().render_objects);
+		GetCurrentFrame().tlas = rt_context_.QueueTlas(GetCurrentFrame().render_objects);
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 		rt_context_.CmdBuildQueuedTlases(cmd);
 		vulkan_util_.Submit();
@@ -1186,15 +1195,23 @@ namespace renderer
 		vulkan_util_.Submit();
 
 		// Either replace old mesh if it exists or create new one.
-		RenderObject* ro_ptr{ frame_resources_[0].render_objects[ro_target] };
+		RenderObject* ro_ptr{ GetCurrentFrame().render_objects[ro_target] };
 		bool visible{ true };
 		uint32_t mesh_index{};
 		if (ro_ptr)
 		{
 			visible = ro_ptr->visible;
-			mesh_index = ro_ptr->mesh_idx;
-			DestroyRenderObject(ro_target);
-			meshes_[mesh_index] = mesh;
+			render_object_destroyer_.DestroyElement((uint32_t)ro_target);
+			mesh_index = render_object_destroyer_.PopVacantMeshIndex();
+
+			if (mesh_index == NULL_INDEX)
+			{
+				mesh_index = (uint32_t)meshes_.size();
+				meshes_.push_back(mesh);
+			}
+			else {
+				meshes_[mesh_index] = mesh;
+			}
 		}
 		else
 		{
@@ -1583,6 +1600,11 @@ namespace renderer
 		user_compute_shaders_.push_back(compute_pipeline);
 	}
 
+	void VulkanRenderer::HostRenderWork()
+	{
+		render_object_destroyer_.FrameUpdate();
+	}
+
 	void VulkanRenderer::ComputeWork()
 	{
 
@@ -1608,24 +1630,24 @@ namespace renderer
 		}
 	}
 
-	void VulkanRenderer::DestroyRenderObject(RenderObjectHandle render_object_handle)
+	void VulkanRenderer::DestroyRenderObject(RenderObject* ro_ptr, bool last_resource)
 	{
-		size_t ro_idx{ (size_t)render_object_handle };
-		RenderObject* ro_ptr{ frame_resources_[0].render_objects[ro_idx] };
 		if (!ro_ptr) {
 			return;
 		}
 
-		uint32_t mesh_idx{ ro_ptr->mesh_idx };
-		DestroyMesh(meshes_[mesh_idx]);
-
-		for (auto& frame : frame_resources_)
+		// If all the other render objects using this mesh have been destroyed then
+		// delete the mesh referenced by the render object.
+		if (last_resource)
 		{
-			allocator_.DestroyBufferResource(&frame.render_objects[ro_idx]->ubo_buffer_resource);
-			descriptor_allocator_.FreeDescriptorSet(&frame.render_objects[ro_idx]->ubo_descriptor_set_resource.descriptor_set);
-			delete frame.render_objects[ro_idx];
-			frame.render_objects[ro_idx] = nullptr;
+			uint32_t mesh_idx{ ro_ptr->mesh_idx };
+			DestroyMesh(meshes_[mesh_idx]);
 		}
+
+		// Delete this frame's render object.
+		allocator_.DestroyBufferResource(&ro_ptr->ubo_buffer_resource);
+		descriptor_allocator_.FreeDescriptorSet(&ro_ptr->ubo_descriptor_set_resource.descriptor_set);
+		delete ro_ptr;
 	}
 
 	void VulkanRenderer::DestroyMesh(Mesh* mesh)
