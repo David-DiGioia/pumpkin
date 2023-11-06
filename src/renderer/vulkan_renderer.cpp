@@ -146,7 +146,7 @@ namespace renderer
 		}
 		std::function<void(RenderObject*, bool)> render_object_destroyer{ [&](RenderObject* ro_ptr, bool last_resource) {
 			DestroyRenderObject(ro_ptr, last_resource);
-		}};
+		} };
 		render_object_destroyer_.Initialize(std::move(render_object_resources), render_object_destroyer, current_frame_);
 
 #ifdef EDITOR_ENABLED
@@ -267,8 +267,8 @@ namespace renderer
 		}
 		materials_.clear();
 
-		for (Mesh* mesh : meshes_) {
-			DestroyMesh(mesh);
+		for (uint32_t mesh_idx{ 0 }; mesh_idx < (uint32_t)meshes_.size(); ++mesh_idx) {
+			DestroyMesh(mesh_idx);
 		}
 		meshes_.clear();
 
@@ -1641,7 +1641,7 @@ namespace renderer
 		if (last_resource)
 		{
 			uint32_t mesh_idx{ ro_ptr->mesh_idx };
-			DestroyMesh(meshes_[mesh_idx]);
+			DestroyMesh(mesh_idx);
 		}
 
 		// Delete this frame's render object.
@@ -1650,8 +1650,13 @@ namespace renderer
 		delete ro_ptr;
 	}
 
-	void VulkanRenderer::DestroyMesh(Mesh* mesh)
+	void VulkanRenderer::DestroyMesh(uint32_t mesh_idx)
 	{
+		Mesh* mesh{ meshes_[mesh_idx] };
+		if (!mesh) {
+			return;
+		}
+
 		vkDestroyAccelerationStructureKHR(context_.device, mesh->blas.acceleration_structure, nullptr);
 		allocator_.DestroyBufferResource(&mesh->blas.buffer_resource);
 
@@ -1662,7 +1667,7 @@ namespace renderer
 		}
 
 		delete mesh;
-		mesh = nullptr;
+		meshes_[mesh_idx] = nullptr;
 	}
 
 	bool VulkanRenderer::GetViewportMinimized() const

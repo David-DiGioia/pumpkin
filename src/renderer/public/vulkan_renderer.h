@@ -221,7 +221,7 @@ namespace renderer
 		// Pass last_resource as true if all the other frame resources corresponding render objects have already been destroyed.
 		void DestroyRenderObject(RenderObject* ro_ptr, bool last_resource);
 
-		void DestroyMesh(Mesh* mesh);
+		void DestroyMesh(uint32_t mesh_idx);
 
 		bool GetViewportMinimized() const;
 
