@@ -161,6 +161,7 @@ namespace renderer
 	void ParticleContext::ResetParticles()
 	{
 		has_played_ = false;
+		DisablePhysicsUpdate();
 		TransferStaticParticlesToMPM();
 		if (!update_physics_) {
 			GenerateDynamicParticleMesh(mpm_context_.GetParticles());
