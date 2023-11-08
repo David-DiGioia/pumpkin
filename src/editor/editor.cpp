@@ -517,7 +517,7 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	}
 }
 
-void Editor::GenerateParticles()
+void Editor::GenerateParticles(std::function<void()> particle_gen_func)
 {
 	if (!particle_node_) {
 		particle_node_ = CreateNode("particle_node");
@@ -525,11 +525,26 @@ void Editor::GenerateParticles()
 
 	// If there are no materials yet, renderer will generate one for the particles.
 	bool created_new_material{ materials_.empty() };
-	pumpkin_->GetScene().GenerateParticlesOnNode(particle_node_->node);
-	if (created_new_material) {
+	particle_gen_func();
+	if (created_new_material)
+	{
 		renderer::Material* mat{ pumpkin_->GetMaterials().back() };
 		materials_.push_back(new EditorMaterial{ mat, "Particles" });
 	}
+}
+
+void Editor::GenerateParticles()
+{
+	GenerateParticles([&]() {
+		pumpkin_->GetScene().GenerateParticlesOnNode(particle_node_->node);
+		});
+}
+
+void Editor::GenerateTestParticle()
+{
+	GenerateParticles([&]() {
+		pumpkin_->GetScene().GenerateTestParticleOnNode(particle_node_->node);
+		});
 }
 
 void Editor::PlayParticleSimulation()

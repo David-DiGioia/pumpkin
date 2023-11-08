@@ -6,6 +6,7 @@
 #include <limits>
 #include <string>
 #include <filesystem>
+#include <functional>
 #include "imgui.h"
 #include "nlohmann/json.hpp"
 
@@ -239,7 +240,13 @@ public:
 	// path: The path relative to the assets folder.
 	void ImportGLTF(const std::filesystem::path& path);
 
+	// Will create node and material if necessary, and invokes arbitrary particle generation function.
+	void GenerateParticles(std::function<void()> particle_gen_func);
+
 	void GenerateParticles();
+
+	// Generate single particle for verifying P2G and G2P.
+	void GenerateTestParticle();
 
 	void PlayParticleSimulation();
 

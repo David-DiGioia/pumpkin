@@ -112,6 +112,34 @@ namespace renderer
 		GenerateStaticParticleMesh(static_particles_, side_flags_);
 	}
 
+	void ParticleContext::GenerateTestParticle()
+	{
+		constexpr float youngs_modulus{ 800.0f };
+		constexpr float poissons_ratio{ 0.4f };
+		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
+		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
+
+		MaterialPoint mpm_particle{
+			.mass = .01f,
+			.mu = mu,
+			.lambda = lambda,
+			.position = glm::vec3{0.321932f, 0.452119f, 0.434341f},
+			.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
+			.affine_matrix = glm::mat3{1.0f},
+			.deformation_gradient = glm::mat3{1.0f},
+		};
+
+		std::vector<MaterialPoint> mpm_particles{ mpm_particle };
+		mpm_context_.Initialize(std::move(mpm_particles), chunk_width_);
+
+		// Since we don't use static particles here, we just simulate a single set to get all the MPM
+		// particle info set that needs to be set.
+		update_physics_ = true;
+		has_played_ = true;
+		PhysicsUpdate(1.0f / 60.0f);
+		update_physics_ = false;
+	}
+
 	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)
 	{
 		particle_gen_.shader_idx = shader_idx;

@@ -728,6 +728,14 @@ void EditorGui::ParticleEditor()
 			}
 		}
 	}
+	else
+	{
+		ImGui::Dummy({});
+		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+		if (ImGui::Button("Generate test particle")) {
+			editor_->GenerateTestParticle();
+		}
+	}
 
 	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 	ImGui::Text("Debug rendering");

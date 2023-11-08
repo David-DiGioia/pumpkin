@@ -251,6 +251,16 @@ namespace pmk
 		renderer_->UpdateMaterials();
 	}
 
+	void Scene::GenerateTestParticleOnNode(Node* node)
+	{
+		if (node->render_object == renderer::NULL_HANDLE) {
+			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
+		}
+
+		renderer_->GenerateTestParticle(node->render_object);
+		renderer_->UpdateMaterials();
+	}
+
 	void Scene::PlayParticleSimulation()
 	{
 		renderer_->PlayParticleSimulation();

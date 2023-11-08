@@ -1545,6 +1545,16 @@ namespace renderer
 		particle_context_.InvokeParticleGenShader();
 	}
 
+	void VulkanRenderer::GenerateTestParticle(RenderObjectHandle ro_target)
+	{
+		if (materials_.empty()) {
+			materials_.push_back(new Material{ default_material });
+		}
+
+		particle_context_.SetTargetRenderObject(ro_target);
+		particle_context_.GenerateTestParticle();
+	}
+
 	void VulkanRenderer::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)
 	{
 		particle_context_.SetParticleGenShader(shader_idx, custom_ubo_size);

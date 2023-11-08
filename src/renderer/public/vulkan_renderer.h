@@ -48,6 +48,9 @@ namespace renderer
 		// Invoke user-defined particle gen shader. Generated render object will replace ro_target.
 		void InvokeParticleGenShader(RenderObjectHandle ro_target);
 
+		// To validate MPM P2G and G2P.
+		void GenerateTestParticle(RenderObjectHandle ro_target);
+
 		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
 
 		void UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo);
