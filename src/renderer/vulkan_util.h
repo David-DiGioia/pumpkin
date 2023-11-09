@@ -70,15 +70,12 @@ namespace renderer
 				}
 				std::vector<RenderObject*>& vec{ *frame_resource_[i] };
 				other_render_objects[j++] = vec[index];
+
+				// Set all frame's resource to null since we've copied them here.
+				// From the renderer's point of view, they've all been deleted already.
+				vec[index] = nullptr;
 			}
 			destruction_queue_[index] = other_render_objects;
-
-			// Set all the renderer's resources to null since we've copied them here.
-			// From the renderer's point of view, they've all been deleted already.
-			std::vector<RenderObject*>& vec{ *frame_resource_[current_frame_] };
-			for (uint32_t i{ 0 }; i < (uint32_t)vec.size(); ++i) {
-				vec[i] = nullptr;
-			}
 		}
 
 		uint32_t PopVacantMeshIndex()

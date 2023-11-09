@@ -210,7 +210,7 @@ namespace renderer
 	{
 		std::vector<MaterialPoint> mpm_particles{};
 
-		constexpr float youngs_modulus{ 100.0f };
+		constexpr float youngs_modulus{ 50.0f };
 		constexpr float poissons_ratio{ 0.4f };
 		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
 		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
