@@ -189,7 +189,7 @@ namespace renderer
 
 	void VulkanRenderer::SetParticleOverlay(RenderObjectHandle render_object)
 	{
-		editor_backend_.SetRenderObjectInfo(particle_context_.GetChunkWidth(), (uint32_t)render_object);
+		editor_backend_.SetRenderObjectInfo(CHUNK_WIDTH, (uint32_t)render_object);
 	}
 
 	void VulkanRenderer::ClearOutlineSets()

@@ -55,10 +55,14 @@ namespace renderer
 
 		void AdvectParticles(float delta_time);
 
+		float QuadraticKernel(float x) const;
+
 		// Kernel for interpolation function.
 		float CubicKernel(float x) const;
 
 		float CubicKernelDerivative(float x) const;
+
+		float QuadraticKernelDerivative(float x) const;
 
 		float GetWeight(const glm::vec3& node_pos, const glm::vec3& particle_pos) const;
 
@@ -72,9 +76,12 @@ namespace renderer
 
 		glm::uvec3 GridNodeIndexToCoordinate(uint32_t index) const;
 
+		uint32_t GridNodeCoordinateToIndex(const glm::uvec3& coord) const;
+
+		void PrintParticleWeights() const;
+
 		std::vector<MaterialPoint> particles_{};
 		std::vector<GridNode> nodes_{};
-		float grid_spacing_{};
 		float particle_radius_{};
 		float particle_initial_volume_{};
 	};

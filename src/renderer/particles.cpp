@@ -114,7 +114,7 @@ namespace renderer
 
 	void ParticleContext::GenerateTestParticle()
 	{
-		constexpr float youngs_modulus{ 800.0f };
+		constexpr float youngs_modulus{ 500.0f };
 		constexpr float poissons_ratio{ 0.4f };
 		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
 		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
@@ -130,7 +130,7 @@ namespace renderer
 		};
 
 		std::vector<MaterialPoint> mpm_particles{ mpm_particle };
-		mpm_context_.Initialize(std::move(mpm_particles), chunk_width_);
+		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH);
 
 		// Since we don't use static particles here, we just simulate a single set to get all the MPM
 		// particle info set that needs to be set.
@@ -210,12 +210,10 @@ namespace renderer
 	{
 		std::vector<MaterialPoint> mpm_particles{};
 
-		constexpr float youngs_modulus{ 800.0f };
+		constexpr float youngs_modulus{ 100.0f };
 		constexpr float poissons_ratio{ 0.4f };
 		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
 		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
-
-		const float particle_width{ chunk_width_ / CHUNK_ROW_VOXEL_COUNT };
 
 		for (uint32_t i{ 0 }; i < (uint32_t)static_particles_.size(); ++i)
 		{
@@ -226,10 +224,10 @@ namespace renderer
 			glm::uvec3 coord{ ParticleIndexToCoordinate(i) };
 
 			MaterialPoint mpm_particle{
-				.mass = .01f,
+				.mass = .0001f,
 				.mu = mu,
 				.lambda = lambda,
-				.position = particle_width * glm::vec3{coord},
+				.position = PARTICLE_WIDTH * glm::vec3{coord},
 				.velocity = glm::vec3{0.0f, -2.0f, 0.0f},
 				.affine_matrix = glm::mat3{1.0f},
 				.deformation_gradient = glm::mat3{1.0f},
@@ -238,7 +236,7 @@ namespace renderer
 			mpm_particles.push_back(mpm_particle);
 		}
 
-		mpm_context_.Initialize(std::move(mpm_particles), chunk_width_);
+		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH);
 	}
 
 	void ParticleContext::InitializeParticleGenShaderResources()
@@ -360,16 +358,6 @@ namespace renderer
 	void ParticleContext::SetTargetRenderObject(RenderObjectHandle ro_target)
 	{
 		ro_target_ = ro_target;
-	}
-
-	void ParticleContext::SetChunkWidth(float chunk_width)
-	{
-		chunk_width_ = chunk_width;
-	}
-
-	float ParticleContext::GetChunkWidth() const
-	{
-		return chunk_width_;
 	}
 
 #ifdef EDITOR_ENABLED
@@ -519,8 +507,7 @@ namespace renderer
 	{
 		uint32_t vert_count{ 24 }; // Cube with 3 normals per corner so 8 * 3 vertices.
 		std::vector<Vertex> verts(vert_count);
-		float particle_width{ chunk_width_ / CHUNK_ROW_VOXEL_COUNT };
-		float particle_radius{ particle_width / 2.0f };
+		float particle_radius{ PARTICLE_WIDTH / 2.0f };
 
 		// Position. Three of each since there are three different normals at each corner.
 		verts[0].position = glm::vec4{ -1.0f, -1.0f, 1.0f, 0.0f } *particle_radius;
@@ -604,7 +591,6 @@ namespace renderer
 			return {};
 		}
 
-		float particle_width{ chunk_width_ / CHUNK_ROW_VOXEL_COUNT };
 		std::vector<MaterialPoint> dynamic_particles{};
 		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{
@@ -616,7 +602,7 @@ namespace renderer
 			}
 
 			MaterialPoint particle{
-				.position = particle_width * glm::vec3(ParticleIndexToCoordinate(i)),
+				.position = PARTICLE_WIDTH * glm::vec3(ParticleIndexToCoordinate(i)),
 			};
 			dynamic_particles.push_back(particle);
 		}

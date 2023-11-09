@@ -26,7 +26,6 @@ namespace renderer
 		particles_ = std::move(particles);
 		nodes_.resize(GRID_NODE_COUNT);
 
-		grid_spacing_ = chunk_width / (float)(GRID_NODE_ROW_COUNT - 1);
 		particle_radius_ = 0.5f * (chunk_width / CHUNK_ROW_VOXEL_COUNT);
 		particle_initial_volume_ = (4.0f / 3.0f) * PI * particle_radius_ * particle_radius_ * particle_radius_; // Treat particle as sphere for now.
 
@@ -34,12 +33,14 @@ namespace renderer
 		for (uint32_t i{ 0 }; i < (uint32_t)nodes_.size(); ++i)
 		{
 			glm::uvec3 coord{ GridNodeIndexToCoordinate(i) };
-			nodes_[i].position = grid_spacing_ * glm::vec3{ coord.x, coord.y, coord.z };
+			nodes_[i].position = GRID_SIZE * glm::vec3{ coord.x, coord.y, coord.z };
 		}
 	}
 
 	void MPMContext::SimulateStep(float delta_time)
 	{
+		//PrintParticleWeights();
+
 		ParticleToGrid();
 		ComputeGridVelocities();
 		ComputeExplicitGridForces();
@@ -75,7 +76,7 @@ namespace renderer
 			node.mass = 0.0f;
 			node.momentum = glm::vec3{ 0.0f, 0.0f, 0.0f };
 
-			uint32_t p_idx{0};
+			uint32_t p_idx{ 0 };
 			for (const MaterialPoint& p : particles_)
 			{
 				float weight{ GetWeight(node.position, p.position) };
@@ -113,7 +114,7 @@ namespace renderer
 				sum += GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient) * GetWeightGradient(node.position, p.position);
 			}
 
-			node.force = -particle_initial_volume_ * sum;
+			node.force = -particle_initial_volume_ * sum; // Equation (189).
 
 			if (std::isnan(node.force.x)) {
 				__debugbreak();
@@ -178,6 +179,39 @@ namespace renderer
 		}
 	}
 
+	// Equation (123).
+	float MPMContext::QuadraticKernel(float x) const
+	{
+		x = std::fabsf(x);
+
+		if (x < 0.5f) {
+			return (3.0f / 4.0f) - x * x;
+		}
+		else if (x < (3.0f / 2.0f))
+		{
+			float a{ (3.0f / 2.0f) - x };
+			return 0.5f * a * a;
+		}
+		else {
+			return 0.0f;
+		}
+	}
+
+	// Not from an equation. Computed the derivative myself.
+	float MPMContext::QuadraticKernelDerivative(float x) const
+	{
+		if (std::fabsf(x) < 0.5) {
+			return -2.0f * x;
+		}
+		else if (std::fabsf(x) < (3.0f / 2.0f))
+		{
+			return x - (3.0f * x) / (2.0f * std::fabsf(x));
+		}
+		else {
+			return 0.0f;
+		}
+	}
+
 	// Equation (122).
 	float MPMContext::CubicKernel(float x) const
 	{
@@ -225,12 +259,14 @@ namespace renderer
 			logger::Error("Linear MPM interpolation kernel not yet supported.\n");
 			break;
 		case MPMInterpolationKernel::QUADRATIC:
-			logger::Error("Quadratic MPM interpolation kernel not yet supported.\n");
+			x_result = QuadraticKernel((particle_pos.x - node_pos.x) / GRID_SIZE);
+			y_result = QuadraticKernel((particle_pos.y - node_pos.y) / GRID_SIZE);
+			z_result = QuadraticKernel((particle_pos.z - node_pos.z) / GRID_SIZE);
 			break;
 		case MPMInterpolationKernel::CUBIC:
-			x_result = CubicKernel((particle_pos.x - node_pos.x) / grid_spacing_);
-			y_result = CubicKernel((particle_pos.y - node_pos.y) / grid_spacing_);
-			z_result = CubicKernel((particle_pos.z - node_pos.z) / grid_spacing_);
+			x_result = CubicKernel((particle_pos.x - node_pos.x) / GRID_SIZE);
+			y_result = CubicKernel((particle_pos.y - node_pos.y) / GRID_SIZE);
+			z_result = CubicKernel((particle_pos.z - node_pos.z) / GRID_SIZE);
 			break;
 		default:
 			logger::Error("Unrecognized MPM interpolation kernel.\n");
@@ -246,22 +282,35 @@ namespace renderer
 		switch (MPM_INTERPOLATION_KERNEL)
 		{
 		case MPMInterpolationKernel::LINEAR:
+		{
 			logger::Error("Linear MPM interpolation kernel not yet supported.\n");
 			break;
+		}
 		case MPMInterpolationKernel::QUADRATIC:
-			logger::Error("Quadratic MPM interpolation kernel not yet supported.\n");
+		{
+			float x_result = QuadraticKernel((particle_pos.x - node_pos.x) / GRID_SIZE);
+			float y_result = QuadraticKernel((particle_pos.y - node_pos.y) / GRID_SIZE);
+			float z_result = QuadraticKernel((particle_pos.z - node_pos.z) / GRID_SIZE);
+			float ddx_x_result = QuadraticKernelDerivative((particle_pos.x - node_pos.x) / GRID_SIZE);
+			float ddy_y_result = QuadraticKernelDerivative((particle_pos.y - node_pos.y) / GRID_SIZE);
+			float ddz_z_result = QuadraticKernelDerivative((particle_pos.z - node_pos.z) / GRID_SIZE);
+			// Equation after (124).
+			gradient.x = ddx_x_result * y_result * z_result / GRID_SIZE;
+			gradient.y = x_result * ddy_y_result * z_result / GRID_SIZE;
+			gradient.z = x_result * y_result * ddz_z_result / GRID_SIZE;
 			break;
+		}
 		case MPMInterpolationKernel::CUBIC:
 		{
-			float x_result = CubicKernel((particle_pos.x - node_pos.x) / grid_spacing_);
-			float y_result = CubicKernel((particle_pos.y - node_pos.y) / grid_spacing_);
-			float z_result = CubicKernel((particle_pos.z - node_pos.z) / grid_spacing_);
-			float ddx_x_result = CubicKernelDerivative((particle_pos.x - node_pos.x) / grid_spacing_);
-			float ddy_y_result = CubicKernelDerivative((particle_pos.y - node_pos.y) / grid_spacing_);
-			float ddz_z_result = CubicKernelDerivative((particle_pos.z - node_pos.z) / grid_spacing_);
-			gradient.x = ddx_x_result * y_result * z_result;
-			gradient.y = x_result * ddy_y_result * z_result;
-			gradient.z = x_result * y_result * ddz_z_result;
+			float x_result = CubicKernel((particle_pos.x - node_pos.x) / GRID_SIZE);
+			float y_result = CubicKernel((particle_pos.y - node_pos.y) / GRID_SIZE);
+			float z_result = CubicKernel((particle_pos.z - node_pos.z) / GRID_SIZE);
+			float ddx_x_result = CubicKernelDerivative((particle_pos.x - node_pos.x) / GRID_SIZE);
+			float ddy_y_result = CubicKernelDerivative((particle_pos.y - node_pos.y) / GRID_SIZE);
+			float ddz_z_result = CubicKernelDerivative((particle_pos.z - node_pos.z) / GRID_SIZE);
+			gradient.x = ddx_x_result * y_result * z_result / GRID_SIZE;
+			gradient.y = x_result * ddy_y_result * z_result / GRID_SIZE;
+			gradient.z = x_result * y_result * ddz_z_result / GRID_SIZE;
 			break;
 		}
 		default:
@@ -321,5 +370,34 @@ namespace renderer
 		uint32_t x{ index % GRID_NODE_ROW_COUNT };
 
 		return glm::uvec3{ x, y, z };
+	}
+
+	uint32_t MPMContext::GridNodeCoordinateToIndex(const glm::uvec3& coord) const
+	{
+		uint32_t slice_area{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
+		return coord.x + coord.y * GRID_NODE_ROW_COUNT + coord.z * slice_area;
+	}
+
+	void MPMContext::PrintParticleWeights() const
+	{
+		logger::Print("h = %.2f\n", GRID_SIZE);
+
+		for (uint32_t i{ 7 }; i <= 9; ++i)
+		{
+			for (uint32_t j{ 10 }; j <= 12; ++j)
+			{
+				for (uint32_t k{ 10 }; k <= 12; ++k)
+				{
+					const glm::vec3& node_position{ nodes_[GridNodeCoordinateToIndex(glm::uvec3{ i, j, k })].position };
+					float weight{ GetWeight(node_position, particles_[0].position) };
+					glm::vec3 grad_weight{ GetWeightGradient(node_position, particles_[0].position) };
+
+					logger::Print("ijk: %u, %u, %u\n", i, j, k);
+					logger::Print("weight: %.9f\n", weight);
+					logger::Print("grad_weight: %.6f, %.6f, %.6f\n\n", grad_weight.x, grad_weight.y, grad_weight.z);
+				}
+			}
+		}
+
 	}
 }
