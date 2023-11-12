@@ -11,6 +11,7 @@
 #include "glm/mat4x4.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "imgui.h"
+#include "tracy/Tracy.hpp"
 
 #include "vulkan_util.h"
 #include "logger.h"
@@ -427,6 +428,7 @@ namespace renderer
 		result = vkQueuePresentKHR(context_.graphics_queue, &present_info);
 		CheckResult(result, "Error presenting image.");
 
+		FrameMark;
 		NextFrame();
 	}
 

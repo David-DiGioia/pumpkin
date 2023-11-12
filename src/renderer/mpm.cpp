@@ -3,6 +3,7 @@
 #include "renderer_constants.h"
 #include "logger.h"
 #include "common_constants.h"
+#include "tracy/Tracy.hpp"
 
 namespace renderer
 {
@@ -62,6 +63,7 @@ namespace renderer
 
 	void MPMContext::ParticleToGrid()
 	{
+		ZoneScoped;
 		//float d_inverse{ GetDInverse() };
 
 		//std::vector<glm::mat3> d_inverses{};
@@ -90,6 +92,7 @@ namespace renderer
 
 	void MPMContext::ComputeGridVelocities()
 	{
+		ZoneScoped;
 		// TODO: This can later be put into ParticleToGrid(). Probably will me more efficient.
 		for (GridNode& node : nodes_)
 		{
@@ -105,6 +108,7 @@ namespace renderer
 
 	void MPMContext::ComputeExplicitGridForces()
 	{
+		ZoneScoped;
 		for (GridNode& node : nodes_)
 		{
 			if (node.mass == 0.0f) {
@@ -130,6 +134,7 @@ namespace renderer
 
 	void MPMContext::UpdateGridVelocity(float delta_time)
 	{
+		ZoneScoped;
 		for (GridNode& node : nodes_)
 		{
 			if (node.mass == 0.0f) {
@@ -145,6 +150,7 @@ namespace renderer
 
 	void MPMContext::UpdateParticleDeformationGradient(float delta_time)
 	{
+		ZoneScoped;
 		for (MaterialPoint& p : particles_)
 		{
 			glm::mat3 sum{};
@@ -162,6 +168,7 @@ namespace renderer
 
 	void MPMContext::GridToParticle()
 	{
+		ZoneScoped;
 		for (MaterialPoint& p : particles_)
 		{
 			p.velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
@@ -180,6 +187,7 @@ namespace renderer
 
 	void MPMContext::AdvectParticles(float delta_time)
 	{
+		ZoneScoped;
 		for (MaterialPoint& p : particles_) {
 			p.position += delta_time * p.velocity;
 		}

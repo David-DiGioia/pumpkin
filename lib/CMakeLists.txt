@@ -5,6 +5,7 @@ find_package(Vulkan REQUIRED)
 add_subdirectory(volk)
 add_subdirectory(imgui)
 add_subdirectory(tinyfiledialogs)
+add_subdirectory(tracy)
 
 set(RENDERER_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/glfw-3.3.6.bin.WIN64/include"
@@ -12,6 +13,7 @@ set(RENDERER_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/imgui"
     "${CMAKE_CURRENT_SOURCE_DIR}/SFML-2.5.1/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/tinyfiledialogs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tracy"
 
     # Header only.
     "${CMAKE_CURRENT_SOURCE_DIR}/glm"
@@ -66,6 +68,7 @@ set(RENDERER_LINK_LIBS
     "${Vulkan_LIBRARY}"
     volk_headers
     Imgui
+    Tracy
 )
 target_link_libraries(Renderer PUBLIC
     "${RENDERER_LINK_LIBS}"
