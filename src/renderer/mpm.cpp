@@ -95,7 +95,9 @@ namespace renderer
 		{
 			node.velocity = (node.mass == 0.0f) ? glm::vec3{ 0.0f, 0.0f, 0.0f } : node.momentum / node.mass;
 
-			if (std::isnan(node.velocity.x)) {
+			if (std::isnan(node.velocity.x))
+			{
+				logger::Error("Node velocity is nan. Aborting.\n");
 				__debugbreak();
 			}
 		}
@@ -116,7 +118,11 @@ namespace renderer
 
 			node.force = -particle_initial_volume_ * sum; // Equation (189).
 
-			if (std::isnan(node.force.x)) {
+			node.force += node.mass * glm::vec3{ 0.0f, -9.81f, 0.0f }; // Gravity?
+
+			if (std::isnan(node.force.x))
+			{
+				logger::Error("Node force is nan. Aborting.\n");
 				__debugbreak();
 			}
 		}
@@ -325,7 +331,9 @@ namespace renderer
 		glm::mat3 f_inv_transpose{ glm::transpose(glm::inverse(p.deformation_gradient)) };
 		float j{ glm::determinant(p.deformation_gradient) };
 		auto tmp = p.mu * (p.deformation_gradient - f_inv_transpose) + p.lambda * std::logf(j) * f_inv_transpose; // Equation (48).
-		if (std::isnan(tmp[0][0])) {
+		if (std::isnan(tmp[0][0]))
+		{
+			logger::Error("Piola-Kirchoff stress is nan. Aborting.\n");
 			__debugbreak();
 		}
 		return tmp;

@@ -384,6 +384,10 @@ namespace renderer
 
 		for (Mesh* mesh : meshes)
 		{
+			if (!mesh) {
+				continue;
+			}
+
 			custom_index_map_[&mesh->blas] = custom_index;
 
 			for (Geometry& geometry : mesh->geometries)

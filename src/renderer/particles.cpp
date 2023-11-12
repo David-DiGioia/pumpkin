@@ -210,7 +210,7 @@ namespace renderer
 	{
 		std::vector<MaterialPoint> mpm_particles{};
 
-		constexpr float youngs_modulus{ 50.0f };
+		constexpr float youngs_modulus{ 100.0f };
 		constexpr float poissons_ratio{ 0.4f };
 		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
 		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
@@ -228,7 +228,7 @@ namespace renderer
 				.mu = mu,
 				.lambda = lambda,
 				.position = PARTICLE_WIDTH * glm::vec3{coord},
-				.velocity = glm::vec3{0.0f, -2.0f, 0.0f},
+				.velocity = glm::vec3{0.0f, -1.5f, 0.0f},
 				.affine_matrix = glm::mat3{1.0f},
 				.deformation_gradient = glm::mat3{1.0f},
 			};
