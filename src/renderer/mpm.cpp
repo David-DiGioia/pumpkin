@@ -4,9 +4,13 @@
 #include "logger.h"
 #include "common_constants.h"
 #include "tracy/Tracy.hpp"
+#include "glm/gtx/norm.hpp"
 
 namespace renderer
 {
+	constexpr float KERNEL_RADIUS{ 1.5f };
+	constexpr float KERNEL_RADIUS_SQUARED{ KERNEL_RADIUS * KERNEL_RADIUS };
+
 	glm::mat3 OuterProduct(const glm::vec3& v1, const glm::vec3& v2)
 	{
 		return glm::mat3{ v1 * v2.x, v1 * v2.y, v1 * v2.z };
@@ -72,7 +76,6 @@ namespace renderer
 		//	d_inverses.push_back(GetDInverse2(p.position));
 		//}
 
-		// TODO: Later, should only iterate over particles within radius. Or approximately so. Will requiring binning the particles.
 		for (GridNode& node : nodes_)
 		{
 			node.mass = 0.0f;
@@ -154,8 +157,11 @@ namespace renderer
 		for (MaterialPoint& p : particles_)
 		{
 			glm::mat3 sum{};
-			for (const GridNode& node : nodes_)
+			uint32_t node_index_count{};
+			auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
+			for (uint32_t i{ 0 }; i < node_index_count; ++i)
 			{
+				GridNode& node{ nodes_[node_indices[i]] };
 				if (node.mass == 0.0f) {
 					continue;
 				}
@@ -173,8 +179,12 @@ namespace renderer
 		{
 			p.velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
 			p.affine_matrix = glm::mat3{ 0.0f };
-			for (const GridNode& node : nodes_)
+
+			uint32_t node_index_count{};
+			auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
+			for (uint32_t i{ 0 }; i < node_index_count; ++i)
 			{
+				GridNode& node{ nodes_[node_indices[i]] };
 				if (node.mass == 0.0f) {
 					continue;
 				}
@@ -392,6 +402,60 @@ namespace renderer
 	{
 		uint32_t slice_area{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
 		return coord.x + coord.y * GRID_NODE_ROW_COUNT + coord.z * slice_area;
+	}
+
+	// Get the 1D range of node coordinates given a position.
+	void GetNodeCoordinateRange(float pos, uint32_t* out_min, uint32_t* out_max)
+	{
+		float pos_floor{ std::floorf(pos) };
+		float pos_frac{ pos - pos_floor };
+		uint32_t n{ (uint32_t)pos_floor };
+		const uint32_t last_index{ GRID_NODE_ROW_COUNT - 1 };
+
+		if (pos_frac <= 0.5f)
+		{
+			*out_min = (n == 0) ? 0 : n - 1;
+			*out_max = (n == last_index) ? last_index : n + 1;
+		}
+		else
+		{
+			*out_min = n;
+			*out_max = (n >= last_index - 1) ? last_index : n + 2;
+		}
+	}
+
+	// Assumes radius of 1.5.
+	std::array<uint32_t, MAXIMUM_NODES_IN_RANGE> MPMContext::GetNodeIndicesWithinRadius(glm::vec3 position, uint32_t* out_count) const
+	{
+		std::array<uint32_t, MAXIMUM_NODES_IN_RANGE> result{};
+		position /= GRID_SIZE;
+
+		uint32_t x_min{};
+		uint32_t x_max{};
+		uint32_t y_min{};
+		uint32_t y_max{};
+		uint32_t z_min{};
+		uint32_t z_max{};
+		GetNodeCoordinateRange(position.x, &x_min, &x_max);
+		GetNodeCoordinateRange(position.y, &y_min, &y_max);
+		GetNodeCoordinateRange(position.z, &z_min, &z_max);
+
+		uint32_t result_idx{ 0 };
+		for (uint32_t x{ x_min }; x <= x_max; ++x)
+		{
+			for (uint32_t y{ y_min }; y <= y_max; ++y)
+			{
+				for (uint32_t z{ z_min }; z <= z_max; ++z)
+				{
+					if (glm::length2(glm::vec3{x, y, z} - position) < KERNEL_RADIUS_SQUARED) {
+						result[result_idx++] = GridNodeCoordinateToIndex({ x, y, z });
+					}
+				}
+			}
+		}
+
+		*out_count = result_idx;
+		return result;
 	}
 
 	void MPMContext::PrintParticleWeights() const

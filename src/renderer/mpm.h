@@ -5,6 +5,8 @@
 
 namespace renderer
 {
+	constexpr uint32_t MAXIMUM_NODES_IN_RANGE{ 27 }; // Radius for quadratic interpolation is 1.5*h so maximum nodes is 3^3.
+
 	struct MaterialPoint
 	{
 		float mass;
@@ -77,6 +79,9 @@ namespace renderer
 		glm::uvec3 GridNodeIndexToCoordinate(uint32_t index) const;
 
 		uint32_t GridNodeCoordinateToIndex(const glm::uvec3& coord) const;
+
+		// Returns vector of indices into nodes_.
+		std::array<uint32_t, MAXIMUM_NODES_IN_RANGE> GetNodeIndicesWithinRadius(glm::vec3 position, uint32_t* out_count) const;
 
 		void PrintParticleWeights() const;
 
