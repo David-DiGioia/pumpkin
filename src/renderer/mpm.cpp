@@ -10,6 +10,8 @@ namespace renderer
 {
 	constexpr float KERNEL_RADIUS{ 1.5f };
 	constexpr float KERNEL_RADIUS_SQUARED{ KERNEL_RADIUS * KERNEL_RADIUS };
+	const uint32_t SUB_BLOCK_ROW_COUNT{ GRID_NODE_ROW_COUNT * 2u };
+	const uint32_t SUB_BLOCK_COUNT{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
 
 	glm::mat3 OuterProduct(const glm::vec3& v1, const glm::vec3& v2)
 	{
@@ -26,9 +28,28 @@ namespace renderer
 		return (youngs_modulus * poissons_ratio) / ((1.0f + poissons_ratio) * (1.0f - 2.0f * poissons_ratio));
 	}
 
+	glm::uvec3 PositionToSubBlockCoordinate(glm::vec3 pos)
+	{
+		// Make 1 positional unit equal to 1 grid unit.
+		pos /= GRID_SIZE;
+		// Convert to sub block units.
+		pos *= 2.0f;
+		// Truncate.
+		return { (uint32_t)pos.x, (uint32_t)pos.y, (uint32_t)pos.z };
+	}
+
+	// Returns coordinate into sub_block_indices_.
+	uint32_t SubBlockCoordinateToIndex(const glm::uvec3& sub_coord)
+	{
+		uint32_t slice_area{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
+		return sub_coord.x + sub_coord.y * SUB_BLOCK_ROW_COUNT + sub_coord.z * slice_area;
+	}
+
 	void MPMContext::Initialize(std::vector<MaterialPoint>&& particles, float chunk_width)
 	{
 		particles_ = std::move(particles);
+		particle_indices_.resize(particles_.size());
+		sub_block_indices_.resize(SUB_BLOCK_COUNT, NULL_INDEX);
 		nodes_.resize(GRID_NODE_COUNT);
 
 		particle_radius_ = 0.5f * (chunk_width / CHUNK_ROW_VOXEL_COUNT);
@@ -39,7 +60,21 @@ namespace renderer
 		{
 			glm::uvec3 coord{ GridNodeIndexToCoordinate(i) };
 			nodes_[i].position = GRID_SIZE * glm::vec3{ coord.x, coord.y, coord.z };
+			nodes_[i].coordinate = coord;
 		}
+
+		// Initialize particle index buffer.
+		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
+		{
+			glm::uvec3 sub_block_coord{ PositionToSubBlockCoordinate(particles_[i].position) };
+
+			particle_indices_[i] = MaterialPointIndex{
+				.key = SubBlockCoordinateToIndex(sub_block_coord),
+				.index = i,
+			};
+		}
+
+		UpdateIndexBuffers();
 	}
 
 	void MPMContext::SimulateStep(float delta_time)
@@ -53,6 +88,8 @@ namespace renderer
 		UpdateParticleDeformationGradient(delta_time);
 		GridToParticle();
 		AdvectParticles(delta_time);
+
+		UpdateIndexBuffers();
 	}
 
 	const std::vector<MaterialPoint>& MPMContext::GetParticles() const
@@ -81,14 +118,21 @@ namespace renderer
 			node.mass = 0.0f;
 			node.momentum = glm::vec3{ 0.0f, 0.0f, 0.0f };
 
-			uint32_t p_idx{ 0 };
-			for (const MaterialPoint& p : particles_)
+			uint32_t particle_range_count{};
+			auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
+			for (uint32_t i{ 0 }; i < particle_range_count; ++i)
 			{
-				float weight{ GetWeight(node.position, p.position) };
+				uint32_t range_start{ start_of_ranges[i] };
+				uint32_t current_key{ particle_indices_[range_start].key };
+				for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
+				{
+					MaterialPoint& p{ particles_[particle_indices_[j].index] };
 
-				node.mass += weight * p.mass;                                                                                 // Equation (172).
-				//node.momentum += weight * p.mass * (p.velocity + p.affine_matrix * d_inverses[p_idx++] * (node.position - p.position)); // Equation (173).
-				node.momentum += weight * p.mass * p.velocity;
+					float weight{ GetWeight(node.position, p.position) };
+					node.mass += weight * p.mass;                                                                                 // Equation (172).
+					//node.momentum += weight * p.mass * (p.velocity + p.affine_matrix * d_inverses[p_idx++] * (node.position - p.position)); // Equation (173).
+					node.momentum += weight * p.mass * p.velocity;
+				}
 			}
 		}
 	}
@@ -119,13 +163,23 @@ namespace renderer
 			}
 
 			glm::vec3 sum{};
-			for (const MaterialPoint& p : particles_) {
-				sum += GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient) * GetWeightGradient(node.position, p.position);
+
+			uint32_t particle_range_count{};
+			auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
+			for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+			{
+				uint32_t range_start{ start_of_ranges[i] };
+				uint32_t current_key{ particle_indices_[range_start].key };
+				for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
+				{
+					MaterialPoint& p{ particles_[particle_indices_[j].index] };
+					sum += GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient) * GetWeightGradient(node.position, p.position);
+				}
 			}
 
 			node.force = -particle_initial_volume_ * sum; // Equation (189).
 
-			node.force += node.mass * glm::vec3{ 0.0f, -9.81f, 0.0f }; // Gravity?
+			//node.force += node.mass * glm::vec3{ 0.0f, -9.81f, 0.0f }; // Gravity?
 
 			if (std::isnan(node.force.x))
 			{
@@ -144,10 +198,6 @@ namespace renderer
 				continue;
 			}
 			node.velocity += delta_time * (node.force / node.mass);
-
-			if ((node.position.y == 0.0f) && (node.velocity.y < 0.0f)) {
-				node.velocity.y = 0.0f;
-			}
 		}
 	}
 
@@ -198,8 +248,31 @@ namespace renderer
 	void MPMContext::AdvectParticles(float delta_time)
 	{
 		ZoneScoped;
-		for (MaterialPoint& p : particles_) {
+		for (MaterialPointIndex& mi : particle_indices_)
+		{
+			MaterialPoint& p{ particles_[mi.index] };
+
 			p.position += delta_time * p.velocity;
+			mi.key = SubBlockCoordinateToIndex(PositionToSubBlockCoordinate(p.position));
+		}
+	}
+
+	void MPMContext::UpdateIndexBuffers()
+	{
+		ZoneScoped;
+		std::sort(particle_indices_.begin(), particle_indices_.end());
+
+		uint32_t current_key{ NULL_INDEX };
+		for (uint32_t i{ 0 }; i < (uint32_t)particle_indices_.size(); ++i)
+		{
+			if ((particle_indices_[i].key != current_key) && (particle_indices_[i].key != NULL_INDEX))
+			{
+				MaterialPoint& p{ particles_[particle_indices_[i].index] };
+				glm::uvec3 sub_block_coord{ PositionToSubBlockCoordinate(p.position) };
+				sub_block_indices_[SubBlockCoordinateToIndex(sub_block_coord)] = i;
+
+				current_key = particle_indices_[i].key;
+			}
 		}
 	}
 
@@ -447,8 +520,40 @@ namespace renderer
 			{
 				for (uint32_t z{ z_min }; z <= z_max; ++z)
 				{
-					if (glm::length2(glm::vec3{x, y, z} - position) < KERNEL_RADIUS_SQUARED) {
+					if (glm::length2(glm::vec3{ x, y, z } - position) < KERNEL_RADIUS_SQUARED) {
 						result[result_idx++] = GridNodeCoordinateToIndex({ x, y, z });
+					}
+				}
+			}
+		}
+
+		*out_count = result_idx;
+		return result;
+	}
+
+	std::array<uint32_t, MAXIMUM_SUB_BLOCKS_IN_RANGE> MPMContext::GetParticleRangesWithinRadius(const glm::uvec3& grid_coord, uint32_t* out_count) const
+	{
+		std::array<uint32_t, MAXIMUM_SUB_BLOCKS_IN_RANGE> result{};
+		glm::uvec3 node_sub_coord{ 2u * grid_coord }; // Coordinate into grid subdividing each of grid coordinates.
+
+		uint32_t x_min{ (node_sub_coord.x < 3) ? 0 : node_sub_coord.x - 3 };
+		uint32_t x_max{ (node_sub_coord.x + 2 >= SUB_BLOCK_ROW_COUNT) ? SUB_BLOCK_ROW_COUNT - 1 : node_sub_coord.x + 2 };
+		uint32_t y_min{ (node_sub_coord.y < 3) ? 0 : node_sub_coord.y - 3 };
+		uint32_t y_max{ (node_sub_coord.y + 2 >= SUB_BLOCK_ROW_COUNT) ? SUB_BLOCK_ROW_COUNT - 1 : node_sub_coord.y + 2 };
+		uint32_t z_min{ (node_sub_coord.z < 3) ? 0 : node_sub_coord.z - 3 };
+		uint32_t z_max{ (node_sub_coord.z + 2 >= SUB_BLOCK_ROW_COUNT) ? SUB_BLOCK_ROW_COUNT - 1 : node_sub_coord.z + 2 };
+
+		uint32_t result_idx{ 0 };
+		for (uint32_t i{ x_min }; i <= x_max; ++i)
+		{
+			for (uint32_t j{ y_min }; j <= y_max; ++j)
+			{
+				for (uint32_t k{ z_min }; k <= z_max; ++k)
+				{
+					glm::uvec3 sub_coord{ i, j, k };
+					uint32_t particle_idx_idx{ sub_block_indices_[SubBlockCoordinateToIndex(sub_coord)] };
+					if (particle_idx_idx != NULL_INDEX) {
+						result[result_idx++] = sub_block_indices_[SubBlockCoordinateToIndex(sub_coord)];
 					}
 				}
 			}
@@ -479,5 +584,10 @@ namespace renderer
 			}
 		}
 
+	}
+
+	bool MaterialPointIndex::operator<(const MaterialPointIndex& other)
+	{
+		return key < other.key;
 	}
 }

@@ -5,7 +5,8 @@
 
 namespace renderer
 {
-	constexpr uint32_t MAXIMUM_NODES_IN_RANGE{ 27 }; // Radius for quadratic interpolation is 1.5*h so maximum nodes is 3^3.
+	constexpr uint32_t MAXIMUM_NODES_IN_RANGE{ 27 };       // Radius for quadratic interpolation is 1.5*h so maximum nodes is 3^3.
+	constexpr uint32_t MAXIMUM_SUB_BLOCKS_IN_RANGE{ 216 }; // Quadratic interpolation radius of 1.5 is 3 sub blocks, so a diameter of 6, and 6^3 = 216.
 
 	struct MaterialPoint
 	{
@@ -18,6 +19,14 @@ namespace renderer
 		glm::mat3 deformation_gradient;
 	};
 
+	struct MaterialPointIndex
+	{
+		uint32_t key;   // Unique value for every half box of grid. Used for sorting indices.
+		uint32_t index; // Index into particles_.
+
+		bool operator<(const MaterialPointIndex& other);
+	};
+
 	struct GridNode
 	{
 		float mass;
@@ -25,6 +34,7 @@ namespace renderer
 		glm::vec3 velocity;
 		glm::vec3 momentum;
 		glm::vec3 force;
+		glm::uvec3 coordinate;
 	};
 
 	float CalculateMu(float youngs_modulus, float poissons_ratio);
@@ -57,6 +67,8 @@ namespace renderer
 
 		void AdvectParticles(float delta_time);
 
+		void UpdateIndexBuffers();
+
 		float QuadraticKernel(float x) const;
 
 		// Kernel for interpolation function.
@@ -83,9 +95,14 @@ namespace renderer
 		// Returns vector of indices into nodes_.
 		std::array<uint32_t, MAXIMUM_NODES_IN_RANGE> GetNodeIndicesWithinRadius(glm::vec3 position, uint32_t* out_count) const;
 
+		// Returns array of indices into particle_indices_ of first element of contiguous block of particles in same sub block.
+		std::array<uint32_t, MAXIMUM_SUB_BLOCKS_IN_RANGE> GetParticleRangesWithinRadius(const glm::uvec3& grid_coord, uint32_t* out_count) const;
+
 		void PrintParticleWeights() const;
 
 		std::vector<MaterialPoint> particles_{};
+		std::vector<MaterialPointIndex> particle_indices_{}; // Contains indices into particles_, along with a key encoding the sub block coordinate.
+		std::vector<uint32_t> sub_block_indices_{};          // Indices into particle_indices_, showing start of contiguous region containing particles in this sub block.
 		std::vector<GridNode> nodes_{};
 		float particle_radius_{};
 		float particle_initial_volume_{};
