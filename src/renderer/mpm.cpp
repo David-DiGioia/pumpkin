@@ -30,11 +30,15 @@ namespace renderer
 
 	glm::uvec3 PositionToSubBlockCoordinate(glm::vec3 pos)
 	{
+		pos.x = std::clamp(pos.x, 0.0f, CHUNK_WIDTH);
+		pos.y = std::clamp(pos.y, 0.0f, CHUNK_WIDTH);
+		pos.z = std::clamp(pos.z, 0.0f, CHUNK_WIDTH);
+
 		// Make 1 positional unit equal to 1 grid unit.
 		pos /= GRID_SIZE;
 		// Convert to sub block units.
 		pos *= 2.0f;
-		// Truncate.
+		
 		return { (uint32_t)pos.x, (uint32_t)pos.y, (uint32_t)pos.z };
 	}
 
@@ -126,6 +130,7 @@ namespace renderer
 				uint32_t current_key{ particle_indices_[range_start].key };
 				for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
 				{
+					// Doing radius check here slightly hurts performance unlike when computing the force. Probably because work here it more light weight.
 					MaterialPoint& p{ particles_[particle_indices_[j].index] };
 
 					float weight{ GetWeight(node.position, p.position) };
@@ -158,6 +163,7 @@ namespace renderer
 		ZoneScoped;
 		for (GridNode& node : nodes_)
 		{
+			ZoneScopedN("Node forces");
 			if (node.mass == 0.0f) {
 				continue;
 			}
@@ -173,13 +179,17 @@ namespace renderer
 				for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
 				{
 					MaterialPoint& p{ particles_[particle_indices_[j].index] };
+					if (glm::length2((p.position / GRID_SIZE) - glm::vec3{ node.coordinate }) >= KERNEL_RADIUS_SQUARED) {
+						continue;
+					}
+
 					sum += GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient) * GetWeightGradient(node.position, p.position);
 				}
 			}
 
 			node.force = -particle_initial_volume_ * sum; // Equation (189).
 
-			//node.force += node.mass * glm::vec3{ 0.0f, -9.81f, 0.0f }; // Gravity?
+			node.force += node.mass * glm::vec3{ 0.0f, -2.0f, 0.0f }; // Gravity?
 
 			if (std::isnan(node.force.x))
 			{
@@ -198,6 +208,10 @@ namespace renderer
 				continue;
 			}
 			node.velocity += delta_time * (node.force / node.mass);
+
+			if (node.coordinate.y <= 1 && node.velocity.y < 0.0f) {
+				node.velocity.y = 0.0f;
+			}
 		}
 	}
 
@@ -553,7 +567,7 @@ namespace renderer
 					glm::uvec3 sub_coord{ i, j, k };
 					uint32_t particle_idx_idx{ sub_block_indices_[SubBlockCoordinateToIndex(sub_coord)] };
 					if (particle_idx_idx != NULL_INDEX) {
-						result[result_idx++] = sub_block_indices_[SubBlockCoordinateToIndex(sub_coord)];
+						result[result_idx++] = particle_idx_idx;
 					}
 				}
 			}

@@ -15,7 +15,7 @@ namespace renderer
 	constexpr uint32_t NULL_INDEX{ std::numeric_limits<uint32_t>().max() };  // Index specifying null or invalid.
 	constexpr uint32_t MAX_BINDLESS_TEXTURES{ 512 };                         // Maximum number of texture descriptors in the bindless array.
 
-	constexpr float GRID_SIZE{ 0.04f };             // Grid cell width.
+	constexpr float GRID_SIZE{ 0.06f };             // Grid cell width.
 	constexpr float CHUNK_WIDTH{ 1.0f };            // Width of whole chunk.
 	constexpr uint32_t CHUNK_ROW_VOXEL_COUNT{ 64 }; // Total size of particle chunk dimension.
 	constexpr uint32_t PARTICLE_GROUP_COUNT{ 16 };  // Number of workgroups in each dimension.

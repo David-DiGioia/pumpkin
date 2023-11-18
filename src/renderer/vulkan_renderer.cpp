@@ -370,6 +370,7 @@ namespace renderer
 
 	void VulkanRenderer::Render()
 	{
+		ZoneScoped;
 		// Request image from the swapchain, one second timeout.
 		// This is also where vsync happens according to vkguide, but for me it happens at present.
 		uint32_t image_index{ swapchain_.AcquireNextImage(GetCurrentFrame().image_acquired_semaphore) };
@@ -1614,6 +1615,7 @@ namespace renderer
 
 	void VulkanRenderer::HostRenderWork()
 	{
+		ZoneScoped;
 		render_object_destroyer_.FrameUpdate();
 	}
 

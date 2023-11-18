@@ -1,5 +1,6 @@
 #include "particles.h"
 
+#include "tracy/Tracy.hpp"
 #include "vulkan_renderer.h"
 #include "vulkan_util.h"
 #include "renderer_constants.h"
@@ -48,6 +49,7 @@ namespace renderer
 		}
 
 		mpm_context_.SimulateStep(delta_time);
+
 		GenerateDynamicParticleMesh(mpm_context_.GetParticles());
 	}
 
@@ -114,7 +116,7 @@ namespace renderer
 
 	void ParticleContext::GenerateTestParticle()
 	{
-		constexpr float youngs_modulus{ 500.0f };
+		constexpr float youngs_modulus{ 10.0f };
 		constexpr float poissons_ratio{ 0.4f };
 		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
 		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
@@ -210,7 +212,7 @@ namespace renderer
 	{
 		std::vector<MaterialPoint> mpm_particles{};
 
-		constexpr float youngs_modulus{ 100.0f };
+		constexpr float youngs_modulus{ 10.0f };
 		constexpr float poissons_ratio{ 0.4f };
 		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
 		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
@@ -224,7 +226,7 @@ namespace renderer
 			glm::uvec3 coord{ ParticleIndexToCoordinate(i) };
 
 			MaterialPoint mpm_particle{
-				.mass = .0001f,
+				.mass = .00001f,
 				.mu = mu,
 				.lambda = lambda,
 				.position = PARTICLE_WIDTH * glm::vec3{coord},
@@ -384,6 +386,7 @@ namespace renderer
 
 	void ParticleContext::GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles)
 	{
+		ZoneScoped;
 #ifdef EDITOR_ENABLED
 		if (generate_mpm_particle_instances_) {
 			GenerateDynamicDebugMPMParticleInstances();
@@ -400,6 +403,7 @@ namespace renderer
 		// Generate vertices.
 		uint32_t particle_vert_count{};
 		{
+			ZoneScopedN("Generate vertices");
 			std::vector<Vertex> particle_vertices{ GetParticleVertices() };
 			particle_vert_count = (uint32_t)particle_vertices.size();
 			uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
@@ -418,6 +422,7 @@ namespace renderer
 
 		// Generate indices.
 		{
+			ZoneScopedN("Generate indices");
 			std::vector<uint32_t> particle_indices{ GetParticleIndices() };
 			uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
 			mesh->geometries[0].indices.resize(index_count);
@@ -432,13 +437,20 @@ namespace renderer
 			}
 		}
 
-		CalculateTangents(mesh);
-		renderer_->ReplaceRenderObject(ro_target_, mesh, { 0 });
+		{
+			ZoneScopedN("Calculate tangents");
+			CalculateTangents(mesh);
+		}
+		{
+			ZoneScopedN("Replace render object");
+			renderer_->ReplaceRenderObject(ro_target_, mesh, { 0 });
+		}
 	}
 
 #ifdef EDITOR_ENABLED
 	void ParticleContext::GenerateDynamicDebugMPMParticleInstances()
 	{
+		ZoneScoped;
 		const std::vector<MaterialPoint>& particles{ has_played_ ? mpm_context_.GetParticles() : StaticParticleToDynamic(static_particles_, side_flags_) };
 		if (particles.empty()) {
 			return;
@@ -463,6 +475,7 @@ namespace renderer
 
 	void ParticleContext::GenerateDynamicDebugMPMNodeInstances()
 	{
+		ZoneScoped;
 		const std::vector<GridNode>& nodes{ has_played_ ? mpm_context_.GetNodes() : std::vector<GridNode>(GRID_NODE_COUNT) };
 		if (nodes.empty()) {
 			return;

@@ -146,7 +146,7 @@ namespace renderer
 			VkAccelerationStructureBuildGeometryInfoKHR blas_build_info{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
 				.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-				.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+				.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
 				.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
 				.srcAccelerationStructure = VK_NULL_HANDLE,
 				.dstAccelerationStructure = VK_NULL_HANDLE, // Populate this after getting acceleration structure size.
