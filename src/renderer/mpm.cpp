@@ -204,7 +204,7 @@ namespace renderer
 			}
 			node.velocity += delta_time * (node.force / node.mass);
 
-			if (node.coordinate.y <= 1 && node.velocity.y < 0.0f) {
+			if (node.coordinate.y == 0 && node.velocity.y < 0.0f) {
 				node.velocity.y = 0.0f;
 			}
 		}
@@ -489,6 +489,8 @@ namespace renderer
 	// Get the 1D range of node coordinates given a position.
 	void GetNodeCoordinateRange(float pos, uint32_t* out_min, uint32_t* out_max)
 	{
+		pos = std::clamp(pos, 0.0f, (float)GRID_NODE_ROW_COUNT);
+
 		float pos_floor{ std::floorf(pos) };
 		float pos_frac{ pos - pos_floor };
 		uint32_t n{ (uint32_t)pos_floor };
