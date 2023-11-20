@@ -112,13 +112,7 @@ namespace renderer
 	{
 		ZoneScoped;
 		// For APIC transfer.
-		float d_inverse{ GetDInverse(GRID_SIZE) };
-
-		//std::vector<glm::mat3> d_inverses{};
-		//d_inverses.reserve(particles_.size());
-		//for (const MaterialPoint& p : particles_) {
-		//	d_inverses.push_back(GetDInverse2(p.position));
-		//}
+		float d_inverse{ GetDInverse() };
 
 		for (GridNode& node : nodes_)
 		{
@@ -138,9 +132,7 @@ namespace renderer
 
 					float weight{ GetWeight(node.position, p.position) };
 					node.mass += weight * p.mass;                                                                                 // Equation (172).
-					//node.momentum += weight * p.mass * (p.velocity + p.affine_matrix * d_inverses[p_idx++] * (node.position - p.position)); // Equation (173).
 					node.momentum += weight * p.mass * (p.velocity + p.affine_matrix * d_inverse * (node.position - p.position)); // Equation (173).
-					//node.momentum += weight * p.mass * p.velocity;
 				}
 			}
 		}
@@ -447,7 +439,7 @@ namespace renderer
 		return tmp;
 	}
 
-	float MPMContext::GetDInverse(float delta_x) const
+	float MPMContext::GetDInverse() const
 	{
 		float d{};
 
@@ -457,10 +449,10 @@ namespace renderer
 			logger::Error("Linear D^-1 does not exist. Do not call this function when using a linear interpolation kernel.\n");
 			break;
 		case MPMInterpolationKernel::QUADRATIC:
-			d = (1.0f / 4.0f) * delta_x * delta_x; // From paragraph after equation (176).
+			d = (1.0f / 4.0f) * GRID_SIZE * GRID_SIZE; // From paragraph after equation (176).
 			break;
 		case MPMInterpolationKernel::CUBIC:
-			d = (1.0f / 3.0f) * delta_x * delta_x; // From paragraph after equation (176).
+			d = (1.0f / 3.0f) * GRID_SIZE * GRID_SIZE; // From paragraph after equation (176).
 			break;
 		default:
 			logger::Error("Unrecognized MPM interpolation kernel.\n");
@@ -469,7 +461,7 @@ namespace renderer
 		return 1.0f / d;
 	}
 
-	glm::mat3 MPMContext::GetDInverse2(const glm::vec3& particle_pos) const
+	glm::mat3 MPMContext::GetDInverseGeneralized(const glm::vec3& particle_pos) const
 	{
 		glm::mat3 sum{};
 		for (const GridNode& node : nodes_) {

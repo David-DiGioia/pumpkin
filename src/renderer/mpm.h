@@ -84,9 +84,11 @@ namespace renderer
 
 		glm::mat3 GetPiolaKirchoffStress(const MaterialPoint& p) const;
 
-		float GetDInverse(float delta_x) const;
+		// Optimized version of GetDInverseGeneralized() for quadratic or cubic kernels.
+		float GetDInverse() const;
 
-		glm::mat3 GetDInverse2(const glm::vec3& particle_pos) const;
+		// General form of getting D inverse.
+		glm::mat3 GetDInverseGeneralized(const glm::vec3& particle_pos) const;
 
 		glm::uvec3 GridNodeIndexToCoordinate(uint32_t index) const;
 
