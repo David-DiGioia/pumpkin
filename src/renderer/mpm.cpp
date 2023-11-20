@@ -52,7 +52,9 @@ namespace renderer
 	void MPMContext::Initialize(std::vector<MaterialPoint>&& particles, float chunk_width)
 	{
 		particles_ = std::move(particles);
+		particle_indices_.clear();
 		particle_indices_.resize(particles_.size());
+		sub_block_indices_.clear();
 		sub_block_indices_.resize(SUB_BLOCK_COUNT, NULL_INDEX);
 		nodes_.resize(GRID_NODE_COUNT);
 
@@ -109,7 +111,8 @@ namespace renderer
 	void MPMContext::ParticleToGrid()
 	{
 		ZoneScoped;
-		//float d_inverse{ GetDInverse() };
+		// For APIC transfer.
+		float d_inverse{ GetDInverse(GRID_SIZE) };
 
 		//std::vector<glm::mat3> d_inverses{};
 		//d_inverses.reserve(particles_.size());
@@ -136,7 +139,8 @@ namespace renderer
 					float weight{ GetWeight(node.position, p.position) };
 					node.mass += weight * p.mass;                                                                                 // Equation (172).
 					//node.momentum += weight * p.mass * (p.velocity + p.affine_matrix * d_inverses[p_idx++] * (node.position - p.position)); // Equation (173).
-					node.momentum += weight * p.mass * p.velocity;
+					node.momentum += weight * p.mass * (p.velocity + p.affine_matrix * d_inverse * (node.position - p.position)); // Equation (173).
+					//node.momentum += weight * p.mass * p.velocity;
 				}
 			}
 		}
@@ -163,7 +167,6 @@ namespace renderer
 		ZoneScoped;
 		for (GridNode& node : nodes_)
 		{
-			ZoneScopedN("Node forces");
 			if (node.mass == 0.0f) {
 				continue;
 			}

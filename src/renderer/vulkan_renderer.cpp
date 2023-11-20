@@ -243,8 +243,11 @@ namespace renderer
 
 			for (RenderObject* render_object : frame.render_objects)
 			{
-				allocator_.DestroyBufferResource(&render_object->ubo_buffer_resource);
-				delete render_object;
+				if (render_object)
+				{
+					allocator_.DestroyBufferResource(&render_object->ubo_buffer_resource);
+					delete render_object;
+				}
 			}
 			allocator_.DestroyBufferResource(&frame.camera_ubo_buffer);
 
@@ -519,6 +522,10 @@ namespace renderer
 
 		for (RenderObject* render_obj : GetCurrentFrame().render_objects)
 		{
+			if (!render_obj) {
+				continue;
+			}
+
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, raster_pipeline_.pipeline);
 			vkCmdBindDescriptorSets(
 				cmd,
@@ -1018,8 +1025,11 @@ namespace renderer
 	std::vector<const std::vector<int>*> VulkanRenderer::GetMaterialIndices()
 	{
 		std::vector<const std::vector<int>*> material_indices{};
-		for (const RenderObject* ro : GetCurrentFrame().render_objects) {
-			material_indices.push_back(&ro->material_indices);
+		for (const RenderObject* ro : GetCurrentFrame().render_objects)
+		{
+			if (ro) {
+				material_indices.push_back(&ro->material_indices);
+			}
 		}
 		return material_indices;
 	}
@@ -1205,42 +1215,53 @@ namespace renderer
 		{
 			visible = ro_ptr->visible;
 			render_object_destroyer_.DestroyElement((uint32_t)ro_target);
-			mesh_index = render_object_destroyer_.PopVacantMeshIndex();
-
-			if (mesh_index == NULL_INDEX)
+			if (mesh)
 			{
-				mesh_index = (uint32_t)meshes_.size();
-				meshes_.push_back(mesh);
-			}
-			else {
-				meshes_[mesh_index] = mesh;
+				mesh_index = render_object_destroyer_.PopVacantMeshIndex();
+
+				if (mesh_index == NULL_INDEX)
+				{
+					mesh_index = (uint32_t)meshes_.size();
+					meshes_.push_back(mesh);
+				}
+				else {
+					meshes_[mesh_index] = mesh;
+				}
 			}
 		}
-		else
+		else if (mesh)
 		{
 			mesh_index = (uint32_t)meshes_.size();
 			meshes_.push_back(mesh);
 		}
-		rt_context_.UpdateObjectBuffers(meshes_);
+
+		if (mesh) {
+			rt_context_.UpdateObjectBuffers(meshes_);
+		}
 
 		// Replace old render object, referencing either new or replaced mesh.
 		for (auto& frame : frame_resources_)
 		{
-			RenderObject* render_object{ new RenderObject{
-				.mesh_idx = mesh_index,
-				.material_indices = material_indices,
-				.visible = visible,
-				.uniform_buffer = {
-					.transform = glm::mat4(1.0f),
-				},
-				.ubo_buffer_resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
-					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
-				.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_),
-			} };
-			NameObject(context_.device, render_object->ubo_buffer_resource.buffer, std::string{ "Replaced_Render_Object_Buffer_" + std::to_string(render_object->mesh_idx) });
-
-			render_object->ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object->ubo_buffer_resource);
-			frame.render_objects[(size_t)ro_target] = render_object;
+			if (mesh)
+			{
+				RenderObject* render_object{ new RenderObject{
+					.mesh_idx = mesh_index,
+					.material_indices = material_indices,
+					.visible = visible,
+					.uniform_buffer = {
+						.transform = glm::mat4(1.0f),
+					},
+					.ubo_buffer_resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
+						VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
+					.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_),
+				} };
+				NameObject(context_.device, render_object->ubo_buffer_resource.buffer, std::string{ "Replaced_Render_Object_Buffer_" + std::to_string(render_object->mesh_idx) });
+				render_object->ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object->ubo_buffer_resource);
+				frame.render_objects[(size_t)ro_target] = render_object;
+			}
+			else {
+				frame.render_objects[(size_t)ro_target] = nullptr;
+			}
 		}
 	}
 
@@ -1248,6 +1269,10 @@ namespace renderer
 	{
 		// This is called every frame by Pumpkin so we only update for the current frame resources.
 		RenderObject* render_object{ GetCurrentFrame().render_objects[render_object_handle] };
+		if (!render_object) {
+			return;
+		}
+
 		render_object->uniform_buffer.transform = transform;
 
 		void* data{};

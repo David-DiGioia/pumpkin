@@ -102,7 +102,7 @@ namespace renderer
 		build_info.instances.reserve(render_objects.size());
 		for (const RenderObject* render_object : render_objects)
 		{
-			if (render_object->visible) {
+			if (render_object && render_object->visible) {
 				build_info.instances.push_back(RenderObjectToVulkanInstance(*render_object));
 			}
 		}

@@ -806,7 +806,7 @@ void EditorGui::ParticleEditor()
 		ImGui::Text("Max");
 		ImGui::SameLine();
 		ImGui::PushItemWidth(max_val_width);
-		if (ImGui::DragFloat("##NodeColorModeMaxValue", &editor_->node_color_max_value_, 0.001f, 0.01f, 99.99f, "%.2f")) {
+		if (ImGui::DragFloat("##NodeColorModeMaxValue", &editor_->node_color_max_value_, 0.001f, 0.001f, 99.99f, "%.2f")) {
 			editor_->UpdateNodeColorModeMaxValue();
 		}
 		ImGui::PopItemWidth();

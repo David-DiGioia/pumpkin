@@ -127,7 +127,7 @@ namespace renderer
 			.lambda = lambda,
 			.position = glm::vec3{0.321932f, 0.452119f, 0.434341f},
 			.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
-			.affine_matrix = glm::mat3{1.0f},
+			.affine_matrix = glm::mat3{0.0f},
 			.deformation_gradient = glm::mat3{1.0f},
 		};
 
@@ -231,7 +231,7 @@ namespace renderer
 				.lambda = lambda,
 				.position = PARTICLE_WIDTH * glm::vec3{coord},
 				.velocity = glm::vec3{0.0f, -1.5f, 0.0f},
-				.affine_matrix = glm::mat3{1.0f},
+				.affine_matrix = glm::mat3{0.0f},
 				.deformation_gradient = glm::mat3{1.0f},
 			};
 
@@ -387,59 +387,62 @@ namespace renderer
 	void ParticleContext::GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles)
 	{
 		ZoneScoped;
-#ifdef EDITOR_ENABLED
-		if (generate_mpm_particle_instances_) {
-			GenerateDynamicDebugMPMParticleInstances();
-		}
-
-		if (generate_mpm_node_instances_) {
-			GenerateDynamicDebugMPMNodeInstances();
-		}
-#endif
-
 		Mesh* mesh{ new Mesh{} };
-		mesh->geometries.resize(1);
 
-		// Generate vertices.
-		uint32_t particle_vert_count{};
+		if (!particles.empty())
 		{
-			ZoneScopedN("Generate vertices");
-			std::vector<Vertex> particle_vertices{ GetParticleVertices() };
-			particle_vert_count = (uint32_t)particle_vertices.size();
-			uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
-			mesh->geometries[0].vertices.resize(vertex_count);
+#ifdef EDITOR_ENABLED
+			if (generate_mpm_particle_instances_) {
+				GenerateDynamicDebugMPMParticleInstances();
+			}
 
-			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+			if (generate_mpm_node_instances_) {
+				GenerateDynamicDebugMPMNodeInstances();
+			}
+#endif
+			mesh->geometries.resize(1);
+
+			// Generate vertices.
+			uint32_t particle_vert_count{};
 			{
-				for (uint32_t v{ 0 }; v < particle_vert_count; ++v)
+				ZoneScopedN("Generate vertices");
+				std::vector<Vertex> particle_vertices{ GetParticleVertices() };
+				particle_vert_count = (uint32_t)particle_vertices.size();
+				uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
+				mesh->geometries[0].vertices.resize(vertex_count);
+
+				for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
 				{
-					uint32_t vert_buffer_idx{ p * particle_vert_count + v };
-					mesh->geometries[0].vertices[vert_buffer_idx] = particle_vertices[v];
-					mesh->geometries[0].vertices[vert_buffer_idx].position += glm::vec4{ particles[p].position, 0.0f };
+					for (uint32_t v{ 0 }; v < particle_vert_count; ++v)
+					{
+						uint32_t vert_buffer_idx{ p * particle_vert_count + v };
+						mesh->geometries[0].vertices[vert_buffer_idx] = particle_vertices[v];
+						mesh->geometries[0].vertices[vert_buffer_idx].position += glm::vec4{ particles[p].position, 0.0f };
+					}
 				}
 			}
-		}
 
-		// Generate indices.
-		{
-			ZoneScopedN("Generate indices");
-			std::vector<uint32_t> particle_indices{ GetParticleIndices() };
-			uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
-			mesh->geometries[0].indices.resize(index_count);
-
-			for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+			// Generate indices.
 			{
-				for (uint32_t i{ 0 }; i < (uint32_t)particle_indices.size(); ++i)
+				ZoneScopedN("Generate indices");
+				std::vector<uint32_t> particle_indices{ GetParticleIndices() };
+				uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
+				mesh->geometries[0].indices.resize(index_count);
+
+				for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
 				{
-					uint32_t idx_buffer_idx{ p * (uint32_t)particle_indices.size() + i };
-					mesh->geometries[0].indices[idx_buffer_idx] = p * particle_vert_count + particle_indices[i];
+					for (uint32_t i{ 0 }; i < (uint32_t)particle_indices.size(); ++i)
+					{
+						uint32_t idx_buffer_idx{ p * (uint32_t)particle_indices.size() + i };
+						mesh->geometries[0].indices[idx_buffer_idx] = p * particle_vert_count + particle_indices[i];
+					}
 				}
 			}
-		}
 
-		{
-			ZoneScopedN("Calculate tangents");
-			CalculateTangents(mesh);
+			{
+				ZoneScopedN("Calculate tangents");
+				CalculateTangents(mesh);
+			}
 		}
 		{
 			ZoneScopedN("Replace render object");
