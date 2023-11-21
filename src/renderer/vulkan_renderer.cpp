@@ -1193,7 +1193,7 @@ namespace renderer
 		return (RenderObjectHandle)(frame_resources_[0].render_objects.size() - 1);
 	}
 
-	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices)
+	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh)
 	{
 		// Upload mesh and build BLAS.
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
@@ -1210,10 +1210,12 @@ namespace renderer
 		// Either replace old mesh if it exists or create new one.
 		RenderObject* ro_ptr{ GetCurrentFrame().render_objects[ro_target] };
 		bool visible{ true };
+		std::vector<int> material_indices{ 0 };
 		uint32_t mesh_index{};
 		if (ro_ptr)
 		{
 			visible = ro_ptr->visible;
+			material_indices = ro_ptr->material_indices;
 			render_object_destroyer_.DestroyElement((uint32_t)ro_target);
 			if (mesh)
 			{

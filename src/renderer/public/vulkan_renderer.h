@@ -88,7 +88,7 @@ namespace renderer
 		RenderObjectHandle CreateBlankRenderObject();
 
 		// Doesn't take mesh index since it reuses the mesh index that the previous render object used.
-		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices);
+		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 

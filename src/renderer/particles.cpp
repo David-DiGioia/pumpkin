@@ -446,7 +446,7 @@ namespace renderer
 		}
 		{
 			ZoneScopedN("Replace render object");
-			renderer_->ReplaceRenderObject(ro_target_, mesh, { 0 });
+			renderer_->ReplaceRenderObject(ro_target_, mesh);
 		}
 	}
 
@@ -516,7 +516,7 @@ namespace renderer
 
 		StaticParticleMeshGenerator gen{};
 		Mesh* mesh{ gen.Generate(particles, side_flags) };
-		renderer_->ReplaceRenderObject(ro_target_, mesh, { 0 });
+		renderer_->ReplaceRenderObject(ro_target_, mesh);
 	}
 
 	std::vector<Vertex> ParticleContext::GetParticleVertices() const
