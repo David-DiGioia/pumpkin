@@ -241,24 +241,26 @@ namespace pmk
 		renderer_->UpdateMaterials();
 	}
 
-	void Scene::GenerateParticlesOnNode(Node* node)
+	uint32_t Scene::GenerateParticlesOnNode(Node* node)
 	{
 		if (node->render_object == renderer::NULL_HANDLE) {
 			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
 		}
 
-		renderer_->InvokeParticleGenShader(node->render_object);
+		uint32_t particle_count{ renderer_->InvokeParticleGenShader(node->render_object) };
 		renderer_->UpdateMaterials();
+		return particle_count;
 	}
 
-	void Scene::GenerateTestParticleOnNode(Node* node)
+	uint32_t Scene::GenerateTestParticleOnNode(Node* node)
 	{
 		if (node->render_object == renderer::NULL_HANDLE) {
 			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
 		}
 
-		renderer_->GenerateTestParticle(node->render_object);
+		uint32_t particle_count{ renderer_->GenerateTestParticle(node->render_object) };
 		renderer_->UpdateMaterials();
+		return particle_count;
 	}
 
 	void Scene::PlayParticleSimulation()

@@ -92,9 +92,11 @@ namespace pmk
 		void ImportGLTF(const std::filesystem::path& path, std::vector<std::string>* out_node_names, std::vector<std::string>* out_material_names);
 
 		// Generate particles and attach render object to specified node.
-		void GenerateParticlesOnNode(Node* node);
+		// Returns number of particles generated.
+		uint32_t GenerateParticlesOnNode(Node* node);
 
-		void GenerateTestParticleOnNode(Node* node);
+		// Returns number of particles generated.
+		uint32_t GenerateTestParticleOnNode(Node* node);
 
 		void PlayParticleSimulation();
 

@@ -95,7 +95,8 @@ namespace renderer
 		void CleanUp();
 
 		// Generated render object will replace ro_target.
-		void InvokeParticleGenShader();
+		// Returns number of particles generated.
+		uint32_t InvokeParticleGenShader();
 
 		void GenerateTestParticle();
 

@@ -687,7 +687,7 @@ void EditorGui::ParticleEditor()
 		return;
 	}
 
-	ImGui::Text("Particle shaders");
+	ImGui::Text("Particle shader");
 
 	if (ShaderProperty("Generation", &gen_shader_index_, &gen_shader_compile_error_)) {
 		editor_->SetParticleGenShader(gen_shader_index_);
@@ -696,20 +696,20 @@ void EditorGui::ParticleEditor()
 	if (gen_shader_index_ != renderer::NULL_INDEX)
 	{
 		if (editor_->GetShader(gen_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT)) {
-			editor_->UpdateParticleGenShaderCustomUBO();
+			particle_count_ = editor_->UpdateParticleGenShaderCustomUBO();
 		}
 
 		ImGui::Dummy({});
 		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
 		if (ImGui::Button("Generate particles")) {
-			editor_->GenerateParticles();
+			particle_count_ = editor_->GenerateParticles();
 		}
 
-		ImGui::Dummy({});
-		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
 
 		if (!editor_->GetParticleSimulationEmpty())
 		{
+			ImGui::Dummy({});
+			ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
 			if (editor_->GetParticleSimulationEnabled())
 			{
 				if (ImGui::Button("Pause")) {
@@ -727,6 +727,9 @@ void EditorGui::ParticleEditor()
 				editor_->ResetParticleSimulation();
 			}
 		}
+		ImGui::Text("Particles");
+		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+		ImGui::Text("%u", particle_count_);
 	}
 	else
 	{

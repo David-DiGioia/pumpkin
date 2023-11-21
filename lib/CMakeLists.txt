@@ -20,6 +20,7 @@ set(RENDERER_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/tinygltf"
     "${CMAKE_CURRENT_SOURCE_DIR}/json"
     "${CMAKE_CURRENT_SOURCE_DIR}/stb_image"
+    "${CMAKE_CURRENT_SOURCE_DIR}/svd3"
 )
 
 # System keyword ignores warnings from these libraries.

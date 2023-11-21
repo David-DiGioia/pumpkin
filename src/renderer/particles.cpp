@@ -65,7 +65,7 @@ namespace renderer
 		particle_neighbors_.pipeline.CleanUp();
 	}
 
-	void ParticleContext::InvokeParticleGenShader()
+	uint32_t ParticleContext::InvokeParticleGenShader()
 	{
 		ComputePipeline* particle_gen_pipeline{ renderer_->user_compute_shaders_[particle_gen_.shader_idx] };
 
@@ -112,6 +112,14 @@ namespace renderer
 		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
 
 		GenerateStaticParticleMesh(static_particles_, side_flags_);
+
+		uint32_t particle_count{};
+		for (StaticParticle p : static_particles_) {
+			if (p.type != ParticleType::EMPTY) {
+				++particle_count;
+			}
+		}
+		return particle_count;
 	}
 
 	void ParticleContext::GenerateTestParticle()

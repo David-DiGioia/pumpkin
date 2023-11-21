@@ -46,10 +46,12 @@ namespace renderer
 		std::vector<int> LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names);
 
 		// Invoke user-defined particle gen shader. Generated render object will replace ro_target.
-		void InvokeParticleGenShader(RenderObjectHandle ro_target);
+		// Returns number of particles generated.
+		uint32_t InvokeParticleGenShader(RenderObjectHandle ro_target);
 
 		// To validate MPM P2G and G2P.
-		void GenerateTestParticle(RenderObjectHandle ro_target);
+		// Returns number of particles generated.
+		uint32_t GenerateTestParticle(RenderObjectHandle ro_target);
 
 		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
 

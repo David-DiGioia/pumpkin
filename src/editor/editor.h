@@ -241,12 +241,14 @@ public:
 	void ImportGLTF(const std::filesystem::path& path);
 
 	// Will create node and material if necessary, and invokes arbitrary particle generation function.
-	void GenerateParticles(std::function<void()> particle_gen_func);
+	// Returns number of particles generated.
+	uint32_t GenerateParticles(std::function<uint32_t()> particle_gen_func);
 
-	void GenerateParticles();
+	// Returns number of particles generated.
+	uint32_t GenerateParticles();
 
 	// Generate single particle for verifying P2G and G2P.
-	void GenerateTestParticle();
+	uint32_t GenerateTestParticle();
 
 	void PlayParticleSimulation();
 
@@ -308,7 +310,8 @@ public:
 
 	void SetParticleGenShader(uint32_t shader_idx);
 
-	void UpdateParticleGenShaderCustomUBO();
+	// Returns number of particles generated.
+	uint32_t UpdateParticleGenShaderCustomUBO();
 
 private:
 	void ProcessTranslationInput(const glm::vec2& mouse_delta);

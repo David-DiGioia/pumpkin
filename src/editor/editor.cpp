@@ -517,7 +517,7 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	}
 }
 
-void Editor::GenerateParticles(std::function<void()> particle_gen_func)
+uint32_t Editor::GenerateParticles(std::function<uint32_t()> particle_gen_func)
 {
 	if (!particle_node_) {
 		particle_node_ = CreateNode("particle_node");
@@ -525,25 +525,26 @@ void Editor::GenerateParticles(std::function<void()> particle_gen_func)
 
 	// If there are no materials yet, renderer will generate one for the particles.
 	bool created_new_material{ materials_.empty() };
-	particle_gen_func();
+	uint32_t particle_count{ particle_gen_func() };
 	if (created_new_material)
 	{
 		renderer::Material* mat{ pumpkin_->GetMaterials().back() };
 		materials_.push_back(new EditorMaterial{ mat, "Particles" });
 	}
+	return particle_count;
 }
 
-void Editor::GenerateParticles()
+uint32_t Editor::GenerateParticles()
 {
-	GenerateParticles([&]() {
-		pumpkin_->GetScene().GenerateParticlesOnNode(particle_node_->node);
+	return GenerateParticles([&]() {
+		return pumpkin_->GetScene().GenerateParticlesOnNode(particle_node_->node);
 		});
 }
 
-void Editor::GenerateTestParticle()
+uint32_t Editor::GenerateTestParticle()
 {
-	GenerateParticles([&]() {
-		pumpkin_->GetScene().GenerateTestParticleOnNode(particle_node_->node);
+	return GenerateParticles([&]() {
+		return pumpkin_->GetScene().GenerateTestParticleOnNode(particle_node_->node);
 		});
 }
 
@@ -925,10 +926,10 @@ void Editor::SetParticleGenShader(uint32_t shader_idx)
 	pumpkin_->SetParticleGenShader(shader_idx, (uint32_t)shaders_[shader_idx]->GetCustomUniformBuffer().GetBuffer().size());
 }
 
-void Editor::UpdateParticleGenShaderCustomUBO()
+uint32_t Editor::UpdateParticleGenShaderCustomUBO()
 {
 	pumpkin_->UpdateParticleGenShaderCustomUBO(shaders_[particle_gen_shader_idx_]->GetCustomUniformBuffer().GetBuffer());
-	GenerateParticles();
+	return GenerateParticles();
 }
 
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const
