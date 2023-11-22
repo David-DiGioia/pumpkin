@@ -2,7 +2,7 @@
 
 #include <filesystem>
 #include <limits>
-#include <cmath>
+#include <math_util.h>
 
 namespace renderer
 {
@@ -22,8 +22,8 @@ namespace renderer
 
 	constexpr float PARTICLE_WIDTH{ CHUNK_WIDTH / CHUNK_ROW_VOXEL_COUNT };
 	constexpr uint32_t CHUNK_TOTAL_VOXEL_COUNT{ CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT };
-	const uint32_t GRID_NODE_ROW_COUNT{ (uint32_t)std::ceil(CHUNK_WIDTH / GRID_SIZE) };
-	const uint32_t GRID_NODE_COUNT{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
+	constexpr uint32_t GRID_NODE_ROW_COUNT{ (uint32_t)constexpr_ceil(CHUNK_WIDTH / GRID_SIZE) };
+	constexpr uint32_t GRID_NODE_COUNT{ GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
 
 	enum class MPMInterpolationKernel
 	{

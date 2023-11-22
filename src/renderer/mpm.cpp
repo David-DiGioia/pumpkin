@@ -5,18 +5,14 @@
 #include "common_constants.h"
 #include "tracy/Tracy.hpp"
 #include "glm/gtx/norm.hpp"
+#include "glm/gtc/matrix_inverse.hpp"
 
 namespace renderer
 {
 	constexpr float KERNEL_RADIUS{ 1.5f };
 	constexpr float KERNEL_RADIUS_SQUARED{ KERNEL_RADIUS * KERNEL_RADIUS };
-	const uint32_t SUB_BLOCK_ROW_COUNT{ GRID_NODE_ROW_COUNT * 2u };
-	const uint32_t SUB_BLOCK_COUNT{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
-
-	glm::mat3 OuterProduct(const glm::vec3& v1, const glm::vec3& v2)
-	{
-		return glm::mat3{ v1 * v2.x, v1 * v2.y, v1 * v2.z };
-	}
+	constexpr uint32_t SUB_BLOCK_ROW_COUNT{ GRID_NODE_ROW_COUNT * 2u };
+	constexpr uint32_t SUB_BLOCK_COUNT{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
 
 	float CalculateMu(float youngs_modulus, float poissons_ratio)
 	{
@@ -38,20 +34,22 @@ namespace renderer
 		pos /= GRID_SIZE;
 		// Convert to sub block units.
 		pos *= 2.0f;
-		
+
 		return { (uint32_t)pos.x, (uint32_t)pos.y, (uint32_t)pos.z };
 	}
 
 	// Returns coordinate into sub_block_indices_.
 	uint32_t SubBlockCoordinateToIndex(const glm::uvec3& sub_coord)
 	{
-		uint32_t slice_area{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
+		constexpr uint32_t slice_area{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
 		return sub_coord.x + sub_coord.y * SUB_BLOCK_ROW_COUNT + sub_coord.z * slice_area;
 	}
 
 	void MPMContext::Initialize(std::vector<MaterialPoint>&& particles, float chunk_width)
 	{
 		particles_ = std::move(particles);
+		particle_cache_.clear();
+		particle_cache_.resize(particles_.size());
 		particle_indices_.clear();
 		particle_indices_.resize(particles_.size());
 		sub_block_indices_.clear();
@@ -114,6 +112,14 @@ namespace renderer
 		// For APIC transfer.
 		float d_inverse{ GetDInverse() };
 
+		// Compute and cache computation needed for each particle.
+		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
+		{
+			MaterialPoint& p{ particles_[i] };
+			particle_cache_[i].p2g_lhs = p.mass * (p.velocity - p.affine_matrix * d_inverse * p.position);
+			particle_cache_[i].p2g_rhs = p.mass * p.affine_matrix * d_inverse;
+		}
+
 		for (GridNode& node : nodes_)
 		{
 			node.mass = 0.0f;
@@ -129,10 +135,11 @@ namespace renderer
 				{
 					// Doing radius check here slightly hurts performance unlike when computing the force. Probably because work here it more light weight.
 					MaterialPoint& p{ particles_[particle_indices_[j].index] };
+					ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
 
 					float weight{ GetWeight(node.position, p.position) };
-					node.mass += weight * p.mass;                                                                                 // Equation (172).
-					node.momentum += weight * p.mass * (p.velocity + p.affine_matrix * d_inverse * (node.position - p.position)); // Equation (173).
+					node.mass += weight * p.mass;                                      // Equation (172).
+					node.momentum += weight * (c.p2g_lhs + c.p2g_rhs * node.position); // Equation (173).
 				}
 			}
 		}
@@ -157,6 +164,12 @@ namespace renderer
 	void MPMContext::ComputeExplicitGridForces()
 	{
 		ZoneScoped;
+
+		// Compute and cache computation needed for each particle.
+		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
+			particle_cache_[i].piola_transpose_deformation_grad = GetPiolaKirchoffStress(particles_[i]) * glm::transpose(particles_[i].deformation_gradient);
+		}
+
 		for (GridNode& node : nodes_)
 		{
 			if (node.mass == 0.0f) {
@@ -174,11 +187,12 @@ namespace renderer
 				for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
 				{
 					MaterialPoint& p{ particles_[particle_indices_[j].index] };
+					ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
 					if (glm::length2((p.position / GRID_SIZE) - glm::vec3{ node.coordinate }) >= KERNEL_RADIUS_SQUARED) {
 						continue;
 					}
 
-					sum += GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient) * GetWeightGradient(node.position, p.position);
+					sum += c.piola_transpose_deformation_grad * GetWeightGradient(node.position, p.position);
 				}
 			}
 
@@ -224,7 +238,7 @@ namespace renderer
 				if (node.mass == 0.0f) {
 					continue;
 				}
-				sum += OuterProduct(node.velocity, GetWeightGradient(node.position, p.position));
+				sum += glm::outerProduct(node.velocity, GetWeightGradient(node.position, p.position));
 			}
 
 			p.deformation_gradient = (glm::mat3(1.0f) + delta_time * sum) * p.deformation_gradient; // Equation (181).
@@ -249,7 +263,7 @@ namespace renderer
 				}
 				float w{ GetWeight(node.position, p.position) };
 				p.velocity += w * node.velocity;                                                // Equation (175).
-				p.affine_matrix += w * OuterProduct(node.velocity, node.position - p.position); // Equation (176).
+				p.affine_matrix += w * glm::outerProduct(node.velocity, node.position - p.position); // Equation (176).
 			}
 		}
 	}
@@ -428,7 +442,7 @@ namespace renderer
 
 	glm::mat3 MPMContext::GetPiolaKirchoffStress(const MaterialPoint& p) const
 	{
-		glm::mat3 f_inv_transpose{ glm::transpose(glm::inverse(p.deformation_gradient)) };
+		glm::mat3 f_inv_transpose{ glm::inverseTranspose(p.deformation_gradient) };
 		float j{ glm::determinant(p.deformation_gradient) };
 		auto tmp = p.mu * (p.deformation_gradient - f_inv_transpose) + p.lambda * std::logf(j) * f_inv_transpose; // Equation (48).
 		if (std::isnan(tmp[0][0]))
@@ -465,7 +479,7 @@ namespace renderer
 	{
 		glm::mat3 sum{};
 		for (const GridNode& node : nodes_) {
-			sum += GetWeight(node.position, particle_pos) * OuterProduct(node.position - particle_pos, node.position - particle_pos);
+			sum += GetWeight(node.position, particle_pos) * glm::outerProduct(node.position - particle_pos, node.position - particle_pos);
 		}
 		return sum;
 	}

@@ -19,6 +19,14 @@ namespace renderer
 		glm::mat3 deformation_gradient;
 	};
 
+	// Per-particle cache.
+	struct ParticleCache
+	{
+		glm::mat3 piola_transpose_deformation_grad;
+		glm::vec3 p2g_lhs;
+		glm::mat3 p2g_rhs;
+	};
+
 	struct MaterialPointIndex
 	{
 		uint32_t key;   // Unique value for every half box of grid. Used for sorting indices.
@@ -103,6 +111,7 @@ namespace renderer
 		void PrintParticleWeights() const;
 
 		std::vector<MaterialPoint> particles_{};
+		std::vector<ParticleCache> particle_cache_{};
 		std::vector<MaterialPointIndex> particle_indices_{}; // Contains indices into particles_, along with a key encoding the sub block coordinate.
 		std::vector<uint32_t> sub_block_indices_{};          // Indices into particle_indices_, showing start of contiguous region containing particles in this sub block.
 		std::vector<GridNode> nodes_{};
