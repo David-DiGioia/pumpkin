@@ -136,7 +136,8 @@ namespace renderer
 			.position = glm::vec3{0.321932f, 0.452119f, 0.434341f},
 			.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
 			.affine_matrix = glm::mat3{0.0f},
-			.deformation_gradient = glm::mat3{1.0f},
+			.deformation_gradient_elastic = glm::mat3{1.0f},
+			.deformation_gradient_plastic = glm::mat3{1.0f},
 		};
 
 		std::vector<MaterialPoint> mpm_particles{ mpm_particle };
@@ -240,7 +241,8 @@ namespace renderer
 				.position = PARTICLE_WIDTH * glm::vec3{coord},
 				.velocity = glm::vec3{0.0f, -1.5f, 0.0f},
 				.affine_matrix = glm::mat3{0.0f},
-				.deformation_gradient = glm::mat3{1.0f},
+				.deformation_gradient_elastic = glm::mat3{1.0f},
+				.deformation_gradient_plastic = glm::mat3{1.0f},
 			};
 
 			mpm_particles.push_back(mpm_particle);
@@ -476,9 +478,9 @@ namespace renderer
 			mpm_particle_instances[p].lambda = particles[p].lambda;
 			mpm_particle_instances[p].position = particles[p].position;
 			mpm_particle_instances[p].velocity = particles[p].velocity;
-			mpm_particle_instances[p].deformation_gradient_col_0 = particles[p].deformation_gradient[0];
-			mpm_particle_instances[p].deformation_gradient_col_1 = particles[p].deformation_gradient[1];
-			mpm_particle_instances[p].deformation_gradient_col_2 = particles[p].deformation_gradient[2];
+			mpm_particle_instances[p].deformation_gradient_col_0 = particles[p].deformation_gradient_elastic[0];
+			mpm_particle_instances[p].deformation_gradient_col_1 = particles[p].deformation_gradient_elastic[1];
+			mpm_particle_instances[p].deformation_gradient_col_2 = particles[p].deformation_gradient_elastic[2];
 		}
 
 		renderer_->editor_backend_.SetMPMDebugParticleInstances(mpm_particle_instances);

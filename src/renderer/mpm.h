@@ -16,7 +16,8 @@ namespace renderer
 		glm::vec3 position;
 		glm::vec3 velocity;
 		glm::mat3 affine_matrix;
-		glm::mat3 deformation_gradient;
+		glm::mat3 deformation_gradient_elastic;
+		glm::mat3 deformation_gradient_plastic;
 	};
 
 	// Per-particle cache.

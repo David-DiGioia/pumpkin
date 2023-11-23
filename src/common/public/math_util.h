@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "glm/glm.hpp"
 
 template<typename V1, typename V2>
 V1 CastVec2(const V2& vec)
@@ -20,3 +21,5 @@ constexpr int32_t constexpr_ceil(float num)
         ? static_cast<int32_t>(num)
         : static_cast<int32_t>(num) + ((num > 0) ? 1 : 0);
 }
+
+void SingularValueDecomposition(const glm::mat3& mat, glm::mat3* u, glm::mat3* s, glm::mat3* v);

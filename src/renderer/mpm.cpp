@@ -6,7 +6,6 @@
 #include "tracy/Tracy.hpp"
 #include "glm/gtx/norm.hpp"
 #include "glm/gtc/matrix_inverse.hpp"
-#include "svd3.h"
 
 namespace renderer
 {
@@ -168,7 +167,7 @@ namespace renderer
 
 		// Compute and cache computation needed for each particle.
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
-			particle_cache_[i].piola_transpose_deformation_grad = GetPiolaKirchoffStress(particles_[i]) * glm::transpose(particles_[i].deformation_gradient);
+			particle_cache_[i].piola_transpose_deformation_grad = GetPiolaKirchoffStress(particles_[i]) * glm::transpose(particles_[i].deformation_gradient_elastic);
 		}
 
 		for (GridNode& node : nodes_)
@@ -242,7 +241,22 @@ namespace renderer
 				sum += glm::outerProduct(node.velocity, GetWeightGradient(node.position, p.position));
 			}
 
-			p.deformation_gradient = (glm::mat3(1.0f) + delta_time * sum) * p.deformation_gradient; // Equation (181).
+			glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * sum) * p.deformation_gradient_elastic; // Equation (181).
+			//glm::mat3 deformation_gradient{ tentative_elastic * p.deformation_gradient_plastic };
+
+			glm::mat3 u{};
+			glm::mat3 s{};
+			glm::mat3 v{};
+			SingularValueDecomposition(tentative_elastic, &u, &s, &v);
+
+			constexpr float sigma_c{ 0.6f };
+			constexpr float sigma_s{ 0.6f };
+			s[0][0] = std::clamp(s[0][0], 1.0f - sigma_c, 1.0f + sigma_s);
+			s[1][1] = std::clamp(s[1][1], 1.0f - sigma_c, 1.0f + sigma_s);
+			s[2][2] = std::clamp(s[2][2], 1.0f - sigma_c, 1.0f + sigma_s);
+
+			p.deformation_gradient_elastic = u * s * glm::transpose(v);
+			//p.deformation_gradient_plastic = glm::inverse(p.deformation_gradient_elastic) * deformation_gradient;
 		}
 	}
 
@@ -443,9 +457,9 @@ namespace renderer
 
 	glm::mat3 MPMContext::GetPiolaKirchoffStress(const MaterialPoint& p) const
 	{
-		glm::mat3 f_inv_transpose{ glm::inverseTranspose(p.deformation_gradient) };
-		float j{ glm::determinant(p.deformation_gradient) };
-		auto tmp = p.mu * (p.deformation_gradient - f_inv_transpose) + p.lambda * std::logf(j) * f_inv_transpose; // Equation (48).
+		glm::mat3 f_inv_transpose{ glm::inverseTranspose(p.deformation_gradient_elastic) };
+		float j{ glm::determinant(p.deformation_gradient_elastic) };
+		auto tmp = p.mu * (p.deformation_gradient_elastic - f_inv_transpose) + p.lambda * std::logf(j) * f_inv_transpose; // Equation (48).
 		if (std::isnan(tmp[0][0]))
 		{
 			logger::Error("Piola-Kirchoff stress is nan. Aborting.\n");

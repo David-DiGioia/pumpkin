@@ -20,12 +20,21 @@ set(RENDERER_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/tinygltf"
     "${CMAKE_CURRENT_SOURCE_DIR}/json"
     "${CMAKE_CURRENT_SOURCE_DIR}/stb_image"
+)
+
+set(COMMON_INCLUDE_DIRS
+    # Header only.
+    "${CMAKE_CURRENT_SOURCE_DIR}/glm"
     "${CMAKE_CURRENT_SOURCE_DIR}/svd3"
 )
 
 # System keyword ignores warnings from these libraries.
 target_include_directories (Renderer SYSTEM PUBLIC
     "${RENDERER_INCLUDE_DIRS}"
+)
+
+target_include_directories (Common SYSTEM PUBLIC
+    "${COMMON_INCLUDE_DIRS}"
 )
 
 set(SFML_LIBS_D
