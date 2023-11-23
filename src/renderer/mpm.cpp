@@ -6,6 +6,7 @@
 #include "tracy/Tracy.hpp"
 #include "glm/gtx/norm.hpp"
 #include "glm/gtc/matrix_inverse.hpp"
+#include "svd3.h"
 
 namespace renderer
 {
