@@ -46,9 +46,15 @@ namespace renderer
 		glm::uvec3 coordinate;
 	};
 
-	float CalculateMu(float youngs_modulus, float poissons_ratio);
+	constexpr float CalculateMu(float youngs_modulus, float poissons_ratio)
+	{
+		return youngs_modulus / (2.0f * (1.0f + poissons_ratio));
+	}
 
-	float CalculateLambda(float youngs_modulus, float poissons_ratio);
+	constexpr float CalculateLambda(float youngs_modulus, float poissons_ratio)
+	{
+		return (youngs_modulus * poissons_ratio) / ((1.0f + poissons_ratio) * (1.0f - 2.0f * poissons_ratio));
+	}
 
 	class MPMContext
 	{
@@ -98,6 +104,8 @@ namespace renderer
 
 		// General form of getting D inverse.
 		glm::mat3 GetDInverseGeneralized(const glm::vec3& particle_pos) const;
+
+		void UpdateLameParameters();
 
 		glm::uvec3 GridNodeIndexToCoordinate(uint32_t index) const;
 

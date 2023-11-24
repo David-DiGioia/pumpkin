@@ -27,8 +27,10 @@ enum class ParticleColorMode
 	MU,
 	LAMBDA,
 	VELOCITY,
-	COMPRESSIVE_STRAIN,
-	TENSILE_STRAIN,
+	ELASTIC_COMPRESSIVE_STRAIN,
+	ELASTIC_TENSILE_STRAIN,
+	PLASTIC_COMPRESSIVE_STRAIN,
+	PLASTIC_TENSILE_STRAIN,
 
 	COLOR_MODE_COUNT,
 };
@@ -40,8 +42,10 @@ const std::array<std::string, (uint32_t)ParticleColorMode::COLOR_MODE_COUNT> par
 	"Mu",
 	"Lambda",
 	"Velocity",
-	"Compressive strain",
-	"Tensile strain",
+	"Elastic compression",
+	"Elastic tension",
+	"Plastic compression",
+	"Plastic tension",
 };
 
 enum class NodeColorMode

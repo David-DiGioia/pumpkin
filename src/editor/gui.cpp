@@ -781,7 +781,7 @@ void EditorGui::ParticleEditor()
 		ImGui::Text("Max");
 		ImGui::SameLine();
 		ImGui::PushItemWidth(max_val_width);
-		if (ImGui::DragFloat("##ParticleColorModeMaxValue", &editor_->particle_color_max_value_, 0.01f, 0.1f, 99.99f, "%.2f")) {
+		if (ImGui::DragFloat("##ParticleColorModeMaxValue", &editor_->particle_color_max_value_, 0.01f, 0.01f, 99.99f, "%.2f")) {
 			editor_->UpdateParticleColorModeMaxValue();
 		}
 		ImGui::PopItemWidth();

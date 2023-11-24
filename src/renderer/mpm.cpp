@@ -14,15 +14,17 @@ namespace renderer
 	constexpr uint32_t SUB_BLOCK_ROW_COUNT{ GRID_NODE_ROW_COUNT * 2u };
 	constexpr uint32_t SUB_BLOCK_COUNT{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
 
-	float CalculateMu(float youngs_modulus, float poissons_ratio)
-	{
-		return youngs_modulus / (2.0f * (1.0f + poissons_ratio));
-	}
+	// Material properties.
+	// TODO: Put into struct and make list of materials that particles can be.
+	constexpr float YOUNGS_MODULUS{ 140000.0f };
+	constexpr float POISSONS_RATIO{ 0.2f };
+	constexpr float MU{ CalculateMu(YOUNGS_MODULUS, POISSONS_RATIO) };
+	constexpr float LAMBDA{ CalculateLambda(YOUNGS_MODULUS, POISSONS_RATIO) };
+	constexpr float DENSITY{ 400.0f }; // kilogram per meter cubed.
+	constexpr float SIGMA_C{ 0.025f };
+	constexpr float SIGMA_S{ 0.0075f };
+	constexpr float HARDENING_PARAMETER{ 10.0f };
 
-	float CalculateLambda(float youngs_modulus, float poissons_ratio)
-	{
-		return (youngs_modulus * poissons_ratio) / ((1.0f + poissons_ratio) * (1.0f - 2.0f * poissons_ratio));
-	}
 
 	glm::uvec3 PositionToSubBlockCoordinate(glm::vec3 pos)
 	{
@@ -56,8 +58,16 @@ namespace renderer
 		sub_block_indices_.resize(SUB_BLOCK_COUNT, NULL_INDEX);
 		nodes_.resize(GRID_NODE_COUNT);
 
-		particle_radius_ = 0.5f * (chunk_width / CHUNK_ROW_VOXEL_COUNT);
-		particle_initial_volume_ = (4.0f / 3.0f) * PI * particle_radius_ * particle_radius_ * particle_radius_; // Treat particle as sphere for now.
+		float particle_width = chunk_width / CHUNK_ROW_VOXEL_COUNT;
+		particle_radius_ = 0.5f * particle_width;
+		particle_initial_volume_ = particle_width * particle_width * particle_width;
+
+		for (MaterialPoint& p : particles_)
+		{
+			p.lambda = LAMBDA;
+			p.mu = MU;
+			p.mass = particle_initial_volume_ * DENSITY;
+		}
 
 		// Initialize grid positions.
 		for (uint32_t i{ 0 }; i < (uint32_t)nodes_.size(); ++i)
@@ -87,6 +97,7 @@ namespace renderer
 
 		ParticleToGrid();
 		ComputeGridVelocities();
+		UpdateLameParameters();
 		ComputeExplicitGridForces();
 		UpdateGridVelocity(delta_time);
 		UpdateParticleDeformationGradient(delta_time);
@@ -198,7 +209,7 @@ namespace renderer
 
 			node.force = -particle_initial_volume_ * sum; // Equation (189).
 
-			node.force += node.mass * glm::vec3{ 0.0f, -2.0f, 0.0f }; // Gravity?
+			node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
 
 			if (std::isnan(node.force.x))
 			{
@@ -242,21 +253,19 @@ namespace renderer
 			}
 
 			glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * sum) * p.deformation_gradient_elastic; // Equation (181).
-			//glm::mat3 deformation_gradient{ tentative_elastic * p.deformation_gradient_plastic };
+			glm::mat3 deformation_gradient{ tentative_elastic * p.deformation_gradient_plastic };
 
 			glm::mat3 u{};
 			glm::mat3 s{};
 			glm::mat3 v{};
 			SingularValueDecomposition(tentative_elastic, &u, &s, &v);
 
-			constexpr float sigma_c{ 0.6f };
-			constexpr float sigma_s{ 0.6f };
-			s[0][0] = std::clamp(s[0][0], 1.0f - sigma_c, 1.0f + sigma_s);
-			s[1][1] = std::clamp(s[1][1], 1.0f - sigma_c, 1.0f + sigma_s);
-			s[2][2] = std::clamp(s[2][2], 1.0f - sigma_c, 1.0f + sigma_s);
+			s[0][0] = std::clamp(s[0][0], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
+			s[1][1] = std::clamp(s[1][1], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
+			s[2][2] = std::clamp(s[2][2], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
 
 			p.deformation_gradient_elastic = u * s * glm::transpose(v);
-			//p.deformation_gradient_plastic = glm::inverse(p.deformation_gradient_elastic) * deformation_gradient;
+			p.deformation_gradient_plastic = glm::inverse(p.deformation_gradient_elastic) * deformation_gradient;
 		}
 	}
 
@@ -497,6 +506,20 @@ namespace renderer
 			sum += GetWeight(node.position, particle_pos) * glm::outerProduct(node.position - particle_pos, node.position - particle_pos);
 		}
 		return sum;
+	}
+
+	void MPMContext::UpdateLameParameters()
+	{
+		ZoneScoped;
+		for (MaterialPoint& p : particles_)
+		{
+			// Snow hardening.
+			float j_p{ glm::determinant(p.deformation_gradient_plastic) };
+			float hardening_exponential{ std::expf(HARDENING_PARAMETER * (1.0f - j_p)) };
+			hardening_exponential = std::min(1.5f, hardening_exponential);
+			p.mu = MU * hardening_exponential;
+			p.lambda = LAMBDA * hardening_exponential;
+		}
 	}
 
 	glm::uvec3 MPMContext::GridNodeIndexToCoordinate(uint32_t index) const

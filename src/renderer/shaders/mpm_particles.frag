@@ -5,7 +5,8 @@ layout (location = 1) in float in_mu;
 layout (location = 2) in float in_lambda;
 layout (location = 3) in vec3 in_position;
 layout (location = 4) in vec3 in_velocity;
-layout (location = 5) in float in_j;
+layout (location = 5) in float in_je;
+layout (location = 6) in float in_jp;
 
 layout (location = 0) out vec3 out_color;
 
@@ -17,14 +18,16 @@ layout (push_constant) uniform PushConstant {
 // This makes the depth test happen earlier before we discard fragments for COLOR_MODE_NONE.
 layout(early_fragment_tests) in;
 
-const uint COLOR_MODE_FINAL_SHADING      = 0;
-const uint COLOR_MODE_HIDDEN             = 1;
-const uint COLOR_MODE_MASS               = 2;
-const uint COLOR_MODE_MU                 = 3;
-const uint COLOR_MODE_LAMBDA             = 4;
-const uint COLOR_MODE_VELOCITY           = 5;
-const uint COLOR_MODE_COMPRESSIVE_STRAIN = 6;
-const uint COLOR_MODE_TENSILE_STRAIN     = 7;
+const uint COLOR_MODE_FINAL_SHADING       = 0;
+const uint COLOR_MODE_HIDDEN              = 1;
+const uint COLOR_MODE_MASS                = 2;
+const uint COLOR_MODE_MU                  = 3;
+const uint COLOR_MODE_LAMBDA              = 4;
+const uint COLOR_MODE_VELOCITY            = 5;
+const uint COLOR_MODE_ELASTIC_COMPRESSIVE = 6;
+const uint COLOR_MODE_ELASTIC_TENSILE     = 7;
+const uint COLOR_MODE_PLASTIC_COMPRESSIVE = 8;
+const uint COLOR_MODE_PLASTIC_TENSILE     = 9;
 
 const float PI = 3.14159265359;
 
@@ -59,11 +62,17 @@ void main()
     case COLOR_MODE_VELOCITY:
         out_color = abs(in_velocity / constants.max_value);
         break;
-    case COLOR_MODE_COMPRESSIVE_STRAIN:
-        out_color = Heatmap(1.0 - in_j, 0.0, constants.max_value);
+    case COLOR_MODE_ELASTIC_COMPRESSIVE:
+        out_color = Heatmap(1.0 - in_je, 0.0, constants.max_value);
         break;
-    case COLOR_MODE_TENSILE_STRAIN:
-        out_color = Heatmap(in_j - 1.0, 0.0, constants.max_value);
+    case COLOR_MODE_ELASTIC_TENSILE:
+        out_color = Heatmap(in_je - 1.0, 0.0, constants.max_value);
+        break;
+    case COLOR_MODE_PLASTIC_COMPRESSIVE:
+        out_color = Heatmap(1.0 - in_jp, 0.0, constants.max_value);
+        break;
+    case COLOR_MODE_PLASTIC_TENSILE:
+        out_color = Heatmap(in_jp - 1.0, 0.0, constants.max_value);
         break;
     }
 }

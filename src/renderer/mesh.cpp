@@ -50,9 +50,12 @@ namespace renderer
 			MPM_PARTICLE_ATTRIBUTE(3, lambda),
 			MPM_PARTICLE_ATTRIBUTE(4, position),
 			MPM_PARTICLE_ATTRIBUTE(5, velocity),
-			MPM_PARTICLE_ATTRIBUTE(6, deformation_gradient_col_0),
-			MPM_PARTICLE_ATTRIBUTE(7, deformation_gradient_col_1),
-			MPM_PARTICLE_ATTRIBUTE(8, deformation_gradient_col_2),
+			MPM_PARTICLE_ATTRIBUTE(6, elastic_col_0),
+			MPM_PARTICLE_ATTRIBUTE(7, elastic_col_1),
+			MPM_PARTICLE_ATTRIBUTE(8, elastic_col_2),
+			MPM_PARTICLE_ATTRIBUTE(9, plastic_col_0),
+			MPM_PARTICLE_ATTRIBUTE(10, plastic_col_1),
+			MPM_PARTICLE_ATTRIBUTE(11, plastic_col_2),
 		};
 	}
 
@@ -258,9 +261,9 @@ namespace renderer
 
 				tangent = glm::normalize(tangent);
 
-				v1.tangent = glm::vec4{tangent, 0.0f};
-				v2.tangent = glm::vec4{tangent, 0.0f};
-				v3.tangent = glm::vec4{tangent, 0.0f};
+				v1.tangent = glm::vec4{ tangent, 0.0f };
+				v2.tangent = glm::vec4{ tangent, 0.0f };
+				v3.tangent = glm::vec4{ tangent, 0.0f };
 			}
 		}
 	}

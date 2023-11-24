@@ -38,9 +38,12 @@ namespace renderer
 		glm::vec3 position;
 		glm::vec3 velocity;
 		// Deformation is a 3x3 matrix, but we need to use 3 separate vertex attribute bindings.
-		glm::vec3 deformation_gradient_col_0;
-		glm::vec3 deformation_gradient_col_1;
-		glm::vec3 deformation_gradient_col_2;
+		glm::vec3 elastic_col_0;
+		glm::vec3 elastic_col_1;
+		glm::vec3 elastic_col_2;
+		glm::vec3 plastic_col_0;
+		glm::vec3 plastic_col_1;
+		glm::vec3 plastic_col_2;
 
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};

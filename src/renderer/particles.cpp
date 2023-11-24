@@ -221,11 +221,6 @@ namespace renderer
 	{
 		std::vector<MaterialPoint> mpm_particles{};
 
-		constexpr float youngs_modulus{ 10.0f };
-		constexpr float poissons_ratio{ 0.4f };
-		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
-		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
-
 		for (uint32_t i{ 0 }; i < (uint32_t)static_particles_.size(); ++i)
 		{
 			if (static_particles_[i].type == ParticleType::EMPTY) {
@@ -235,11 +230,11 @@ namespace renderer
 			glm::uvec3 coord{ ParticleIndexToCoordinate(i) };
 
 			MaterialPoint mpm_particle{
-				.mass = .00001f,
-				.mu = mu,
-				.lambda = lambda,
+				.mass = {},   // Set later.
+				.mu = {},     // Set later.
+				.lambda = {}, // Set later.
 				.position = PARTICLE_WIDTH * glm::vec3{coord},
-				.velocity = glm::vec3{0.0f, -1.5f, 0.0f},
+				.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
 				.affine_matrix = glm::mat3{0.0f},
 				.deformation_gradient_elastic = glm::mat3{1.0f},
 				.deformation_gradient_plastic = glm::mat3{1.0f},
@@ -478,9 +473,12 @@ namespace renderer
 			mpm_particle_instances[p].lambda = particles[p].lambda;
 			mpm_particle_instances[p].position = particles[p].position;
 			mpm_particle_instances[p].velocity = particles[p].velocity;
-			mpm_particle_instances[p].deformation_gradient_col_0 = particles[p].deformation_gradient_elastic[0];
-			mpm_particle_instances[p].deformation_gradient_col_1 = particles[p].deformation_gradient_elastic[1];
-			mpm_particle_instances[p].deformation_gradient_col_2 = particles[p].deformation_gradient_elastic[2];
+			mpm_particle_instances[p].elastic_col_0 = particles[p].deformation_gradient_elastic[0];
+			mpm_particle_instances[p].elastic_col_1 = particles[p].deformation_gradient_elastic[1];
+			mpm_particle_instances[p].elastic_col_2 = particles[p].deformation_gradient_elastic[2];
+			mpm_particle_instances[p].plastic_col_0 = particles[p].deformation_gradient_plastic[0];
+			mpm_particle_instances[p].plastic_col_1 = particles[p].deformation_gradient_plastic[1];
+			mpm_particle_instances[p].plastic_col_2 = particles[p].deformation_gradient_plastic[2];
 		}
 
 		renderer_->editor_backend_.SetMPMDebugParticleInstances(mpm_particle_instances);
