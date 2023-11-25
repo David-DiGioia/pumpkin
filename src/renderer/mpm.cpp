@@ -1,5 +1,7 @@
 #include "mpm.h"
 
+#include <algorithm>
+#include <execution>
 #include "renderer_constants.h"
 #include "logger.h"
 #include "common_constants.h"
@@ -21,7 +23,7 @@ namespace renderer
 	constexpr float MU{ CalculateMu(YOUNGS_MODULUS, POISSONS_RATIO) };
 	constexpr float LAMBDA{ CalculateLambda(YOUNGS_MODULUS, POISSONS_RATIO) };
 	constexpr float DENSITY{ 400.0f }; // kilogram per meter cubed.
-	constexpr float SIGMA_C{ 0.025f };
+	constexpr float SIGMA_C{ 0.019f };
 	constexpr float SIGMA_S{ 0.0075f };
 	constexpr float HARDENING_PARAMETER{ 10.0f };
 
@@ -131,29 +133,33 @@ namespace renderer
 			particle_cache_[i].p2g_rhs = p.mass * p.affine_matrix * d_inverse;
 		}
 
-		for (GridNode& node : nodes_)
-		{
-			node.mass = 0.0f;
-			node.momentum = glm::vec3{ 0.0f, 0.0f, 0.0f };
-
-			uint32_t particle_range_count{};
-			auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
-			for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+		std::for_each(
+			std::execution::par,
+			nodes_.begin(),
+			nodes_.end(),
+			[&](auto& node)
 			{
-				uint32_t range_start{ start_of_ranges[i] };
-				uint32_t current_key{ particle_indices_[range_start].key };
-				for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
-				{
-					// Doing radius check here slightly hurts performance unlike when computing the force. Probably because work here it more light weight.
-					MaterialPoint& p{ particles_[particle_indices_[j].index] };
-					ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
+				node.mass = 0.0f;
+				node.momentum = glm::vec3{ 0.0f, 0.0f, 0.0f };
 
-					float weight{ GetWeight(node.position, p.position) };
-					node.mass += weight * p.mass;                                      // Equation (172).
-					node.momentum += weight * (c.p2g_lhs + c.p2g_rhs * node.position); // Equation (173).
+				uint32_t particle_range_count{};
+				auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
+				for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+				{
+					uint32_t range_start{ start_of_ranges[i] };
+					uint32_t current_key{ particle_indices_[range_start].key };
+					for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
+					{
+						// Doing radius check here slightly hurts performance unlike when computing the force. Probably because work here it more light weight.
+						MaterialPoint& p{ particles_[particle_indices_[j].index] };
+						ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
+
+						float weight{ GetWeight(node.position, p.position) };
+						node.mass += weight * p.mass;                                      // Equation (172).
+						node.momentum += weight * (c.p2g_lhs + c.p2g_rhs * node.position); // Equation (173).
+					}
 				}
-			}
-		}
+			});
 	}
 
 	void MPMContext::ComputeGridVelocities()
@@ -181,42 +187,45 @@ namespace renderer
 			particle_cache_[i].piola_transpose_deformation_grad = GetPiolaKirchoffStress(particles_[i]) * glm::transpose(particles_[i].deformation_gradient_elastic);
 		}
 
-		for (GridNode& node : nodes_)
-		{
-			if (node.mass == 0.0f) {
-				continue;
-			}
-
-			glm::vec3 sum{};
-
-			uint32_t particle_range_count{};
-			auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
-			for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+		std::for_each(
+			std::execution::par,
+			nodes_.begin(),
+			nodes_.end(),
+			[&](auto& node)
 			{
-				uint32_t range_start{ start_of_ranges[i] };
-				uint32_t current_key{ particle_indices_[range_start].key };
-				for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
-				{
-					MaterialPoint& p{ particles_[particle_indices_[j].index] };
-					ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
-					if (glm::length2((p.position / GRID_SIZE) - glm::vec3{ node.coordinate }) >= KERNEL_RADIUS_SQUARED) {
-						continue;
-					}
-
-					sum += c.piola_transpose_deformation_grad * GetWeightGradient(node.position, p.position);
+				if (node.mass == 0.0f) {
+					return;
 				}
-			}
 
-			node.force = -particle_initial_volume_ * sum; // Equation (189).
+				glm::vec3 sum{};
 
-			node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
+				uint32_t particle_range_count{};
+				auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
+				for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+				{
+					uint32_t range_start{ start_of_ranges[i] };
+					uint32_t current_key{ particle_indices_[range_start].key };
+					for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
+					{
+						MaterialPoint& p{ particles_[particle_indices_[j].index] };
+						ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
+						if (glm::length2((p.position / GRID_SIZE) - glm::vec3{ node.coordinate }) >= KERNEL_RADIUS_SQUARED) {
+							continue;
+						}
 
-			if (std::isnan(node.force.x))
-			{
-				logger::Error("Node force is nan. Aborting.\n");
-				__debugbreak();
-			}
-		}
+						sum += c.piola_transpose_deformation_grad * GetWeightGradient(node.position, p.position);
+					}
+				}
+
+				node.force = -particle_initial_volume_ * sum; // Equation (189).
+				node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
+
+				if (std::isnan(node.force.x))
+				{
+					logger::Error("Node force is nan. Aborting.\n");
+					__debugbreak();
+				}
+			});
 	}
 
 	void MPMContext::UpdateGridVelocity(float delta_time)
@@ -238,58 +247,66 @@ namespace renderer
 	void MPMContext::UpdateParticleDeformationGradient(float delta_time)
 	{
 		ZoneScoped;
-		for (MaterialPoint& p : particles_)
-		{
-			glm::mat3 sum{};
-			uint32_t node_index_count{};
-			auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
-			for (uint32_t i{ 0 }; i < node_index_count; ++i)
+		std::for_each(
+			std::execution::par,
+			particles_.begin(),
+			particles_.end(),
+			[&](auto& p)
 			{
-				GridNode& node{ nodes_[node_indices[i]] };
-				if (node.mass == 0.0f) {
-					continue;
+				glm::mat3 sum{};
+				uint32_t node_index_count{};
+				auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
+				for (uint32_t i{ 0 }; i < node_index_count; ++i)
+				{
+					GridNode& node{ nodes_[node_indices[i]] };
+					if (node.mass == 0.0f) {
+						continue;
+					}
+					sum += glm::outerProduct(node.velocity, GetWeightGradient(node.position, p.position));
 				}
-				sum += glm::outerProduct(node.velocity, GetWeightGradient(node.position, p.position));
-			}
 
-			glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * sum) * p.deformation_gradient_elastic; // Equation (181).
-			glm::mat3 deformation_gradient{ tentative_elastic * p.deformation_gradient_plastic };
+				glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * sum) * p.deformation_gradient_elastic; // Equation (181).
+				glm::mat3 deformation_gradient{ tentative_elastic * p.deformation_gradient_plastic };
 
-			glm::mat3 u{};
-			glm::mat3 s{};
-			glm::mat3 v{};
-			SingularValueDecomposition(tentative_elastic, &u, &s, &v);
+				glm::mat3 u{};
+				glm::mat3 s{};
+				glm::mat3 v{};
+				SingularValueDecomposition(tentative_elastic, &u, &s, &v);
 
-			s[0][0] = std::clamp(s[0][0], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
-			s[1][1] = std::clamp(s[1][1], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
-			s[2][2] = std::clamp(s[2][2], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
+				s[0][0] = std::clamp(s[0][0], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
+				s[1][1] = std::clamp(s[1][1], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
+				s[2][2] = std::clamp(s[2][2], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
 
-			p.deformation_gradient_elastic = u * s * glm::transpose(v);
-			p.deformation_gradient_plastic = glm::inverse(p.deformation_gradient_elastic) * deformation_gradient;
-		}
+				p.deformation_gradient_elastic = u * s * glm::transpose(v);
+				p.deformation_gradient_plastic = glm::inverse(p.deformation_gradient_elastic) * deformation_gradient;
+			});
 	}
 
 	void MPMContext::GridToParticle()
 	{
 		ZoneScoped;
-		for (MaterialPoint& p : particles_)
-		{
-			p.velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
-			p.affine_matrix = glm::mat3{ 0.0f };
-
-			uint32_t node_index_count{};
-			auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
-			for (uint32_t i{ 0 }; i < node_index_count; ++i)
+		std::for_each(
+			std::execution::par,
+			particles_.begin(),
+			particles_.end(),
+			[&](auto& p)
 			{
-				GridNode& node{ nodes_[node_indices[i]] };
-				if (node.mass == 0.0f) {
-					continue;
+				p.velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
+				p.affine_matrix = glm::mat3{ 0.0f };
+
+				uint32_t node_index_count{};
+				auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
+				for (uint32_t i{ 0 }; i < node_index_count; ++i)
+				{
+					GridNode& node{ nodes_[node_indices[i]] };
+					if (node.mass == 0.0f) {
+						continue;
+					}
+					float w{ GetWeight(node.position, p.position) };
+					p.velocity += w * node.velocity;                                                // Equation (175).
+					p.affine_matrix += w * glm::outerProduct(node.velocity, node.position - p.position); // Equation (176).
 				}
-				float w{ GetWeight(node.position, p.position) };
-				p.velocity += w * node.velocity;                                                // Equation (175).
-				p.affine_matrix += w * glm::outerProduct(node.velocity, node.position - p.position); // Equation (176).
-			}
-		}
+			});
 	}
 
 	void MPMContext::AdvectParticles(float delta_time)

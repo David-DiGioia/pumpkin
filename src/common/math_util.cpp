@@ -37,4 +37,11 @@ void SingularValueDecomposition(const glm::mat3& mat, glm::mat3* u, glm::mat3* s
 		*u11, *u12, *u13, *u21, *u22, *u23, *u31, *u32, *u33,
 		*s11, *s12, *s13, *s21, *s22, *s23, *s31, *s32, *s33,
 		*v11, *v12, *v13, *v21, *v22, *v23, *v31, *v32, *v33);
+
+	*s12 = 0.0f;
+	*s13 = 0.0f;
+	*s21 = 0.0f;
+	*s23 = 0.0f;
+	*s31 = 0.0f;
+	*s32 = 0.0f;
 }

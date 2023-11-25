@@ -35,36 +35,39 @@ http://www.lomont.org/Math/Papers/2003/InvSqrt.pdf
 http://playstation2-linux.com/download/p2lsd/fastrsqrt.pdf
 http://www.beyond3d.com/content/articles/8/
 */
-inline float rsqrt(float x) {
-    // int ihalf = *(int *)&x - 0x00800000; // Alternative to next line,
-    // float xhalf = *(float *)&ihalf;      // for sufficiently large nos.
-    float xhalf = 0.5f * x;
-    int i = *(int*)&x;          // View x as an int.
-    // i = 0x5f3759df - (i >> 1);   // Initial guess (traditional).
-    i = 0x5f375a82 - (i >> 1);   // Initial guess (slightly better).
-    x = *(float*)&i;            // View i as float.
-    x = x * (1.5f - xhalf * x * x);    // Newton step.
-    // x = x*(1.5008908 - xhalf*x*x);  // Newton step for a balanced error.
-    return x;
-}
+//inline float rsqrt(float x) {
+//    // int ihalf = *(int *)&x - 0x00800000; // Alternative to next line,
+//    // float xhalf = *(float *)&ihalf;      // for sufficiently large nos.
+//    float xhalf = 0.5f * x;
+//    int i = *(int*)&x;          // View x as an int.
+//    // i = 0x5f3759df - (i >> 1);   // Initial guess (traditional).
+//    i = 0x5f375a82 - (i >> 1);   // Initial guess (slightly better).
+//    x = *(float*)&i;            // View i as float.
+//    x = x * (1.5f - xhalf * x * x);    // Newton step.
+//    // x = x*(1.5008908 - xhalf*x*x);  // Newton step for a balanced error.
+//    return x;
+//}
 
 /* This is rsqrt with an additional step of the Newton iteration, for
 increased accuracy. The constant 0x5f37599e makes the relative error
 range from 0 to -0.00000463.
    You can't balance the error by adjusting the constant. */
 inline float rsqrt1(float x) {
-    float xhalf = 0.5f * x;
-    int i = *(int*)&x;          // View x as an int.
-    i = 0x5f37599e - (i >> 1);   // Initial guess.
-    x = *(float*)&i;            // View i as float.
-    x = x * (1.5f - xhalf * x * x);    // Newton step.
-    x = x * (1.5f - xhalf * x * x);    // Newton step again.
-    return x;
+    return 1.0f / std::sqrtf(x);
+
+    //float xhalf = 0.5f * x;
+    //int i = *(int*)&x;          // View x as an int.
+    //i = 0x5f37599e - (i >> 1);   // Initial guess.
+    //x = *(float*)&i;            // View i as float.
+    //x = x * (1.5f - xhalf * x * x);    // Newton step.
+    //x = x * (1.5f - xhalf * x * x);    // Newton step again.
+    //return x;
 }
 
 inline float accurateSqrt(float x)
 {
-    return x * rsqrt1(x);
+    //return x * rsqrt1(x);
+    return std::sqrtf(x);
 }
 
 inline void condSwap(bool c, float& X, float& Y)
@@ -230,7 +233,7 @@ inline void jacobiEigenanlysis( // symmetric matrix
     float* qV)
 {
     qV[3] = 1; qV[0] = 0; qV[1] = 0; qV[2] = 0; // follow same indexing convention as GLM
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 14; i++)
     {
         // we wish to eliminate the maximum off-diagonal element
         // on every iteration, but cycling over all 3 possible rotations

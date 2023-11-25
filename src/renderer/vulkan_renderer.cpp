@@ -1195,17 +1195,20 @@ namespace renderer
 
 	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh)
 	{
-		// Upload mesh and build BLAS.
-		VkCommandBuffer cmd{ vulkan_util_.Begin() };
-		UploadMeshToDevice(vulkan_util_, *mesh);
-		PipelineBarrier(
-			cmd,
-			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+		ZoneScopedN("Build BLAS");
+		{
+			// Upload mesh and build BLAS.
+			VkCommandBuffer cmd{ vulkan_util_.Begin() };
+			UploadMeshToDevice(vulkan_util_, *mesh);
+			PipelineBarrier(
+				cmd,
+				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+				VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 
-		rt_context_.QueueBlas(mesh);
-		rt_context_.CmdBuildQueuedBlases(cmd);
-		vulkan_util_.Submit();
+			rt_context_.QueueBlas(mesh);
+			rt_context_.CmdBuildQueuedBlases(cmd);
+			vulkan_util_.Submit();
+		}
 
 		// Either replace old mesh if it exists or create new one.
 		RenderObject* ro_ptr{ GetCurrentFrame().render_objects[ro_target] };
