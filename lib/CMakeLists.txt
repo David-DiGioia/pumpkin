@@ -25,7 +25,8 @@ set(RENDERER_INCLUDE_DIRS
 set(COMMON_INCLUDE_DIRS
     # Header only.
     "${CMAKE_CURRENT_SOURCE_DIR}/glm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/svd3"
+    "${CMAKE_CURRENT_SOURCE_DIR}/svd"
+    "${CMAKE_CURRENT_SOURCE_DIR}/polar_decomposition"
 )
 
 # System keyword ignores warnings from these libraries.

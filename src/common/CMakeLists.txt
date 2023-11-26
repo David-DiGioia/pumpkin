@@ -19,3 +19,5 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake_config.h.in"
     "${CMAKE_CURRENT_SOURCE_DIR}/public/cmake_config.h"
 )
+
+target_compile_definitions(Renderer PUBLIC GLM_FORCE_XYZW_ONLY=1)

@@ -184,7 +184,7 @@ namespace renderer
 
 		// Compute and cache computation needed for each particle.
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
-			particle_cache_[i].piola_transpose_deformation_grad = GetPiolaKirchoffStress(particles_[i]) * glm::transpose(particles_[i].deformation_gradient_elastic);
+			particle_cache_[i].piola_transpose_deformation_grad = GetPiolaKirchoffStressSnow(particles_[i]) * glm::transpose(particles_[i].deformation_gradient_elastic);
 		}
 
 		std::for_each(
@@ -303,7 +303,7 @@ namespace renderer
 						continue;
 					}
 					float w{ GetWeight(node.position, p.position) };
-					p.velocity += w * node.velocity;                                                // Equation (175).
+					p.velocity += w * node.velocity;                                                     // Equation (175).
 					p.affine_matrix += w * glm::outerProduct(node.velocity, node.position - p.position); // Equation (176).
 				}
 			});
@@ -494,6 +494,18 @@ namespace renderer
 		return tmp;
 	}
 
+	glm::mat3 MPMContext::GetPiolaKirchoffStressSnow(const MaterialPoint& p) const
+	{
+		glm::mat3 r{};
+		glm::mat3 s{};
+		PolarDecomposition(p.deformation_gradient_elastic, &r, &s);
+		glm::mat3 lhs{ 2.0f * p.mu * p.deformation_gradient_plastic * (p.deformation_gradient_elastic - r) };
+
+		float je{ glm::determinant(p.deformation_gradient_elastic) };
+		glm::mat3 rhs{ p.lambda * p.deformation_gradient_plastic * (je - 1.0f) * je * glm::mat3{1.0f} * glm::transpose(glm::inverse(p.deformation_gradient_elastic)) };
+		return lhs + rhs;
+	}
+
 	float MPMContext::GetDInverse() const
 	{
 		float d{};
@@ -533,7 +545,7 @@ namespace renderer
 			// Snow hardening.
 			float j_p{ glm::determinant(p.deformation_gradient_plastic) };
 			float hardening_exponential{ std::expf(HARDENING_PARAMETER * (1.0f - j_p)) };
-			hardening_exponential = std::min(1.5f, hardening_exponential);
+			hardening_exponential = std::min(1.1f, hardening_exponential);
 			p.mu = MU * hardening_exponential;
 			p.lambda = LAMBDA * hardening_exponential;
 		}

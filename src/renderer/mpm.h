@@ -99,6 +99,8 @@ namespace renderer
 
 		glm::mat3 GetPiolaKirchoffStress(const MaterialPoint& p) const;
 
+		glm::mat3 GetPiolaKirchoffStressSnow(const MaterialPoint& p) const;
+
 		// Optimized version of GetDInverseGeneralized() for quadratic or cubic kernels.
 		float GetDInverse() const;
 

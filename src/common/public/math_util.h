@@ -23,3 +23,5 @@ constexpr int32_t constexpr_ceil(float num)
 }
 
 void SingularValueDecomposition(const glm::mat3& mat, glm::mat3* u, glm::mat3* s, glm::mat3* v);
+
+void PolarDecomposition(const glm::mat3& mat, glm::mat3* r, glm::mat3* s);
