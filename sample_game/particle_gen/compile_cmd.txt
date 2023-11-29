@@ -1,0 +1,1 @@
+C:\VulkanSDK\1.3.261.1\Bin\glslangValidator.exe -V particle_gen.comp -o particle_gen.comp.spv --target-env spirv1.6
