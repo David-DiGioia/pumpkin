@@ -115,7 +115,7 @@ namespace renderer
 
 		uint32_t particle_count{};
 		for (StaticParticle p : static_particles_) {
-			if (p.type != ParticleType::EMPTY) {
+			if (p.type != ParticleTypeIndex::EMPTY) {
 				++particle_count;
 			}
 		}
@@ -126,8 +126,8 @@ namespace renderer
 	{
 		constexpr float youngs_modulus{ 10.0f };
 		constexpr float poissons_ratio{ 0.4f };
-		float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
-		float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
+		constexpr float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
+		constexpr float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
 
 		MaterialPoint mpm_particle{
 			.mass = .01f,
@@ -223,7 +223,7 @@ namespace renderer
 
 		for (uint32_t i{ 0 }; i < (uint32_t)static_particles_.size(); ++i)
 		{
-			if (static_particles_[i].type == ParticleType::EMPTY) {
+			if (static_particles_[i].type == ParticleTypeIndex::EMPTY) {
 				continue;
 			}
 
@@ -238,6 +238,7 @@ namespace renderer
 				.affine_matrix = glm::mat3{0.0f},
 				.deformation_gradient_elastic = glm::mat3{1.0f},
 				.deformation_gradient_plastic = glm::mat3{1.0f},
+				.constitutive_model_index = coord.y > 32 ? ConstitutiveModelIndex::HYPER_ELASTIC : ConstitutiveModelIndex::SNOW,
 			};
 
 			mpm_particles.push_back(mpm_particle);
@@ -618,7 +619,7 @@ namespace renderer
 		std::vector<MaterialPoint> dynamic_particles{};
 		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{
-			bool empty{ static_particles[i].type == ParticleType::EMPTY };
+			bool empty{ static_particles[i].type == ParticleTypeIndex::EMPTY };
 			bool occluded{ side_flags[i] == (uint8_t)ParticleSidesFlagBits::ALL_SIDES };
 
 			if (empty || occluded) {
@@ -667,7 +668,7 @@ namespace renderer
 
 					uint32_t current_rect_idx = rectangle_indices_[h];
 					bool in_rectangle_domain{ current_rect_idx != NULL_INDEX };
-					bool solid_particle{ particles[i].type != ParticleType::EMPTY };
+					bool solid_particle{ particles[i].type != ParticleTypeIndex::EMPTY };
 					bool occluded{ (bool)(side_flags[i] & (uint8_t)side) };
 					bool part_of_shell{ solid_particle && !occluded }; // Each solid and non-occluded face will be part of a the triangle shell.
 					bool end_of_row{ h == CHUNK_ROW_VOXEL_COUNT - 1 };

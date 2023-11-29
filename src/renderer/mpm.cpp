@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <execution>
+#include <ranges>
 #include "renderer_constants.h"
 #include "logger.h"
 #include "common_constants.h"
@@ -16,16 +17,14 @@ namespace renderer
 	constexpr uint32_t SUB_BLOCK_ROW_COUNT{ GRID_NODE_ROW_COUNT * 2u };
 	constexpr uint32_t SUB_BLOCK_COUNT{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
 
-	// Material properties.
-	// TODO: Put into struct and make list of materials that particles can be.
-	constexpr float YOUNGS_MODULUS{ 140000.0f };
-	constexpr float POISSONS_RATIO{ 0.2f };
-	constexpr float MU{ CalculateMu(YOUNGS_MODULUS, POISSONS_RATIO) };
-	constexpr float LAMBDA{ CalculateLambda(YOUNGS_MODULUS, POISSONS_RATIO) };
-	constexpr float DENSITY{ 400.0f }; // kilogram per meter cubed.
-	constexpr float SIGMA_C{ 0.019f };
-	constexpr float SIGMA_S{ 0.0075f };
-	constexpr float HARDENING_PARAMETER{ 10.0f };
+	//constexpr float YOUNGS_MODULUS{ 140000.0f };
+	//constexpr float POISSONS_RATIO{ 0.2f };
+	//constexpr float MU{ CalculateMu(YOUNGS_MODULUS, POISSONS_RATIO) };
+	//constexpr float LAMBDA{ CalculateLambda(YOUNGS_MODULUS, POISSONS_RATIO) };
+	//constexpr float DENSITY{ 400.0f }; // kilogram per meter cubed.
+	//constexpr float SIGMA_C{ 0.019f };
+	//constexpr float SIGMA_S{ 0.0075f };
+	//constexpr float HARDENING_PARAMETER{ 10.0f };
 
 
 	glm::uvec3 PositionToSubBlockCoordinate(glm::vec3 pos)
@@ -66,9 +65,8 @@ namespace renderer
 
 		for (MaterialPoint& p : particles_)
 		{
-			p.lambda = LAMBDA;
-			p.mu = MU;
-			p.mass = particle_initial_volume_ * DENSITY;
+			ConstitutiveModel* model{ constitutive_models_[(uint32_t)p.constitutive_model_index] };
+			model->InitializeParticle(&p, particle_initial_volume_);
 		}
 
 		// Initialize grid positions.
@@ -181,11 +179,17 @@ namespace renderer
 	void MPMContext::ComputeExplicitGridForces()
 	{
 		ZoneScoped;
-
 		// Compute and cache computation needed for each particle.
-		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
-			particle_cache_[i].piola_transpose_deformation_grad = GetPiolaKirchoffStressSnow(particles_[i]) * glm::transpose(particles_[i].deformation_gradient_elastic);
-		}
+		auto range{ std::views::iota(0u, (uint32_t)particles_.size()) };
+		std::for_each(
+			std::execution::par,
+			range.begin(),
+			range.end(),
+			[&](uint32_t i)
+			{
+				MaterialPoint& p{ particles_[i] };
+				particle_cache_[i].stress = constitutive_models_[(uint32_t)p.constitutive_model_index]->GetStress(p);
+			});
 
 		std::for_each(
 			std::execution::par,
@@ -213,7 +217,7 @@ namespace renderer
 							continue;
 						}
 
-						sum += c.piola_transpose_deformation_grad * GetWeightGradient(node.position, p.position);
+						sum += c.stress * GetWeightGradient(node.position, p.position);
 					}
 				}
 
@@ -265,20 +269,7 @@ namespace renderer
 					sum += glm::outerProduct(node.velocity, GetWeightGradient(node.position, p.position));
 				}
 
-				glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * sum) * p.deformation_gradient_elastic; // Equation (181).
-				glm::mat3 deformation_gradient{ tentative_elastic * p.deformation_gradient_plastic };
-
-				glm::mat3 u{};
-				glm::mat3 s{};
-				glm::mat3 v{};
-				SingularValueDecomposition(tentative_elastic, &u, &s, &v);
-
-				s[0][0] = std::clamp(s[0][0], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
-				s[1][1] = std::clamp(s[1][1], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
-				s[2][2] = std::clamp(s[2][2], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
-
-				p.deformation_gradient_elastic = u * s * glm::transpose(v);
-				p.deformation_gradient_plastic = glm::inverse(p.deformation_gradient_elastic) * deformation_gradient;
+				constitutive_models_[(uint32_t)p.constitutive_model_index]->UpdateDeformationGradient(&p, sum, delta_time);
 			});
 	}
 
@@ -481,31 +472,6 @@ namespace renderer
 		return gradient;
 	}
 
-	glm::mat3 MPMContext::GetPiolaKirchoffStress(const MaterialPoint& p) const
-	{
-		glm::mat3 f_inv_transpose{ glm::inverseTranspose(p.deformation_gradient_elastic) };
-		float j{ glm::determinant(p.deformation_gradient_elastic) };
-		auto tmp = p.mu * (p.deformation_gradient_elastic - f_inv_transpose) + p.lambda * std::logf(j) * f_inv_transpose; // Equation (48).
-		if (std::isnan(tmp[0][0]))
-		{
-			logger::Error("Piola-Kirchoff stress is nan. Aborting.\n");
-			__debugbreak();
-		}
-		return tmp;
-	}
-
-	glm::mat3 MPMContext::GetPiolaKirchoffStressSnow(const MaterialPoint& p) const
-	{
-		glm::mat3 r{};
-		glm::mat3 s{};
-		PolarDecomposition(p.deformation_gradient_elastic, &r, &s);
-		glm::mat3 lhs{ 2.0f * p.mu * p.deformation_gradient_plastic * (p.deformation_gradient_elastic - r) };
-
-		float je{ glm::determinant(p.deformation_gradient_elastic) };
-		glm::mat3 rhs{ p.lambda * p.deformation_gradient_plastic * (je - 1.0f) * je * glm::mat3{1.0f} * glm::transpose(glm::inverse(p.deformation_gradient_elastic)) };
-		return lhs + rhs;
-	}
-
 	float MPMContext::GetDInverse() const
 	{
 		float d{};
@@ -539,15 +505,8 @@ namespace renderer
 
 	void MPMContext::UpdateLameParameters()
 	{
-		ZoneScoped;
-		for (MaterialPoint& p : particles_)
-		{
-			// Snow hardening.
-			float j_p{ glm::determinant(p.deformation_gradient_plastic) };
-			float hardening_exponential{ std::expf(HARDENING_PARAMETER * (1.0f - j_p)) };
-			hardening_exponential = std::min(1.1f, hardening_exponential);
-			p.mu = MU * hardening_exponential;
-			p.lambda = LAMBDA * hardening_exponential;
+		for (MaterialPoint& p : particles_) {
+			constitutive_models_[(uint32_t)p.constitutive_model_index]->UpdateLameParameters(&p);
 		}
 	}
 
@@ -681,5 +640,90 @@ namespace renderer
 	bool MaterialPointIndex::operator<(const MaterialPointIndex& other)
 	{
 		return key < other.key;
+	}
+
+
+	// Constitutive models -------------------------------------------------------------------------------------------
+
+	glm::mat3 HyperElasticModel::GetStress(const MaterialPoint& p) const
+	{
+		return GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient_elastic);
+	}
+
+	void HyperElasticModel::UpdateLameParameters(MaterialPoint* p) const
+	{
+		// Hyper elastic model does not change Lame parameters.
+	}
+
+	void HyperElasticModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
+	{
+		p->lambda = LAMBDA;
+		p->mu = MU;
+		p->mass = initial_volume * DENSITY;
+	}
+
+	void HyperElasticModel::UpdateDeformationGradient(MaterialPoint* p, const glm::mat3& outer_product_sum, float delta_time) const
+	{
+		p->deformation_gradient_elastic = (glm::mat3(1.0f) + delta_time * outer_product_sum) * p->deformation_gradient_elastic; // Equation (181).
+	}
+
+	glm::mat3 HyperElasticModel::GetPiolaKirchoffStress(const MaterialPoint& p) const
+	{
+		glm::mat3 f_inv_transpose{ glm::inverseTranspose(p.deformation_gradient_elastic) };
+		float j{ glm::determinant(p.deformation_gradient_elastic) };
+		auto tmp = p.mu * (p.deformation_gradient_elastic - f_inv_transpose) + p.lambda * std::logf(j) * f_inv_transpose; // Equation (48).
+		if (std::isnan(tmp[0][0]))
+		{
+			logger::Error("Piola-Kirchoff stress is nan. Aborting.\n");
+			__debugbreak();
+		}
+		return tmp;
+	}
+
+	glm::mat3 SnowModel::GetStress(const MaterialPoint& p) const
+	{
+		glm::mat3 r{};
+		glm::mat3 s{};
+		PolarDecomposition(p.deformation_gradient_elastic, &r, &s);
+		glm::mat3 lhs{ 2.0f * p.mu * p.deformation_gradient_plastic * (p.deformation_gradient_elastic - r) * glm::transpose(p.deformation_gradient_elastic) };
+
+		float je{ glm::determinant(p.deformation_gradient_elastic) };
+		glm::mat3 rhs{ p.lambda * p.deformation_gradient_plastic * (je - 1.0f) * je * glm::mat3{ 1.0f } };
+		return lhs + rhs;
+	}
+
+	void SnowModel::UpdateLameParameters(MaterialPoint* p) const
+	{
+		// Snow hardening.
+		float j_p{ glm::determinant(p->deformation_gradient_plastic) };
+		float hardening_exponential{ std::expf(HARDENING_PARAMETER * (1.0f - j_p)) };
+		hardening_exponential = std::min(1.1f, hardening_exponential);
+		p->mu = MU * hardening_exponential;
+		p->lambda = LAMBDA * hardening_exponential;
+	}
+
+	void SnowModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
+	{
+		p->lambda = LAMBDA;
+		p->mu = MU;
+		p->mass = initial_volume * DENSITY;
+	}
+
+	void SnowModel::UpdateDeformationGradient(MaterialPoint* p, const glm::mat3& outer_product_sum, float delta_time) const
+	{
+		glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * outer_product_sum) * p->deformation_gradient_elastic; // Equation (181).
+		glm::mat3 deformation_gradient{ tentative_elastic * p->deformation_gradient_plastic };
+
+		glm::mat3 u{};
+		glm::mat3 s{};
+		glm::mat3 v{};
+		SingularValueDecomposition(tentative_elastic, &u, &s, &v);
+
+		s[0][0] = std::clamp(s[0][0], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
+		s[1][1] = std::clamp(s[1][1], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
+		s[2][2] = std::clamp(s[2][2], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
+
+		p->deformation_gradient_elastic = u * s * glm::transpose(v);
+		p->deformation_gradient_plastic = glm::inverse(p->deformation_gradient_elastic) * deformation_gradient;
 	}
 }

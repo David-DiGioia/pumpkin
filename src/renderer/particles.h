@@ -12,10 +12,18 @@ namespace renderer
 {
 	class VulkanRenderer;
 
-	enum class ParticleType : uint8_t
+	enum class ParticleTypeIndex : uint8_t
 	{
 		EMPTY,
-		STONE,
+		JELLO,
+		SNOW,
+	};
+
+	// TODO: Should eventually include parameters of constitutive model here.
+	struct ParticleType
+	{
+		ConstitutiveModelIndex constitutive_model;
+		uint32_t material_index;
 	};
 
 	// Encodes whether each of the 6 particle neighbors are occupied or not.
@@ -33,7 +41,7 @@ namespace renderer
 	// Particles that are not being simulated.
 	struct StaticParticle
 	{
-		ParticleType type;
+		ParticleTypeIndex type;
 	};
 
 	// Convert a particle 1D buffer index into a 3D coordinate in the chunk.
