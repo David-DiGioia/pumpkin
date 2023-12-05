@@ -148,6 +148,7 @@ namespace pmk
 	void Scene::Initialize(renderer::VulkanRenderer* renderer)
 	{
 		renderer_ = renderer;
+		particle_context_.Initialize(renderer);
 
 		// Every node will be a descendent of the root node.
 		root_node_ = CreateNode();
@@ -247,9 +248,7 @@ namespace pmk
 			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
 		}
 
-		uint32_t particle_count{ renderer_->InvokeParticleGenShader(node->render_object) };
-		renderer_->UpdateMaterials();
-		return particle_count;
+		return particle_context_.GenerateParticlesOnNode(node);
 	}
 
 	uint32_t Scene::GenerateTestParticleOnNode(Node* node)
@@ -258,34 +257,32 @@ namespace pmk
 			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
 		}
 
-		uint32_t particle_count{ renderer_->GenerateTestParticle(node->render_object) };
-		renderer_->UpdateMaterials();
-		return particle_count;
+		return particle_context_.GenerateTestParticleOnNode(node);
 	}
 
 	void Scene::PlayParticleSimulation()
 	{
-		renderer_->PlayParticleSimulation();
+		particle_context_.EnablePhysicsUpdate();
 	}
 
 	void Scene::PauseParticleSimulation()
 	{
-		renderer_->PauseParticleSimulation();
+		particle_context_.DisablePhysicsUpdate();
 	}
 
 	void Scene::ResetParticleSimulation()
 	{
-		renderer_->ResetParticleSimulation();
+		particle_context_.ResetParticles();
 	}
 
 	bool Scene::GetParticleSimulationEnabled() const
 	{
-		return renderer_->GetParticleSimulationEnabled();
+		return particle_context_.GetPhysicsUpdateEnabled();
 	}
 
 	bool Scene::GetParticleSimulationEmpty() const
 	{
-		return renderer_->GetParticleSimulationEmpty();
+		return particle_context_.GetParticlesEmpty();
 	}
 
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
@@ -369,6 +366,11 @@ namespace pmk
 		if (node->render_object != renderer::NULL_HANDLE) {
 			render_object_node_map_[node->render_object] = node;
 		}
+	}
+
+	void Scene::ParticlePhysicsUpdate(float delta_time)
+	{
+		particle_context_.PhysicsUpdate(delta_time);
 	}
 
 	glm::mat4 Camera::GetViewMatrix() const

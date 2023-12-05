@@ -14,6 +14,7 @@
 #include "renderer_types.h"
 #include "renderer_constants.h"
 #include "render_object.h"	
+#include "common_constants.h"
 
 #define VERTEX_ATTRIBUTE(loc, attr)								\
 	VkVertexInputAttributeDescription{							\

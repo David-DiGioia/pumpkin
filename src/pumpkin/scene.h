@@ -9,6 +9,7 @@
 #include "glm/gtx/quaternion.hpp"
 
 #include "vulkan_renderer.h"
+#include "particles.h"
 
 namespace pmk
 {
@@ -131,6 +132,8 @@ namespace pmk
 
 		void AddRenderObjectToNode(Node* node, renderer::RenderObjectHandle handle);
 
+		void ParticlePhysicsUpdate(float delta_time);
+
 	private:
 		// Recursive implementation to upload node render object data.
 		void UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform);
@@ -143,5 +146,6 @@ namespace pmk
 		std::vector<Node*> nodes_{};                                                       // All nodes in the scene. We heap allocate the nodes to avoid dangling pointers when nodes_ resizes.
 		std::unordered_map<renderer::RenderObjectHandle, Node*> render_object_node_map_{}; // Map render object handles to nodes. This won't contain nodes without render objects.
 		uint32_t next_node_id_{};                                                          // The next node created will have this id.
+		ParticleContext particle_context_{};
 	};
 }

@@ -210,7 +210,7 @@ bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_
 	ImGui::Text(name.c_str());
 	ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
 
-	bool has_texture{ *texture_index != renderer::NULL_INDEX };
+	bool has_texture{ *texture_index != NULL_INDEX };
 	*show_tex_ui |= has_texture;
 
 	if (!(*show_tex_ui) && ImGui::Button("Tex")) {
@@ -256,13 +256,13 @@ bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_
 		ImGui::SameLine();
 		if (ImGui::Button("X"))
 		{
-			*texture_index = renderer::NULL_INDEX;
+			*texture_index = NULL_INDEX;
 			*show_tex_ui = false;
 			editor_->GetPumpkin()->UpdateMaterials();
 		}
 
 		ImGui::SameLine();
-		ImGui::Text(*texture_index == renderer::NULL_INDEX ? "No texture selected." : editor_->GetTexture(*texture_index)->GetNameBuffer());
+		ImGui::Text(*texture_index == NULL_INDEX ? "No texture selected." : editor_->GetTexture(*texture_index)->GetNameBuffer());
 	}
 	else
 	{
@@ -313,7 +313,7 @@ bool EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 
 			uint32_t idx{ editor_->ImportShader(selection) };
 			*shader_index = idx;
-			*compile_error = (idx == renderer::NULL_INDEX);
+			*compile_error = (idx == NULL_INDEX);
 
 			if (!*compile_error) {
 				shader_loaded = true;
@@ -323,7 +323,7 @@ bool EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 
 	ImGui::SameLine();
 	if (ImGui::Button("X")) {
-		*shader_index = renderer::NULL_INDEX;
+		*shader_index = NULL_INDEX;
 	}
 
 	ImGui::SameLine();
@@ -331,7 +331,7 @@ bool EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 		ImGui::TextColored(ImVec4{ 1.0f, 0.0f, 0.0f, 1.0f }, "Compilation failed.");
 	}
 	else {
-		ImGui::Text(*shader_index == renderer::NULL_INDEX ? "No shader selected." : editor_->GetShader(*shader_index)->GetNameBuffer());
+		ImGui::Text(*shader_index == NULL_INDEX ? "No shader selected." : editor_->GetShader(*shader_index)->GetNameBuffer());
 	}
 
 	ImGui::PopID();
@@ -693,7 +693,7 @@ void EditorGui::ParticleEditor()
 		editor_->SetParticleGenShader(gen_shader_index_);
 	}
 
-	if (gen_shader_index_ != renderer::NULL_INDEX)
+	if (gen_shader_index_ != NULL_INDEX)
 	{
 		if (editor_->GetShader(gen_shader_index_)->GetCustomUniformBuffer().DrawGui(SHADER_PROPERTY_ALIGNMENT)) {
 			particle_count_ = editor_->UpdateParticleGenShaderCustomUBO();

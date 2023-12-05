@@ -4,7 +4,7 @@
 #include <array>
 #include "glm/glm.hpp"
 
-namespace renderer
+namespace pmk
 {
 	constexpr uint32_t MAXIMUM_NODES_IN_RANGE{ 27 };       // Radius for quadratic interpolation is 1.5*h so maximum nodes is 3^3.
 	constexpr uint32_t MAXIMUM_SUB_BLOCKS_IN_RANGE{ 216 }; // Quadratic interpolation radius of 1.5 is 3 sub blocks, so a diameter of 6, and 6^3 = 216.
@@ -18,6 +18,15 @@ namespace renderer
 	{
 		return (youngs_modulus * poissons_ratio) / ((1.0f + poissons_ratio) * (1.0f - 2.0f * poissons_ratio));
 	}
+
+	enum class MPMInterpolationKernel
+	{
+		LINEAR,
+		QUADRATIC,
+		CUBIC,
+	};
+
+	constexpr MPMInterpolationKernel MPM_INTERPOLATION_KERNEL{ MPMInterpolationKernel::QUADRATIC };
 
 	enum class ConstitutiveModelIndex : uint32_t
 	{

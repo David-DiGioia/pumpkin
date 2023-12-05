@@ -887,7 +887,7 @@ uint32_t Editor::ImportShader(const std::filesystem::path& shader_path)
 		return (uint32_t)(shaders_.size() - 1);
 	}
 	// If compilation fails, return null index.
-	return renderer::NULL_INDEX;
+	return NULL_INDEX;
 }
 
 EditorShader* Editor::GetShader(uint32_t shader_index)

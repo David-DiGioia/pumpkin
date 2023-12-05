@@ -10,22 +10,12 @@
 #include "glm/gtx/norm.hpp"
 #include "glm/gtc/matrix_inverse.hpp"
 
-namespace renderer
+namespace pmk
 {
 	constexpr float KERNEL_RADIUS{ 1.5f };
 	constexpr float KERNEL_RADIUS_SQUARED{ KERNEL_RADIUS * KERNEL_RADIUS };
 	constexpr uint32_t SUB_BLOCK_ROW_COUNT{ GRID_NODE_ROW_COUNT * 2u };
 	constexpr uint32_t SUB_BLOCK_COUNT{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
-
-	//constexpr float YOUNGS_MODULUS{ 140000.0f };
-	//constexpr float POISSONS_RATIO{ 0.2f };
-	//constexpr float MU{ CalculateMu(YOUNGS_MODULUS, POISSONS_RATIO) };
-	//constexpr float LAMBDA{ CalculateLambda(YOUNGS_MODULUS, POISSONS_RATIO) };
-	//constexpr float DENSITY{ 400.0f }; // kilogram per meter cubed.
-	//constexpr float SIGMA_C{ 0.019f };
-	//constexpr float SIGMA_S{ 0.0075f };
-	//constexpr float HARDENING_PARAMETER{ 10.0f };
-
 
 	glm::uvec3 PositionToSubBlockCoordinate(glm::vec3 pos)
 	{

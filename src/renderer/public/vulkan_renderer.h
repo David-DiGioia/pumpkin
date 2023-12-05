@@ -20,7 +20,7 @@
 #include "ray_tracing.h"
 #include "render_object.h"
 #include "renderer_constants.h"
-#include "particles.h"
+#include "particle_gen.h"
 
 namespace renderer
 {
@@ -46,29 +46,18 @@ namespace renderer
 		std::vector<int> LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names);
 
 		// Invoke user-defined particle gen shader. Generated render object will replace ro_target.
-		// Returns number of particles generated.
-		uint32_t InvokeParticleGenShader(RenderObjectHandle ro_target);
-
-		// To validate MPM P2G and G2P.
-		// Returns number of particles generated.
-		uint32_t GenerateTestParticle(RenderObjectHandle ro_target);
+		std::vector<StaticParticle> InvokeParticleGenShader(RenderObjectHandle ro_target);
 
 		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
 
 		void UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo);
 
-		void PlayParticleSimulation();
+		// Generates triangles for each individual particle as a cube.
+		// Positions should be an array of glm::vec3 with arbitrary stride between each. Stride is in bytes.
+		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
 
-		void PauseParticleSimulation();
-
-		void ResetParticleSimulation();
-
-		bool GetParticleSimulationEnabled() const;
-
-		bool GetParticleSimulationEmpty() const;
-
-		// Called at regular intervals to advance particles by one time step.
-		void ParticleUpdate(float delta_time);
+		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
+		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
 
 		void ImportShader(const std::filesystem::path& spirv_path);
 
@@ -260,7 +249,7 @@ namespace renderer
 
 		friend class EditorBackend;
 		friend class ImGuiBackend;
-		friend class ParticleContext;
+		friend class ParticleGenContext;
 #ifdef EDITOR_ENABLED
 		EditorBackend editor_backend_{};
 #endif
@@ -274,7 +263,7 @@ namespace renderer
 		DescriptorAllocator descriptor_allocator_{};
 		VulkanUtil vulkan_util_{};
 		RayTracingContext rt_context_{};
-		ParticleContext particle_context_{};
+		ParticleGenContext particle_gen_context_{};
 
 		std::vector<Mesh*> meshes_{};                          // All meshes referenced by render objects.
 		std::vector<Material*> materials_{};                   // All materials referenced by geometries. Buffer resource for materials is in RayTracingContext.

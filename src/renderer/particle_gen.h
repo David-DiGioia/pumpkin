@@ -6,7 +6,6 @@
 #include "memory_allocator.h"
 #include "mesh.h"
 #include "pipeline.h"
-#include "mpm.h"
 
 namespace renderer
 {
@@ -19,12 +18,6 @@ namespace renderer
 		SNOW,
 	};
 
-	// TODO: Should eventually include parameters of constitutive model here.
-	struct ParticleType
-	{
-		ConstitutiveModelIndex constitutive_model;
-		uint32_t material_index;
-	};
 
 	// Encodes whether each of the 6 particle neighbors are occupied or not.
 	enum class ParticleSidesFlagBits : uint8_t
@@ -93,20 +86,14 @@ namespace renderer
 		uint32_t z_{};
 	};
 
-	class ParticleContext
+	class ParticleGenContext
 	{
 	public:
 		void Initialize(Context* context, VulkanRenderer* renderer);
 
-		void PhysicsUpdate(float delta_time);
-
 		void CleanUp();
 
-		// Generated render object will replace ro_target.
-		// Returns number of particles generated.
-		uint32_t InvokeParticleGenShader();
-
-		void GenerateTestParticle();
+		std::vector<StaticParticle> InvokeParticleGenShader(RenderObjectHandle ro_target);
 
 		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
 
@@ -114,25 +101,20 @@ namespace renderer
 
 		DescriptorSetLayoutResource& GetParticleGenLayoutResource();
 
-		void EnablePhysicsUpdate();
-
-		void DisablePhysicsUpdate();
-
-		void ResetParticles();
-
-		bool GetPhysicsUpdateEnabled() const;
-
-		bool GetParticlesEmpty() const;
-
-		void TransferStaticParticlesToMPM();
-
-		void SetTargetRenderObject(RenderObjectHandle ro_target);
-
 		// Get the vertex data for a single particle, eg a cube.
 		std::vector<Vertex> GetParticleVertices() const;
 
 		// Get the index data for a single particle, eg a cube.
 		std::vector<uint32_t> GetParticleIndices() const;
+
+		// TODO: Implement device version of this.
+		// Generates triangles for each individual particle as a cube.
+		// Positions should be an array of glm::vec3 with arbitrary stride between each. Stride is in bytes.
+		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
+
+		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
+		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
+
 
 #ifdef EDITOR_ENABLED
 		void SetMPMDebugParticleGenEnabled(bool enabled);
@@ -144,21 +126,6 @@ namespace renderer
 		void InitializeParticleGenShaderResources();
 
 		void InitializeParticleNeighborsShaderResources();
-
-
-		// Generates triangles for each individual particle as a cube. Can be done on host or device.
-		void GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles);
-
-#ifdef EDITOR_ENABLED
-		void GenerateDynamicDebugMPMParticleInstances();
-
-		void GenerateDynamicDebugMPMNodeInstances();
-#endif
-
-		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
-		void GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
-
-		std::vector<MaterialPoint> StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const;
 
 		struct ParticleGenShaderResources
 		{
@@ -189,12 +156,6 @@ namespace renderer
 		bool generate_mpm_node_instances_{};
 #endif
 
-		std::vector<StaticParticle> static_particles_{};
-		std::vector<uint8_t> side_flags_; // Neighbor information of static particles.
-		bool has_played_{};               // True if the particle simulation has been played yet.
-		bool update_physics_{};
-		RenderObjectHandle ro_target_{};  // Target render object for updating during particle simulation.
-		MPMContext mpm_context_{};
 		Context* context_{};
 		VulkanRenderer* renderer_{};
 	};

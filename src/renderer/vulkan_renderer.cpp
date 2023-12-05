@@ -18,6 +18,7 @@
 #include "context.h"
 #include "mesh.h"
 #include "descriptor_set.h"
+#include "common_constants.h"
 
 namespace jsonkey {
 	const std::string RENDER_OBJECTS{ "render_objects" };
@@ -138,7 +139,7 @@ namespace renderer
 		allocator_.Initialize(&context_);
 		vulkan_util_.Initialize(&context_, &allocator_);
 		InitializeFrameResources();
-		particle_context_.Initialize(&context_, this);
+		particle_gen_context_.Initialize(&context_, this);
 		InitializeRayTracing();
 
 		std::array<std::vector<RenderObject*>*, FRAMES_IN_FLIGHT> render_object_resources{};
@@ -152,8 +153,8 @@ namespace renderer
 
 #ifdef EDITOR_ENABLED
 		editor_backend_.Initialize(
-			particle_context_.GetParticleVertices(),
-			particle_context_.GetParticleIndices(),
+			particle_gen_context_.GetParticleVertices(),
+			particle_gen_context_.GetParticleIndices(),
 			&context_, this);
 #endif
 	}
@@ -180,8 +181,8 @@ namespace renderer
 
 	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth)
 	{
-		particle_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
-		particle_context_.SetMPMDebugNodeGenEnabled(render_nodes);
+		particle_gen_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
+		particle_gen_context_.SetMPMDebugNodeGenEnabled(render_nodes);
 		editor_backend_.SetRasterParticlesEnabled(rasterize_particles);
 		editor_backend_.SetNodesEnabled(render_nodes);
 		editor_backend_.SetGridEnabled(render_grid);
@@ -279,7 +280,7 @@ namespace renderer
 		// Destroying command pool frees all command buffers allocated from it.
 		vkDestroyCommandPool(context_.device, command_pool_, nullptr);
 
-		particle_context_.CleanUp();
+		particle_gen_context_.CleanUp();
 		vulkan_util_.CleanUp();
 		allocator_.CleanUp();
 		raster_pipeline_.CleanUp();
@@ -1568,65 +1569,33 @@ namespace renderer
 		return duplicate_indices;
 	}
 
-	uint32_t VulkanRenderer::InvokeParticleGenShader(RenderObjectHandle ro_target)
+	std::vector<StaticParticle> VulkanRenderer::InvokeParticleGenShader(RenderObjectHandle ro_target)
 	{
 		if (materials_.empty()) {
 			materials_.push_back(new Material{ default_material });
 		}
 
-		particle_context_.SetTargetRenderObject(ro_target);
-		return particle_context_.InvokeParticleGenShader();
-	}
-
-	uint32_t VulkanRenderer::GenerateTestParticle(RenderObjectHandle ro_target)
-	{
-		if (materials_.empty()) {
-			materials_.push_back(new Material{ default_material });
-		}
-
-		particle_context_.SetTargetRenderObject(ro_target);
-		particle_context_.GenerateTestParticle();
-		return 1;
+		return particle_gen_context_.InvokeParticleGenShader(ro_target);
 	}
 
 	void VulkanRenderer::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)
 	{
-		particle_context_.SetParticleGenShader(shader_idx, custom_ubo_size);
+		particle_gen_context_.SetParticleGenShader(shader_idx, custom_ubo_size);
 	}
 
 	void VulkanRenderer::UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo)
 	{
-		particle_context_.UpdateParticleGenShaderCustomUBO(custom_ubo);
+		particle_gen_context_.UpdateParticleGenShaderCustomUBO(custom_ubo);
 	}
 
-	void VulkanRenderer::PlayParticleSimulation()
+	void VulkanRenderer::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
 	{
-		particle_context_.EnablePhysicsUpdate();
+		particle_gen_context_.GenerateDynamicParticleMesh(ro_target, positions, position_count, offset, stride);
 	}
 
-	void VulkanRenderer::PauseParticleSimulation()
+	void VulkanRenderer::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
 	{
-		particle_context_.DisablePhysicsUpdate();
-	}
-
-	void VulkanRenderer::ResetParticleSimulation()
-	{
-		particle_context_.ResetParticles();
-	}
-
-	bool VulkanRenderer::GetParticleSimulationEnabled() const
-	{
-		return particle_context_.GetPhysicsUpdateEnabled();
-	}
-
-	bool VulkanRenderer::GetParticleSimulationEmpty() const
-	{
-		return particle_context_.GetParticlesEmpty();
-	}
-
-	void VulkanRenderer::ParticleUpdate(float delta_time)
-	{
-		particle_context_.PhysicsUpdate(delta_time);
+		particle_gen_context_.GenerateStaticParticleMesh(ro_target, particles, side_flags);
 	}
 
 	void VulkanRenderer::ImportShader(const std::filesystem::path& spirv_path)
@@ -1634,7 +1603,7 @@ namespace renderer
 		ComputePipeline* compute_pipeline{ new ComputePipeline{} };
 
 		std::vector<DescriptorSetLayoutResource> compute_layouts{
-			particle_context_.GetParticleGenLayoutResource(),
+			particle_gen_context_.GetParticleGenLayoutResource(),
 		};
 
 		compute_pipeline->Initialize(&context_, compute_layouts, {}, spirv_path);

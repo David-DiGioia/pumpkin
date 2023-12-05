@@ -3,6 +3,11 @@
     "${CMAKE_CURRENT_SOURCE_DIR}/pumpkin.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/scene.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/scene.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/particles.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/particles.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/mpm.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/mpm.cpp"
+
 )
 
 add_library(Pumpkin "${SOURCES}")

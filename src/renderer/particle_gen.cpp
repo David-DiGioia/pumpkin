@@ -1,9 +1,9 @@
-#include "particles.h"
+#include "particle_gen.h"
 
 #include "tracy/Tracy.hpp"
 #include "vulkan_renderer.h"
 #include "vulkan_util.h"
-#include "renderer_constants.h"
+#include "common_constants.h"
 
 namespace renderer
 {
@@ -33,7 +33,7 @@ namespace renderer
 		return coord.x + coord.y * CHUNK_ROW_VOXEL_COUNT + coord.z * slice_area;
 	}
 
-	void ParticleContext::Initialize(Context* context, VulkanRenderer* renderer)
+	void ParticleGenContext::Initialize(Context* context, VulkanRenderer* renderer)
 	{
 		context_ = context;
 		renderer_ = renderer;
@@ -42,18 +42,7 @@ namespace renderer
 		InitializeParticleNeighborsShaderResources();
 	}
 
-	void ParticleContext::PhysicsUpdate(float delta_time)
-	{
-		if (!update_physics_) {
-			return;
-		}
-
-		mpm_context_.SimulateStep(delta_time);
-
-		GenerateDynamicParticleMesh(mpm_context_.GetParticles());
-	}
-
-	void ParticleContext::CleanUp()
+	void ParticleGenContext::CleanUp()
 	{
 		renderer_->allocator_.DestroyBufferResource(&particle_gen_.built_in_ubo_buffer);
 		renderer_->allocator_.DestroyBufferResource(&particle_gen_.particle_out_buffer);
@@ -65,7 +54,7 @@ namespace renderer
 		particle_neighbors_.pipeline.CleanUp();
 	}
 
-	uint32_t ParticleContext::InvokeParticleGenShader()
+	std::vector<StaticParticle> ParticleGenContext::InvokeParticleGenShader(RenderObjectHandle ro_target)
 	{
 		ComputePipeline* particle_gen_pipeline{ renderer_->user_compute_shaders_[particle_gen_.shader_idx] };
 
@@ -101,57 +90,24 @@ namespace renderer
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
-		static_particles_.resize(CHUNK_TOTAL_VOXEL_COUNT);
-		renderer_->vulkan_util_.TransferBufferToHost(static_particles_, particle_gen_.particle_out_buffer);
+		std::vector<StaticParticle> static_particles{};
+		static_particles.resize(CHUNK_TOTAL_VOXEL_COUNT);
+		renderer_->vulkan_util_.TransferBufferToHost(static_particles, particle_gen_.particle_out_buffer);
 		renderer_->vulkan_util_.Submit();
 
 		// Copy the particle neighbor data to a vector.
-		side_flags_.resize(CHUNK_TOTAL_VOXEL_COUNT);
+		std::vector<uint8_t> side_flags{};
+		side_flags.resize(CHUNK_TOTAL_VOXEL_COUNT);
 		vkMapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory, particle_neighbors_.neighbor_out_buffer.offset, particle_neighbors_.neighbor_out_buffer.size, 0, &data);
-		std::memcpy(side_flags_.data(), data, sizeof(uint8_t) * CHUNK_TOTAL_VOXEL_COUNT);
+		std::memcpy(side_flags.data(), data, sizeof(uint8_t) * CHUNK_TOTAL_VOXEL_COUNT);
 		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
 
-		GenerateStaticParticleMesh(static_particles_, side_flags_);
+		GenerateStaticParticleMesh(ro_target, static_particles, side_flags);
 
-		uint32_t particle_count{};
-		for (StaticParticle p : static_particles_) {
-			if (p.type != ParticleTypeIndex::EMPTY) {
-				++particle_count;
-			}
-		}
-		return particle_count;
+		return static_particles;
 	}
 
-	void ParticleContext::GenerateTestParticle()
-	{
-		constexpr float youngs_modulus{ 10.0f };
-		constexpr float poissons_ratio{ 0.4f };
-		constexpr float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
-		constexpr float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
-
-		MaterialPoint mpm_particle{
-			.mass = .01f,
-			.mu = mu,
-			.lambda = lambda,
-			.position = glm::vec3{0.321932f, 0.452119f, 0.434341f},
-			.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
-			.affine_matrix = glm::mat3{0.0f},
-			.deformation_gradient_elastic = glm::mat3{1.0f},
-			.deformation_gradient_plastic = glm::mat3{1.0f},
-		};
-
-		std::vector<MaterialPoint> mpm_particles{ mpm_particle };
-		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH);
-
-		// Since we don't use static particles here, we just simulate a single set to get all the MPM
-		// particle info set that needs to be set.
-		update_physics_ = true;
-		has_played_ = true;
-		PhysicsUpdate(1.0f / 60.0f);
-		update_physics_ = false;
-	}
-
-	void ParticleContext::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)
+	void ParticleGenContext::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)
 	{
 		particle_gen_.shader_idx = shader_idx;
 
@@ -170,84 +126,19 @@ namespace renderer
 		particle_gen_.descriptor_set_resource.LinkBufferToBinding(PARTICLE_CUSTOM_UBO_BINDING, particle_gen_.custom_ubo_buffer);
 	}
 
-	void ParticleContext::UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo)
+	void ParticleGenContext::UpdateParticleGenShaderCustomUBO(const std::vector<std::byte>& custom_ubo)
 	{
 		renderer_->vulkan_util_.Begin();
 		renderer_->vulkan_util_.TransferBufferToDevice(custom_ubo, particle_gen_.custom_ubo_buffer);
 		renderer_->vulkan_util_.Submit();
 	}
 
-	DescriptorSetLayoutResource& ParticleContext::GetParticleGenLayoutResource()
+	DescriptorSetLayoutResource& ParticleGenContext::GetParticleGenLayoutResource()
 	{
 		return particle_gen_.layout_resource;
 	}
 
-	void ParticleContext::EnablePhysicsUpdate()
-	{
-		if (!has_played_)
-		{
-			has_played_ = true;
-			TransferStaticParticlesToMPM();
-		}
-		update_physics_ = true;
-	}
-
-	void ParticleContext::DisablePhysicsUpdate()
-	{
-		update_physics_ = false;
-	}
-
-	void ParticleContext::ResetParticles()
-	{
-		has_played_ = false;
-		DisablePhysicsUpdate();
-		TransferStaticParticlesToMPM();
-		if (!update_physics_) {
-			GenerateDynamicParticleMesh(mpm_context_.GetParticles());
-		}
-	}
-
-	bool ParticleContext::GetPhysicsUpdateEnabled() const
-	{
-		return update_physics_;
-	}
-
-	bool ParticleContext::GetParticlesEmpty() const
-	{
-		return static_particles_.empty();
-	}
-
-	void ParticleContext::TransferStaticParticlesToMPM()
-	{
-		std::vector<MaterialPoint> mpm_particles{};
-
-		for (uint32_t i{ 0 }; i < (uint32_t)static_particles_.size(); ++i)
-		{
-			if (static_particles_[i].type == ParticleTypeIndex::EMPTY) {
-				continue;
-			}
-
-			glm::uvec3 coord{ ParticleIndexToCoordinate(i) };
-
-			MaterialPoint mpm_particle{
-				.mass = {},   // Set later.
-				.mu = {},     // Set later.
-				.lambda = {}, // Set later.
-				.position = PARTICLE_WIDTH * glm::vec3{coord},
-				.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
-				.affine_matrix = glm::mat3{0.0f},
-				.deformation_gradient_elastic = glm::mat3{1.0f},
-				.deformation_gradient_plastic = glm::mat3{1.0f},
-				.constitutive_model_index = coord.y > 32 ? ConstitutiveModelIndex::HYPER_ELASTIC : ConstitutiveModelIndex::SNOW,
-			};
-
-			mpm_particles.push_back(mpm_particle);
-		}
-
-		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH);
-	}
-
-	void ParticleContext::InitializeParticleGenShaderResources()
+	void ParticleGenContext::InitializeParticleGenShaderResources()
 	{
 		// Make descriptor set layout.
 		VkDescriptorSetLayoutBinding built_in_ubo_binding{
@@ -310,7 +201,7 @@ namespace renderer
 		// Note: custom_ubo_buffer will be made when SetParticleGenShader() is called.
 	}
 
-	void ParticleContext::InitializeParticleNeighborsShaderResources()
+	void ParticleGenContext::InitializeParticleNeighborsShaderResources()
 	{
 		// Make descriptor set layout.
 		VkDescriptorSetLayoutBinding in_particle_ssbo{
@@ -363,49 +254,25 @@ namespace renderer
 		NameObject(context_->device, particle_neighbors_.pipeline.layout, "Particle_Neighbor_Pipeline_Layout");
 	}
 
-	void ParticleContext::SetTargetRenderObject(RenderObjectHandle ro_target)
-	{
-		ro_target_ = ro_target;
-	}
-
 #ifdef EDITOR_ENABLED
-	void ParticleContext::SetMPMDebugParticleGenEnabled(bool enabled)
+	void ParticleGenContext::SetMPMDebugParticleGenEnabled(bool enabled)
 	{
 		generate_mpm_particle_instances_ = enabled;
-
-		// If we've already generated a dynamic particle mesh before enabling,
-		// we won't have the MPM debug mesh when we need it.
-		if (enabled) {
-			GenerateDynamicDebugMPMParticleInstances();
-		}
 	}
 
-	void ParticleContext::SetMPMDebugNodeGenEnabled(bool enabled)
+	void ParticleGenContext::SetMPMDebugNodeGenEnabled(bool enabled)
 	{
 		generate_mpm_node_instances_ = enabled;
-
-		if (enabled) {
-			GenerateDynamicDebugMPMNodeInstances();
-		}
 	}
 #endif
 
-	void ParticleContext::GenerateDynamicParticleMesh(const std::vector<MaterialPoint>& particles)
+	void ParticleGenContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
 	{
 		ZoneScoped;
 		Mesh* mesh{ new Mesh{} };
 
-		if (!particles.empty())
+		if (position_count)
 		{
-#ifdef EDITOR_ENABLED
-			if (generate_mpm_particle_instances_) {
-				GenerateDynamicDebugMPMParticleInstances();
-			}
-
-			if (generate_mpm_node_instances_) {
-				GenerateDynamicDebugMPMNodeInstances();
-			}
-#endif
 			mesh->geometries.resize(1);
 
 			// Generate vertices.
@@ -414,16 +281,17 @@ namespace renderer
 				ZoneScopedN("Generate vertices");
 				std::vector<Vertex> particle_vertices{ GetParticleVertices() };
 				particle_vert_count = (uint32_t)particle_vertices.size();
-				uint32_t vertex_count{ (uint32_t)(particle_vert_count * particles.size()) };
+				uint32_t vertex_count{ particle_vert_count * position_count };
 				mesh->geometries[0].vertices.resize(vertex_count);
 
-				for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+				for (uint32_t p{ 0 }; p < position_count; ++p)
 				{
 					for (uint32_t v{ 0 }; v < particle_vert_count; ++v)
 					{
+						const glm::vec3& position{ *reinterpret_cast<const glm::vec3*>(positions + p * stride + offset) };
 						uint32_t vert_buffer_idx{ p * particle_vert_count + v };
 						mesh->geometries[0].vertices[vert_buffer_idx] = particle_vertices[v];
-						mesh->geometries[0].vertices[vert_buffer_idx].position += glm::vec4{ particles[p].position, 0.0f };
+						mesh->geometries[0].vertices[vert_buffer_idx].position += glm::vec4{ position, 0.0f };
 					}
 				}
 			}
@@ -432,10 +300,10 @@ namespace renderer
 			{
 				ZoneScopedN("Generate indices");
 				std::vector<uint32_t> particle_indices{ GetParticleIndices() };
-				uint32_t index_count{ (uint32_t)(particle_indices.size() * particles.size()) };
+				uint32_t index_count{ (uint32_t)(particle_indices.size() * position_count) };
 				mesh->geometries[0].indices.resize(index_count);
 
-				for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+				for (uint32_t p{ 0 }; p < position_count; ++p)
 				{
 					for (uint32_t i{ 0 }; i < (uint32_t)particle_indices.size(); ++i)
 					{
@@ -450,72 +318,42 @@ namespace renderer
 				CalculateTangents(mesh);
 			}
 		}
+
 		{
 			ZoneScopedN("Replace render object");
-			renderer_->ReplaceRenderObject(ro_target_, mesh);
+			renderer_->ReplaceRenderObject(ro_target, mesh);
 		}
 	}
 
-#ifdef EDITOR_ENABLED
-	void ParticleContext::GenerateDynamicDebugMPMParticleInstances()
+	std::vector<glm::vec3> StaticParticleToPositions(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags)
 	{
-		ZoneScoped;
-		const std::vector<MaterialPoint>& particles{ has_played_ ? mpm_context_.GetParticles() : StaticParticleToDynamic(static_particles_, side_flags_) };
-		if (particles.empty()) {
-			return;
+		if (static_particles.empty()) {
+			return {};
 		}
 
-		std::vector<MPMDebugParticleInstance> mpm_particle_instances(particles.size());
-
-		for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+		std::vector<glm::vec3> positions{};
+		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{
-			mpm_particle_instances[p].mass = particles[p].mass;
-			mpm_particle_instances[p].mu = particles[p].mu;
-			mpm_particle_instances[p].lambda = particles[p].lambda;
-			mpm_particle_instances[p].position = particles[p].position;
-			mpm_particle_instances[p].velocity = particles[p].velocity;
-			mpm_particle_instances[p].elastic_col_0 = particles[p].deformation_gradient_elastic[0];
-			mpm_particle_instances[p].elastic_col_1 = particles[p].deformation_gradient_elastic[1];
-			mpm_particle_instances[p].elastic_col_2 = particles[p].deformation_gradient_elastic[2];
-			mpm_particle_instances[p].plastic_col_0 = particles[p].deformation_gradient_plastic[0];
-			mpm_particle_instances[p].plastic_col_1 = particles[p].deformation_gradient_plastic[1];
-			mpm_particle_instances[p].plastic_col_2 = particles[p].deformation_gradient_plastic[2];
-		}
+			bool empty{ static_particles[i].type == ParticleTypeIndex::EMPTY };
+			bool occluded{ side_flags[i] == (uint8_t)ParticleSidesFlagBits::ALL_SIDES };
 
-		renderer_->editor_backend_.SetMPMDebugParticleInstances(mpm_particle_instances);
+			if (empty || occluded) {
+				continue;
+			}
+
+			glm::vec3 position{ PARTICLE_WIDTH * glm::vec3(ParticleIndexToCoordinate(i)) };
+			positions.push_back(position);
+		}
+		return positions;
 	}
 
-	void ParticleContext::GenerateDynamicDebugMPMNodeInstances()
+	void ParticleGenContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
 	{
-		ZoneScoped;
-		const std::vector<GridNode>& nodes{ has_played_ ? mpm_context_.GetNodes() : std::vector<GridNode>(GRID_NODE_COUNT) };
-		if (nodes.empty()) {
-			return;
-		}
-
-		std::vector<MPMDebugNodeInstance> mpm_node_instances(nodes.size());
-
-		for (uint32_t n{ 0 }; n < (uint32_t)nodes.size(); ++n)
-		{
-			mpm_node_instances[n].mass = nodes[n].mass;
-			mpm_node_instances[n].position = nodes[n].position;
-			mpm_node_instances[n].velocity = nodes[n].velocity;
-			mpm_node_instances[n].momentum = nodes[n].momentum;
-			mpm_node_instances[n].force = nodes[n].force;
-		}
-
-		renderer_->editor_backend_.SetMPMDebugNodeInstances(mpm_node_instances);
-	}
-#endif
-
-	void ParticleContext::GenerateStaticParticleMesh(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
-	{
-		has_played_ = false;
-
 		// When true, forces to always generate dynamic particle meshes for debugging purposes.
 		if (DISABLE_STATIC_PARTICLE_MESH)
 		{
-			GenerateDynamicParticleMesh(StaticParticleToDynamic(particles, side_flags));
+			std::vector<glm::vec3> positions{ StaticParticleToPositions(particles, side_flags) };
+			GenerateDynamicParticleMesh(ro_target, (const std::byte*)positions.data(), (uint32_t)positions.size(), 0, sizeof(glm::vec3));
 			return;
 		}
 
@@ -525,10 +363,10 @@ namespace renderer
 
 		StaticParticleMeshGenerator gen{};
 		Mesh* mesh{ gen.Generate(particles, side_flags) };
-		renderer_->ReplaceRenderObject(ro_target_, mesh);
+		renderer_->ReplaceRenderObject(ro_target, mesh);
 	}
 
-	std::vector<Vertex> ParticleContext::GetParticleVertices() const
+	std::vector<Vertex> ParticleGenContext::GetParticleVertices() const
 	{
 		uint32_t vert_count{ 24 }; // Cube with 3 normals per corner so 8 * 3 vertices.
 		std::vector<Vertex> verts(vert_count);
@@ -591,7 +429,7 @@ namespace renderer
 		return verts;
 	}
 
-	std::vector<uint32_t> ParticleContext::GetParticleIndices() const
+	std::vector<uint32_t> ParticleGenContext::GetParticleIndices() const
 	{
 		// Seems that Vulkan RT API has counter clockwise hardcoded as front face.
 		return {
@@ -608,30 +446,6 @@ namespace renderer
 			13, 1, 4,   // Y- plane.
 			16, 13, 4,  // Y- plane.
 		};
-	}
-
-	std::vector<MaterialPoint> ParticleContext::StaticParticleToDynamic(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const
-	{
-		if (static_particles.empty()) {
-			return {};
-		}
-
-		std::vector<MaterialPoint> dynamic_particles{};
-		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
-		{
-			bool empty{ static_particles[i].type == ParticleTypeIndex::EMPTY };
-			bool occluded{ side_flags[i] == (uint8_t)ParticleSidesFlagBits::ALL_SIDES };
-
-			if (empty || occluded) {
-				continue;
-			}
-
-			MaterialPoint particle{
-				.position = PARTICLE_WIDTH * glm::vec3(ParticleIndexToCoordinate(i)),
-			};
-			dynamic_particles.push_back(particle);
-		}
-		return dynamic_particles;
 	}
 
 	Mesh* StaticParticleMeshGenerator::Generate(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
