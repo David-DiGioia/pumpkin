@@ -79,9 +79,6 @@ namespace pmk
 
 	uint32_t ParticleContext::GenerateParticlesOnNode(Node* node)
 	{
-		// TODO: Here I think calling InvokeParticleGenShader() automatically generates static particle mesh in renderer. Should make it not do so,
-		//       and make wrapper function in ParticleContext to generate static mesh, and it can also call GenerateDynamicDebugMPMParticleInstances() and GenerateDynamicDebugMPMNodeInstances()
-
 		particle_node_ = node;
 		renderer_->InvokeParticleGenShader(node->render_object, &static_particles_, &side_flags_);
 		GenerateStaticParticleMesh(node->render_object);
