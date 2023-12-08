@@ -46,7 +46,7 @@ namespace renderer
 		std::vector<int> LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names);
 
 		// Invoke user-defined particle gen shader. Generated render object will replace ro_target.
-		std::vector<StaticParticle> InvokeParticleGenShader(RenderObjectHandle ro_target);
+		void InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags);
 
 		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
 
@@ -153,6 +153,10 @@ namespace renderer
 		void SetNodeColorModeMaxValue(float max_value);
 
 		void SetRenderCubeNodesEnabled(bool enabled);
+
+		void SetMPMDebugParticleInstances(const std::vector<renderer::MPMDebugParticleInstance>& mpm_particle_instances);
+
+		void SetMPMDebugNodeInstances(const std::vector<renderer::MPMDebugNodeInstance>& mpm_node_instances);
 #endif
 
 	private:

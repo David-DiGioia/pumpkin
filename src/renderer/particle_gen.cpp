@@ -54,7 +54,7 @@ namespace renderer
 		particle_neighbors_.pipeline.CleanUp();
 	}
 
-	std::vector<StaticParticle> ParticleGenContext::InvokeParticleGenShader(RenderObjectHandle ro_target)
+	void ParticleGenContext::InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags)
 	{
 		ComputePipeline* particle_gen_pipeline{ renderer_->user_compute_shaders_[particle_gen_.shader_idx] };
 
@@ -90,21 +90,17 @@ namespace renderer
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
-		std::vector<StaticParticle> static_particles{};
-		static_particles.resize(CHUNK_TOTAL_VOXEL_COUNT);
-		renderer_->vulkan_util_.TransferBufferToHost(static_particles, particle_gen_.particle_out_buffer);
+		out_static_particles->clear();
+		out_static_particles->resize(CHUNK_TOTAL_VOXEL_COUNT);
+		renderer_->vulkan_util_.TransferBufferToHost(*out_static_particles, particle_gen_.particle_out_buffer);
 		renderer_->vulkan_util_.Submit();
 
 		// Copy the particle neighbor data to a vector.
-		std::vector<uint8_t> side_flags{};
-		side_flags.resize(CHUNK_TOTAL_VOXEL_COUNT);
+		out_side_flags->clear();
+		out_side_flags->resize(CHUNK_TOTAL_VOXEL_COUNT);
 		vkMapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory, particle_neighbors_.neighbor_out_buffer.offset, particle_neighbors_.neighbor_out_buffer.size, 0, &data);
-		std::memcpy(side_flags.data(), data, sizeof(uint8_t) * CHUNK_TOTAL_VOXEL_COUNT);
+		std::memcpy(out_side_flags->data(), data, sizeof(uint8_t) * CHUNK_TOTAL_VOXEL_COUNT);
 		vkUnmapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory);
-
-		GenerateStaticParticleMesh(ro_target, static_particles, side_flags);
-
-		return static_particles;
 	}
 
 	void ParticleGenContext::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)
@@ -253,18 +249,6 @@ namespace renderer
 		NameObject(context_->device, particle_neighbors_.pipeline.pipeline, "Particle_Neighbor_Pipeline");
 		NameObject(context_->device, particle_neighbors_.pipeline.layout, "Particle_Neighbor_Pipeline_Layout");
 	}
-
-#ifdef EDITOR_ENABLED
-	void ParticleGenContext::SetMPMDebugParticleGenEnabled(bool enabled)
-	{
-		generate_mpm_particle_instances_ = enabled;
-	}
-
-	void ParticleGenContext::SetMPMDebugNodeGenEnabled(bool enabled)
-	{
-		generate_mpm_node_instances_ = enabled;
-	}
-#endif
 
 	void ParticleGenContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
 	{

@@ -109,6 +109,8 @@ namespace pmk
 
 		bool GetParticleSimulationEmpty() const;
 
+		void SetParticleOverlayEnabled(bool rasterize_particles, bool render_nodes);
+
 		// Update all render objects transforms to reflect their containing node.
 		void UploadRenderObjects();
 

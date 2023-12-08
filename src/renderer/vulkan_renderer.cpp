@@ -181,8 +181,6 @@ namespace renderer
 
 	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth)
 	{
-		particle_gen_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
-		particle_gen_context_.SetMPMDebugNodeGenEnabled(render_nodes);
 		editor_backend_.SetRasterParticlesEnabled(rasterize_particles);
 		editor_backend_.SetNodesEnabled(render_nodes);
 		editor_backend_.SetGridEnabled(render_grid);
@@ -223,6 +221,17 @@ namespace renderer
 	{
 		editor_backend_.SetRenderCubeNodesEnabled(enabled);
 	}
+
+	void VulkanRenderer::SetMPMDebugParticleInstances(const std::vector<renderer::MPMDebugParticleInstance>& mpm_particle_instances)
+	{
+		editor_backend_.SetMPMDebugParticleInstances(mpm_particle_instances);
+	}
+
+	void VulkanRenderer::SetMPMDebugNodeInstances(const std::vector<renderer::MPMDebugNodeInstance>& mpm_node_instances)
+	{
+		editor_backend_.SetMPMDebugNodeInstances(mpm_node_instances);
+	}
+
 #endif
 
 	void VulkanRenderer::CleanUp()
@@ -1569,13 +1578,13 @@ namespace renderer
 		return duplicate_indices;
 	}
 
-	std::vector<StaticParticle> VulkanRenderer::InvokeParticleGenShader(RenderObjectHandle ro_target)
+	void VulkanRenderer::InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags)
 	{
 		if (materials_.empty()) {
 			materials_.push_back(new Material{ default_material });
 		}
 
-		return particle_gen_context_.InvokeParticleGenShader(ro_target);
+		particle_gen_context_.InvokeParticleGenShader(ro_target, out_static_particles, out_side_flags);
 	}
 
 	void VulkanRenderer::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)

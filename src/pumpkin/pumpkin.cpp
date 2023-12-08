@@ -163,6 +163,7 @@ namespace pmk
 
 	void Pumpkin::SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth)
 	{
+		scene_.SetParticleOverlayEnabled(rasterize_particles, render_nodes);
 		renderer_.SetParticleOverlayEnabled(render_grid, render_nodes, rasterize_particles, use_particle_depth);
 	}
 

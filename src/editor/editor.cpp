@@ -1072,7 +1072,7 @@ void Editor::UpdateParticleOverlayEnabled()
 {
 	if (active_selection_node_ && active_selection_node_ == particle_node_)
 	{
-		bool show_particle_colors = particle_color_mode_ != ParticleColorMode::FINAL_SHADING;
+		bool show_particle_colors{ particle_color_mode_ != ParticleColorMode::FINAL_SHADING };
 		bool particles_hidden{ particle_color_mode_ == ParticleColorMode::HIDDEN };
 		bool show_node_colors{ node_color_mode_ != NodeColorMode::NONE };
 		bool need_particle_depth{ (show_particle_grid_ || show_particle_colors || show_node_colors) && use_particle_depth_ };

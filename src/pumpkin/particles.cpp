@@ -79,8 +79,12 @@ namespace pmk
 
 	uint32_t ParticleContext::GenerateParticlesOnNode(Node* node)
 	{
+		// TODO: Here I think calling InvokeParticleGenShader() automatically generates static particle mesh in renderer. Should make it not do so,
+		//       and make wrapper function in ParticleContext to generate static mesh, and it can also call GenerateDynamicDebugMPMParticleInstances() and GenerateDynamicDebugMPMNodeInstances()
+
 		particle_node_ = node;
-		static_particles_ = renderer_->InvokeParticleGenShader(node->render_object);
+		renderer_->InvokeParticleGenShader(node->render_object, &static_particles_, &side_flags_);
+		GenerateStaticParticleMesh(node->render_object);
 		renderer_->UpdateMaterials();
 
 		uint32_t particle_count{};
@@ -153,9 +157,125 @@ namespace pmk
 		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH);
 	}
 
+#ifdef EDITOR_ENABLED
+	void ParticleContext::SetMPMDebugParticleGenEnabled(bool enabled)
+	{
+		generate_mpm_particle_instances_ = enabled;
+
+		if (enabled) {
+			GenerateDynamicDebugMPMParticleInstances();
+		}
+	}
+
+	void ParticleContext::SetMPMDebugNodeGenEnabled(bool enabled)
+	{
+		generate_mpm_node_instances_ = enabled;
+
+		if (enabled) {
+			GenerateDynamicDebugMPMNodeInstances();
+		}
+	}
+#endif
+
 	void ParticleContext::GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, const std::vector<MaterialPoint>& particles) const
 	{
 		const std::byte* particle_buffer{ (const std::byte*)particles.data() };
 		renderer_->GenerateDynamicParticleMesh(ro_target, particle_buffer, (uint32_t)particles.size(), offsetof(MaterialPoint, position), sizeof(MaterialPoint));
+
+#ifdef EDITOR_ENABLED
+		if (generate_mpm_particle_instances_) {
+			GenerateDynamicDebugMPMParticleInstances();
+		}
+
+		if (generate_mpm_node_instances_) {
+			GenerateDynamicDebugMPMNodeInstances();
+		}
+#endif
+	}
+
+	void ParticleContext::GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target)
+	{
+		renderer_->GenerateStaticParticleMesh(ro_target, static_particles_, side_flags_);
+
+#ifdef EDITOR_ENABLED
+		if (generate_mpm_particle_instances_) {
+			GenerateDynamicDebugMPMParticleInstances();
+		}
+
+		if (generate_mpm_node_instances_) {
+			GenerateDynamicDebugMPMNodeInstances();
+		}
+#endif
+	}
+
+	std::vector<MaterialPoint> ParticleContext::StaticParticlesToMaterialPoints(const std::vector<renderer::StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const
+	{
+		if (static_particles.empty()) {
+			return {};
+		}
+
+		std::vector<MaterialPoint> dynamic_particles{};
+		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
+		{
+			bool empty{ static_particles[i].type == renderer::ParticleTypeIndex::EMPTY };
+			bool occluded{ side_flags[i] == (uint8_t)renderer::ParticleSidesFlagBits::ALL_SIDES };
+
+			if (empty || occluded) {
+				continue;
+			}
+
+			MaterialPoint particle{
+				.position = PARTICLE_WIDTH * glm::vec3(ParticleIndexToCoordinate(i)),
+			};
+			dynamic_particles.push_back(particle);
+		}
+		return dynamic_particles;
+	}
+
+	void ParticleContext::GenerateDynamicDebugMPMParticleInstances() const
+	{
+		const std::vector<MaterialPoint>& particles{ has_played_ ? mpm_context_.GetParticles() : StaticParticlesToMaterialPoints(static_particles_, side_flags_) };
+		if (particles.empty()) {
+			return;
+		}
+
+		std::vector<renderer::MPMDebugParticleInstance> mpm_particle_instances(particles.size());
+
+		for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+		{
+			mpm_particle_instances[p].mass = particles[p].mass;
+			mpm_particle_instances[p].mu = particles[p].mu;
+			mpm_particle_instances[p].lambda = particles[p].lambda;
+			mpm_particle_instances[p].position = particles[p].position;
+			mpm_particle_instances[p].velocity = particles[p].velocity;
+			mpm_particle_instances[p].elastic_col_0 = particles[p].deformation_gradient_elastic[0];
+			mpm_particle_instances[p].elastic_col_1 = particles[p].deformation_gradient_elastic[1];
+			mpm_particle_instances[p].elastic_col_2 = particles[p].deformation_gradient_elastic[2];
+			mpm_particle_instances[p].plastic_col_0 = particles[p].deformation_gradient_plastic[0];
+			mpm_particle_instances[p].plastic_col_1 = particles[p].deformation_gradient_plastic[1];
+			mpm_particle_instances[p].plastic_col_2 = particles[p].deformation_gradient_plastic[2];
+		}
+
+		renderer_->SetMPMDebugParticleInstances(mpm_particle_instances);
+	}
+
+	void ParticleContext::GenerateDynamicDebugMPMNodeInstances() const
+	{
+		const std::vector<GridNode>& nodes{ has_played_ ? mpm_context_.GetNodes() : std::vector<GridNode>(GRID_NODE_COUNT) };
+		if (nodes.empty()) {
+			return;
+		}
+
+		std::vector<renderer::MPMDebugNodeInstance> mpm_node_instances(nodes.size());
+		for (uint32_t n{ 0 }; n < (uint32_t)nodes.size(); ++n)
+		{
+			mpm_node_instances[n].mass = nodes[n].mass;
+			mpm_node_instances[n].position = nodes[n].position;
+			mpm_node_instances[n].velocity = nodes[n].velocity;
+			mpm_node_instances[n].momentum = nodes[n].momentum;
+			mpm_node_instances[n].force = nodes[n].force;
+		}
+
+		renderer_->SetMPMDebugNodeInstances(mpm_node_instances);
 	}
 }

@@ -51,12 +51,31 @@ namespace pmk
 
 		void TransferStaticParticlesToMPM();
 
+#ifdef EDITOR_ENABLED
+		void SetMPMDebugParticleGenEnabled(bool enabled);
+
+		void SetMPMDebugNodeGenEnabled(bool enabled);
+#endif
+
 	private:
+		std::vector<MaterialPoint> StaticParticlesToMaterialPoints(const std::vector<renderer::StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const;
+
 		void GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, const std::vector<MaterialPoint>& particles) const;
 
+		void GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target);
+
+		void GenerateDynamicDebugMPMParticleInstances() const;
+
+		void GenerateDynamicDebugMPMNodeInstances() const;
+
 		std::vector<renderer::StaticParticle> static_particles_{};
+		std::vector<uint8_t> side_flags_{};
 		bool has_played_{}; // True if the particle simulation has been played yet.
 		bool update_physics_{};
+#ifdef EDITOR_ENABLED
+		bool generate_mpm_particle_instances_{};
+		bool generate_mpm_node_instances_{};
+#endif
 		MPMContext mpm_context_{};
 		renderer::VulkanRenderer* renderer_{};
 		Node* particle_node_{};

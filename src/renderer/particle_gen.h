@@ -93,7 +93,7 @@ namespace renderer
 
 		void CleanUp();
 
-		std::vector<StaticParticle> InvokeParticleGenShader(RenderObjectHandle ro_target);
+		void InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags);
 
 		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
 
@@ -114,13 +114,6 @@ namespace renderer
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
 		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
-
-
-#ifdef EDITOR_ENABLED
-		void SetMPMDebugParticleGenEnabled(bool enabled);
-
-		void SetMPMDebugNodeGenEnabled(bool enabled);
-#endif
 
 	private:
 		void InitializeParticleGenShaderResources();
@@ -150,11 +143,6 @@ namespace renderer
 			BufferResource neighbor_out_buffer;            // Buffer to write neighbor data to.
 			ComputePipeline pipeline;
 		}particle_neighbors_{};
-
-#ifdef EDITOR_ENABLED
-		bool generate_mpm_particle_instances_{};
-		bool generate_mpm_node_instances_{};
-#endif
 
 		Context* context_{};
 		VulkanRenderer* renderer_{};

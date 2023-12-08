@@ -285,6 +285,12 @@ namespace pmk
 		return particle_context_.GetParticlesEmpty();
 	}
 
+	void Scene::SetParticleOverlayEnabled(bool rasterize_particles, bool render_nodes)
+	{
+		particle_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
+		particle_context_.SetMPMDebugNodeGenEnabled(render_nodes);
+	}
+
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
 	{
 		glm::mat4 local_transform{ root->GetLocalTransform() };
