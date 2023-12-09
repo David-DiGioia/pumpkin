@@ -113,41 +113,53 @@ namespace pmk
 		// For APIC transfer.
 		float d_inverse{ GetDInverse() };
 
-		// Compute and cache computation needed for each particle.
-		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
 		{
-			MaterialPoint& p{ particles_[i] };
-			particle_cache_[i].p2g_lhs = p.mass * (p.velocity - p.affine_matrix * d_inverse * p.position);
-			particle_cache_[i].p2g_rhs = p.mass * p.affine_matrix * d_inverse;
+			ZoneScopedN("Precompute particle values");
+			std::ranges::iota_view particle_range{ std::views::iota(0u, (uint32_t)particles_.size()) };
+
+			// Compute and cache computation needed for each particle.
+			std::for_each(
+				std::execution::par,
+				particle_range.begin(),
+				particle_range.end(),
+				[&](uint32_t i)
+				{
+					MaterialPoint& p{ particles_[i] };
+					particle_cache_[i].p2g_lhs = p.mass * (p.velocity - p.affine_matrix * d_inverse * p.position);
+					particle_cache_[i].p2g_rhs = p.mass * p.affine_matrix * d_inverse;
+				});
 		}
 
-		std::for_each(
-			std::execution::par,
-			nodes_.begin(),
-			nodes_.end(),
-			[&](auto& node)
-			{
-				node.mass = 0.0f;
-				node.momentum = glm::vec3{ 0.0f, 0.0f, 0.0f };
-
-				uint32_t particle_range_count{};
-				auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
-				for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+		{
+			ZoneScopedN("P2G");
+			std::for_each(
+				std::execution::par,
+				nodes_.begin(),
+				nodes_.end(),
+				[&](auto& node)
 				{
-					uint32_t range_start{ start_of_ranges[i] };
-					uint32_t current_key{ particle_indices_[range_start].key };
-					for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
-					{
-						// Doing radius check here slightly hurts performance unlike when computing the force. Probably because work here it more light weight.
-						MaterialPoint& p{ particles_[particle_indices_[j].index] };
-						ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
+					node.mass = 0.0f;
+					node.momentum = glm::vec3{ 0.0f, 0.0f, 0.0f };
 
-						float weight{ GetWeight(node.position, p.position) };
-						node.mass += weight * p.mass;                                      // Equation (172).
-						node.momentum += weight * (c.p2g_lhs + c.p2g_rhs * node.position); // Equation (173).
+					uint32_t particle_range_count{};
+					auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
+					for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+					{
+						uint32_t range_start{ start_of_ranges[i] };
+						uint32_t current_key{ particle_indices_[range_start].key };
+						for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
+						{
+							// Doing radius check here slightly hurts performance unlike when computing the force. Probably because work here it more light weight.
+							MaterialPoint& p{ particles_[particle_indices_[j].index] };
+							ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
+
+							float weight{ GetWeight(node.position, p.position) };
+							node.mass += weight * p.mass;                                      // Equation (172).
+							node.momentum += weight * (c.p2g_lhs + c.p2g_rhs * node.position); // Equation (173).
+						}
 					}
-				}
-			});
+				});
+		}
 	}
 
 	void MPMContext::ComputeGridVelocities()
@@ -293,30 +305,40 @@ namespace pmk
 	void MPMContext::AdvectParticles(float delta_time)
 	{
 		ZoneScoped;
-		for (MaterialPointIndex& mi : particle_indices_)
-		{
-			MaterialPoint& p{ particles_[mi.index] };
+		std::for_each(
+			std::execution::par,
+			particle_indices_.begin(),
+			particle_indices_.end(),
+			[&](auto& mi)
+			{
+				MaterialPoint& p{ particles_[mi.index] };
 
-			p.position += delta_time * p.velocity;
-			mi.key = SubBlockCoordinateToIndex(PositionToSubBlockCoordinate(p.position));
-		}
+				p.position += delta_time * p.velocity;
+				mi.key = SubBlockCoordinateToIndex(PositionToSubBlockCoordinate(p.position));
+			});
 	}
 
 	void MPMContext::UpdateIndexBuffers()
 	{
 		ZoneScoped;
-		std::sort(particle_indices_.begin(), particle_indices_.end());
-
-		uint32_t current_key{ NULL_INDEX };
-		for (uint32_t i{ 0 }; i < (uint32_t)particle_indices_.size(); ++i)
 		{
-			if ((particle_indices_[i].key != current_key) && (particle_indices_[i].key != NULL_INDEX))
-			{
-				MaterialPoint& p{ particles_[particle_indices_[i].index] };
-				glm::uvec3 sub_block_coord{ PositionToSubBlockCoordinate(p.position) };
-				sub_block_indices_[SubBlockCoordinateToIndex(sub_block_coord)] = i;
+			ZoneScopedN("Sort");
+			std::sort(particle_indices_.begin(), particle_indices_.end());
+		}
 
-				current_key = particle_indices_[i].key;
+		{
+			ZoneScopedN("Update keys");
+			uint32_t current_key{ NULL_INDEX };
+			for (uint32_t i{ 0 }; i < (uint32_t)particle_indices_.size(); ++i)
+			{
+				if ((particle_indices_[i].key != current_key) && (particle_indices_[i].key != NULL_INDEX))
+				{
+					MaterialPoint& p{ particles_[particle_indices_[i].index] };
+					glm::uvec3 sub_block_coord{ PositionToSubBlockCoordinate(p.position) };
+					sub_block_indices_[SubBlockCoordinateToIndex(sub_block_coord)] = i;
+
+					current_key = particle_indices_[i].key;
+				}
 			}
 		}
 	}
@@ -495,9 +517,16 @@ namespace pmk
 
 	void MPMContext::UpdateLameParameters()
 	{
-		for (MaterialPoint& p : particles_) {
-			constitutive_models_[(uint32_t)p.constitutive_model_index]->UpdateLameParameters(&p);
-		}
+		ZoneScoped;
+
+		std::for_each(
+			std::execution::par,
+			particles_.begin(),
+			particles_.end(),
+			[&](auto& p)
+			{
+				constitutive_models_[(uint32_t)p.constitutive_model_index]->UpdateLameParameters(&p);
+			});
 	}
 
 	glm::uvec3 MPMContext::GridNodeIndexToCoordinate(uint32_t index) const
