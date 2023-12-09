@@ -79,7 +79,7 @@ namespace pmk
 		static constexpr float POISSONS_RATIO{ 0.4f };
 		static constexpr float MU{ CalculateMu(YOUNGS_MODULUS, POISSONS_RATIO) };
 		static constexpr float LAMBDA{ CalculateLambda(YOUNGS_MODULUS, POISSONS_RATIO) };
-		static constexpr float DENSITY{ 50.0f }; // kilogram per meter cubed.
+		static constexpr float DENSITY{ 20.0f }; // kilogram per meter cubed.
 	};
 
 	class SnowModel : public ConstitutiveModel

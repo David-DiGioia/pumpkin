@@ -38,7 +38,10 @@ namespace pmk
 			return;
 		}
 
-		mpm_context_.SimulateStep(delta_time);
+		constexpr uint32_t sub_steps{ 3 };
+		for (uint32_t i{ 0 }; i < sub_steps; ++i) {
+			mpm_context_.SimulateStep(delta_time / sub_steps);
+		}
 		GenerateDynamicParticleMesh(particle_node_->render_object, mpm_context_.GetParticles());
 	}
 
@@ -145,7 +148,7 @@ namespace pmk
 				.affine_matrix = glm::mat3{0.0f},
 				.deformation_gradient_elastic = glm::mat3{1.0f},
 				.deformation_gradient_plastic = glm::mat3{1.0f},
-				.constitutive_model_index = coord.y > 32 ? ConstitutiveModelIndex::HYPER_ELASTIC : ConstitutiveModelIndex::SNOW,
+				.constitutive_model_index = ConstitutiveModelIndex::HYPER_ELASTIC,
 			};
 
 			mpm_particles.push_back(mpm_particle);

@@ -5,7 +5,7 @@
 
 namespace pmk
 {
-	constexpr float PHYSICS_UPDATE_TIME{ 1.0f / 200.0f };
+	constexpr float PHYSICS_UPDATE_TIME{ 1.0f / 60.0f };
 
 	void Pumpkin::Initialize()
 	{
