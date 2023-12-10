@@ -90,8 +90,8 @@ namespace pmk
 		UpdateLameParameters();
 		ComputeExplicitGridForces();
 		UpdateGridVelocity(delta_time);
-		UpdateParticleDeformationGradient(delta_time);
 		GridToParticle();
+		UpdateParticleDeformationGradient(delta_time); // TODO: Might need to switch this back before G2P.
 		AdvectParticles(delta_time);
 
 		UpdateIndexBuffers();
@@ -180,6 +180,8 @@ namespace pmk
 
 	void MPMContext::ComputeExplicitGridForces()
 	{
+		const float d_inverse{ GetDInverse() };
+
 		ZoneScoped;
 		// Compute and cache computation needed for each particle.
 		auto range{ std::views::iota(0u, (uint32_t)particles_.size()) };
@@ -219,11 +221,11 @@ namespace pmk
 							continue;
 						}
 
-						sum += c.stress * GetWeightGradient(node.position, p.position);
+						sum += GetWeight(node.position, p.position) * c.stress * (node.position - p.position);
 					}
 				}
 
-				node.force = -particle_initial_volume_ * sum; // Equation (189).
+				node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
 				node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
 
 				if (std::isnan(node.force.x))
@@ -253,25 +255,15 @@ namespace pmk
 	void MPMContext::UpdateParticleDeformationGradient(float delta_time)
 	{
 		ZoneScoped;
+		const float d_inverse{ GetDInverse() };
+
 		std::for_each(
 			std::execution::par,
 			particles_.begin(),
 			particles_.end(),
 			[&](auto& p)
 			{
-				glm::mat3 sum{};
-				uint32_t node_index_count{};
-				auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
-				for (uint32_t i{ 0 }; i < node_index_count; ++i)
-				{
-					GridNode& node{ nodes_[node_indices[i]] };
-					if (node.mass == 0.0f) {
-						continue;
-					}
-					sum += glm::outerProduct(node.velocity, GetWeightGradient(node.position, p.position));
-				}
-
-				constitutive_models_[(uint32_t)p.constitutive_model_index]->UpdateDeformationGradient(&p, sum, delta_time);
+				constitutive_models_[(uint32_t)p.constitutive_model_index]->UpdateDeformationGradient(&p, d_inverse, delta_time);
 			});
 	}
 
@@ -297,7 +289,7 @@ namespace pmk
 					}
 					float w{ GetWeight(node.position, p.position) };
 					p.velocity += w * node.velocity;                                                     // Equation (175).
-					p.affine_matrix += w * glm::outerProduct(node.velocity, node.position - p.position); // Equation (176).
+					p.affine_matrix += glm::outerProduct(w * node.velocity, node.position - p.position); // Equation (176).
 				}
 			});
 	}
@@ -681,9 +673,9 @@ namespace pmk
 		p->mass = initial_volume * DENSITY;
 	}
 
-	void HyperElasticModel::UpdateDeformationGradient(MaterialPoint* p, const glm::mat3& outer_product_sum, float delta_time) const
+	void HyperElasticModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
 	{
-		p->deformation_gradient_elastic = (glm::mat3(1.0f) + delta_time * outer_product_sum) * p->deformation_gradient_elastic; // Equation (181).
+		p->deformation_gradient_elastic = (glm::mat3(1.0f) + delta_time * d_inverse * p->affine_matrix) * p->deformation_gradient_elastic; // Equation (17) from MLS-MPM. Replaces equation (181) from UCLA paper.
 	}
 
 	glm::mat3 HyperElasticModel::GetPiolaKirchoffStress(const MaterialPoint& p) const
@@ -728,9 +720,9 @@ namespace pmk
 		p->mass = initial_volume * DENSITY;
 	}
 
-	void SnowModel::UpdateDeformationGradient(MaterialPoint* p, const glm::mat3& outer_product_sum, float delta_time) const
+	void SnowModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
 	{
-		glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * outer_product_sum) * p->deformation_gradient_elastic; // Equation (181).
+		glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * p->affine_matrix) * p->deformation_gradient_elastic; // Equation (17) from MLS-MPM. Replaces equation (181) from UCLA paper.
 		glm::mat3 deformation_gradient{ tentative_elastic * p->deformation_gradient_plastic };
 
 		glm::mat3 u{};

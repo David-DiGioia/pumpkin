@@ -58,7 +58,7 @@ namespace pmk
 
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const = 0;
 
-		virtual void UpdateDeformationGradient(MaterialPoint* p, const glm::mat3& outer_product_sum, float delta_time) const = 0;
+		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const = 0;
 	};
 
 	class HyperElasticModel : public ConstitutiveModel
@@ -70,7 +70,7 @@ namespace pmk
 
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
 
-		virtual void UpdateDeformationGradient(MaterialPoint* p, const glm::mat3& outer_product_sum, float delta_time) const override;
+		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
 
 	private:
 		glm::mat3 GetPiolaKirchoffStress(const MaterialPoint& p) const;
@@ -91,7 +91,7 @@ namespace pmk
 
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
 
-		virtual void UpdateDeformationGradient(MaterialPoint* p, const glm::mat3& outer_product_sum, float delta_time) const override;
+		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
 
 	private:
 		static constexpr float YOUNGS_MODULUS{ 140000.0f };
