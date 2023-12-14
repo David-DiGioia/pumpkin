@@ -770,10 +770,7 @@ namespace pmk
 		glm::mat3 u{};
 		glm::mat3 s{};
 		glm::mat3 v{};
-		{
-			ZoneScopedN("Singular value decomposition");
-			SingularValueDecomposition(tentative_elastic, &u, &s, &v);
-		}
+		SingularValueDecomposition(tentative_elastic, &u, &s, &v);
 
 		s[0][0] = std::clamp(s[0][0], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
 		s[1][1] = std::clamp(s[1][1], 1.0f - SIGMA_C, 1.0f + SIGMA_S);

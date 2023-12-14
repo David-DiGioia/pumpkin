@@ -38,7 +38,7 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t sub_steps{ 10 };
+		constexpr uint32_t sub_steps{ 32 };
 		for (uint32_t i{ 0 }; i < sub_steps; ++i) {
 			mpm_context_.SimulateStep(delta_time / sub_steps);
 		}
