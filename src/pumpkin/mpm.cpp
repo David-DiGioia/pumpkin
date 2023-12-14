@@ -13,7 +13,6 @@
 namespace pmk
 {
 	constexpr float KERNEL_RADIUS{ 1.5f };
-	constexpr float KERNEL_RADIUS_SQUARED{ KERNEL_RADIUS * KERNEL_RADIUS };
 	constexpr uint32_t SUB_BLOCK_ROW_COUNT{ GRID_NODE_ROW_COUNT * 2u };
 	constexpr uint32_t SUB_BLOCK_COUNT{ SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT * SUB_BLOCK_ROW_COUNT };
 
@@ -49,6 +48,10 @@ namespace pmk
 		sub_block_indices_.resize(SUB_BLOCK_COUNT, NULL_INDEX);
 		nodes_.resize(GRID_NODE_COUNT);
 
+		for (ConstitutiveModel* constitutive_model : constitutive_models_) {
+			constitutive_model->Initialize(this);
+		}
+
 		float particle_width = chunk_width / CHUNK_ROW_VOXEL_COUNT;
 		particle_radius_ = 0.5f * particle_width;
 		particle_initial_volume_ = particle_width * particle_width * particle_width;
@@ -83,15 +86,13 @@ namespace pmk
 
 	void MPMContext::SimulateStep(float delta_time)
 	{
-		//PrintParticleWeights();
-
 		ParticleToGrid();
 		ComputeGridVelocities();
 		UpdateLameParameters();
 		ComputeExplicitGridForces();
 		UpdateGridVelocity(delta_time);
 		GridToParticle();
-		UpdateParticleDeformationGradient(delta_time); // TODO: Might need to switch this back before G2P.
+		UpdateParticleDeformationGradient(delta_time);
 		AdvectParticles(delta_time);
 
 		UpdateIndexBuffers();
@@ -110,11 +111,10 @@ namespace pmk
 	void MPMContext::ParticleToGrid()
 	{
 		ZoneScoped;
-		// For APIC transfer.
-		float d_inverse{ GetDInverse() };
 
 		{
 			ZoneScopedN("Precompute particle values");
+			float d_inverse{ GetDInverse() }; // For APIC transfer.
 			std::ranges::iota_view particle_range{ std::views::iota(0u, (uint32_t)particles_.size()) };
 
 			// Compute and cache computation needed for each particle.
@@ -149,7 +149,6 @@ namespace pmk
 						uint32_t current_key{ particle_indices_[range_start].key };
 						for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
 						{
-							// Doing radius check here slightly hurts performance unlike when computing the force. Probably because work here it more light weight.
 							MaterialPoint& p{ particles_[particle_indices_[j].index] };
 							ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
 
@@ -192,7 +191,7 @@ namespace pmk
 			[&](uint32_t i)
 			{
 				MaterialPoint& p{ particles_[i] };
-				particle_cache_[i].stress = constitutive_models_[(uint32_t)p.constitutive_model_index]->GetStress(p);
+				particle_cache_[i].stress = constitutive_models_[(uint32_t)p.constitutive_model_index]->GetJCauchyStress(p);
 			});
 
 		std::for_each(
@@ -217,10 +216,6 @@ namespace pmk
 					{
 						MaterialPoint& p{ particles_[particle_indices_[j].index] };
 						ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
-						if (glm::length2((p.position / GRID_SIZE) - glm::vec3{ node.coordinate }) >= KERNEL_RADIUS_SQUARED) {
-							continue;
-						}
-
 						sum += GetWeight(node.position, p.position) * c.stress * (node.position - p.position);
 					}
 				}
@@ -274,7 +269,7 @@ namespace pmk
 			std::execution::par,
 			particles_.begin(),
 			particles_.end(),
-			[&](auto& p)
+			[&](MaterialPoint& p)
 			{
 				p.velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
 				p.affine_matrix = glm::mat3{ 0.0f };
@@ -582,9 +577,7 @@ namespace pmk
 			{
 				for (uint32_t z{ z_min }; z <= z_max; ++z)
 				{
-					if (glm::length2(glm::vec3{ x, y, z } - position) < KERNEL_RADIUS_SQUARED) {
-						result[result_idx++] = GridNodeCoordinateToIndex({ x, y, z });
-					}
+					result[result_idx++] = GridNodeCoordinateToIndex({ x, y, z });
 				}
 			}
 		}
@@ -656,7 +649,12 @@ namespace pmk
 
 	// Constitutive models -------------------------------------------------------------------------------------------
 
-	glm::mat3 HyperElasticModel::GetStress(const MaterialPoint& p) const
+	void ConstitutiveModel::Initialize(MPMContext* mpm_context)
+	{
+		mpm_context_ = mpm_context;
+	}
+
+	glm::mat3 HyperElasticModel::GetJCauchyStress(const MaterialPoint& p) const
 	{
 		return GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient_elastic);
 	}
@@ -691,7 +689,51 @@ namespace pmk
 		return tmp;
 	}
 
-	glm::mat3 SnowModel::GetStress(const MaterialPoint& p) const
+	glm::mat3 FluidModel::GetJCauchyStress(const MaterialPoint& p) const
+	{
+		float density{ 0.0f };
+
+		uint32_t node_index_count{};
+		auto node_indices{ mpm_context_->GetNodeIndicesWithinRadius(p.position, &node_index_count) };
+		for (uint32_t i{ 0 }; i < node_index_count; ++i)
+		{
+			GridNode& node{ mpm_context_->nodes_[node_indices[i]] };
+			if (node.mass == 0.0f) {
+				continue;
+			}
+			float w{ mpm_context_->GetWeight(node.position, p.position) };
+			density += node.mass * w;
+		}
+
+		// stress = -pressure * I + viscosity * (velocity_gradient + velocity_gradient_transposed)
+
+		//float volume{ p.mass / density };
+		float pressure = std::max(-0.1f, EOS_STIFFNESS * (std::powf(density / REST_DENSITY, EOS_POWER) - 1.0f));
+
+		// velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
+		glm::mat3 velocity_gradient = p.affine_matrix * mpm_context_->GetDInverse();
+		glm::mat3 stress{ -pressure * glm::mat3(1.0f) + DYNAMIC_VISCOSITY * (velocity_gradient + glm::transpose(velocity_gradient)) };
+
+		// J is assumed to be 1.0f since fluid is incompressible, so no need to multiply by it.
+		return stress;
+	}
+
+	void FluidModel::UpdateLameParameters(MaterialPoint* p) const
+	{
+		// No-op.
+	}
+
+	void FluidModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
+	{
+		p->mass = initial_volume * REST_DENSITY;
+	}
+
+	void FluidModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
+	{
+		// No-op. Fluid doesn't use the deformation gradient when calculating stress.
+	}
+
+	glm::mat3 SnowModel::GetJCauchyStress(const MaterialPoint& p) const
 	{
 		glm::mat3 r{};
 		glm::mat3 s{};
@@ -699,7 +741,7 @@ namespace pmk
 		glm::mat3 lhs{ 2.0f * p.mu * p.deformation_gradient_plastic * (p.deformation_gradient_elastic - r) * glm::transpose(p.deformation_gradient_elastic) };
 
 		float je{ glm::determinant(p.deformation_gradient_elastic) };
-		glm::mat3 rhs{ p.lambda * p.deformation_gradient_plastic * (je - 1.0f) * je * glm::mat3{ 1.0f } };
+		glm::mat3 rhs{ p.lambda * p.deformation_gradient_plastic * (je - 1.0f) * je };
 		return lhs + rhs;
 	}
 
@@ -722,13 +764,16 @@ namespace pmk
 
 	void SnowModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
 	{
-		glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * p->affine_matrix) * p->deformation_gradient_elastic; // Equation (17) from MLS-MPM. Replaces equation (181) from UCLA paper.
+		glm::mat3 tentative_elastic = (glm::mat3(1.0f) + delta_time * d_inverse * p->affine_matrix) * p->deformation_gradient_elastic; // Equation (17) from MLS-MPM. Replaces equation (181) from UCLA paper.
 		glm::mat3 deformation_gradient{ tentative_elastic * p->deformation_gradient_plastic };
 
 		glm::mat3 u{};
 		glm::mat3 s{};
 		glm::mat3 v{};
-		SingularValueDecomposition(tentative_elastic, &u, &s, &v);
+		{
+			ZoneScopedN("Singular value decomposition");
+			SingularValueDecomposition(tentative_elastic, &u, &s, &v);
+		}
 
 		s[0][0] = std::clamp(s[0][0], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
 		s[1][1] = std::clamp(s[1][1], 1.0f - SIGMA_C, 1.0f + SIGMA_S);

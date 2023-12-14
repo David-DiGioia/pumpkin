@@ -1027,6 +1027,11 @@ namespace renderer
 		return materials_;
 	}
 
+	void VulkanRenderer::CreateDefaultMaterial()
+	{
+		materials_.push_back(new Material{ default_material });
+	}
+
 	void VulkanRenderer::UpdateMaterials()
 	{
 		rt_context_.UpdateMaterialBuffers(materials_, GetMaterialIndices());
@@ -1580,10 +1585,6 @@ namespace renderer
 
 	void VulkanRenderer::InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags)
 	{
-		if (materials_.empty()) {
-			materials_.push_back(new Material{ default_material });
-		}
-
 		particle_gen_context_.InvokeParticleGenShader(ro_target, out_static_particles, out_side_flags);
 	}
 

@@ -114,6 +114,8 @@ namespace renderer
 
 		std::vector<Material*>& GetMaterials();
 
+		void CreateDefaultMaterial();
+
 		void UpdateMaterials();
 
 		std::vector<const std::vector<int>*> GetMaterialIndices();

@@ -21,9 +21,9 @@ namespace SVD {
 // Threshold value
 #define _SVD_EPSILON 1e-6f
 // Iteration counts for Jacobi Eigenanlysis and reciprocal square root functions, influence precision
-#define JACOBI_STEPS 14
-#define RSQRT_STEPS 6
-#define RSQRT1_STEPS 8
+#define JACOBI_STEPS 10 // Originally 14.
+#define RSQRT_STEPS 4   // Originally 6.
+#define RSQRT1_STEPS 6  // Originally 8.
 // Used to control Denormals Are Zero and Flush To Zero settings on CPUs, surround code with these macros
 #ifndef NO_CPU_SUPPORT
 #define SET_MXCSR_REGISTER \

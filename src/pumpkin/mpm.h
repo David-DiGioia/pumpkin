@@ -31,6 +31,7 @@ namespace pmk
 	enum class ConstitutiveModelIndex : uint32_t
 	{
 		HYPER_ELASTIC,
+		FLUID,
 		SNOW,
 
 		CONSTITUTIVE_MODEL_COUNT,
@@ -49,22 +50,31 @@ namespace pmk
 		ConstitutiveModelIndex  constitutive_model_index;
 	};
 
+	class MPMContext;
+
 	class ConstitutiveModel
 	{
 	public:
-		virtual glm::mat3 GetStress(const MaterialPoint& p) const = 0;
+		void Initialize(MPMContext* mpm_context);
+
+		// Gets J * Cauchy stress, since the J would cancel out in later calculations.
+		// Or equivalently, Piola-Kirchoff stress times F^T.
+		virtual glm::mat3 GetJCauchyStress(const MaterialPoint& p) const = 0;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const = 0;
 
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const = 0;
 
 		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const = 0;
+
+	protected:
+		MPMContext* mpm_context_{};
 	};
 
 	class HyperElasticModel : public ConstitutiveModel
 	{
 	public:
-		virtual glm::mat3 GetStress(const MaterialPoint& p) const override;
+		virtual glm::mat3 GetJCauchyStress(const MaterialPoint& p) const override;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const override;
 
@@ -82,10 +92,29 @@ namespace pmk
 		static constexpr float DENSITY{ 20.0f }; // kilogram per meter cubed.
 	};
 
+	class FluidModel : public ConstitutiveModel
+	{
+	public:
+		virtual glm::mat3 GetJCauchyStress(const MaterialPoint& p) const override;
+
+		virtual void UpdateLameParameters(MaterialPoint* p) const override;
+
+		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
+
+		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
+
+	private:
+		static constexpr float REST_DENSITY{ 4.0f };      // kilogram per meter cubed.
+		static constexpr float DYNAMIC_VISCOSITY{ 0.1f };
+		static constexpr float EOS_STIFFNESS{ 10.0f };    // Tait equation of state.
+		static constexpr float EOS_POWER{ 20.0f };        // Tait equation of state.
+	};
+
+	// Takes 12+ substeps, and SVD quality parameters can be adjusted for performance / stability.
 	class SnowModel : public ConstitutiveModel
 	{
 	public:
-		virtual glm::mat3 GetStress(const MaterialPoint& p) const override;
+		virtual glm::mat3 GetJCauchyStress(const MaterialPoint& p) const override;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const override;
 
@@ -99,7 +128,7 @@ namespace pmk
 		static constexpr float MU{ CalculateMu(YOUNGS_MODULUS, POISSONS_RATIO) };
 		static constexpr float LAMBDA{ CalculateLambda(YOUNGS_MODULUS, POISSONS_RATIO) };
 		static constexpr float DENSITY{ 400.0f }; // kilogram per meter cubed.
-		static constexpr float SIGMA_C{ 0.019f };
+		static constexpr float SIGMA_C{ 0.025f };
 		static constexpr float SIGMA_S{ 0.0075f };
 		static constexpr float HARDENING_PARAMETER{ 10.0f };
 	};
@@ -191,6 +220,8 @@ namespace pmk
 
 		void PrintParticleWeights() const;
 
+		friend FluidModel;
+
 		std::vector<MaterialPoint> particles_{};
 		std::vector<ParticleCache> particle_cache_{};
 		std::vector<MaterialPointIndex> particle_indices_{}; // Contains indices into particles_, along with a key encoding the sub block coordinate.
@@ -198,6 +229,7 @@ namespace pmk
 		std::vector<GridNode> nodes_{};
 		std::array<ConstitutiveModel*, (uint32_t)ConstitutiveModelIndex::CONSTITUTIVE_MODEL_COUNT> constitutive_models_{
 			new HyperElasticModel{},
+			new FluidModel{},
 			new SnowModel{}
 		};
 

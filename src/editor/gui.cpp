@@ -705,28 +705,6 @@ void EditorGui::ParticleEditor()
 			particle_count_ = editor_->GenerateParticles();
 		}
 
-
-		if (!editor_->GetParticleSimulationEmpty())
-		{
-			ImGui::Dummy({});
-			ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
-			if (editor_->GetParticleSimulationEnabled())
-			{
-				if (ImGui::Button("Pause")) {
-					editor_->PauseParticleSimulation();
-				}
-			}
-			else
-			{
-				if (ImGui::Button("Play ")) {
-					editor_->PlayParticleSimulation();
-				}
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("Reset")) {
-				editor_->ResetParticleSimulation();
-			}
-		}
 		ImGui::Text("Particles");
 		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
 		ImGui::Text("%u", particle_count_);
@@ -739,6 +717,28 @@ void EditorGui::ParticleEditor()
 			editor_->GenerateTestParticle();
 		}
 	}
+	if (!editor_->GetParticleSimulationEmpty())
+	{
+		ImGui::Dummy({});
+		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+		if (editor_->GetParticleSimulationEnabled())
+		{
+			if (ImGui::Button("Pause")) {
+				editor_->PauseParticleSimulation();
+			}
+		}
+		else
+		{
+			if (ImGui::Button("Play ")) {
+				editor_->PlayParticleSimulation();
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Reset")) {
+			editor_->ResetParticleSimulation();
+		}
+	}
+
 
 	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 	ImGui::Text("Debug rendering");

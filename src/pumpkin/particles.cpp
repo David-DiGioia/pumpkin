@@ -38,7 +38,7 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t sub_steps{ 2 };
+		constexpr uint32_t sub_steps{ 10 };
 		for (uint32_t i{ 0 }; i < sub_steps; ++i) {
 			mpm_context_.SimulateStep(delta_time / sub_steps);
 		}
@@ -77,11 +77,15 @@ namespace pmk
 
 	bool ParticleContext::GetParticlesEmpty() const
 	{
-		return static_particles_.empty();
+		return static_particles_.empty() && mpm_context_.GetParticles().empty();
 	}
 
 	uint32_t ParticleContext::GenerateParticlesOnNode(Node* node)
 	{
+		if (renderer_->GetMaterials().empty()) {
+			renderer_->CreateDefaultMaterial();
+		}
+
 		particle_node_ = node;
 		renderer_->InvokeParticleGenShader(node->render_object, &static_particles_, &side_flags_);
 		GenerateStaticParticleMesh(node->render_object);
@@ -99,17 +103,21 @@ namespace pmk
 
 	uint32_t ParticleContext::GenerateTestParticleOnNode(Node* node)
 	{
+		if (renderer_->GetMaterials().empty()) {
+			renderer_->CreateDefaultMaterial();
+		}
+		
 		particle_node_ = node;
 		constexpr float youngs_modulus{ 10.0f };
 		constexpr float poissons_ratio{ 0.4f };
 		constexpr float mu{ CalculateMu(youngs_modulus, poissons_ratio) };
 		constexpr float lambda{ CalculateLambda(youngs_modulus, poissons_ratio) };
 		MaterialPoint mpm_particle{
-			.mass = .01f,
+			.mass = 1.0f,
 			.mu = mu,
 			.lambda = lambda,
 			.position = glm::vec3{0.321932f, 0.452119f, 0.434341f},
-			.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
+			.velocity = glm::vec3{0.0f, 5.0f, 0.0f},
 			.affine_matrix = glm::mat3{0.0f},
 			.deformation_gradient_elastic = glm::mat3{1.0f},
 			.deformation_gradient_plastic = glm::mat3{1.0f},
@@ -123,7 +131,9 @@ namespace pmk
 		PhysicsUpdate(1.0f / 60.0f);
 		update_physics_ = false;
 
-		GenerateDynamicParticleMesh(node->render_object, mpm_particles);
+		GenerateDynamicParticleMesh(node->render_object, mpm_context_.GetParticles());
+		renderer_->UpdateMaterials();
+
 		return 1;
 	}
 
@@ -148,7 +158,7 @@ namespace pmk
 				.affine_matrix = glm::mat3{0.0f},
 				.deformation_gradient_elastic = glm::mat3{1.0f},
 				.deformation_gradient_plastic = glm::mat3{1.0f},
-				.constitutive_model_index = ConstitutiveModelIndex::HYPER_ELASTIC,
+				.constitutive_model_index = ConstitutiveModelIndex::SNOW,
 			};
 
 			mpm_particles.push_back(mpm_particle);
