@@ -214,9 +214,15 @@ namespace renderer
 	class VulkanUtil
 	{
 	public:
+		struct FrameResources;
+
 		void Initialize(Context* context, Allocator* alloc);
 
 		void TransferBufferToDevice(const void* host_buffer, uint32_t size, BufferResource& device_buffer);
+
+		// Like TransferBufferToDevice(...) but recording to the graphics command buffer cmd.
+		// Useful to prevent needing CPU to wait on command to finish to be used in graphics pipeline.
+		void TransferBufferToDeviceGraphicsCmd(VkCommandBuffer cmd, const void* host_buffer, uint32_t size, BufferResource& device_buffer);
 
 		// Use staging buffer to transfer host memory to DEVICE_LOCAL buffer.
 		template <typename T>
@@ -261,12 +267,28 @@ namespace renderer
 		// Call this to submit all commands and wait for them to finish.
 		void Submit();
 
+		void NextFrame();
+
+		FrameResources& GetCurrentFrame();
+
 	private:
 		struct QueuedHostCopy
 		{
 			BufferResource staging_buffer;
 			void* dst;
 		};
+
+		struct FrameResources
+		{
+			std::vector<BufferResource> graphics_destroy_queue_{}; // Graphics staging buffers from previous frame are destroyed.
+		};
+
+		void TransferBufferToDeviceImpl(
+			VkCommandBuffer cmd,
+			std::vector<BufferResource>& destroy_queue,
+			const void* host_buffer,
+			uint32_t size,
+			BufferResource& device_buffer);
 
 		Context* context_{};
 		Allocator* alloc_{};
@@ -275,6 +297,9 @@ namespace renderer
 		std::vector<BufferResource> destroy_queue_{};   // Staging buffers are destroyed after each submit.
 		std::vector<QueuedHostCopy> host_copy_queue_{}; // Staging buffers that need to be copied to the host after queue submission.
 		VkFence fence_{};
+
+		uint32_t current_frame_{};
+		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 	};
 
 	template <typename T>

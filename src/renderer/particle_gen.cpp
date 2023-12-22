@@ -16,6 +16,13 @@ namespace renderer
 	constexpr uint32_t PARTICLE_NEIGHBOR_DESCRIPTOR_SET{ 0 };
 	constexpr uint32_t PARTICLE_NEIGHBOR_IN_PARTICLE_SSBO_BINDING{ 0 };
 	constexpr uint32_t PARTICLE_NEIGHBOR_OUT_NEIGHBOR_SSBO_BINDING{ 1 };
+	// Particle mesh generation shader descriptor set.
+	constexpr uint32_t PARTICLE_MESH_DESCRIPTOR_SET{ 0 };
+	constexpr uint32_t PARTICLE_MESH_IN_POSITIONS_BINDING{ 0 };
+	constexpr uint32_t PARTICLE_MESH_OUT_VERTICES_BINDING{ 1 };
+	constexpr uint32_t PARTICLE_MESH_OUT_INDICES_BINDING{ 2 };
+	constexpr uint32_t PARTICLE_MESH_UBO_BINDING{ 3 };
+
 
 	glm::uvec3 ParticleIndexToCoordinate(uint32_t index)
 	{
@@ -40,6 +47,7 @@ namespace renderer
 
 		InitializeParticleGenShaderResources();
 		InitializeParticleNeighborsShaderResources();
+		InitializeParticleMeshShaderResources();
 	}
 
 	void ParticleGenContext::CleanUp()
@@ -250,6 +258,88 @@ namespace renderer
 		NameObject(context_->device, particle_neighbors_.pipeline.layout, "Particle_Neighbor_Pipeline_Layout");
 	}
 
+	void ParticleGenContext::InitializeParticleMeshShaderResources()
+	{
+		// Make descriptor set layout.
+		VkDescriptorSetLayoutBinding positions_in_ssbo{
+			.binding = PARTICLE_MESH_IN_POSITIONS_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding vertices_out_ssbo{
+			.binding = PARTICLE_MESH_OUT_VERTICES_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding indices_out_ssbo{
+			.binding = PARTICLE_MESH_OUT_INDICES_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		VkDescriptorSetLayoutBinding ubo{
+			.binding = PARTICLE_MESH_OUT_INDICES_BINDING,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.pImmutableSamplers = nullptr,
+		};
+
+		std::vector<VkDescriptorSetLayoutBinding> layout_bindings{
+			positions_in_ssbo,
+			vertices_out_ssbo,
+			indices_out_ssbo,
+			ubo,
+		};
+
+		particle_mesh_.layout_resource = renderer_->descriptor_allocator_.CreateDescriptorSetLayoutResource(layout_bindings, 0);
+		NameObject(context_->device, particle_mesh_.layout_resource.layout, "Particle_Mesh_Set_Layout");
+
+		for (ParticleGenContext::FrameResources& frame : frame_resources_)
+		{
+			// Make descriptor set.
+			frame.particle_mesh.descriptor_set_resource = renderer_->descriptor_allocator_.CreateDescriptorSetResource(particle_mesh_.layout_resource);
+			NameObject(context_->device, frame.particle_mesh.descriptor_set_resource.descriptor_set, "Particle_Mesh_Set");
+
+			// Create and link UBO buffer.
+			frame.particle_mesh.ubo_buffer = renderer_->allocator_.CreateBufferResource(
+				sizeof(ParticleMeshFrameShaderResources::UBO),
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+			NameObject(context_->device, frame.particle_mesh.ubo_buffer.buffer, "Particle_Mesh_Ubo_Buffer");
+			frame.particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_UBO_BINDING, frame.particle_mesh.ubo_buffer);
+		}
+
+		// Buffers for positions, vertices, and indices will need to be made dynamically later based on the number of particles.
+
+		// Make the compute pipeline.
+		std::vector<DescriptorSetLayoutResource> compute_layouts{
+			particle_mesh_.layout_resource,
+		};
+
+		particle_mesh_.pipeline.Initialize(context_, compute_layouts, {}, SPIRV_PREFIX / "generate_dynamic_particle_mesh.comp.spv");
+		NameObject(context_->device, particle_mesh_.pipeline.pipeline, "Particle_Mesh_Pipeline");
+		NameObject(context_->device, particle_mesh_.pipeline.layout, "Particle_Mesh_Pipeline_Layout");
+	}
+
+	void ParticleGenContext::NextFrame()
+	{
+		current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
+	}
+
+	ParticleGenContext::FrameResources& ParticleGenContext::GetCurrentFrame()
+	{
+		return frame_resources_[current_frame_];
+	}
+
 	void ParticleGenContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
 	{
 		ZoneScoped;
@@ -307,6 +397,59 @@ namespace renderer
 			ZoneScopedN("Replace render object");
 			renderer_->ReplaceRenderObject(ro_target, mesh);
 		}
+	}
+
+	void ParticleGenContext::QueueGenerateDynamicParticleMesh(VkCommandBuffer cmd, RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
+	{
+		const uint32_t position_buffer_size{ stride * position_count };
+
+		// Create or resize particle in/out buffers if necessary.
+		renderer_->allocator_.ExpandOrReuseBuffer(
+			(uint64_t)position_buffer_size,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			GetCurrentFrame().particle_mesh.positions_in);
+
+		renderer_->allocator_.ExpandOrReuseBuffer(
+			sizeof(Vertex) * position_count,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			GetCurrentFrame().particle_mesh.vertices_out);
+
+		renderer_->allocator_.ExpandOrReuseBuffer(
+			sizeof(uint32_t) * position_count,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			GetCurrentFrame().particle_mesh.indices_out);
+
+		// Copy position data to GPU buffer.
+		renderer_->vulkan_util_.TransferBufferToDeviceGraphicsCmd(cmd, positions, position_buffer_size, GetCurrentFrame().particle_mesh.positions_in);
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			particle_mesh_.pipeline.layout,
+			PARTICLE_MESH_DESCRIPTOR_SET,
+			1,
+			&GetCurrentFrame().particle_mesh.descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_mesh_.pipeline.pipeline);
+		constexpr uint32_t group_count{ 64 };
+		uint32_t group_count{ (position_count + 1) / group_count };
+		vkCmdDispatch(cmd, group_count, 1, 1);
+
+		PipelineBarrier(
+			cmd,
+			GetCurrentFrame().particle_mesh.vertices_out.buffer,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+		PipelineBarrier(
+			cmd,
+			GetCurrentFrame().particle_mesh.indices_out.buffer,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 	}
 
 	std::vector<glm::vec3> StaticParticleToPositions(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags)

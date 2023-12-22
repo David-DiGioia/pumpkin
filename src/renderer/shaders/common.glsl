@@ -1,3 +1,14 @@
+// Must be aligned to 16.
+struct Vertex
+{
+	vec4 position;
+	vec4 normal;
+	vec4 tangent;
+	vec2 tex_coord;
+	float[2] padding;
+};
+
+
 struct HitPayload
 {
 	vec3 radiance;

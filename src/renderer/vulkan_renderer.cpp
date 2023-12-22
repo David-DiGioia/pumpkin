@@ -724,6 +724,8 @@ namespace renderer
 	void VulkanRenderer::NextFrame()
 	{
 		current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
+		vulkan_util_.NextFrame();
+		particle_gen_context_.NextFrame();
 	}
 
 	VulkanRenderer::FrameResources& VulkanRenderer::GetCurrentFrame()

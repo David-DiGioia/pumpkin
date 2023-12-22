@@ -89,6 +89,8 @@ namespace renderer
 	class ParticleGenContext
 	{
 	public:
+		struct FrameResources;
+
 		void Initialize(Context* context, VulkanRenderer* renderer);
 
 		void CleanUp();
@@ -107,18 +109,26 @@ namespace renderer
 		// Get the index data for a single particle, eg a cube.
 		std::vector<uint32_t> GetParticleIndices() const;
 
-		// TODO: Implement device version of this.
 		// Generates triangles for each individual particle as a cube.
 		// Positions should be an array of glm::vec3 with arbitrary stride between each. Stride is in bytes.
 		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
+		
+		// Offset and stride must be multiples of 4.
+		void QueueGenerateDynamicParticleMesh(VkCommandBuffer cmd, RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
 		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
+
+		void NextFrame();
 
 	private:
 		void InitializeParticleGenShaderResources();
 
 		void InitializeParticleNeighborsShaderResources();
+
+		void InitializeParticleMeshShaderResources();
+
+		FrameResources& GetCurrentFrame();
 
 		struct ParticleGenShaderResources
 		{
@@ -144,7 +154,39 @@ namespace renderer
 			ComputePipeline pipeline;
 		}particle_neighbors_{};
 
+		struct ParticleMeshGlobalShaderResources
+		{
+			DescriptorSetLayoutResource layout_resource;   // Layout resource for user-defined particle shaders.
+			ComputePipeline pipeline;
+		}particle_mesh_{};
+
+		struct ParticleMeshFrameShaderResources
+		{
+			struct UBO
+			{
+				Vertex cube_vertices[24];
+				uint32_t cube_indices[36];
+				uint32_t position_stride_dword; // Byte stride divided by 4.
+				uint32_t position_offset_dword; // Byte offset divided by 4.
+				uint32_t position_count;
+			};
+
+			DescriptorSetResource descriptor_set_resource; // Descriptor set resource for user-defined particle gen shader.
+			BufferResource positions_in;                   // Non-packed position data of dynamic particles.
+			BufferResource vertices_out;                   // Out vertex data for particle mesh.
+			BufferResource indices_out;                    // Out index data for particle mesh.
+			BufferResource ubo_buffer;                     // UBO containing cube vertex data and position data.
+		};
+
+		struct FrameResources
+		{
+			ParticleMeshFrameShaderResources particle_mesh; // Frame resource since particle position data needs to be double buffered.
+		};
+
 		Context* context_{};
 		VulkanRenderer* renderer_{};
+
+		uint32_t current_frame_{};
+		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 	};
 }

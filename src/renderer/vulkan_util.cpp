@@ -315,25 +315,12 @@ namespace renderer
 
 	void VulkanUtil::TransferBufferToDevice(const void* host_buffer, uint32_t size, BufferResource& device_buffer)
 	{
-		BufferResource staging{ alloc_->CreateBufferResource(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
-		NameObject(context_->device, staging.buffer, std::string{ "Vulkan_Util_Transfer_To_Device_Staging_Buffer" });
+		TransferBufferToDeviceImpl(cmd_, destroy_queue_, host_buffer, size, device_buffer);
+	}
 
-		// Copy data to staging buffer.
-		void* data{};
-		vkMapMemory(context_->device, *staging.memory, staging.offset, staging.size, 0, &data);
-		memcpy(data, host_buffer, staging.size);
-		vkUnmapMemory(context_->device, *staging.memory);
-
-		// Transfer from staging to device.
-		VkBufferCopy buffer_copy{
-			.srcOffset = 0,
-			.dstOffset = 0,
-			.size = staging.size,
-		};
-
-		vkCmdCopyBuffer(cmd_, staging.buffer, device_buffer.buffer, 1, &buffer_copy);
-
-		destroy_queue_.push_back(staging);
+	void VulkanUtil::TransferBufferToDeviceGraphicsCmd(VkCommandBuffer cmd, const void* host_buffer, uint32_t size, BufferResource& device_buffer)
+	{
+		TransferBufferToDeviceImpl(cmd, GetCurrentFrame().graphics_destroy_queue_, host_buffer, size, device_buffer);
 	}
 
 	void VulkanUtil::TransferBufferToHost(void* host_buffer, uint32_t size, const BufferResource& device_buffer)
@@ -497,5 +484,44 @@ namespace renderer
 
 		result = vkResetCommandPool(context_->device, command_pool_, 0);
 		CheckResult(result, "Error resetting VulkanUtil command pool.");
+	}
+
+	void VulkanUtil::NextFrame()
+	{
+		current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
+
+		// Destroy all the temporary buffers from the last time we had this frame index.
+		for (BufferResource& resource : GetCurrentFrame().graphics_destroy_queue_) {
+			alloc_->DestroyBufferResource(&resource);
+		}
+		GetCurrentFrame().graphics_destroy_queue_.clear();
+
+	}
+
+	VulkanUtil::FrameResources& VulkanUtil::GetCurrentFrame()
+	{
+		return frame_resources_[current_frame_];
+	}
+
+	void VulkanUtil::TransferBufferToDeviceImpl(VkCommandBuffer cmd, std::vector<BufferResource>& destroy_queue, const void* host_buffer, uint32_t size, BufferResource& device_buffer)
+	{
+		BufferResource staging{ alloc_->CreateBufferResource(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
+		NameObject(context_->device, staging.buffer, "Vulkan_Util_Transfer_To_Device_Staging_Buffer");
+
+		// Copy data to staging buffer.
+		void* data{};
+		vkMapMemory(context_->device, *staging.memory, staging.offset, staging.size, 0, &data);
+		memcpy(data, host_buffer, staging.size);
+		vkUnmapMemory(context_->device, *staging.memory);
+
+		// Transfer from staging to device.
+		VkBufferCopy buffer_copy{
+			.srcOffset = 0,
+			.dstOffset = 0,
+			.size = staging.size,
+		};
+
+		vkCmdCopyBuffer(cmd, staging.buffer, device_buffer.buffer, 1, &buffer_copy);
+		destroy_queue.push_back(staging);
 	}
 }

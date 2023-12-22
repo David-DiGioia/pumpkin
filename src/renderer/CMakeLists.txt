@@ -76,6 +76,7 @@ COMPILE_SHADER("raycast.rgen")
 COMPILE_SHADER("raycast.rchit")
 COMPILE_SHADER("raycast.rmiss")
 COMPILE_SHADER("particle_neighbors.comp")
+COMPILE_SHADER("generate_dynamic_particle_mesh.comp")
 HEADER_SHADER("common.glsl")
 
 add_custom_target(
