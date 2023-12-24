@@ -59,6 +59,8 @@ namespace renderer
 		glm::vec3 position;
 	};
 
+	std::vector<uint32_t>&& GetGeometryPrimitiveCounts(const std::vector<Geometry>& geometries);
+
 	// Utility for building the shader binding table.
 	// Step 1: Initialize and add all the shader groups.
 	// Step 2: Create the ray tracing pipeline using shader stages and groups from GetShaderStages() and GetGroups() respectively.
@@ -122,8 +124,13 @@ namespace renderer
 
 		void CleanUp();
 
-		// Saves address of mesh BLAS without build data that will be populated after CmdBuildQueuedBlases(...) is called.
+		// Saves address of BLAS without build data that will be populated after CmdBuildQueuedBlases(...) is called.
 		// The build data will not be present in the BLAS buffer until after CmdBuildQueuedBlases(...) is called and the queue is submitted.
+		void QueueBlas(
+			AccelerationStructure* blas,
+			std::vector<VkAccelerationStructureGeometryKHR>&& vk_geometries,
+			std::vector<uint32_t>&& primitive_counts);
+
 		void QueueBlas(Mesh* mesh);
 
 		// Returns empty TLAS without build data that will be populated after CmdBuildQueuedTlases(...) is called.
@@ -173,11 +180,17 @@ namespace renderer
 
 		VkAccelerationStructureGeometryKHR PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const;
 
+		std::vector<VkAccelerationStructureGeometryKHR> PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries) const;
+
 		void CreateAccelerationStructure(VkDeviceSize acceleration_structure_size, bool top_level, AccelerationStructure* out_blas) const;
 
-		VkAccelerationStructureBuildSizesInfoKHR GetAccelerationStructureBuildSizes(const VkAccelerationStructureBuildGeometryInfoKHR& build_info, const std::vector<Geometry>& geometries) const;
+		VkAccelerationStructureBuildSizesInfoKHR GetAccelerationStructureBuildSizes(
+			const VkAccelerationStructureBuildGeometryInfoKHR& build_info,
+			const std::vector<uint32_t>& primitive_counts) const;
 
-		VkAccelerationStructureBuildSizesInfoKHR GetAccelerationStructureBuildSizes(const VkAccelerationStructureBuildGeometryInfoKHR& build_info, uint32_t instance_count) const;
+		VkAccelerationStructureBuildSizesInfoKHR GetAccelerationStructureBuildSizes(
+			const VkAccelerationStructureBuildGeometryInfoKHR& build_info,
+			uint32_t instance_count) const;
 
 		BufferResource UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances);
 
@@ -202,7 +215,8 @@ namespace renderer
 			// Allocate BLAS when it's added to queue so we can return that to caller to associate with the mesh, even though it won't yet be built.
 			AccelerationStructure* blas;
 			// The actual geometry data needed for the BLAS.
-			const std::vector<Geometry>* geometries;
+			const std::vector<VkAccelerationStructureGeometryKHR> vk_geometries;
+			std::vector<uint32_t> primitive_counts;
 		};
 
 		struct QueuedTlasBuildInfo

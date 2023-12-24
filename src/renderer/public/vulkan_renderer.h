@@ -79,7 +79,9 @@ namespace renderer
 		RenderObjectHandle CreateBlankRenderObject();
 
 		// Doesn't take mesh index since it reuses the mesh index that the previous render object used.
-		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh);
+		// If build_blas is true, then BLAS will be built in this function call and will block until it's finished.
+		// Otherwise, the BLAS build can be recorded to the graphics command buffer prior to calling this function.
+		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, bool build_blas);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 

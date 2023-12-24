@@ -1210,9 +1210,11 @@ namespace renderer
 		return (RenderObjectHandle)(frame_resources_[0].render_objects.size() - 1);
 	}
 
-	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh)
+	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, bool build_blas)
 	{
-		ZoneScopedN("Build BLAS");
+		ZoneScopedN("Replace render object");
+
+		if (build_blas)
 		{
 			// Upload mesh and build BLAS.
 			VkCommandBuffer cmd{ vulkan_util_.Begin() };
@@ -1221,7 +1223,7 @@ namespace renderer
 				cmd,
 				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 				VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
-
+		
 			rt_context_.QueueBlas(mesh);
 			rt_context_.CmdBuildQueuedBlases(cmd);
 			vulkan_util_.Submit();

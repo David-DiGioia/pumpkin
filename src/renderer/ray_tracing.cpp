@@ -25,6 +25,17 @@ namespace renderer
 	constexpr uint32_t RAYCASTS_BUFFER_BINDING{ 1 };
 	constexpr uint32_t RAYHITS_BUFFER_BINDING{ 2 };
 
+	std::vector<uint32_t>&& GetGeometryPrimitiveCounts(const std::vector<Geometry>& geometries)
+	{
+		// Get number of triangles in each geometry.
+		std::vector<uint32_t> max_primitive_counts(geometries.size());
+		std::transform(geometries.begin(), geometries.end(), max_primitive_counts.begin(),
+			[](const Geometry& x) {
+				return x.indices.size() / 3;
+			});
+		return std::move(max_primitive_counts);
+	}
+
 	void RayTracingContext::Initialize(Context* context,
 		VulkanRenderer* renderer,
 		Allocator* allocator,
@@ -83,13 +94,22 @@ namespace renderer
 		descriptor_allocator_->DestroyDescriptorSetLayoutResource(&raycast_descriptor_set_layout_resource_);
 	}
 
-	void RayTracingContext::QueueBlas(Mesh* mesh)
+	void RayTracingContext::QueueBlas(
+		AccelerationStructure* blas,
+		std::vector<VkAccelerationStructureGeometryKHR>&& vk_geometries,
+		std::vector<uint32_t>&& primitive_counts)
 	{
 		QueuedBlasBuildInfo build_info{
-			.blas = &mesh->blas, // This BLAS will be populated later when build command is called.
-			.geometries = &mesh->geometries,
+			.blas = blas, // This BLAS will be populated later when build command is called.
+			.vk_geometries = std::move(vk_geometries),
+			.primitive_counts = std::move(primitive_counts),
 		};
 		queued_blas_build_infos_.push_back(build_info);
+	}
+
+	void RayTracingContext::QueueBlas(Mesh* mesh)
+	{
+		QueueBlas(&mesh->blas, PumpkinTriGeometriesToVulkanGeometries(mesh->geometries), GetGeometryPrimitiveCounts(mesh->geometries));
 	}
 
 	AccelerationStructure* RayTracingContext::QueueTlas(const std::vector<RenderObject*>& render_objects)
@@ -127,14 +147,12 @@ namespace renderer
 		for (const QueuedBlasBuildInfo& build_info : queued_blas_build_infos_)
 		{
 			std::vector<VkAccelerationStructureBuildRangeInfoKHR>& geometry_range_infos{ build_range_infos.emplace_back() };
-			std::vector<VkAccelerationStructureGeometryKHR>& vk_geometries{ all_vk_geometries.emplace_back() };
+			all_vk_geometries.push_back(build_info.vk_geometries);
 
-			for (const Geometry& pmk_geometry : *build_info.geometries)
+			for (uint32_t primitive_count : build_info.primitive_counts)
 			{
-				vk_geometries.push_back(PumpkinTriGeometryToVulkanGeometry(pmk_geometry));
-
 				VkAccelerationStructureBuildRangeInfoKHR range_info{
-					.primitiveCount = (uint32_t)(pmk_geometry.indices.size() / 3),
+					.primitiveCount = primitive_count,
 					.primitiveOffset = 0,
 					.firstVertex = 0,
 					.transformOffset = 0,
@@ -150,19 +168,19 @@ namespace renderer
 				.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
 				.srcAccelerationStructure = VK_NULL_HANDLE,
 				.dstAccelerationStructure = VK_NULL_HANDLE, // Populate this after getting acceleration structure size.
-				.geometryCount = (uint32_t)vk_geometries.size(),
-				.pGeometries = vk_geometries.data(),
+				.geometryCount = (uint32_t)build_info.vk_geometries.size(),
+				.pGeometries = build_info.vk_geometries.data(),
 				.scratchData = {}, // Populate this after getting scratch buffer size.
 			};
 
-			VkAccelerationStructureBuildSizesInfoKHR build_sizes{ GetAccelerationStructureBuildSizes(blas_build_info, *build_info.geometries) };
+			VkAccelerationStructureBuildSizesInfoKHR build_sizes{ GetAccelerationStructureBuildSizes(blas_build_info, build_info.primitive_counts) };
 
 			BufferResource scratch_buffer{ allocator_->CreateAlignedBufferResource(
 				build_sizes.buildScratchSize, acceleration_structure_properties_.minAccelerationStructureScratchOffsetAlignment,
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
 			scratch_buffers_.push_back(scratch_buffer);
-			std::string blas_name{ std::string{"Blas_"} + NameMesh(*build_info.geometries) };
+			std::string blas_name{ std::string{"Blas"} };
 			NameObject(context_->device, scratch_buffer.buffer, blas_name + "_Scratch_Buffer");
 
 			// We must create the BLAS before we can build it.
@@ -564,6 +582,16 @@ namespace renderer
 		return vk_geometry;
 	}
 
+	std::vector<VkAccelerationStructureGeometryKHR> RayTracingContext::PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries) const
+	{
+		std::vector<VkAccelerationStructureGeometryKHR> vk_geometries{};
+		vk_geometries.resize(pmk_geometries.size());
+		for (const Geometry& pmk_geometry : pmk_geometries) {
+			vk_geometries.push_back(PumpkinTriGeometryToVulkanGeometry(pmk_geometry));
+		}
+		return vk_geometries;
+	}
+
 	void RayTracingContext::CreateAccelerationStructure(VkDeviceSize acceleration_structure_size, bool top_level, AccelerationStructure* out_acceleration_structure) const
 	{
 		out_acceleration_structure->buffer_resource = allocator_->CreateBufferResource(acceleration_structure_size,
@@ -584,27 +612,24 @@ namespace renderer
 		CheckResult(result, "Failed to create acceleration structure.");
 	}
 
-	VkAccelerationStructureBuildSizesInfoKHR RayTracingContext::GetAccelerationStructureBuildSizes(const VkAccelerationStructureBuildGeometryInfoKHR& build_info, const std::vector<Geometry>& geometries) const
+	VkAccelerationStructureBuildSizesInfoKHR RayTracingContext::GetAccelerationStructureBuildSizes(
+		const VkAccelerationStructureBuildGeometryInfoKHR& build_info,
+		const std::vector<uint32_t>& primitive_counts) const
 	{
 		VkAccelerationStructureBuildSizesInfoKHR build_sizes_info{
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
 			.accelerationStructureSize = 0, // Out variable.
-			.updateScratchSize = 0, // Out variable.
-			.buildScratchSize = 0, // Out variable.
+			.updateScratchSize = 0,         // Out variable.
+			.buildScratchSize = 0,          // Out variable.
 		};
 
-		// Get number of triangles in each geometry.
-		std::vector<uint32_t> max_primitive_counts(geometries.size());
-		std::transform(geometries.begin(), geometries.end(), max_primitive_counts.begin(),
-			[](const Geometry& x) {
-				return x.indices.size() / 3;
-			});
-
-		vkGetAccelerationStructureBuildSizesKHR(context_->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &build_info, max_primitive_counts.data(), &build_sizes_info);
+		vkGetAccelerationStructureBuildSizesKHR(context_->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &build_info, primitive_counts.data(), &build_sizes_info);
 		return build_sizes_info;
 	}
 
-	VkAccelerationStructureBuildSizesInfoKHR RayTracingContext::GetAccelerationStructureBuildSizes(const VkAccelerationStructureBuildGeometryInfoKHR& build_info, uint32_t instance_count) const
+	VkAccelerationStructureBuildSizesInfoKHR RayTracingContext::GetAccelerationStructureBuildSizes(
+		const VkAccelerationStructureBuildGeometryInfoKHR& build_info,
+		uint32_t instance_count) const
 	{
 		VkAccelerationStructureBuildSizesInfoKHR build_sizes_info{
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,

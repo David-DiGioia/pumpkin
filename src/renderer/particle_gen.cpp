@@ -395,7 +395,7 @@ namespace renderer
 
 		{
 			ZoneScopedN("Replace render object");
-			renderer_->ReplaceRenderObject(ro_target, mesh);
+			renderer_->ReplaceRenderObject(ro_target, mesh, true);
 		}
 	}
 
@@ -435,8 +435,8 @@ namespace renderer
 			0,
 			nullptr);
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_mesh_.pipeline.pipeline);
-		constexpr uint32_t group_count{ 64 };
-		uint32_t group_count{ (position_count + 1) / group_count };
+		constexpr uint32_t group_size{ 64 };
+		uint32_t group_count{ (position_count + 1) / group_size };
 		vkCmdDispatch(cmd, group_count, 1, 1);
 
 		PipelineBarrier(
@@ -450,6 +450,33 @@ namespace renderer
 			GetCurrentFrame().particle_mesh.indices_out.buffer,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+		constexpr uint32_t CUBE_VERTEX_COUNT{ 24 };
+		constexpr uint32_t MAX_CUBE_INDEX{ 23 };
+		const uint32_t max_index{ (position_count - 1) * CUBE_VERTEX_COUNT + MAX_CUBE_INDEX };
+
+		VkAccelerationStructureGeometryKHR vk_geometry{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+			.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+			.geometry = {
+				.triangles = {
+					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+					.vertexData = DeviceAddress(context_->device, GetCurrentFrame().particle_mesh.vertices_out.buffer),
+					.vertexStride = sizeof(Vertex),
+					.maxVertex = max_index,
+					.indexType = std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16,
+					.indexData = DeviceAddress(context_->device, GetCurrentFrame().particle_mesh.indices_out.buffer),
+					.transformData = {},
+				}
+			},
+			.flags = 0,
+		};
+
+		Mesh* mesh{ new Mesh{} };
+		renderer_->rt_context_.QueueBlas(&mesh->blas, { vk_geometry }, { max_index });
+		renderer_->rt_context_.CmdBuildQueuedBlases(cmd);
+		renderer_->ReplaceRenderObject(ro_target, mesh, false);
 	}
 
 	std::vector<glm::vec3> StaticParticleToPositions(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags)
@@ -490,7 +517,7 @@ namespace renderer
 
 		StaticParticleMeshGenerator gen{};
 		Mesh* mesh{ gen.Generate(particles, side_flags) };
-		renderer_->ReplaceRenderObject(ro_target, mesh);
+		renderer_->ReplaceRenderObject(ro_target, mesh, true);
 	}
 
 	std::vector<Vertex> ParticleGenContext::GetParticleVertices() const
