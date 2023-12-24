@@ -190,7 +190,7 @@ namespace pmk
 	void ParticleContext::GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, const std::vector<MaterialPoint>& particles) const
 	{
 		const std::byte* particle_buffer{ (const std::byte*)particles.data() };
-		renderer_->GenerateDynamicParticleMesh(ro_target, particle_buffer, (uint32_t)particles.size(), offsetof(MaterialPoint, position), sizeof(MaterialPoint));
+		renderer_->QueueGenerateDynamicParticleMesh(ro_target, particle_buffer, (uint32_t)particles.size(), offsetof(MaterialPoint, position), sizeof(MaterialPoint));
 
 #ifdef EDITOR_ENABLED
 		if (generate_mpm_particle_instances_) {

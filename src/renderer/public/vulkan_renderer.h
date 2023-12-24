@@ -55,6 +55,9 @@ namespace renderer
 		// Generates triangles for each individual particle as a cube.
 		// Positions should be an array of glm::vec3 with arbitrary stride between each. Stride is in bytes.
 		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
+		
+		// Record commands to generate dynamic particle mesh in graphics queue, and replace the target render object.
+		void QueueGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
 		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
