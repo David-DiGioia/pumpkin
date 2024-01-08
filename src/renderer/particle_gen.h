@@ -113,8 +113,16 @@ namespace renderer
 		// Positions should be an array of glm::vec3 with arbitrary stride between each. Stride is in bytes.
 		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
 		
+		void CmdBegin();
+
 		// Offset and stride must be multiples of 4.
-		void QueueGenerateDynamicParticleMesh(VkCommandBuffer cmd, RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
+		void CmdGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
+
+		void CmdSubmit();
+
+		bool CommandsRecordedThisFrame();
+
+		void ResetLastFramesCommandBuffer();
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
 		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
@@ -127,6 +135,8 @@ namespace renderer
 		void InitializeParticleNeighborsShaderResources();
 
 		void InitializeParticleMeshShaderResources();
+
+		void InitializeCommandBuffers();
 
 		FrameResources& GetCurrentFrame();
 
@@ -181,6 +191,7 @@ namespace renderer
 		struct FrameResources
 		{
 			ParticleMeshFrameShaderResources particle_mesh; // Frame resource since particle position data needs to be double buffered.
+			VkCommandBuffer command_buffer;                 // Command buffer that particle mesh creation is recorded into.
 		};
 
 		Context* context_{};
@@ -188,5 +199,7 @@ namespace renderer
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
+
+		bool commands_recorded_{};
 	};
 }

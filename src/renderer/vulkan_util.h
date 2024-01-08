@@ -220,9 +220,9 @@ namespace renderer
 
 		void TransferBufferToDevice(const void* host_buffer, uint32_t size, BufferResource& device_buffer);
 
-		// Like TransferBufferToDevice(...) but recording to the graphics command buffer cmd.
+		// Like TransferBufferToDevice(...) but recording to a custom command buffer cmd.
 		// Useful to prevent needing CPU to wait on command to finish to be used in graphics pipeline.
-		void TransferBufferToDeviceGraphicsCmd(VkCommandBuffer cmd, const void* host_buffer, uint32_t size, BufferResource& device_buffer);
+		void TransferBufferToDeviceCmd(VkCommandBuffer cmd, const void* host_buffer, uint32_t size, BufferResource& device_buffer);
 
 		// Use staging buffer to transfer host memory to DEVICE_LOCAL buffer.
 		template <typename T>

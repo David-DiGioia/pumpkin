@@ -31,6 +31,7 @@ namespace pmk
 		physics_time_accumulator_ += delta_time_;
 		if (physics_time_accumulator_ >= PHYSICS_UPDATE_TIME)
 		{
+			renderer_.CmdBeginParticleCommandBuffer();
 			scene_.ParticlePhysicsUpdate(PHYSICS_UPDATE_TIME);
 			physics_time_accumulator_ = 0.0f;
 		}

@@ -48,6 +48,7 @@ namespace renderer
 		InitializeParticleGenShaderResources();
 		InitializeParticleNeighborsShaderResources();
 		InitializeParticleMeshShaderResources();
+		InitializeCommandBuffers();
 	}
 
 	void ParticleGenContext::CleanUp()
@@ -286,7 +287,7 @@ namespace renderer
 		};
 
 		VkDescriptorSetLayoutBinding ubo{
-			.binding = PARTICLE_MESH_OUT_INDICES_BINDING,
+			.binding = PARTICLE_MESH_UBO_BINDING,
 			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			.descriptorCount = 1,
 			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -312,7 +313,7 @@ namespace renderer
 			// Create and link UBO buffer.
 			frame.particle_mesh.ubo_buffer = renderer_->allocator_.CreateBufferResource(
 				sizeof(ParticleMeshFrameShaderResources::UBO),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 			NameObject(context_->device, frame.particle_mesh.ubo_buffer.buffer, "Particle_Mesh_Ubo_Buffer");
 			frame.particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_UBO_BINDING, frame.particle_mesh.ubo_buffer);
@@ -330,9 +331,27 @@ namespace renderer
 		NameObject(context_->device, particle_mesh_.pipeline.layout, "Particle_Mesh_Pipeline_Layout");
 	}
 
+	void ParticleGenContext::InitializeCommandBuffers()
+	{
+		VkCommandBufferAllocateInfo allocate_info{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+			.commandPool = renderer_->command_pool_,
+			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			.commandBufferCount = 1,
+		};
+
+		for (FrameResources& resource : frame_resources_)
+		{
+			VkCommandBuffer* cmd_buffer{ &resource.command_buffer };
+			VkResult result{ vkAllocateCommandBuffers(context_->device, &allocate_info, cmd_buffer) };
+			CheckResult(result, "Failed to allocate command buffer.");
+		}
+	}
+
 	void ParticleGenContext::NextFrame()
 	{
 		current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
+		commands_recorded_ = false;
 	}
 
 	ParticleGenContext::FrameResources& ParticleGenContext::GetCurrentFrame()
@@ -399,31 +418,53 @@ namespace renderer
 		}
 	}
 
-	void ParticleGenContext::QueueGenerateDynamicParticleMesh(VkCommandBuffer cmd, RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
+	void ParticleGenContext::CmdBegin()
 	{
+		commands_recorded_ = true;
+
+		VkCommandBufferBeginInfo begin_info{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+			.pInheritanceInfo = nullptr,
+		};
+
+		vkBeginCommandBuffer(GetCurrentFrame().command_buffer, &begin_info);
+	}
+
+	void ParticleGenContext::CmdGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
+	{
+		VkCommandBuffer& cmd{ GetCurrentFrame().command_buffer };
 		const uint32_t position_buffer_size{ stride * position_count };
 
 		// Create or resize particle in/out buffers if necessary.
 		renderer_->allocator_.ExpandOrReuseBuffer(
 			(uint64_t)position_buffer_size,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			GetCurrentFrame().particle_mesh.positions_in);
+		NameObject(context_->device, GetCurrentFrame().particle_mesh.positions_in.buffer, "Particle_Mesh_Positions_In");
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
 			sizeof(Vertex) * position_count,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			GetCurrentFrame().particle_mesh.vertices_out);
+		NameObject(context_->device, GetCurrentFrame().particle_mesh.vertices_out.buffer, "Particle_Mesh_Vertices_Out");
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
 			sizeof(uint32_t) * position_count,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			GetCurrentFrame().particle_mesh.indices_out);
+		NameObject(context_->device, GetCurrentFrame().particle_mesh.indices_out.buffer, "Particle_Mesh_Indices_Out");
+
+		// Link storage buffers that were just created.
+		GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_IN_POSITIONS_BINDING, GetCurrentFrame().particle_mesh.positions_in);
+		GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_OUT_VERTICES_BINDING, GetCurrentFrame().particle_mesh.vertices_out);
+		GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_OUT_INDICES_BINDING, GetCurrentFrame().particle_mesh.indices_out);
 
 		// Copy position data to GPU buffer.
-		renderer_->vulkan_util_.TransferBufferToDeviceGraphicsCmd(cmd, positions, position_buffer_size, GetCurrentFrame().particle_mesh.positions_in);
+		renderer_->vulkan_util_.TransferBufferToDeviceCmd(cmd, positions, position_buffer_size, GetCurrentFrame().particle_mesh.positions_in);
 
 		vkCmdBindDescriptorSets(
 			cmd,
@@ -477,6 +518,43 @@ namespace renderer
 		renderer_->rt_context_.QueueBlas(&mesh->blas, { vk_geometry }, { max_index });
 		renderer_->rt_context_.CmdBuildQueuedBlases(cmd);
 		renderer_->ReplaceRenderObject(ro_target, mesh, false);
+
+		PipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+	}
+
+	void ParticleGenContext::CmdSubmit()
+	{
+		VkCommandBuffer cmd{ GetCurrentFrame().command_buffer };
+		vkEndCommandBuffer(cmd);
+
+		VkSubmitInfo submit_info{
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.waitSemaphoreCount = 0,
+			.pWaitSemaphores = nullptr,
+			.pWaitDstStageMask = nullptr,
+			.commandBufferCount = 1,
+			.pCommandBuffers = &cmd,
+			.signalSemaphoreCount = 0,
+			.pSignalSemaphores = nullptr,
+		};
+
+		VkResult result{ vkQueueSubmit(renderer_->context_.graphics_queue, 1, &submit_info, VK_NULL_HANDLE) };
+		CheckResult(result, "Error submitting compute command buffer.");
+	}
+
+	bool ParticleGenContext::CommandsRecordedThisFrame()
+	{
+		return commands_recorded_;
+	}
+
+	void ParticleGenContext::ResetLastFramesCommandBuffer()
+	{
+		uint32_t last_frame{ (current_frame_ == 0) ? FRAMES_IN_FLIGHT - 1 : current_frame_ - 1 };
+		VkResult result{ vkResetCommandBuffer(frame_resources_[last_frame].command_buffer, 0) };
+		CheckResult(result, "Error resetting particle command buffer.");
 	}
 
 	std::vector<glm::vec3> StaticParticleToPositions(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags)

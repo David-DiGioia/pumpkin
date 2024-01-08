@@ -418,7 +418,7 @@ namespace renderer
 		// Submit command buffer to the queue and execute it.
 		// render_done_fence will now block until the graphic commands finish execution.
 		result = vkQueueSubmit(context_.graphics_queue, 1, &submit_info, GetCurrentFrame().render_done_fence);
-		CheckResult(result, "Error submitting queue.");
+		CheckResult(result, "Error submitting graphics command buffer.");
 
 #ifdef EDITOR_ENABLED
 		ImGui::UpdatePlatformWindows();
@@ -1122,6 +1122,11 @@ namespace renderer
 		return (uint32_t)textures_.size();
 	}
 
+	void VulkanRenderer::CmdBeginParticleCommandBuffer()
+	{
+		particle_gen_context_.CmdBegin();
+	}
+
 	VkImageView VulkanRenderer::GetViewportImageView(uint32_t image_index)
 	{
 #ifdef EDITOR_ENABLED
@@ -1607,9 +1612,9 @@ namespace renderer
 		particle_gen_context_.GenerateDynamicParticleMesh(ro_target, positions, position_count, offset, stride);
 	}
 
-	void VulkanRenderer::QueueGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
+	void VulkanRenderer::CmdGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
 	{
-		particle_gen_context_.QueueGenerateDynamicParticleMesh(GetCurrentFrame().command_buffer, ro_target, positions, position_count, offset, stride);
+		particle_gen_context_.CmdGenerateDynamicParticleMesh(ro_target, positions, position_count, offset, stride);
 	}
 
 	void VulkanRenderer::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
@@ -1640,7 +1645,10 @@ namespace renderer
 
 	void VulkanRenderer::ComputeWork()
 	{
-
+		if (particle_gen_context_.CommandsRecordedThisFrame()) {
+			particle_gen_context_.CmdSubmit();
+		}
+		particle_gen_context_.ResetLastFramesCommandBuffer();
 	}
 
 	void VulkanRenderer::UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh)

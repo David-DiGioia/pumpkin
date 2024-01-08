@@ -318,7 +318,7 @@ namespace renderer
 		TransferBufferToDeviceImpl(cmd_, destroy_queue_, host_buffer, size, device_buffer);
 	}
 
-	void VulkanUtil::TransferBufferToDeviceGraphicsCmd(VkCommandBuffer cmd, const void* host_buffer, uint32_t size, BufferResource& device_buffer)
+	void VulkanUtil::TransferBufferToDeviceCmd(VkCommandBuffer cmd, const void* host_buffer, uint32_t size, BufferResource& device_buffer)
 	{
 		TransferBufferToDeviceImpl(cmd, GetCurrentFrame().graphics_destroy_queue_, host_buffer, size, device_buffer);
 	}

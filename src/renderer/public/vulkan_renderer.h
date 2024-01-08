@@ -57,7 +57,7 @@ namespace renderer
 		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
 		
 		// Record commands to generate dynamic particle mesh in graphics queue, and replace the target render object.
-		void QueueGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
+		void CmdGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
 		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
@@ -137,6 +137,8 @@ namespace renderer
 		uint32_t CreateTexture(unsigned char* data, uint32_t width, uint32_t height, uint32_t channels, bool color_data);
 
 		uint32_t GetTextureCount() const;
+
+		void CmdBeginParticleCommandBuffer();
 
 #ifdef EDITOR_ENABLED
 		void SetImGuiCallbacks(const ImGuiCallbacks& imgui_callbacks);

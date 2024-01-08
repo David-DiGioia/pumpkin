@@ -25,7 +25,7 @@ namespace renderer
 	constexpr uint32_t RAYCASTS_BUFFER_BINDING{ 1 };
 	constexpr uint32_t RAYHITS_BUFFER_BINDING{ 2 };
 
-	std::vector<uint32_t>&& GetGeometryPrimitiveCounts(const std::vector<Geometry>& geometries)
+	std::vector<uint32_t> GetGeometryPrimitiveCounts(const std::vector<Geometry>& geometries)
 	{
 		// Get number of triangles in each geometry.
 		std::vector<uint32_t> max_primitive_counts(geometries.size());
@@ -33,7 +33,7 @@ namespace renderer
 			[](const Geometry& x) {
 				return x.indices.size() / 3;
 			});
-		return std::move(max_primitive_counts);
+		return max_primitive_counts;
 	}
 
 	void RayTracingContext::Initialize(Context* context,
@@ -585,7 +585,7 @@ namespace renderer
 	std::vector<VkAccelerationStructureGeometryKHR> RayTracingContext::PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries) const
 	{
 		std::vector<VkAccelerationStructureGeometryKHR> vk_geometries{};
-		vk_geometries.resize(pmk_geometries.size());
+		vk_geometries.reserve(pmk_geometries.size());
 		for (const Geometry& pmk_geometry : pmk_geometries) {
 			vk_geometries.push_back(PumpkinTriGeometryToVulkanGeometry(pmk_geometry));
 		}

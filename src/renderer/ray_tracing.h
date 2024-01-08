@@ -59,7 +59,7 @@ namespace renderer
 		glm::vec3 position;
 	};
 
-	std::vector<uint32_t>&& GetGeometryPrimitiveCounts(const std::vector<Geometry>& geometries);
+	std::vector<uint32_t> GetGeometryPrimitiveCounts(const std::vector<Geometry>& geometries);
 
 	// Utility for building the shader binding table.
 	// Step 1: Initialize and add all the shader groups.
