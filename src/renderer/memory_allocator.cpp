@@ -410,13 +410,18 @@ namespace renderer
 	{
 		// Find the lowest alignment that both meets user alignment and Vulkan requirements.
 		VkDeviceSize alignment{ std::lcm(user_alignment, requirements.alignment) };
+		bool host_local_requested{ !(properties & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
 
 		for (MemoryTypeAllocations& memory_type_alloc : memory_type_allocations)
 		{
 			bool has_all_properties{ (memory_type_alloc.memory_type.propertyFlags & properties) == properties };
 			bool meets_buffer_requirement{ (bool)(requirements.memoryTypeBits & (1 << memory_type_alloc.memory_type_index)) };
 
-			if (has_all_properties && meets_buffer_requirement)
+			// There is no host-local flag, so we must explicitly check that we do not give caller device local memory when that flag wasn't included.
+			bool device_local{ (bool)(memory_type_alloc.memory_type.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
+			bool on_requested_device_or_host{ !(host_local_requested && device_local) };
+
+			if (has_all_properties && meets_buffer_requirement && on_requested_device_or_host)
 			{
 				for (Allocation* alloc : memory_type_alloc.allocations)
 				{

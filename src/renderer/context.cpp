@@ -200,6 +200,7 @@ namespace renderer
 			.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
 			.descriptorBindingPartiallyBound = VK_TRUE,
 			.runtimeDescriptorArray = VK_TRUE,
+			.scalarBlockLayout = VK_TRUE,
 			.bufferDeviceAddress = VK_TRUE,
 		};
 

@@ -8,7 +8,6 @@ struct Vertex
 	float[2] padding;
 };
 
-
 struct HitPayload
 {
 	vec3 radiance;

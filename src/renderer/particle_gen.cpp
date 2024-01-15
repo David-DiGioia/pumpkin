@@ -105,6 +105,7 @@ namespace renderer
 		renderer_->vulkan_util_.Submit();
 
 		// Copy the particle neighbor data to a vector.
+		// We don't use TransferBufferToHost because side flags are host visible so we avoid using a staging buffer this way.
 		out_side_flags->clear();
 		out_side_flags->resize(CHUNK_TOTAL_VOXEL_COUNT);
 		vkMapMemory(context_->device, *particle_neighbors_.neighbor_out_buffer.memory, particle_neighbors_.neighbor_out_buffer.offset, particle_neighbors_.neighbor_out_buffer.size, 0, &data);
@@ -314,7 +315,7 @@ namespace renderer
 			frame.particle_mesh.ubo_buffer = renderer_->allocator_.CreateBufferResource(
 				sizeof(ParticleMeshFrameShaderResources::UBO),
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 			NameObject(context_->device, frame.particle_mesh.ubo_buffer.buffer, "Particle_Mesh_Ubo_Buffer");
 			frame.particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_UBO_BINDING, frame.particle_mesh.ubo_buffer);
 		}
@@ -436,6 +437,9 @@ namespace renderer
 		VkCommandBuffer& cmd{ GetCurrentFrame().command_buffer };
 		const uint32_t position_buffer_size{ stride * position_count };
 
+		constexpr uint32_t CUBE_VERTEX_COUNT{ 24 };
+		constexpr uint32_t CUBE_INDEX_COUNT{ 36 };
+
 		// Create or resize particle in/out buffers if necessary.
 		renderer_->allocator_.ExpandOrReuseBuffer(
 			(uint64_t)position_buffer_size,
@@ -445,15 +449,15 @@ namespace renderer
 		NameObject(context_->device, GetCurrentFrame().particle_mesh.positions_in.buffer, "Particle_Mesh_Positions_In");
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
-			sizeof(Vertex) * position_count,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+			sizeof(Vertex) * position_count * CUBE_VERTEX_COUNT,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, // TODO: Remove transfer src bit.
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			GetCurrentFrame().particle_mesh.vertices_out);
 		NameObject(context_->device, GetCurrentFrame().particle_mesh.vertices_out.buffer, "Particle_Mesh_Vertices_Out");
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
-			sizeof(uint32_t) * position_count,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+			sizeof(uint32_t) * position_count * CUBE_INDEX_COUNT,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, // TODO: Remove transfer src bit.
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			GetCurrentFrame().particle_mesh.indices_out);
 		NameObject(context_->device, GetCurrentFrame().particle_mesh.indices_out.buffer, "Particle_Mesh_Indices_Out");
@@ -463,11 +467,44 @@ namespace renderer
 		GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_OUT_VERTICES_BINDING, GetCurrentFrame().particle_mesh.vertices_out);
 		GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_OUT_INDICES_BINDING, GetCurrentFrame().particle_mesh.indices_out);
 
+		// Populate UBO buffer.
+		// TODO: Make the ubo_cpu a member variable and only update the position count every frame.
+		ParticleMeshFrameShaderResources::UBO ubo_cpu{
+			.cube_vertices = {}, // Set below.
+			.cube_indices = {},  // Set below.
+			.position_stride_dword = stride / 4, // Convert from bytes to dword.
+			.position_offset_dword = offset / 4, // Convert from bytes to dword.
+			.position_count = position_count,
+		};
+		std::vector<Vertex> vertices{ GetParticleVertices() };
+		std::vector<uint32_t> indices{ GetParticleIndices() };
+		std::copy(vertices.begin(), vertices.end(), ubo_cpu.cube_vertices);
+		std::copy(indices.begin(), indices.end(), ubo_cpu.cube_indices);
+
+		BufferResource& ubo_gpu{ GetCurrentFrame().particle_mesh.ubo_buffer };
+		void* data{};
+		vkMapMemory(context_->device, *ubo_gpu.memory, ubo_gpu.offset, ubo_gpu.size, 0, &data);
+		std::memcpy(data, &ubo_cpu, sizeof(ParticleMeshFrameShaderResources::UBO));
+		vkUnmapMemory(context_->device, *ubo_gpu.memory);
+
+		VkCommandBuffer tmp_cmd{ renderer_->vulkan_util_.Begin() };
+
 		// Copy position data to GPU buffer.
-		renderer_->vulkan_util_.TransferBufferToDeviceCmd(cmd, positions, position_buffer_size, GetCurrentFrame().particle_mesh.positions_in);
+		renderer_->vulkan_util_.TransferBufferToDeviceCmd(tmp_cmd, positions, position_buffer_size, GetCurrentFrame().particle_mesh.positions_in);
+		PipelineBarrier(
+			tmp_cmd,
+			GetCurrentFrame().particle_mesh.positions_in.buffer,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+		PipelineBarrier(
+			tmp_cmd,
+			GetCurrentFrame().particle_mesh.ubo_buffer.buffer,
+			VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT);
 
 		vkCmdBindDescriptorSets(
-			cmd,
+			tmp_cmd,
 			VK_PIPELINE_BIND_POINT_COMPUTE,
 			particle_mesh_.pipeline.layout,
 			PARTICLE_MESH_DESCRIPTOR_SET,
@@ -475,26 +512,24 @@ namespace renderer
 			&GetCurrentFrame().particle_mesh.descriptor_set_resource.descriptor_set,
 			0,
 			nullptr);
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_mesh_.pipeline.pipeline);
+		vkCmdBindPipeline(tmp_cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_mesh_.pipeline.pipeline);
 		constexpr uint32_t group_size{ 64 };
-		uint32_t group_count{ (position_count + 1) / group_size };
-		vkCmdDispatch(cmd, group_count, 1, 1);
+		uint32_t group_count{ (position_count + group_size - 1) / group_size }; // Add (group_size - 1) to get ceil(position_count / groupsize).
+		vkCmdDispatch(tmp_cmd, group_count, 1, 1);
 
 		PipelineBarrier(
-			cmd,
+			tmp_cmd,
 			GetCurrentFrame().particle_mesh.vertices_out.buffer,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 
 		PipelineBarrier(
-			cmd,
+			tmp_cmd,
 			GetCurrentFrame().particle_mesh.indices_out.buffer,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 
-		constexpr uint32_t CUBE_VERTEX_COUNT{ 24 };
-		constexpr uint32_t MAX_CUBE_INDEX{ 23 };
-		const uint32_t max_index{ (position_count - 1) * CUBE_VERTEX_COUNT + MAX_CUBE_INDEX };
+		const uint32_t max_index{ position_count * CUBE_INDEX_COUNT - 1 };
 
 		VkAccelerationStructureGeometryKHR vk_geometry{
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -516,8 +551,17 @@ namespace renderer
 
 		Mesh* mesh{ new Mesh{} };
 		renderer_->rt_context_.QueueBlas(&mesh->blas, { vk_geometry }, { max_index });
-		renderer_->rt_context_.CmdBuildQueuedBlases(cmd);
-		renderer_->ReplaceRenderObject(ro_target, mesh, false);
+		renderer_->rt_context_.CmdBuildQueuedBlases(tmp_cmd);
+
+		// TEMP.
+		mesh->geometries.emplace_back();
+		mesh->geometries[0].vertices.resize(position_count * CUBE_VERTEX_COUNT);
+		mesh->geometries[0].indices.resize(position_count * CUBE_INDEX_COUNT);
+		renderer_->vulkan_util_.TransferBufferToHost(mesh->geometries[0].vertices, GetCurrentFrame().particle_mesh.vertices_out);
+		renderer_->vulkan_util_.TransferBufferToHost(mesh->geometries[0].indices, GetCurrentFrame().particle_mesh.indices_out);
+
+		renderer_->vulkan_util_.Submit(); // tmp.
+		renderer_->ReplaceRenderObject(ro_target, mesh, true);
 
 		PipelineBarrier(
 			cmd,
@@ -791,6 +835,7 @@ namespace renderer
 		{
 		case ParticleSidesFlagBits::X_POSITIVE:
 			++depth;
+			[[fallthrough]];
 		case ParticleSidesFlagBits::X_NEGATIVE:
 			top_left = { {     (float)depth, top,    left,  0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
 			top_right = { {    (float)depth, top,    right, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
@@ -800,6 +845,7 @@ namespace renderer
 			break;
 		case ParticleSidesFlagBits::Y_POSITIVE:
 			++depth;
+			[[fallthrough]];
 		case ParticleSidesFlagBits::Y_NEGATIVE:
 			top_left = { {     left,  (float)depth, top,    0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
 			top_right = { {    right, (float)depth, top,    0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
@@ -809,6 +855,7 @@ namespace renderer
 			break;
 		case ParticleSidesFlagBits::Z_POSITIVE:
 			++depth;
+			[[fallthrough]];
 		case ParticleSidesFlagBits::Z_NEGATIVE:
 			top_left = { {     left,  top,    (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
 			top_right = { {    right, top,    (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };

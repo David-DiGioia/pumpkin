@@ -833,14 +833,14 @@ namespace renderer
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT,
 				VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT);
-			vulkan_util_.TransferImageToBuffer(host_buffer, byte_size, *texture, texture->extent.width, texture->extent.height);
+			vulkan_util_.TransferImageToBuffer(host_buffer, (uint32_t)byte_size, *texture, texture->extent.width, texture->extent.height);
 			vulkan_util_.Submit();
 
 			void* data{};
 			vkMapMemory(context_.device, *host_buffer.memory, host_buffer.offset, host_buffer.size, 0, &data);
 
 			texture_file.write(reinterpret_cast<const char*>(data), byte_size);
-			texture_byte_offset += byte_size;
+			texture_byte_offset += (uint32_t)byte_size;
 
 			vkUnmapMemory(context_.device, *host_buffer.memory);
 			allocator_.DestroyBufferResource(&host_buffer);

@@ -140,12 +140,12 @@ namespace renderer
 			return true;
 		}
 
-		std::array<std::vector<RenderObject*>*, FRAMES_IN_FLIGHT> frame_resource_; // Points to renderer's resources so it is up to date.
-		std::function<void(RenderObject*, bool)> destroyer_func_;
-		uint32_t current_frame_;
+		std::array<std::vector<RenderObject*>*, FRAMES_IN_FLIGHT> frame_resource_{}; // Points to renderer's resources so it is up to date.
+		std::function<void(RenderObject*, bool)> destroyer_func_{};
+		uint32_t current_frame_{};
 
-		std::unordered_map<uint32_t, std::array<RenderObject*, FRAMES_IN_FLIGHT - 1>> destruction_queue_; // Indices queued for destruction. Pairs of (ro_idx, render objects).
-		std::vector<uint32_t> vacant_mesh_indices_;                                                       // Destroyed indices ready to be reused.
+		std::unordered_map<uint32_t, std::array<RenderObject*, FRAMES_IN_FLIGHT - 1>> destruction_queue_{}; // Indices queued for destruction. Pairs of (ro_idx, render objects).
+		std::vector<uint32_t> vacant_mesh_indices_{};                                                       // Destroyed indices ready to be reused.
 	};
 
 	void CheckResult(VkResult result, const std::string& msg);
@@ -213,8 +213,10 @@ namespace renderer
 	// Utility object to help with common Vulkan tasks that need a command buffer.
 	class VulkanUtil
 	{
-	public:
+	private:
 		struct FrameResources;
+
+	public:
 
 		void Initialize(Context* context, Allocator* alloc);
 

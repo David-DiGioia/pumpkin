@@ -88,8 +88,10 @@ namespace renderer
 
 	class ParticleGenContext
 	{
-	public:
+	private:
 		struct FrameResources;
+
+	public:
 
 		void Initialize(Context* context, VulkanRenderer* renderer);
 

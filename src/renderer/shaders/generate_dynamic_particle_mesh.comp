@@ -1,27 +1,28 @@
 #version 450
 #extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_scalar_block_layout : enable
 
 #include "common.glsl"
 
 // This serves as essentially a byte array, where only specified offsets
 // contain vec3s of particle positions. There is no dynamic casting in glsl
 // so we use an array of floats.
-layout(set = 0, binding = 0) readonly buffer PositionsIn {
+layout(set = 0, binding = 0, scalar) readonly buffer PositionsIn {
    float positions_in[];
 };
 
-layout(set = 0, binding = 1) writeonly buffer OutVertices {
+layout(set = 0, binding = 1, scalar) writeonly buffer OutVertices {
    Vertex vertices_out[];
 };
 
-layout(set = 0, binding = 2) writeonly buffer OutIndices {
+layout(set = 0, binding = 2, scalar) writeonly buffer OutIndices {
    uint indices_out[];
 };
 
 const uint CUBE_VERTEX_COUNT = 24;
 const uint CUBE_INDEX_COUNT = 36;
 
-layout(set = 0, binding = 3) uniform UBO
+layout(set = 0, binding = 3, scalar) uniform UBO
 {
 	Vertex cube_vertices[CUBE_VERTEX_COUNT];
 	uint cube_indices[CUBE_INDEX_COUNT];
@@ -47,26 +48,26 @@ void main()
 	}
 
 	uint cube_offset = particle_idx * CUBE_SIZE;
-
+	
 	for (uint v = 0; v < CUBE_VERTEX_COUNT; ++v)
 	{
 		uint vert_buffer_idx = particle_idx * CUBE_VERTEX_COUNT + v;
-
+	
 		uint position_idx = particle_idx * ubo.position_stride_dword + ubo.position_offset_dword;
 		vec4 position = vec4(
 			positions_in[position_idx + 0],
 			positions_in[position_idx + 1],
 			positions_in[position_idx + 2], 0.0);
-
+	
 		vertices_out[vert_buffer_idx].position = ubo.cube_vertices[v].position + position;
 		vertices_out[vert_buffer_idx].normal = ubo.cube_vertices[v].normal;
 		vertices_out[vert_buffer_idx].tangent = ubo.cube_vertices[v].tangent;
 	}
-
+	
 	for (uint i = 0; i < CUBE_INDEX_COUNT; ++i)
 	{
 		uint idx_buffer_idx = particle_idx * CUBE_INDEX_COUNT + i;
 		indices_out[idx_buffer_idx] = particle_idx * CUBE_VERTEX_COUNT + ubo.cube_indices[i];
+		indices_out[idx_buffer_idx] = ubo.cube_indices[i];
 	}
-
 }
