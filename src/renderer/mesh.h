@@ -14,7 +14,6 @@
 #pragma warning( pop )
 
 #include "memory_allocator.h"
-#include "ray_tracing.h"
 
 namespace renderer
 {
@@ -90,10 +89,25 @@ namespace renderer
 		BufferResource indices_resource;
 	};
 
+	struct AccelerationStructure
+	{
+		VkAccelerationStructureKHR acceleration_structure;
+		BufferResource buffer_resource;
+	};
+
 	struct Mesh
 	{
 		AccelerationStructure blas;
 		std::vector<Geometry> geometries;
+	};
+
+	// Extra info about a mesh needed for building a BLAS.
+	// This is needed when mesh is built on GPU and this info can't be caluclated
+	// from Geometry::vertices and Geometry::indices since they are empty.
+	struct MeshBlasInfo
+	{
+		uint32_t max_index;
+		std::vector<uint32_t> primitive_counts;
 	};
 
 	// Return hash of this mesh's vertices.

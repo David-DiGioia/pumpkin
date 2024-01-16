@@ -415,7 +415,7 @@ namespace renderer
 
 		{
 			ZoneScopedN("Replace render object");
-			renderer_->ReplaceRenderObject(ro_target, mesh, true);
+			renderer_->ReplaceRenderObject(ro_target, mesh);
 		}
 	}
 
@@ -439,33 +439,41 @@ namespace renderer
 
 		constexpr uint32_t CUBE_VERTEX_COUNT{ 24 };
 		constexpr uint32_t CUBE_INDEX_COUNT{ 36 };
+		bool buffer_expanded{};
 
 		// Create or resize particle in/out buffers if necessary.
-		renderer_->allocator_.ExpandOrReuseBuffer(
+		buffer_expanded = renderer_->allocator_.ExpandOrReuseBuffer(
 			(uint64_t)position_buffer_size,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			GetCurrentFrame().particle_mesh.positions_in);
-		NameObject(context_->device, GetCurrentFrame().particle_mesh.positions_in.buffer, "Particle_Mesh_Positions_In");
+		if (buffer_expanded)
+		{
+			NameObject(context_->device, GetCurrentFrame().particle_mesh.positions_in.buffer, "Particle_Mesh_Positions_In");
+			GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_IN_POSITIONS_BINDING, GetCurrentFrame().particle_mesh.positions_in);
+		}
 
-		renderer_->allocator_.ExpandOrReuseBuffer(
+		buffer_expanded = renderer_->allocator_.ExpandOrReuseBuffer(
 			sizeof(Vertex) * position_count * CUBE_VERTEX_COUNT,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, // TODO: Remove transfer src bit.
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			GetCurrentFrame().particle_mesh.vertices_out);
-		NameObject(context_->device, GetCurrentFrame().particle_mesh.vertices_out.buffer, "Particle_Mesh_Vertices_Out");
+		if (buffer_expanded)
+		{
+			NameObject(context_->device, GetCurrentFrame().particle_mesh.vertices_out.buffer, "Particle_Mesh_Vertices_Out");
+			GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_OUT_VERTICES_BINDING, GetCurrentFrame().particle_mesh.vertices_out);
+		}
 
-		renderer_->allocator_.ExpandOrReuseBuffer(
+		buffer_expanded = renderer_->allocator_.ExpandOrReuseBuffer(
 			sizeof(uint32_t) * position_count * CUBE_INDEX_COUNT,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, // TODO: Remove transfer src bit.
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			GetCurrentFrame().particle_mesh.indices_out);
-		NameObject(context_->device, GetCurrentFrame().particle_mesh.indices_out.buffer, "Particle_Mesh_Indices_Out");
-
-		// Link storage buffers that were just created.
-		GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_IN_POSITIONS_BINDING, GetCurrentFrame().particle_mesh.positions_in);
-		GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_OUT_VERTICES_BINDING, GetCurrentFrame().particle_mesh.vertices_out);
-		GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_OUT_INDICES_BINDING, GetCurrentFrame().particle_mesh.indices_out);
+		if (buffer_expanded)
+		{
+			NameObject(context_->device, GetCurrentFrame().particle_mesh.indices_out.buffer, "Particle_Mesh_Indices_Out");
+			GetCurrentFrame().particle_mesh.descriptor_set_resource.LinkBufferToBinding(PARTICLE_MESH_OUT_INDICES_BINDING, GetCurrentFrame().particle_mesh.indices_out);
+		}
 
 		// Populate UBO buffer.
 		// TODO: Make the ubo_cpu a member variable and only update the position count every frame.
@@ -521,13 +529,13 @@ namespace renderer
 			tmp_cmd,
 			GetCurrentFrame().particle_mesh.vertices_out.buffer,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 
 		PipelineBarrier(
 			tmp_cmd,
 			GetCurrentFrame().particle_mesh.indices_out.buffer,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 
 		const uint32_t max_index{ position_count * CUBE_INDEX_COUNT - 1 };
 
@@ -550,23 +558,31 @@ namespace renderer
 		};
 
 		Mesh* mesh{ new Mesh{} };
-		renderer_->rt_context_.QueueBlas(&mesh->blas, { vk_geometry }, { max_index });
-		renderer_->rt_context_.CmdBuildQueuedBlases(tmp_cmd);
+		//renderer_->rt_context_.QueueBlas(&mesh->blas, { vk_geometry }, { max_index });
+		//renderer_->rt_context_.CmdBuildQueuedBlases(tmp_cmd);
 
 		// TEMP.
-		mesh->geometries.emplace_back();
-		mesh->geometries[0].vertices.resize(position_count * CUBE_VERTEX_COUNT);
-		mesh->geometries[0].indices.resize(position_count * CUBE_INDEX_COUNT);
-		renderer_->vulkan_util_.TransferBufferToHost(mesh->geometries[0].vertices, GetCurrentFrame().particle_mesh.vertices_out);
-		renderer_->vulkan_util_.TransferBufferToHost(mesh->geometries[0].indices, GetCurrentFrame().particle_mesh.indices_out);
-
+		//mesh->geometries.emplace_back();
+		//mesh->geometries[0].vertices.resize(position_count * CUBE_VERTEX_COUNT);
+		//mesh->geometries[0].indices.resize(position_count * CUBE_INDEX_COUNT);
+		//renderer_->vulkan_util_.TransferBufferToHost(mesh->geometries[0].vertices, GetCurrentFrame().particle_mesh.vertices_out);
+		//renderer_->vulkan_util_.TransferBufferToHost(mesh->geometries[0].indices, GetCurrentFrame().particle_mesh.indices_out);
 		renderer_->vulkan_util_.Submit(); // tmp.
-		renderer_->ReplaceRenderObject(ro_target, mesh, true);
+
+		MeshBlasInfo mesh_info{
+			.max_index = CUBE_INDEX_COUNT * position_count - 1,
+			.primitive_counts = { (CUBE_INDEX_COUNT * position_count) / 3 },
+		};
+
+		mesh->geometries.emplace_back();
+		mesh->geometries[0].indices_resource = GetCurrentFrame().particle_mesh.indices_out;
+		mesh->geometries[0].vertices_resource = GetCurrentFrame().particle_mesh.vertices_out;
+		renderer_->ReplaceRenderObject(ro_target, mesh, mesh_info);
 
 		PipelineBarrier(
 			cmd,
 			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+			VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_MEMORY_READ_BIT);
 	}
 
 	void ParticleGenContext::CmdSubmit()
@@ -639,7 +655,7 @@ namespace renderer
 
 		StaticParticleMeshGenerator gen{};
 		Mesh* mesh{ gen.Generate(particles, side_flags) };
-		renderer_->ReplaceRenderObject(ro_target, mesh, true);
+		renderer_->ReplaceRenderObject(ro_target, mesh);
 	}
 
 	std::vector<Vertex> ParticleGenContext::GetParticleVertices() const

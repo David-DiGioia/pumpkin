@@ -1215,83 +1215,34 @@ namespace renderer
 		return (RenderObjectHandle)(frame_resources_[0].render_objects.size() - 1);
 	}
 
-	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, bool build_blas)
+	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh)
 	{
 		ZoneScopedN("Replace render object");
 
-		if (build_blas)
-		{
-			// Upload mesh and build BLAS.
-			VkCommandBuffer cmd{ vulkan_util_.Begin() };
-			UploadMeshToDevice(vulkan_util_, *mesh);
-			PipelineBarrier(
-				cmd,
-				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-				VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
-		
-			rt_context_.QueueBlas(mesh);
-			rt_context_.CmdBuildQueuedBlases(cmd);
-			vulkan_util_.Submit();
-		}
+		// Upload mesh and build BLAS.
+		VkCommandBuffer cmd{ vulkan_util_.Begin() };
+		UploadMeshToDevice(vulkan_util_, *mesh);
+		PipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 
-		// Either replace old mesh if it exists or create new one.
-		RenderObject* ro_ptr{ GetCurrentFrame().render_objects[ro_target] };
-		bool visible{ true };
-		std::vector<int> material_indices{ 0 };
-		uint32_t mesh_index{};
-		if (ro_ptr)
-		{
-			visible = ro_ptr->visible;
-			material_indices = ro_ptr->material_indices;
-			render_object_destroyer_.DestroyElement((uint32_t)ro_target);
-			if (mesh)
-			{
-				mesh_index = render_object_destroyer_.PopVacantMeshIndex();
+		rt_context_.QueueBlas(mesh);
+		rt_context_.CmdBuildQueuedBlases(cmd);
+		vulkan_util_.Submit();
 
-				if (mesh_index == NULL_INDEX)
-				{
-					mesh_index = (uint32_t)meshes_.size();
-					meshes_.push_back(mesh);
-				}
-				else {
-					meshes_[mesh_index] = mesh;
-				}
-			}
-		}
-		else if (mesh)
-		{
-			mesh_index = (uint32_t)meshes_.size();
-			meshes_.push_back(mesh);
-		}
+		ReplaceRenderObjectImpl(ro_target, mesh);
+	}
 
-		if (mesh) {
-			rt_context_.UpdateObjectBuffers(meshes_);
-		}
+	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info)
+	{
+		// TEMP
+		VkCommandBuffer cmd{ vulkan_util_.Begin() };
+		rt_context_.QueueBlas(mesh, mesh_info);
+		rt_context_.CmdBuildQueuedBlases(cmd);
+		vulkan_util_.Submit();
 
-		// Replace old render object, referencing either new or replaced mesh.
-		for (auto& frame : frame_resources_)
-		{
-			if (mesh)
-			{
-				RenderObject* render_object{ new RenderObject{
-					.mesh_idx = mesh_index,
-					.material_indices = material_indices,
-					.visible = visible,
-					.uniform_buffer = {
-						.transform = glm::mat4(1.0f),
-					},
-					.ubo_buffer_resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
-						VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
-					.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_),
-				} };
-				NameObject(context_.device, render_object->ubo_buffer_resource.buffer, std::string{ "Replaced_Render_Object_Buffer_" + std::to_string(render_object->mesh_idx) });
-				render_object->ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object->ubo_buffer_resource);
-				frame.render_objects[(size_t)ro_target] = render_object;
-			}
-			else {
-				frame.render_objects[(size_t)ro_target] = nullptr;
-			}
-		}
+		ReplaceRenderObjectImpl(ro_target, mesh);
 	}
 
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
@@ -1721,8 +1672,70 @@ namespace renderer
 #endif
 	}
 
+	void VulkanRenderer::ReplaceRenderObjectImpl(RenderObjectHandle ro_target, Mesh* mesh)
+	{
+		// Either replace old mesh if it exists or create new one.
+		RenderObject* ro_ptr{ GetCurrentFrame().render_objects[ro_target] };
+		bool visible{ true };
+		std::vector<int> material_indices{ 0 };
+		uint32_t mesh_index{};
+		if (ro_ptr)
+		{
+			visible = ro_ptr->visible;
+			material_indices = ro_ptr->material_indices;
+			render_object_destroyer_.DestroyElement((uint32_t)ro_target);
+			if (mesh)
+			{
+				mesh_index = render_object_destroyer_.PopVacantMeshIndex();
+
+				if (mesh_index == NULL_INDEX)
+				{
+					mesh_index = (uint32_t)meshes_.size();
+					meshes_.push_back(mesh);
+				}
+				else {
+					meshes_[mesh_index] = mesh;
+				}
+			}
+		}
+		else if (mesh)
+		{
+			mesh_index = (uint32_t)meshes_.size();
+			meshes_.push_back(mesh);
+		}
+
+		if (mesh) {
+			rt_context_.UpdateObjectBuffers(meshes_);
+		}
+
+		// Replace old render object, referencing either new or replaced mesh.
+		for (auto& frame : frame_resources_)
+		{
+			if (mesh)
+			{
+				RenderObject* render_object{ new RenderObject{
+					.mesh_idx = mesh_index,
+					.material_indices = material_indices,
+					.visible = visible,
+					.uniform_buffer = {
+						.transform = glm::mat4(1.0f),
+					},
+					.ubo_buffer_resource = allocator_.CreateBufferResource(sizeof(RenderObject::UniformBuffer),
+						VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
+					.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_),
+				} };
+				NameObject(context_.device, render_object->ubo_buffer_resource.buffer, std::string{ "Replaced_Render_Object_Buffer_" + std::to_string(render_object->mesh_idx) });
+				render_object->ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object->ubo_buffer_resource);
+				frame.render_objects[(size_t)ro_target] = render_object;
+			}
+			else {
+				frame.render_objects[(size_t)ro_target] = nullptr;
+			}
+		}
+	}
+
 	uint32_t VulkanRenderer::MeshCount() const
 	{
 		return (uint32_t)meshes_.size();
 	}
-}
+	}

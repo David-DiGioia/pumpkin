@@ -60,7 +60,8 @@ namespace renderer
 		// Only allocate a new buffer if more space is needed than with the existing buffer.
 		// Otherwise leave device_buffer unmutated. Will create buffer if it doesn't exist yet.
 		// buffer_size is in bytes.
-		void ExpandOrReuseBuffer(
+		// Returns true if new buffer was created.
+		bool ExpandOrReuseBuffer(
 			size_t buffer_size,
 			VkBufferUsageFlags usage_flags,
 			VkMemoryPropertyFlags memory_properties,

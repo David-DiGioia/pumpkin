@@ -68,6 +68,5 @@ void main()
 	{
 		uint idx_buffer_idx = particle_idx * CUBE_INDEX_COUNT + i;
 		indices_out[idx_buffer_idx] = particle_idx * CUBE_VERTEX_COUNT + ubo.cube_indices[i];
-		indices_out[idx_buffer_idx] = ubo.cube_indices[i];
 	}
 }

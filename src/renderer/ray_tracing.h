@@ -14,25 +14,16 @@
 #include "descriptor_set.h"
 #include "renderer_types.h"
 #include "render_object.h"
+#include "mesh.h"
 
 namespace renderer
 {
-	struct Mesh;
-	struct Geometry;
-	struct Material;
-
 	// Device addresses of object buffers cast to uint64_t to match closest-hit shader.
 	// There is one object buffer per geometry so the index will be given by custom_index + geometry_index.
 	struct ObjectBuffers
 	{
 		uint64_t vertices;
 		uint64_t indices;
-	};
-
-	struct AccelerationStructure
-	{
-		VkAccelerationStructureKHR acceleration_structure;
-		BufferResource buffer_resource;
 	};
 
 	struct ShaderBindingTable
@@ -131,7 +122,12 @@ namespace renderer
 			std::vector<VkAccelerationStructureGeometryKHR>&& vk_geometries,
 			std::vector<uint32_t>&& primitive_counts);
 
+		// Call this if mesh does have CPU side mesh data.
 		void QueueBlas(Mesh* mesh);
+
+		// Call this if mesh does not have CPU side mesh data.
+		// Will mutate mesh_info, so will be invalid after this function is called.
+		void QueueBlas(Mesh* mesh, MeshBlasInfo& mesh_info);
 
 		// Returns empty TLAS without build data that will be populated after CmdBuildQueuedTlases(...) is called.
 		// The build data will not be present in the TLAS buffer until after CmdBuildQueuedTlases(...) is called and the queue is submitted.
@@ -178,7 +174,11 @@ namespace renderer
 	private:
 		struct FrameResources;
 
+		VkAccelerationStructureGeometryKHR PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry, uint32_t max_vertex) const;
+
 		VkAccelerationStructureGeometryKHR PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const;
+
+		std::vector<VkAccelerationStructureGeometryKHR> PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries, uint32_t max_vertex) const;
 
 		std::vector<VkAccelerationStructureGeometryKHR> PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries) const;
 

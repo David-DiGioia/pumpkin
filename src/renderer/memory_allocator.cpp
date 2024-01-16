@@ -281,7 +281,7 @@ namespace renderer
 		};
 	}
 
-	void Allocator::ExpandOrReuseBuffer(
+	bool Allocator::ExpandOrReuseBuffer(
 		size_t buffer_size,
 		VkBufferUsageFlags usage_flags,
 		VkMemoryPropertyFlags memory_properties,
@@ -291,7 +291,9 @@ namespace renderer
 		{
 			DestroyBufferResource(&out_buffer_resource);
 			out_buffer_resource = CreateBufferResource(buffer_size, usage_flags, memory_properties);
+			return true;
 		}
+		return false;
 	}
 
 	void Allocator::UpdateAllocationOffsets(uint64_t vulkan_handle)

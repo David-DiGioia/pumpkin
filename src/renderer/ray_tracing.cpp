@@ -109,7 +109,17 @@ namespace renderer
 
 	void RayTracingContext::QueueBlas(Mesh* mesh)
 	{
+		if (mesh->geometries[0].indices.empty()) {
+			logger::Error("Attempting to queue BLAS without CPU side mesh data. Pass MeshBlasInfo parameter if CPU side mesh data is unavailable.");
+		}
+
 		QueueBlas(&mesh->blas, PumpkinTriGeometriesToVulkanGeometries(mesh->geometries), GetGeometryPrimitiveCounts(mesh->geometries));
+	}
+
+	void RayTracingContext::QueueBlas(Mesh* mesh, MeshBlasInfo& mesh_info)
+	{
+
+		QueueBlas(&mesh->blas, PumpkinTriGeometriesToVulkanGeometries(mesh->geometries, mesh_info.max_index), std::move(mesh_info.primitive_counts));
 	}
 
 	AccelerationStructure* RayTracingContext::QueueTlas(const std::vector<RenderObject*>& render_objects)
@@ -559,7 +569,7 @@ namespace renderer
 		return rayhits;
 	}
 
-	VkAccelerationStructureGeometryKHR RayTracingContext::PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const
+	VkAccelerationStructureGeometryKHR RayTracingContext::PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry, uint32_t max_vertex) const
 	{
 		VkAccelerationStructureGeometryKHR vk_geometry{
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -570,7 +580,7 @@ namespace renderer
 					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 					.vertexData = DeviceAddress(context_->device, pmk_geometry.vertices_resource.buffer),
 					.vertexStride = sizeof(Vertex),
-					.maxVertex = *std::max_element(std::begin(pmk_geometry.indices), std::end(pmk_geometry.indices)),
+					.maxVertex = max_vertex,
 					.indexType = std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16,
 					.indexData = DeviceAddress(context_->device, pmk_geometry.indices_resource.buffer),
 					.transformData = {},
@@ -580,6 +590,21 @@ namespace renderer
 		};
 
 		return vk_geometry;
+	}
+
+	VkAccelerationStructureGeometryKHR RayTracingContext::PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const
+	{
+		return PumpkinTriGeometryToVulkanGeometry(pmk_geometry, *std::max_element(std::begin(pmk_geometry.indices), std::end(pmk_geometry.indices)));
+	}
+
+	std::vector<VkAccelerationStructureGeometryKHR> RayTracingContext::PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries, uint32_t max_vertex) const
+	{
+		std::vector<VkAccelerationStructureGeometryKHR> vk_geometries{};
+		vk_geometries.reserve(pmk_geometries.size());
+		for (const Geometry& pmk_geometry : pmk_geometries) {
+			vk_geometries.push_back(PumpkinTriGeometryToVulkanGeometry(pmk_geometry, max_vertex));
+		}
+		return vk_geometries;
 	}
 
 	std::vector<VkAccelerationStructureGeometryKHR> RayTracingContext::PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries) const
