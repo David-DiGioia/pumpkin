@@ -99,6 +99,9 @@ namespace renderer
 	{
 		AccelerationStructure blas;
 		std::vector<Geometry> geometries;
+		// If true, destroying the mesh will not destroy its vertex/index device buffers.
+		// Needed when multiple meshes share the same buffers.
+		bool preserve_geometry_buffers; 
 	};
 
 	// Extra info about a mesh needed for building a BLAS.

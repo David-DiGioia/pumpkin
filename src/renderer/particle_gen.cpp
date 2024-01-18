@@ -558,6 +558,7 @@ namespace renderer
 		};
 
 		Mesh* mesh{ new Mesh{} };
+		mesh->preserve_geometry_buffers = true; // Old buffers get cleaned up during ExpandOrReuseBuffer().
 		//renderer_->rt_context_.QueueBlas(&mesh->blas, { vk_geometry }, { max_index });
 		//renderer_->rt_context_.CmdBuildQueuedBlases(tmp_cmd);
 

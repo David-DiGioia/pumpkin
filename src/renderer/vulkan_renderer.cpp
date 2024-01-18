@@ -1652,10 +1652,13 @@ namespace renderer
 		vkDestroyAccelerationStructureKHR(context_.device, mesh->blas.acceleration_structure, nullptr);
 		allocator_.DestroyBufferResource(&mesh->blas.buffer_resource);
 
-		for (Geometry& geometry : mesh->geometries)
+		if (!mesh->preserve_geometry_buffers)
 		{
-			allocator_.DestroyBufferResource(&geometry.vertices_resource);
-			allocator_.DestroyBufferResource(&geometry.indices_resource);
+			for (Geometry& geometry : mesh->geometries)
+			{
+				allocator_.DestroyBufferResource(&geometry.vertices_resource);
+				allocator_.DestroyBufferResource(&geometry.indices_resource);
+			}
 		}
 
 		delete mesh;
@@ -1738,4 +1741,4 @@ namespace renderer
 	{
 		return (uint32_t)meshes_.size();
 	}
-	}
+}

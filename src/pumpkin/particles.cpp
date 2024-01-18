@@ -38,7 +38,7 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t sub_steps{ 32 };
+		constexpr uint32_t sub_steps{ 2 };
 		for (uint32_t i{ 0 }; i < sub_steps; ++i) {
 			mpm_context_.SimulateStep(delta_time / sub_steps);
 		}
@@ -158,7 +158,7 @@ namespace pmk
 				.affine_matrix = glm::mat3{0.0f},
 				.deformation_gradient_elastic = glm::mat3{1.0f},
 				.deformation_gradient_plastic = glm::mat3{1.0f},
-				.constitutive_model_index = ConstitutiveModelIndex::SNOW,
+				.constitutive_model_index = ConstitutiveModelIndex::HYPER_ELASTIC,
 			};
 
 			mpm_particles.push_back(mpm_particle);
