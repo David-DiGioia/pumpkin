@@ -495,24 +495,22 @@ namespace renderer
 		std::memcpy(data, &ubo_cpu, sizeof(ParticleMeshFrameShaderResources::UBO));
 		vkUnmapMemory(context_->device, *ubo_gpu.memory);
 
-		VkCommandBuffer tmp_cmd{ renderer_->vulkan_util_.Begin() };
-
 		// Copy position data to GPU buffer.
-		renderer_->vulkan_util_.TransferBufferToDeviceCmd(tmp_cmd, positions, position_buffer_size, GetCurrentFrame().particle_mesh.positions_in);
+		renderer_->vulkan_util_.TransferBufferToDeviceCmd(cmd, positions, position_buffer_size, GetCurrentFrame().particle_mesh.positions_in);
 		PipelineBarrier(
-			tmp_cmd,
+			cmd,
 			GetCurrentFrame().particle_mesh.positions_in.buffer,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 
 		PipelineBarrier(
-			tmp_cmd,
+			cmd,
 			GetCurrentFrame().particle_mesh.ubo_buffer.buffer,
 			VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT);
 
 		vkCmdBindDescriptorSets(
-			tmp_cmd,
+			cmd,
 			VK_PIPELINE_BIND_POINT_COMPUTE,
 			particle_mesh_.pipeline.layout,
 			PARTICLE_MESH_DESCRIPTOR_SET,
@@ -520,70 +518,50 @@ namespace renderer
 			&GetCurrentFrame().particle_mesh.descriptor_set_resource.descriptor_set,
 			0,
 			nullptr);
-		vkCmdBindPipeline(tmp_cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_mesh_.pipeline.pipeline);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_mesh_.pipeline.pipeline);
 		constexpr uint32_t group_size{ 64 };
 		uint32_t group_count{ (position_count + group_size - 1) / group_size }; // Add (group_size - 1) to get ceil(position_count / groupsize).
-		vkCmdDispatch(tmp_cmd, group_count, 1, 1);
+		vkCmdDispatch(cmd, group_count, 1, 1);
 
 		PipelineBarrier(
-			tmp_cmd,
+			cmd,
 			GetCurrentFrame().particle_mesh.vertices_out.buffer,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 
 		PipelineBarrier(
-			tmp_cmd,
+			cmd,
 			GetCurrentFrame().particle_mesh.indices_out.buffer,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 
-		const uint32_t max_index{ position_count * CUBE_INDEX_COUNT - 1 };
-
-		VkAccelerationStructureGeometryKHR vk_geometry{
-			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-			.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-			.geometry = {
-				.triangles = {
-					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-					.vertexData = DeviceAddress(context_->device, GetCurrentFrame().particle_mesh.vertices_out.buffer),
-					.vertexStride = sizeof(Vertex),
-					.maxVertex = max_index,
-					.indexType = std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16,
-					.indexData = DeviceAddress(context_->device, GetCurrentFrame().particle_mesh.indices_out.buffer),
-					.transformData = {},
-				}
-			},
-			.flags = 0,
-		};
-
-		Mesh* mesh{ new Mesh{} };
-		mesh->preserve_geometry_buffers = true; // Old buffers get cleaned up during ExpandOrReuseBuffer().
-		//renderer_->rt_context_.QueueBlas(&mesh->blas, { vk_geometry }, { max_index });
-		//renderer_->rt_context_.CmdBuildQueuedBlases(tmp_cmd);
-
-		// TEMP.
-		//mesh->geometries.emplace_back();
-		//mesh->geometries[0].vertices.resize(position_count * CUBE_VERTEX_COUNT);
-		//mesh->geometries[0].indices.resize(position_count * CUBE_INDEX_COUNT);
-		//renderer_->vulkan_util_.TransferBufferToHost(mesh->geometries[0].vertices, GetCurrentFrame().particle_mesh.vertices_out);
-		//renderer_->vulkan_util_.TransferBufferToHost(mesh->geometries[0].indices, GetCurrentFrame().particle_mesh.indices_out);
-		renderer_->vulkan_util_.Submit(); // tmp.
-
 		MeshBlasInfo mesh_info{
-			.max_index = CUBE_INDEX_COUNT * position_count - 1,
+			.max_index = position_count * CUBE_INDEX_COUNT - 1,
 			.primitive_counts = { (CUBE_INDEX_COUNT * position_count) / 3 },
 		};
 
+		Mesh* mesh{ new Mesh{} };
 		mesh->geometries.emplace_back();
 		mesh->geometries[0].indices_resource = GetCurrentFrame().particle_mesh.indices_out;
 		mesh->geometries[0].vertices_resource = GetCurrentFrame().particle_mesh.vertices_out;
-		renderer_->ReplaceRenderObject(ro_target, mesh, mesh_info);
+		mesh->preserve_geometry_buffers = true; // Old buffers get cleaned up during ExpandOrReuseBuffer().
+
+		renderer_->rt_context_.QueueBlas(mesh, mesh_info);
+		renderer_->rt_context_.CmdBuildQueuedBlases(cmd);
 
 		PipelineBarrier(
 			cmd,
+			GetCurrentFrame().particle_mesh.vertices_out.buffer,
 			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_MEMORY_READ_BIT);
+
+		PipelineBarrier(
+			cmd,
+			GetCurrentFrame().particle_mesh.indices_out.buffer,
+			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_MEMORY_READ_BIT);
+
+		renderer_->ReplaceRenderObject(ro_target, mesh, mesh_info);
 	}
 
 	void ParticleGenContext::CmdSubmit()

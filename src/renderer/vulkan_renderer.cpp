@@ -705,10 +705,10 @@ namespace renderer
 #endif
 		PipelineBarrier(
 			cmd, swapchain_.GetImage(image_index),
-			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,              // Image layout.
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // Pipeline stages.
-			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,                                          // Access types.
-			VK_IMAGE_ASPECT_COLOR_BIT);                                                       // Aspect mask.
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,                 // Image layout.
+			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // Pipeline stages.
+			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,                                             // Access types.
+			VK_IMAGE_ASPECT_COLOR_BIT);                                                          // Aspect mask.
 	}
 
 	void VulkanRenderer::TransitionSwapImageForPresent(VkCommandBuffer cmd, uint32_t image_index)
@@ -717,8 +717,8 @@ namespace renderer
 			cmd, swapchain_.GetImage(image_index),
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,           // Image layout.
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, // Pipeline stages.
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,                                             // Access types.
-			VK_IMAGE_ASPECT_COLOR_BIT);
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,                                             // Access types.
+			VK_IMAGE_ASPECT_COLOR_BIT);                                                          // Aspect mask.
 	}
 
 	void VulkanRenderer::NextFrame()
@@ -1236,12 +1236,6 @@ namespace renderer
 
 	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info)
 	{
-		// TEMP
-		VkCommandBuffer cmd{ vulkan_util_.Begin() };
-		rt_context_.QueueBlas(mesh, mesh_info);
-		rt_context_.CmdBuildQueuedBlases(cmd);
-		vulkan_util_.Submit();
-
 		ReplaceRenderObjectImpl(ro_target, mesh);
 	}
 
