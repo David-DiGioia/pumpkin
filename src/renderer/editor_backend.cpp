@@ -143,18 +143,20 @@ namespace renderer
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
-		// Ray trace image is a image storage buffer which must be general layout.
+		// Ray trace image is an image storage buffer which must be general layout.
+		// The src layout refers to the previous frame.
 		PipelineBarrier(
 			cmd, GetCurrentFrame().rt_image.image,
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			0, VK_ACCESS_SHADER_WRITE_BIT);
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT);
 
+		// The src layout refers to the previous frame.
 		PipelineBarrier(
 			cmd, GetCurrentFrame().final_image.image,
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 	}
 
 	void ImGuiBackend::TransitionColorPassesForSampling(VkCommandBuffer cmd)
