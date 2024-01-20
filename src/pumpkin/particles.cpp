@@ -64,10 +64,7 @@ namespace pmk
 	{
 		has_played_ = false;
 		DisablePhysicsUpdate();
-		TransferStaticParticlesToMPM();
-		if (!update_physics_) {
-			GenerateDynamicParticleMesh(particle_node_->render_object, mpm_context_.GetParticles());
-		}
+		GenerateStaticParticleMesh(particle_node_->render_object);
 	}
 
 	bool ParticleContext::GetPhysicsUpdateEnabled() const
@@ -88,7 +85,7 @@ namespace pmk
 
 		particle_node_ = node;
 		renderer_->InvokeParticleGenShader(node->render_object, &static_particles_, &side_flags_);
-		GenerateStaticParticleMesh(node->render_object);
+		ResetParticles();
 		renderer_->UpdateMaterials();
 
 		uint32_t particle_count{};
