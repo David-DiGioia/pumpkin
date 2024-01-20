@@ -425,6 +425,13 @@ namespace renderer
 			alloc_->DestroyBufferResource(&resource);
 		}
 
+		for (FrameResources& frame : frame_resources_)
+		{
+			for (BufferResource& resource : frame.graphics_destroy_queue_) {
+				alloc_->DestroyBufferResource(&resource);
+			}
+		}
+
 		vkDestroyFence(context_->device, fence_, nullptr);
 		vkDestroyCommandPool(context_->device, command_pool_, nullptr);
 	}
@@ -495,7 +502,6 @@ namespace renderer
 			alloc_->DestroyBufferResource(&resource);
 		}
 		GetCurrentFrame().graphics_destroy_queue_.clear();
-
 	}
 
 	VulkanUtil::FrameResources& VulkanUtil::GetCurrentFrame()

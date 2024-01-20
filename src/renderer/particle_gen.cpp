@@ -61,6 +61,16 @@ namespace renderer
 		renderer_->allocator_.DestroyBufferResource(&particle_neighbors_.neighbor_out_buffer);
 		renderer_->descriptor_allocator_.DestroyDescriptorSetLayoutResource(&particle_neighbors_.layout_resource);
 		particle_neighbors_.pipeline.CleanUp();
+
+		for (FrameResources& frame : frame_resources_)
+		{
+			renderer_->allocator_.DestroyBufferResource(&frame.particle_mesh.ubo_buffer);
+			renderer_->allocator_.DestroyBufferResource(&frame.particle_mesh.positions_in);
+			renderer_->allocator_.DestroyBufferResource(&frame.particle_mesh.vertices_out);
+			renderer_->allocator_.DestroyBufferResource(&frame.particle_mesh.indices_out);
+		}
+		vkDestroyDescriptorSetLayout(context_->device, particle_mesh_.layout_resource.layout, nullptr);
+		particle_mesh_.pipeline.CleanUp();
 	}
 
 	void ParticleGenContext::InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags)
