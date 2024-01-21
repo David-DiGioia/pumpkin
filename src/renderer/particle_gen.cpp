@@ -69,6 +69,7 @@ namespace renderer
 			renderer_->allocator_.DestroyBufferResource(&frame.particle_mesh.positions_in);
 			renderer_->allocator_.DestroyBufferResource(&frame.particle_mesh.vertices_out);
 			renderer_->allocator_.DestroyBufferResource(&frame.particle_mesh.indices_out);
+			vkDestroyFence(context_->device, frame.fence, nullptr);
 		}
 		vkDestroyDescriptorSetLayout(context_->device, particle_mesh_.layout_resource.layout, nullptr);
 		particle_mesh_.pipeline.CleanUp();
@@ -372,7 +373,7 @@ namespace renderer
 		{
 			VkResult result{ vkCreateFence(context_->device, &fence_info, nullptr, &resource.fence) };
 			CheckResult(result, "Failed to create fence.");
-			NameObject(context_->device, resource.fence, "Render_Done_Fence_");
+			NameObject(context_->device, resource.fence, "Particle_Gen_Fence");
 		}
 	}
 
@@ -448,6 +449,7 @@ namespace renderer
 
 	void ParticleGenContext::CmdBegin()
 	{
+		ZoneScoped;
 		VkResult result{ vkWaitForFences(context_->device, 1, &GetCurrentFrame().fence, VK_TRUE, 1'000'000'000) };
 		CheckResult(result, "Error waiting for render_fence.");
 		result = vkResetFences(context_->device, 1, &GetCurrentFrame().fence);

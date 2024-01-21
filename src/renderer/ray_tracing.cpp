@@ -970,8 +970,10 @@ namespace renderer
 
 	void RayTracingContext::DestroyFrameResources()
 	{
-		for (FrameResources& frame : frame_resources_) {
+		for (FrameResources& frame : frame_resources_)
+		{
 			allocator_->DestroyBufferResource(&frame.camera_ubo_buffer);
+			allocator_->DestroyBufferResource(&frame.instance_buffer_);
 		}
 	}
 

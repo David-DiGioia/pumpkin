@@ -374,6 +374,7 @@ namespace renderer
 
 	void VulkanRenderer::WaitForLastFrame()
 	{
+		ZoneScoped;
 		// Wait until the GPU has finished rendering the last frame to use these resources. Timeout of 1 second.
 		VkResult result{ vkWaitForFences(context_.device, 1, &GetCurrentFrame().render_done_fence, VK_TRUE, 1'000'000'000) };
 		CheckResult(result, "Error waiting for render_fence.");

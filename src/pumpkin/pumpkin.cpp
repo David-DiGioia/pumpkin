@@ -2,6 +2,7 @@
 
 #include "cmake_config.h"
 #include "logger.h"
+#include "tracy/Tracy.hpp"
 
 namespace pmk
 {
@@ -28,6 +29,7 @@ namespace pmk
 
 	void Pumpkin::HostWork()
 	{
+		ZoneScoped;
 		physics_time_accumulator_ += delta_time_;
 		if (physics_time_accumulator_ >= PHYSICS_UPDATE_TIME)
 		{
