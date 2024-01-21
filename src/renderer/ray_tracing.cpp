@@ -216,7 +216,7 @@ namespace renderer
 		for (const QueuedBlasBuildInfo& build_info : queued_blas_build_infos_)
 		{
 			PipelineBarrier(cmd, build_info.blas->buffer_resource.buffer,
-				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 				VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 		}
 		queued_blas_build_infos_.clear();
@@ -233,9 +233,10 @@ namespace renderer
 			VkDeviceAddress instance_buffer_address{ 0 };
 
 			// We still build TLAS if there are no instances so we can trace rays and execute the miss shader.
-			if (!build_info.instances.empty()) {
-				instance_buffer_ = UploadInstancesToDevice(cmd, build_info.instances);
-				instance_buffer_address = DeviceAddress(context_->device, instance_buffer_.buffer);
+			if (!build_info.instances.empty())
+			{
+				UploadInstancesToDevice(cmd, build_info.instances);
+				instance_buffer_address = DeviceAddress(context_->device, GetCurrentFrame().instance_buffer_.buffer);
 			}
 
 			VkAccelerationStructureGeometryKHR vk_geometry{
@@ -369,9 +370,6 @@ namespace renderer
 			allocator_->DestroyBufferResource(&buffer_resource);
 		}
 		staging_buffers_.clear();
-
-		allocator_->DestroyBufferResource(&instance_buffer_);
-		instance_buffer_.buffer = VK_NULL_HANDLE;
 	}
 
 	void RayTracingContext::SetCameraMatrices(const glm::mat4& view, const glm::mat4& projection)
@@ -667,14 +665,17 @@ namespace renderer
 		return build_sizes_info;
 	}
 
-	BufferResource RayTracingContext::UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances)
+	void RayTracingContext::UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances)
 	{
-		BufferResource device_buffer{ allocator_->CreateAlignedBufferResource(instances.size() * sizeof(VkAccelerationStructureInstanceKHR), 16,
+		allocator_->ExpandOrReuseAlignedBuffer(
+			instances.size() * sizeof(VkAccelerationStructureInstanceKHR),
+			16,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
-		NameObject(context_->device, device_buffer.buffer, "Ray_Tracing_Instance_Buffer");
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			GetCurrentFrame().instance_buffer_);
+		NameObject(context_->device, GetCurrentFrame().instance_buffer_.buffer, "Ray_Tracing_Instance_Buffer");
 
-		BufferResource staging{ allocator_->CreateBufferResource(device_buffer.size,
+		BufferResource staging{ allocator_->CreateBufferResource(GetCurrentFrame().instance_buffer_.size,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
 		NameObject(context_->device, staging.buffer, "Ray_Tracing_Staging_Instance_Buffer");
 		staging_buffers_.push_back(staging);
@@ -692,13 +693,11 @@ namespace renderer
 			.size = staging.size,
 		};
 
-		vkCmdCopyBuffer(cmd, staging.buffer, device_buffer.buffer, 1, &buffer_copy);
+		vkCmdCopyBuffer(cmd, staging.buffer, GetCurrentFrame().instance_buffer_.buffer, 1, &buffer_copy);
 
-		PipelineBarrier(cmd, device_buffer.buffer,
+		PipelineBarrier(cmd, GetCurrentFrame().instance_buffer_.buffer,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
-
-		return device_buffer;
 	}
 
 	void RayTracingContext::CreateRtPipelineAndShaderBindingTable()

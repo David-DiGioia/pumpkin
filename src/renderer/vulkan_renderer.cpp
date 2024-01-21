@@ -673,6 +673,8 @@ namespace renderer
 		VkResult result{ vkBeginCommandBuffer(cmd, &command_buffer_begin_info) };
 		CheckResult(result, "Failed to begin command buffer.");
 
+		BuildTlasAndUpdateBlases(cmd);
+
 		// If the editor viewport is minimized we don't set viewport/scissors.
 #ifdef EDITOR_ENABLED
 		bool minimized{ !editor_backend_.GetImGuiBackend().GetViewportVisible() };
@@ -981,7 +983,7 @@ namespace renderer
 		}
 	}
 
-	void VulkanRenderer::BuildTlasAndUpdateBlases()
+	void VulkanRenderer::BuildTlasAndUpdateBlases(VkCommandBuffer cmd)
 	{
 		// Delete the temporary buffers from the last frame.
 		if (GetCurrentFrame().tlas)
@@ -994,12 +996,8 @@ namespace renderer
 		// TODO: Update any BLASes that need to be updated here.
 
 		GetCurrentFrame().tlas = rt_context_.QueueTlas(GetCurrentFrame().render_objects);
-		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 		rt_context_.CmdBuildQueuedTlases(cmd);
-		vulkan_util_.Submit();
-
 		rt_context_.SetTlas(GetCurrentFrame().tlas->acceleration_structure);
-
 	}
 
 	Mesh* VulkanRenderer::GetMesh(uint32_t mesh_index)
@@ -1178,6 +1176,7 @@ namespace renderer
 					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
 				.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_),
 			} };
+			NameObject(context_.device, render_object->ubo_descriptor_set_resource.descriptor_set, std::string{ "Render_Object_Descriptor_Set_" + std::to_string(render_object->mesh_idx) });
 			NameObject(context_.device, render_object->ubo_buffer_resource.buffer, std::string{ "Render_Object_Buffer_" + std::to_string(render_object->mesh_idx) });
 
 			render_object->ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object->ubo_buffer_resource);
@@ -1237,6 +1236,11 @@ namespace renderer
 	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info)
 	{
 		ReplaceRenderObjectImpl(ro_target, mesh);
+	}
+
+	void VulkanRenderer::QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info)
+	{
+		replace_ro_queue_.emplace_back(ro_target, mesh, mesh_info);
 	}
 
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
@@ -1405,10 +1409,12 @@ namespace renderer
 			NameObject(context_.device, resource.camera_ubo_buffer.buffer, std::string{ "Camera_UBO_Buffer_" + std::to_string(i) });
 
 			resource.camera_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(camera_layout_resource_);
+			NameObject(context_.device, resource.camera_descriptor_set_resource.descriptor_set, std::string{ "Camera_Descriptor_Set_" + std::to_string(i) });
 			resource.camera_descriptor_set_resource.LinkBufferToBinding(CAMERA_UBO_BINDING, resource.camera_ubo_buffer);
 
 			// Composite image resource. Don't link to binding yet, since we do this when window is resized.
 			resource.composite_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(composite_layout_resource_);
+			NameObject(context_.device, resource.composite_descriptor_set_resource.descriptor_set, std::string{ "Composite_Descriptor_Set_" + std::to_string(i) });
 			++i;
 		}
 	}
@@ -1585,6 +1591,11 @@ namespace renderer
 	void VulkanRenderer::HostRenderWork()
 	{
 		ZoneScoped;
+		for (QueuedReplaceRenderObjectInfo& info : replace_ro_queue_) {
+			ReplaceRenderObject(info.ro_target, info.mesh, info.mesh_info);
+		}
+		replace_ro_queue_.clear();
+
 		render_object_destroyer_.FrameUpdate();
 	}
 
@@ -1593,7 +1604,6 @@ namespace renderer
 		if (particle_gen_context_.CommandsRecordedThisFrame()) {
 			particle_gen_context_.CmdSubmit();
 		}
-		particle_gen_context_.ResetLastFramesCommandBuffer();
 	}
 
 	void VulkanRenderer::UploadMeshToDevice(VulkanUtil& vulkan_util, Mesh& mesh)
@@ -1667,7 +1677,7 @@ namespace renderer
 #else
 		return false;
 #endif
-	}
+}
 
 	void VulkanRenderer::ReplaceRenderObjectImpl(RenderObjectHandle ro_target, Mesh* mesh)
 	{
@@ -1722,6 +1732,7 @@ namespace renderer
 					.ubo_descriptor_set_resource = descriptor_allocator_.CreateDescriptorSetResource(render_object_layout_resource_),
 				} };
 				NameObject(context_.device, render_object->ubo_buffer_resource.buffer, std::string{ "Replaced_Render_Object_Buffer_" + std::to_string(render_object->mesh_idx) });
+				NameObject(context_.device, render_object->ubo_descriptor_set_resource.descriptor_set, std::string{ "Replaced_Descriptor_Set_" + std::to_string(render_object->mesh_idx) });
 				render_object->ubo_descriptor_set_resource.LinkBufferToBinding(RENDER_OBJECT_UBO_BINDING, render_object->ubo_buffer_resource);
 				frame.render_objects[(size_t)ro_target] = render_object;
 			}

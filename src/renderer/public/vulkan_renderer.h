@@ -55,7 +55,7 @@ namespace renderer
 		// Generates triangles for each individual particle as a cube.
 		// Positions should be an array of glm::vec3 with arbitrary stride between each. Stride is in bytes.
 		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
-		
+
 		// Record commands to generate dynamic particle mesh in graphics queue, and replace the target render object.
 		void CmdGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
 
@@ -88,6 +88,9 @@ namespace renderer
 
 		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info);
 
+		// Will replace the render object during the next HostRenderWork() invocation.
+		void QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info);
+
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
 		void SetRenderObjectVisible(RenderObjectHandle render_object_handle, bool visible);
@@ -109,7 +112,7 @@ namespace renderer
 			const std::filesystem::path& texture_path,
 			std::vector<int>* out_material_indices);
 
-		void BuildTlasAndUpdateBlases();
+		void BuildTlasAndUpdateBlases(VkCommandBuffer cmd);
 
 		Mesh* GetMesh(uint32_t mesh_index);
 
@@ -264,6 +267,13 @@ namespace renderer
 #endif
 		};
 
+		struct QueuedReplaceRenderObjectInfo
+		{
+			RenderObjectHandle ro_target;
+			Mesh* mesh;
+			MeshBlasInfo& mesh_info;
+		};
+
 		friend class EditorBackend;
 		friend class ImGuiBackend;
 		friend class ParticleGenContext;
@@ -291,7 +301,8 @@ namespace renderer
 		DescriptorSetLayoutResource render_object_layout_resource_{};
 		DescriptorSetLayoutResource composite_layout_resource_{};
 
-		RenderObjectDestroyer render_object_destroyer_{}; // Render objects can't be destroyed while they're in use rendering in previous frame, so use special destroyer class.
+		std::vector<QueuedReplaceRenderObjectInfo> replace_ro_queue_{}; // Render objects to be replaced during next HostRenderWork() invocation.
+		RenderObjectDestroyer render_object_destroyer_{};               // Render objects can't be destroyed while they're in use rendering in previous frame, so use special destroyer class.
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};

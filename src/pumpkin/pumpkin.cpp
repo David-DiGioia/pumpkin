@@ -54,7 +54,6 @@ namespace pmk
 			renderer_.WaitForLastFrame();
 			renderer_.HostRenderWork();
 			HostRenderWork();
-			renderer_.BuildTlasAndUpdateBlases();
 			renderer_.ComputeWork();
 			renderer_.Render();
 		}

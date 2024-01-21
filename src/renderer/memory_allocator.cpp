@@ -282,15 +282,20 @@ namespace renderer
 	}
 
 	bool Allocator::ExpandOrReuseBuffer(
-		size_t buffer_size,
-		VkBufferUsageFlags usage_flags,
-		VkMemoryPropertyFlags memory_properties,
+		VkDeviceSize size,
+		VkBufferUsageFlags usage,
+		VkMemoryPropertyFlags properties,
 		BufferResource& out_buffer_resource)
 	{
-		if (buffer_size > out_buffer_resource.size)
+		return ExpandOrReuseAlignedBuffer(size, 1, usage, properties, out_buffer_resource);
+	}
+
+	bool Allocator::ExpandOrReuseAlignedBuffer(VkDeviceSize size, VkDeviceSize alignment, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, BufferResource& out_buffer_resource)
+	{
+		if (size > out_buffer_resource.size)
 		{
 			DestroyBufferResource(&out_buffer_resource);
-			out_buffer_resource = CreateBufferResource(buffer_size, usage_flags, memory_properties);
+			out_buffer_resource = CreateAlignedBufferResource(size, alignment, usage, properties);
 			return true;
 		}
 		return false;

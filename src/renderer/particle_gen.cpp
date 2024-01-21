@@ -49,6 +49,7 @@ namespace renderer
 		InitializeParticleNeighborsShaderResources();
 		InitializeParticleMeshShaderResources();
 		InitializeCommandBuffers();
+		InitializeFences();
 	}
 
 	void ParticleGenContext::CleanUp()
@@ -359,6 +360,22 @@ namespace renderer
 		}
 	}
 
+	void ParticleGenContext::InitializeFences()
+	{
+		// Start in signaled state since frame resources are initially not in use.
+		VkFenceCreateInfo fence_info{
+			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+			.flags = VK_FENCE_CREATE_SIGNALED_BIT,
+		};
+
+		for (FrameResources& resource : frame_resources_)
+		{
+			VkResult result{ vkCreateFence(context_->device, &fence_info, nullptr, &resource.fence) };
+			CheckResult(result, "Failed to create fence.");
+			NameObject(context_->device, resource.fence, "Render_Done_Fence_");
+		}
+	}
+
 	void ParticleGenContext::NextFrame()
 	{
 		current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
@@ -431,6 +448,14 @@ namespace renderer
 
 	void ParticleGenContext::CmdBegin()
 	{
+		VkResult result{ vkWaitForFences(context_->device, 1, &GetCurrentFrame().fence, VK_TRUE, 1'000'000'000) };
+		CheckResult(result, "Error waiting for render_fence.");
+		result = vkResetFences(context_->device, 1, &GetCurrentFrame().fence);
+		CheckResult(result, "Error resetting render_fence.");
+		result = vkResetCommandBuffer(GetCurrentFrame().command_buffer, 0);
+		CheckResult(result, "Error resetting command buffer.");
+
+
 		commands_recorded_ = true;
 
 		VkCommandBufferBeginInfo begin_info{
@@ -536,14 +561,14 @@ namespace renderer
 		PipelineBarrier(
 			cmd,
 			GetCurrentFrame().particle_mesh.vertices_out.buffer,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+			VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
 
 		PipelineBarrier(
 			cmd,
 			GetCurrentFrame().particle_mesh.indices_out.buffer,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT,
+			VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
 
 		MeshBlasInfo mesh_info{
 			.max_index = position_count * CUBE_INDEX_COUNT - 1,
@@ -559,19 +584,8 @@ namespace renderer
 		renderer_->rt_context_.QueueBlas(mesh, mesh_info);
 		renderer_->rt_context_.CmdBuildQueuedBlases(cmd);
 
-		PipelineBarrier(
-			cmd,
-			GetCurrentFrame().particle_mesh.vertices_out.buffer,
-			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_MEMORY_READ_BIT);
-
-		PipelineBarrier(
-			cmd,
-			GetCurrentFrame().particle_mesh.indices_out.buffer,
-			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_MEMORY_READ_BIT);
-
-		renderer_->ReplaceRenderObject(ro_target, mesh, mesh_info);
+		// Do not replace render object yet since last frame's resources are still in use. We do it during VulkanRenderer::HostRenderWork().
+		renderer_->QueueReplaceRenderObject(ro_target, mesh, mesh_info);
 	}
 
 	void ParticleGenContext::CmdSubmit()
@@ -590,20 +604,13 @@ namespace renderer
 			.pSignalSemaphores = nullptr,
 		};
 
-		VkResult result{ vkQueueSubmit(renderer_->context_.graphics_queue, 1, &submit_info, VK_NULL_HANDLE) };
+		VkResult result{ vkQueueSubmit(renderer_->context_.graphics_queue, 1, &submit_info, GetCurrentFrame().fence) };
 		CheckResult(result, "Error submitting compute command buffer.");
 	}
 
 	bool ParticleGenContext::CommandsRecordedThisFrame()
 	{
 		return commands_recorded_;
-	}
-
-	void ParticleGenContext::ResetLastFramesCommandBuffer()
-	{
-		uint32_t last_frame{ (current_frame_ == 0) ? FRAMES_IN_FLIGHT - 1 : current_frame_ - 1 };
-		VkResult result{ vkResetCommandBuffer(frame_resources_[last_frame].command_buffer, 0) };
-		CheckResult(result, "Error resetting particle command buffer.");
 	}
 
 	std::vector<glm::vec3> StaticParticleToPositions(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags)

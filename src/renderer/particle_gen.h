@@ -124,8 +124,6 @@ namespace renderer
 
 		bool CommandsRecordedThisFrame();
 
-		void ResetLastFramesCommandBuffer();
-
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
 		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
 
@@ -139,6 +137,8 @@ namespace renderer
 		void InitializeParticleMeshShaderResources();
 
 		void InitializeCommandBuffers();
+
+		void InitializeFences();
 
 		FrameResources& GetCurrentFrame();
 
@@ -194,6 +194,7 @@ namespace renderer
 		{
 			ParticleMeshFrameShaderResources particle_mesh; // Frame resource since particle position data needs to be double buffered.
 			VkCommandBuffer command_buffer;                 // Command buffer that particle mesh creation is recorded into.
+			VkFence fence;
 		};
 
 		Context* context_{};

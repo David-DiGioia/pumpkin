@@ -192,7 +192,7 @@ namespace renderer
 			const VkAccelerationStructureBuildGeometryInfoKHR& build_info,
 			uint32_t instance_count) const;
 
-		BufferResource UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances);
+		void UploadInstancesToDevice(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances);
 
 		void CreateRtPipelineAndShaderBindingTable();
 
@@ -237,13 +237,13 @@ namespace renderer
 		{
 			BufferResource camera_ubo_buffer;
 			DescriptorSetResource frame_descriptor_set_resource_{};
+			BufferResource instance_buffer_{}; // Store so we can delete it after the TLAS is built.
 		};
 
 		std::vector<QueuedBlasBuildInfo> queued_blas_build_infos_{};              // Info needed to build the BLASes when CmdBuildQueuedBlases(...) is called.
 		std::vector<QueuedTlasBuildInfo> queued_tlas_build_infos_{};              // Info needed to build the TLASes when CmdBuildQueuedTlases(...) is called.
 		std::vector<BufferResource> scratch_buffers_{};                           // Store these so we can delete them after the acceleration structures are built.
 		std::vector<BufferResource> staging_buffers_{};                           // Store these so we can delete them after the acceleration structures are built.
-		BufferResource instance_buffer_{};                                        // Store so we can delete it after the TLAS is built.
 		BufferResource object_buffers_buffer_{};                                  // Buffer containing device addresses to mesh data for each object in the scene. Not in FrameResources since it's rarely updated.
 		BufferResource materials_resource_{};                                     // Buffer containing all ray tracing material data.
 		BufferResource material_indices_resource_{};                              // Buffer containing concatenated ray tracing material indices for all geometries for all render objects.

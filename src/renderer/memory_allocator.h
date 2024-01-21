@@ -62,9 +62,16 @@ namespace renderer
 		// buffer_size is in bytes.
 		// Returns true if new buffer was created.
 		bool ExpandOrReuseBuffer(
-			size_t buffer_size,
-			VkBufferUsageFlags usage_flags,
-			VkMemoryPropertyFlags memory_properties,
+			VkDeviceSize size,
+			VkBufferUsageFlags usage,
+			VkMemoryPropertyFlags properties,
+			BufferResource& out_buffer_resource);
+
+		bool ExpandOrReuseAlignedBuffer(
+			VkDeviceSize size,
+			VkDeviceSize alignment,
+			VkBufferUsageFlags usage,
+			VkMemoryPropertyFlags properties,
 			BufferResource& out_buffer_resource);
 
 		void DestroyBufferResource(BufferResource* buffer_resource);
