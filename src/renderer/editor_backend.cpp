@@ -909,7 +909,7 @@ namespace renderer
 				VkIndexType index_type{ std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16 };
 				vkCmdBindVertexBuffers(cmd, 0, 1, &geometry.vertices_resource.buffer, &zero_offset);
 				vkCmdBindIndexBuffer(cmd, geometry.indices_resource.buffer, 0, index_type);
-				vkCmdDrawIndexed(cmd, (uint32_t)geometry.indices.size(), 1, 0, 0, 0);
+				vkCmdDrawIndexed(cmd, (uint32_t)(geometry.indices_resource.size / sizeof(uint32_t)), 1, 0, 0, 0);
 			}
 		}
 		vkCmdEndRendering(cmd);
