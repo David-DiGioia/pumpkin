@@ -584,7 +584,6 @@ namespace renderer
 		mesh->preserve_geometry_buffers = true; // Old buffers get cleaned up during ExpandOrReuseBuffer().
 
 		renderer_->rt_context_.QueueBlas(mesh, mesh_info);
-		renderer_->rt_context_.CmdBuildQueuedBlases(cmd);
 
 		// Do not replace render object yet since last frame's resources are still in use. We do it during VulkanRenderer::HostRenderWork().
 		renderer_->QueueReplaceRenderObject(ro_target, mesh, mesh_info);

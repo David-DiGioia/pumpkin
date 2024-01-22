@@ -67,8 +67,6 @@ namespace renderer
 
 	void RayTracingContext::CleanUp()
 	{
-		DeleteTemporaryBuffers();
-
 		allocator_->DestroyBufferResource(&rt_shader_binding_table_.raygen_sbt);
 		allocator_->DestroyBufferResource(&rt_shader_binding_table_.miss_sbt);
 		allocator_->DestroyBufferResource(&rt_shader_binding_table_.hit_sbt);
@@ -189,14 +187,13 @@ namespace renderer
 				build_sizes.buildScratchSize, acceleration_structure_properties_.minAccelerationStructureScratchOffsetAlignment,
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
-			scratch_buffers_.push_back(scratch_buffer);
-			std::string blas_name{ std::string{"Blas"} };
-			NameObject(context_->device, scratch_buffer.buffer, blas_name + "_Scratch_Buffer");
+			GetCurrentFrame().scratch_buffers_.push_back(scratch_buffer);
+			NameObject(context_->device, scratch_buffer.buffer, "Blas_Scratch_Buffer");
 
 			// We must create the BLAS before we can build it.
 			CreateAccelerationStructure(build_sizes.accelerationStructureSize, false, build_info.blas);
-			NameObject(context_->device, build_info.blas->acceleration_structure, blas_name);
-			NameObject(context_->device, build_info.blas->buffer_resource.buffer, blas_name + "_Buffer");
+			NameObject(context_->device, build_info.blas->acceleration_structure, "Blas");
+			NameObject(context_->device, build_info.blas->buffer_resource.buffer, "Blas_Buffer");
 
 			blas_build_info.dstAccelerationStructure = build_info.blas->acceleration_structure;
 			blas_build_info.scratchData.deviceAddress = DeviceAddress(context_->device, scratch_buffer.buffer);
@@ -279,7 +276,7 @@ namespace renderer
 				build_sizes.buildScratchSize, acceleration_structure_properties_.minAccelerationStructureScratchOffsetAlignment,
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
-			scratch_buffers_.push_back(scratch_buffer);
+			GetCurrentFrame().scratch_buffers_.push_back(scratch_buffer);
 			NameObject(context_->device, scratch_buffer.buffer, "Tlas_Scratch_Buffer");
 
 			// We must create the TLAS before we can build it.
@@ -361,15 +358,15 @@ namespace renderer
 
 	void RayTracingContext::DeleteTemporaryBuffers()
 	{
-		for (BufferResource buffer_resource : scratch_buffers_) {
+		for (BufferResource buffer_resource : GetCurrentFrame().scratch_buffers_) {
 			allocator_->DestroyBufferResource(&buffer_resource);
 		}
-		scratch_buffers_.clear();
+		GetCurrentFrame().scratch_buffers_.clear();
 
-		for (BufferResource buffer_resource : staging_buffers_) {
+		for (BufferResource buffer_resource : GetCurrentFrame().staging_buffers_) {
 			allocator_->DestroyBufferResource(&buffer_resource);
 		}
-		staging_buffers_.clear();
+		GetCurrentFrame().staging_buffers_.clear();
 	}
 
 	void RayTracingContext::SetCameraMatrices(const glm::mat4& view, const glm::mat4& projection)
@@ -678,7 +675,7 @@ namespace renderer
 		BufferResource staging{ allocator_->CreateBufferResource(GetCurrentFrame().instance_buffer_.size,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) };
 		NameObject(context_->device, staging.buffer, "Ray_Tracing_Staging_Instance_Buffer");
-		staging_buffers_.push_back(staging);
+		GetCurrentFrame().staging_buffers_.push_back(staging);
 
 		// Copy data to staging buffer.
 		void* data{};
@@ -974,6 +971,14 @@ namespace renderer
 		{
 			allocator_->DestroyBufferResource(&frame.camera_ubo_buffer);
 			allocator_->DestroyBufferResource(&frame.instance_buffer_);
+
+			for (BufferResource& buffer : frame.staging_buffers_) {
+				allocator_->DestroyBufferResource(&buffer);
+			}
+
+			for (BufferResource& buffer : frame.scratch_buffers_) {
+				allocator_->DestroyBufferResource(&buffer);
+			}
 		}
 	}
 

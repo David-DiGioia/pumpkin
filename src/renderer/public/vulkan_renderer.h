@@ -271,7 +271,7 @@ namespace renderer
 		{
 			RenderObjectHandle ro_target;
 			Mesh* mesh;
-			MeshBlasInfo& mesh_info;
+			MeshBlasInfo mesh_info;
 		};
 
 		friend class EditorBackend;

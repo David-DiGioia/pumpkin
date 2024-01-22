@@ -996,6 +996,7 @@ namespace renderer
 
 		// TODO: Update any BLASes that need to be updated here.
 
+		rt_context_.CmdBuildQueuedBlases(cmd);
 		GetCurrentFrame().tlas = rt_context_.QueueTlas(GetCurrentFrame().render_objects);
 		rt_context_.CmdBuildQueuedTlases(cmd);
 		rt_context_.SetTlas(GetCurrentFrame().tlas->acceleration_structure);
