@@ -8,7 +8,7 @@ layout (location = 4) in vec3 in_velocity;
 layout (location = 5) in float in_je;
 layout (location = 6) in float in_jp;
 
-layout (location = 0) out vec3 out_color;
+layout (location = 0) out vec4 out_color;
 
 layout (push_constant) uniform PushConstant {
     uint particle_color_mode;
@@ -51,28 +51,28 @@ void main()
         discard;
         break;
     case COLOR_MODE_MASS:
-        out_color = Heatmap(in_mass, 0.0, constants.max_value);
+        out_color = vec4(Heatmap(in_mass, 0.0, constants.max_value), 1.0);
         break;
     case COLOR_MODE_MU:
-        out_color = Heatmap(in_mu, 0.0, constants.max_value);
+        out_color = vec4(Heatmap(in_mu, 0.0, constants.max_value), 1.0);
         break;
     case COLOR_MODE_LAMBDA:
-        out_color = Heatmap(in_lambda, 0.0, constants.max_value);
+        out_color = vec4(Heatmap(in_lambda, 0.0, constants.max_value), 1.0);
         break;
     case COLOR_MODE_VELOCITY:
-        out_color = abs(in_velocity / constants.max_value);
+        out_color = vec4(abs(in_velocity / constants.max_value), 1.0);
         break;
     case COLOR_MODE_ELASTIC_COMPRESSIVE:
-        out_color = Heatmap(1.0 - in_je, 0.0, constants.max_value);
+        out_color = vec4(Heatmap(1.0 - in_je, 0.0, constants.max_value), 1.0);
         break;
     case COLOR_MODE_ELASTIC_TENSILE:
-        out_color = Heatmap(in_je - 1.0, 0.0, constants.max_value);
+        out_color = vec4(Heatmap(in_je - 1.0, 0.0, constants.max_value), 1.0);
         break;
     case COLOR_MODE_PLASTIC_COMPRESSIVE:
-        out_color = Heatmap(1.0 - in_jp, 0.0, constants.max_value);
+        out_color = vec4(Heatmap(1.0 - in_jp, 0.0, constants.max_value), 1.0);
         break;
     case COLOR_MODE_PLASTIC_TENSILE:
-        out_color = Heatmap(in_jp - 1.0, 0.0, constants.max_value);
+        out_color = vec4(Heatmap(in_jp - 1.0, 0.0, constants.max_value), 1.0);
         break;
     }
 }
