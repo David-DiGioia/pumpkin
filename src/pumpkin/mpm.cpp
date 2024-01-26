@@ -27,7 +27,11 @@ namespace pmk
 		// Convert to sub block units.
 		pos *= 2.0f;
 
-		return { (uint32_t)pos.x, (uint32_t)pos.y, (uint32_t)pos.z };
+		uint32_t x{ std::clamp((uint32_t)pos.x, 0u, SUB_BLOCK_ROW_COUNT - 1) };
+		uint32_t y{ std::clamp((uint32_t)pos.y, 0u, SUB_BLOCK_ROW_COUNT - 1) };
+		uint32_t z{ std::clamp((uint32_t)pos.z, 0u, SUB_BLOCK_ROW_COUNT - 1) };
+
+		return { x, y, z };
 	}
 
 	// Returns coordinate into sub_block_indices_.
@@ -220,7 +224,8 @@ namespace pmk
 					}
 				}
 
-				node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
+				//node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
+				node.force = -d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
 				node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
 
 				if (std::isnan(node.force.x))
@@ -241,8 +246,14 @@ namespace pmk
 			}
 			node.velocity += delta_time * (node.force / node.mass);
 
-			if (node.coordinate.y == 0 && node.velocity.y < 0.0f) {
+			if ((node.coordinate.x == 0 && node.velocity.x < 0.0f) || (node.coordinate.x == GRID_NODE_ROW_COUNT - 1 && node.velocity.x > 0.0f)) {
+				node.velocity.x = 0.0f;
+			}
+			if ((node.coordinate.y == 0 && node.velocity.y < 0.0f) || (node.coordinate.y == GRID_NODE_ROW_COUNT - 1 && node.velocity.y > 0.0f)) {
 				node.velocity.y = 0.0f;
+			}
+			if ((node.coordinate.z == 0 && node.velocity.z < 0.0f) || (node.coordinate.z == GRID_NODE_ROW_COUNT - 1 && node.velocity.z > 0.0f)) {
+				node.velocity.z = 0.0f;
 			}
 		}
 	}
@@ -299,8 +310,13 @@ namespace pmk
 			[&](auto& mi)
 			{
 				MaterialPoint& p{ particles_[mi.index] };
+				constexpr float epsilon{ 0.01f };
 
 				p.position += delta_time * p.velocity;
+				p.position.x = std::clamp(p.position.x, 0.0f, CHUNK_WIDTH - epsilon);
+				p.position.y = std::clamp(p.position.y, 0.0f, CHUNK_WIDTH - epsilon);
+				p.position.z = std::clamp(p.position.z, 0.0f, CHUNK_WIDTH - epsilon);
+
 				mi.key = SubBlockCoordinateToIndex(PositionToSubBlockCoordinate(p.position));
 			});
 	}
@@ -535,7 +551,7 @@ namespace pmk
 	// Get the 1D range of node coordinates given a position.
 	void GetNodeCoordinateRange(float pos, uint32_t* out_min, uint32_t* out_max)
 	{
-		pos = std::clamp(pos, 0.0f, (float)GRID_NODE_ROW_COUNT);
+		pos = std::clamp(pos, 0.0f, (float)(GRID_NODE_ROW_COUNT));
 
 		float pos_floor{ std::floorf(pos) };
 		float pos_frac{ pos - pos_floor };
@@ -654,7 +670,7 @@ namespace pmk
 		mpm_context_ = mpm_context;
 	}
 
-	glm::mat3 HyperElasticModel::GetJCauchyStress(const MaterialPoint& p) const
+	glm::mat3 HyperElasticModel::GetJCauchyStress(MaterialPoint& p) const
 	{
 		return GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient_elastic);
 	}
@@ -676,7 +692,7 @@ namespace pmk
 		p->deformation_gradient_elastic = (glm::mat3(1.0f) + delta_time * d_inverse * p->affine_matrix) * p->deformation_gradient_elastic; // Equation (17) from MLS-MPM. Replaces equation (181) from UCLA paper.
 	}
 
-	glm::mat3 HyperElasticModel::GetPiolaKirchoffStress(const MaterialPoint& p) const
+	glm::mat3 HyperElasticModel::GetPiolaKirchoffStress(MaterialPoint& p) const
 	{
 		glm::mat3 f_inv_transpose{ glm::inverseTranspose(p.deformation_gradient_elastic) };
 		float j{ glm::determinant(p.deformation_gradient_elastic) };
@@ -689,8 +705,9 @@ namespace pmk
 		return tmp;
 	}
 
-	glm::mat3 FluidModel::GetJCauchyStress(const MaterialPoint& p) const
+	glm::mat3 FluidModel::GetJCauchyStress(MaterialPoint& p) const
 	{
+		constexpr float GRID_CELL_VOLUME{ GRID_SIZE * GRID_SIZE * GRID_SIZE };
 		float density{ 0.0f };
 
 		uint32_t node_index_count{};
@@ -702,20 +719,51 @@ namespace pmk
 				continue;
 			}
 			float w{ mpm_context_->GetWeight(node.position, p.position) };
-			density += node.mass * w;
+
+			float v{ GRID_CELL_VOLUME };
+			uint32_t boundary_count{};
+			boundary_count += (node.coordinate.x == 0 || node.coordinate.x == GRID_NODE_ROW_COUNT - 1) ? 1 : 0;
+			boundary_count += (node.coordinate.y == 0 || node.coordinate.y == GRID_NODE_ROW_COUNT - 1) ? 1 : 0;
+			boundary_count += (node.coordinate.z == 0 || node.coordinate.z == GRID_NODE_ROW_COUNT - 1) ? 1 : 0;
+			switch (boundary_count)
+			{
+			case 0:
+				break;
+			case 1:
+				v *= 0.5f;
+				break;
+			case 2:
+				v *= 0.25f;
+				break;
+			case 3:
+				v *= 0.125f;
+				break;
+			}
+			density += (node.mass * w) / v;
 		}
 
 		// stress = -pressure * I + viscosity * (velocity_gradient + velocity_gradient_transposed)
 
 		//float volume{ p.mass / density };
-		float pressure = std::max(-0.1f, EOS_STIFFNESS * (std::powf(density / REST_DENSITY, EOS_POWER) - 1.0f));
+		float pressure = std::max(-0.1f, EOS_STIFFNESS * (std::powf((density) / 30.0f, EOS_POWER) - 1.0f));
+
+		//constexpr float pressure_multiplier{ 2.0f };
+		//float density_error{ density - 30.0f };
+		//float pressure{ std::max(-0.1f, density_error * pressure_multiplier) };
+
+		// For debug rendering.
+		p.mu = pressure;
+		p.lambda = density;
 
 		// velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
 		glm::mat3 velocity_gradient = p.affine_matrix * mpm_context_->GetDInverse();
 		glm::mat3 stress{ -pressure * glm::mat3(1.0f) + DYNAMIC_VISCOSITY * (velocity_gradient + glm::transpose(velocity_gradient)) };
 
+		// Testing this... Replaces the initiail volume that the caller multiplies with the return value of this function.
+		float volume = p.mass / density;
+
 		// J is assumed to be 1.0f since fluid is incompressible, so no need to multiply by it.
-		return stress;
+		return volume * stress;
 	}
 
 	void FluidModel::UpdateLameParameters(MaterialPoint* p) const
@@ -733,7 +781,7 @@ namespace pmk
 		// No-op. Fluid doesn't use the deformation gradient when calculating stress.
 	}
 
-	glm::mat3 SnowModel::GetJCauchyStress(const MaterialPoint& p) const
+	glm::mat3 SnowModel::GetJCauchyStress(MaterialPoint& p) const
 	{
 		glm::mat3 r{};
 		glm::mat3 s{};

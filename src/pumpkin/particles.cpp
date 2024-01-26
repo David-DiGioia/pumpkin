@@ -155,7 +155,7 @@ namespace pmk
 				.affine_matrix = glm::mat3{0.0f},
 				.deformation_gradient_elastic = glm::mat3{1.0f},
 				.deformation_gradient_plastic = glm::mat3{1.0f},
-				.constitutive_model_index = ConstitutiveModelIndex::HYPER_ELASTIC,
+				.constitutive_model_index = ConstitutiveModelIndex::FLUID,
 			};
 
 			mpm_particles.push_back(mpm_particle);

@@ -59,7 +59,7 @@ namespace pmk
 
 		// Gets J * Cauchy stress, since the J would cancel out in later calculations.
 		// Or equivalently, Piola-Kirchoff stress times F^T.
-		virtual glm::mat3 GetJCauchyStress(const MaterialPoint& p) const = 0;
+		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const = 0;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const = 0;
 
@@ -74,7 +74,7 @@ namespace pmk
 	class HyperElasticModel : public ConstitutiveModel
 	{
 	public:
-		virtual glm::mat3 GetJCauchyStress(const MaterialPoint& p) const override;
+		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const override;
 
@@ -83,7 +83,7 @@ namespace pmk
 		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
 
 	private:
-		glm::mat3 GetPiolaKirchoffStress(const MaterialPoint& p) const;
+		glm::mat3 GetPiolaKirchoffStress(MaterialPoint& p) const;
 
 		static constexpr float YOUNGS_MODULUS{ 50.0f };
 		static constexpr float POISSONS_RATIO{ 0.4f };
@@ -95,7 +95,7 @@ namespace pmk
 	class FluidModel : public ConstitutiveModel
 	{
 	public:
-		virtual glm::mat3 GetJCauchyStress(const MaterialPoint& p) const override;
+		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const override;
 
@@ -104,7 +104,7 @@ namespace pmk
 		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
 
 	private:
-		static constexpr float REST_DENSITY{ 4.0f };      // kilogram per meter cubed.
+		static constexpr float REST_DENSITY{ 50.0f };      // kilogram per meter cubed.
 		static constexpr float DYNAMIC_VISCOSITY{ 0.1f };
 		static constexpr float EOS_STIFFNESS{ 10.0f };    // Tait equation of state.
 		static constexpr float EOS_POWER{ 20.0f };        // Tait equation of state.
@@ -114,7 +114,7 @@ namespace pmk
 	class SnowModel : public ConstitutiveModel
 	{
 	public:
-		virtual glm::mat3 GetJCauchyStress(const MaterialPoint& p) const override;
+		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const override;
 
