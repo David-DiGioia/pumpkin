@@ -745,14 +745,16 @@ namespace pmk
 		// stress = -pressure * I + viscosity * (velocity_gradient + velocity_gradient_transposed)
 
 		//float volume{ p.mass / density };
-		float pressure = std::max(-0.1f, EOS_STIFFNESS * (std::powf((density) / 30.0f, EOS_POWER) - 1.0f));
+		//float pressure = std::max(-0.1f, EOS_STIFFNESS * (std::powf((density) / 30.0f, EOS_POWER) - 1.0f));
 
-		//constexpr float pressure_multiplier{ 2.0f };
-		//float density_error{ density - 30.0f };
-		//float pressure{ std::max(-0.1f, density_error * pressure_multiplier) };
+		constexpr float pressure_multiplier{ 10.0f };
+		float density_error{ density - REST_DENSITY };
+		float pressure{ std::max(-0.1f, density_error * pressure_multiplier) };
+
+		//logger::Print("%.4f\n", density_error);
 
 		// For debug rendering.
-		p.mu = pressure;
+		p.mu = std::fabs(density_error);
 		p.lambda = density;
 
 		// velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
@@ -773,7 +775,7 @@ namespace pmk
 
 	void FluidModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
 	{
-		p->mass = initial_volume * REST_DENSITY;
+		p->mass = initial_volume * DENSITY;
 	}
 
 	void FluidModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const

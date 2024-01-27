@@ -104,8 +104,9 @@ namespace pmk
 		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
 
 	private:
-		static constexpr float REST_DENSITY{ 50.0f };      // kilogram per meter cubed.
-		static constexpr float DYNAMIC_VISCOSITY{ 0.1f };
+		static constexpr float DENSITY{ 50.0f };          // kilogram per meter cubed.
+		static constexpr float REST_DENSITY{ 30.0f };     // kilogram per meter cubed.
+		static constexpr float DYNAMIC_VISCOSITY{ 0.0f };
 		static constexpr float EOS_STIFFNESS{ 10.0f };    // Tait equation of state.
 		static constexpr float EOS_POWER{ 20.0f };        // Tait equation of state.
 	};
