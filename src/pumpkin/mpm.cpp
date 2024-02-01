@@ -224,8 +224,8 @@ namespace pmk
 					}
 				}
 
-				//node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
-				node.force = -d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
+				node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
+				//node.force = -d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
 				node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
 
 				if (std::isnan(node.force.x))
@@ -744,7 +744,6 @@ namespace pmk
 
 		// stress = -pressure * I + viscosity * (velocity_gradient + velocity_gradient_transposed)
 
-		//float volume{ p.mass / density };
 		//float pressure = std::max(-0.1f, EOS_STIFFNESS * (std::powf((density) / 30.0f, EOS_POWER) - 1.0f));
 
 		constexpr float pressure_multiplier{ 10.0f };
@@ -761,11 +760,11 @@ namespace pmk
 		glm::mat3 velocity_gradient = p.affine_matrix * mpm_context_->GetDInverse();
 		glm::mat3 stress{ -pressure * glm::mat3(1.0f) + DYNAMIC_VISCOSITY * (velocity_gradient + glm::transpose(velocity_gradient)) };
 
-		// Testing this... Replaces the initiail volume that the caller multiplies with the return value of this function.
-		float volume = p.mass / density;
+		// Replaces the initial volume that the caller multiplies with the return value of this function.
+		//float volume = p.mass / density;
 
 		// J is assumed to be 1.0f since fluid is incompressible, so no need to multiply by it.
-		return volume * stress;
+		return stress;
 	}
 
 	void FluidModel::UpdateLameParameters(MaterialPoint* p) const
