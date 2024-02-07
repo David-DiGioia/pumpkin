@@ -60,10 +60,8 @@ namespace pmk
 		particle_radius_ = 0.5f * particle_width;
 		particle_initial_volume_ = particle_width * particle_width * particle_width;
 
-		for (MaterialPoint& p : particles_)
-		{
-			ConstitutiveModel* model{ constitutive_models_[(uint32_t)p.constitutive_model_index] };
-			model->InitializeParticle(&p, particle_initial_volume_);
+		for (MaterialPoint& p : particles_) {
+			GetConstitutiveModel(p)->InitializeParticle(&p, particle_initial_volume_);
 		}
 
 		// Initialize grid positions.
@@ -98,6 +96,7 @@ namespace pmk
 		GridToParticle();
 		UpdateParticleDeformationGradient(delta_time);
 		AdvectParticles(delta_time);
+		SolveConstraints(delta_time);
 
 		UpdateIndexBuffers();
 	}
@@ -110,6 +109,46 @@ namespace pmk
 	const std::vector<GridNode>& MPMContext::GetNodes() const
 	{
 		return nodes_;
+	}
+
+	float MPMContext::GetDensity(const glm::vec3& position) const
+	{
+		constexpr float GRID_CELL_VOLUME{ GRID_SIZE * GRID_SIZE * GRID_SIZE };
+		float density{ 0.0f };
+
+		uint32_t node_index_count{};
+		auto node_indices{ GetNodeIndicesWithinRadius(position, &node_index_count) };
+		for (uint32_t i{ 0 }; i < node_index_count; ++i)
+		{
+			const GridNode& node{ nodes_[node_indices[i]] };
+			if (node.mass == 0.0f) {
+				continue;
+			}
+			float w{ GetWeight(node.position, position) };
+
+			float v{ GRID_CELL_VOLUME };
+			uint32_t boundary_count{};
+			boundary_count += (node.coordinate.x == 0 || node.coordinate.x == GRID_NODE_ROW_COUNT - 1) ? 1 : 0;
+			boundary_count += (node.coordinate.y == 0 || node.coordinate.y == GRID_NODE_ROW_COUNT - 1) ? 1 : 0;
+			boundary_count += (node.coordinate.z == 0 || node.coordinate.z == GRID_NODE_ROW_COUNT - 1) ? 1 : 0;
+			switch (boundary_count)
+			{
+			case 0:
+				break;
+			case 1:
+				v *= 0.5f;
+				break;
+			case 2:
+				v *= 0.25f;
+				break;
+			case 3:
+				v *= 0.125f;
+				break;
+			}
+			density += (node.mass * w) / v;
+		}
+
+		return density;
 	}
 
 	void MPMContext::ParticleToGrid()
@@ -195,7 +234,7 @@ namespace pmk
 			[&](uint32_t i)
 			{
 				MaterialPoint& p{ particles_[i] };
-				particle_cache_[i].stress = constitutive_models_[(uint32_t)p.constitutive_model_index]->GetJCauchyStress(p);
+				particle_cache_[i].stress = GetConstitutiveModel(p)->GetJCauchyStress(p);
 			});
 
 		std::for_each(
@@ -269,7 +308,7 @@ namespace pmk
 			particles_.end(),
 			[&](auto& p)
 			{
-				constitutive_models_[(uint32_t)p.constitutive_model_index]->UpdateDeformationGradient(&p, d_inverse, delta_time);
+				GetConstitutiveModel(p)->UpdateDeformationGradient(&p, d_inverse, delta_time);
 			});
 	}
 
@@ -312,6 +351,7 @@ namespace pmk
 				MaterialPoint& p{ particles_[mi.index] };
 				constexpr float epsilon{ 0.01f };
 
+				p.position_before_advection = p.position;
 				p.position += delta_time * p.velocity;
 				p.position.x = std::clamp(p.position.x, 0.0f, CHUNK_WIDTH - epsilon);
 				p.position.y = std::clamp(p.position.y, 0.0f, CHUNK_WIDTH - epsilon);
@@ -319,6 +359,13 @@ namespace pmk
 
 				mi.key = SubBlockCoordinateToIndex(PositionToSubBlockCoordinate(p.position));
 			});
+	}
+
+	void MPMContext::SolveConstraints(float delta_time)
+	{
+		for (MaterialPoint& p : particles_) {
+			GetConstitutiveModel(p)->SolveConstraints(&p, delta_time);
+		}
 	}
 
 	void MPMContext::UpdateIndexBuffers()
@@ -528,7 +575,7 @@ namespace pmk
 			particles_.end(),
 			[&](auto& p)
 			{
-				constitutive_models_[(uint32_t)p.constitutive_model_index]->UpdateLameParameters(&p);
+				GetConstitutiveModel(p)->UpdateLameParameters(&p);
 			});
 	}
 
@@ -634,6 +681,11 @@ namespace pmk
 		return result;
 	}
 
+	ConstitutiveModel* MPMContext::GetConstitutiveModel(const MaterialPoint& p)
+	{
+		return constitutive_models_[(uint32_t)p.constitutive_model_index];
+	}
+
 	void MPMContext::PrintParticleWeights() const
 	{
 		logger::Print("h = %.2f\n", GRID_SIZE);
@@ -670,6 +722,28 @@ namespace pmk
 		mpm_context_ = mpm_context;
 	}
 
+	void ConstitutiveModel::UpdateLameParameters(MaterialPoint* p) const
+	{
+		// No-op by default.
+	}
+
+	void ConstitutiveModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
+	{
+		// No-op by default.
+	}
+
+	void ConstitutiveModel::SolveConstraints(MaterialPoint* p, float delta_time) const
+	{
+		// No-op by default.
+	}
+
+	void HyperElasticModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
+	{
+		p->lambda = LAMBDA;
+		p->mu = MU;
+		p->mass = initial_volume * DENSITY;
+	}
+
 	glm::mat3 HyperElasticModel::GetJCauchyStress(MaterialPoint& p) const
 	{
 		return GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient_elastic);
@@ -678,13 +752,6 @@ namespace pmk
 	void HyperElasticModel::UpdateLameParameters(MaterialPoint* p) const
 	{
 		// Hyper elastic model does not change Lame parameters.
-	}
-
-	void HyperElasticModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
-	{
-		p->lambda = LAMBDA;
-		p->mu = MU;
-		p->mass = initial_volume * DENSITY;
 	}
 
 	void HyperElasticModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
@@ -705,42 +772,14 @@ namespace pmk
 		return tmp;
 	}
 
+	void FluidModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
+	{
+		p->mass = initial_volume * DENSITY;
+	}
+
 	glm::mat3 FluidModel::GetJCauchyStress(MaterialPoint& p) const
 	{
-		constexpr float GRID_CELL_VOLUME{ GRID_SIZE * GRID_SIZE * GRID_SIZE };
-		float density{ 0.0f };
-
-		uint32_t node_index_count{};
-		auto node_indices{ mpm_context_->GetNodeIndicesWithinRadius(p.position, &node_index_count) };
-		for (uint32_t i{ 0 }; i < node_index_count; ++i)
-		{
-			GridNode& node{ mpm_context_->nodes_[node_indices[i]] };
-			if (node.mass == 0.0f) {
-				continue;
-			}
-			float w{ mpm_context_->GetWeight(node.position, p.position) };
-
-			float v{ GRID_CELL_VOLUME };
-			uint32_t boundary_count{};
-			boundary_count += (node.coordinate.x == 0 || node.coordinate.x == GRID_NODE_ROW_COUNT - 1) ? 1 : 0;
-			boundary_count += (node.coordinate.y == 0 || node.coordinate.y == GRID_NODE_ROW_COUNT - 1) ? 1 : 0;
-			boundary_count += (node.coordinate.z == 0 || node.coordinate.z == GRID_NODE_ROW_COUNT - 1) ? 1 : 0;
-			switch (boundary_count)
-			{
-			case 0:
-				break;
-			case 1:
-				v *= 0.5f;
-				break;
-			case 2:
-				v *= 0.25f;
-				break;
-			case 3:
-				v *= 0.125f;
-				break;
-			}
-			density += (node.mass * w) / v;
-		}
+		float density{ mpm_context_->GetDensity(p.position) };
 
 		// stress = -pressure * I + viscosity * (velocity_gradient + velocity_gradient_transposed)
 
@@ -767,19 +806,49 @@ namespace pmk
 		return stress;
 	}
 
-	void FluidModel::UpdateLameParameters(MaterialPoint* p) const
+	void FluidModel::SolveConstraints(MaterialPoint* p, float delta_time) const
 	{
-		// No-op.
+		float c = IncompressibleConstraintError(p->lambda);
+		glm::vec3 c_grad = IncompressibleConstraintErrorGradient(p);
+
+		//float w = 1.0f / p->mass;
+		//float lambda = -c / (w * glm::length2(c_grad));
+		//glm::vec3 delta_x = lambda * w * c_grad;
+
+		glm::vec3 c_grad_len_sqr{ glm::length2(c_grad) };
+		glm::vec3 delta_x = (c_grad_len_sqr == glm::vec3{}) ? glm::vec3{} : (-c * c_grad) / c_grad_len_sqr;
+
+		p->position += delta_x;
+		p->velocity = (p->position - p->position_before_advection) / delta_time;
 	}
 
-	void FluidModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
+	float FluidModel::IncompressibleConstraintError(float density) const
 	{
+		return std::max(density - REST_DENSITY, 0.0f);
+	}
+
+	glm::vec3 FluidModel::IncompressibleConstraintErrorGradient(MaterialPoint* p) const
+	{
+		constexpr float delta{ 0.00001f };
+
+		// Lambda is density at the pressure. Should rename with union probably.
+		float x_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{delta, 0.0f, 0.0f})) };
+		float y_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{0.0f, delta, 0.0f})) };
+		float z_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{0.0f, 0.0f, delta})) };
+		float p_sample{ IncompressibleConstraintError(p->lambda) };
+
+		float ddx{ (x_sample - p_sample) / delta };
+		float ddy{ (y_sample - p_sample) / delta };
+		float ddz{ (z_sample - p_sample) / delta };
+
+		return { ddx, ddy, ddz };
+	}
+
+	void SnowModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
+	{
+		p->lambda = LAMBDA;
+		p->mu = MU;
 		p->mass = initial_volume * DENSITY;
-	}
-
-	void FluidModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
-	{
-		// No-op. Fluid doesn't use the deformation gradient when calculating stress.
 	}
 
 	glm::mat3 SnowModel::GetJCauchyStress(MaterialPoint& p) const
@@ -802,13 +871,6 @@ namespace pmk
 		hardening_exponential = std::min(1.1f, hardening_exponential);
 		p->mu = MU * hardening_exponential;
 		p->lambda = LAMBDA * hardening_exponential;
-	}
-
-	void SnowModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
-	{
-		p->lambda = LAMBDA;
-		p->mu = MU;
-		p->mass = initial_volume * DENSITY;
 	}
 
 	void SnowModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const

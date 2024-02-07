@@ -43,6 +43,7 @@ namespace pmk
 		float mu;
 		float lambda;
 		glm::vec3 position;
+		glm::vec3 position_before_advection;
 		glm::vec3 velocity;
 		glm::mat3 affine_matrix;
 		glm::mat3 deformation_gradient_elastic;
@@ -57,15 +58,17 @@ namespace pmk
 	public:
 		void Initialize(MPMContext* mpm_context);
 
+		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const = 0;
+
 		// Gets J * Cauchy stress, since the J would cancel out in later calculations.
 		// Or equivalently, Piola-Kirchoff stress times F^T.
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const = 0;
 
-		virtual void UpdateLameParameters(MaterialPoint* p) const = 0;
+		virtual void UpdateLameParameters(MaterialPoint* p) const;
 
-		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const = 0;
+		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const;
 
-		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const = 0;
+		virtual void SolveConstraints(MaterialPoint* p, float delta_time) const;
 
 	protected:
 		MPMContext* mpm_context_{};
@@ -74,11 +77,11 @@ namespace pmk
 	class HyperElasticModel : public ConstitutiveModel
 	{
 	public:
+		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
+
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const override;
-
-		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
 
 		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
 
@@ -95,17 +98,19 @@ namespace pmk
 	class FluidModel : public ConstitutiveModel
 	{
 	public:
-		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
-
-		virtual void UpdateLameParameters(MaterialPoint* p) const override;
-
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
 
-		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
+		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
+
+		virtual void SolveConstraints(MaterialPoint* p, float delta_time) const override;
+
+		float IncompressibleConstraintError(float) const;
+
+		glm::vec3 IncompressibleConstraintErrorGradient(MaterialPoint* p) const;
 
 	private:
 		static constexpr float DENSITY{ 50.0f };          // kilogram per meter cubed.
-		static constexpr float REST_DENSITY{ 30.0f };     // kilogram per meter cubed.
+		static constexpr float REST_DENSITY{ 50.0f };     // kilogram per meter cubed.
 		static constexpr float DYNAMIC_VISCOSITY{ 0.0f };
 		static constexpr float EOS_STIFFNESS{ 10.0f };    // Tait equation of state.
 		static constexpr float EOS_POWER{ 20.0f };        // Tait equation of state.
@@ -115,11 +120,11 @@ namespace pmk
 	class SnowModel : public ConstitutiveModel
 	{
 	public:
+		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
+
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const override;
-
-		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
 
 		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
 
@@ -171,6 +176,8 @@ namespace pmk
 
 		const std::vector<GridNode>& GetNodes() const;
 
+		float GetDensity(const glm::vec3& position) const;
+
 	private:
 		void ParticleToGrid();
 
@@ -185,6 +192,8 @@ namespace pmk
 		void GridToParticle();
 
 		void AdvectParticles(float delta_time);
+
+		void SolveConstraints(float delta_time);
 
 		void UpdateIndexBuffers();
 
@@ -218,6 +227,8 @@ namespace pmk
 
 		// Returns array of indices into particle_indices_ of first element of contiguous block of particles in same sub block.
 		std::array<uint32_t, MAXIMUM_SUB_BLOCKS_IN_RANGE> GetParticleRangesWithinRadius(const glm::uvec3& grid_coord, uint32_t* out_count) const;
+
+		ConstitutiveModel* GetConstitutiveModel(const MaterialPoint& p);
 
 		void PrintParticleWeights() const;
 
