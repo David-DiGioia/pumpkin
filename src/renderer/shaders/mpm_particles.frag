@@ -5,8 +5,9 @@ layout (location = 1) in float in_mu;
 layout (location = 2) in float in_lambda;
 layout (location = 3) in vec3 in_position;
 layout (location = 4) in vec3 in_velocity;
-layout (location = 5) in float in_je;
-layout (location = 6) in float in_jp;
+layout (location = 5) in vec3 in_gradient;
+layout (location = 6) in float in_je;
+layout (location = 7) in float in_jp;
 
 layout (location = 0) out vec4 out_color;
 
@@ -24,10 +25,11 @@ const uint COLOR_MODE_MASS                = 2;
 const uint COLOR_MODE_MU                  = 3;
 const uint COLOR_MODE_LAMBDA              = 4;
 const uint COLOR_MODE_VELOCITY            = 5;
-const uint COLOR_MODE_ELASTIC_COMPRESSIVE = 6;
-const uint COLOR_MODE_ELASTIC_TENSILE     = 7;
-const uint COLOR_MODE_PLASTIC_COMPRESSIVE = 8;
-const uint COLOR_MODE_PLASTIC_TENSILE     = 9;
+const uint COLOR_MODE_GRADIENT            = 6;
+const uint COLOR_MODE_ELASTIC_COMPRESSIVE = 7;
+const uint COLOR_MODE_ELASTIC_TENSILE     = 8;
+const uint COLOR_MODE_PLASTIC_COMPRESSIVE = 9;
+const uint COLOR_MODE_PLASTIC_TENSILE     = 10;
 
 const float PI = 3.14159265359;
 
@@ -61,6 +63,9 @@ void main()
         break;
     case COLOR_MODE_VELOCITY:
         out_color = vec4(abs(in_velocity / constants.max_value), 1.0);
+        break;
+    case COLOR_MODE_GRADIENT:
+        out_color = vec4(abs(in_gradient / constants.max_value), 1.0);
         break;
     case COLOR_MODE_ELASTIC_COMPRESSIVE:
         out_color = vec4(Heatmap(1.0 - in_je, 0.0, constants.max_value), 1.0);

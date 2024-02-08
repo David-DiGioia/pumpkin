@@ -255,6 +255,7 @@ namespace pmk
 			mpm_particle_instances[p].lambda = particles[p].lambda;
 			mpm_particle_instances[p].position = particles[p].position;
 			mpm_particle_instances[p].velocity = particles[p].velocity;
+			mpm_particle_instances[p].gradient = particles[p].gradient;
 			mpm_particle_instances[p].elastic_col_0 = particles[p].deformation_gradient_elastic[0];
 			mpm_particle_instances[p].elastic_col_1 = particles[p].deformation_gradient_elastic[1];
 			mpm_particle_instances[p].elastic_col_2 = particles[p].deformation_gradient_elastic[2];

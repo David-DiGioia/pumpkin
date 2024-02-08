@@ -36,6 +36,7 @@ namespace renderer
 		float lambda;
 		glm::vec3 position;
 		glm::vec3 velocity;
+		glm::vec3 gradient;
 		// Deformation is a 3x3 matrix, but we need to use 3 separate vertex attribute bindings.
 		glm::vec3 elastic_col_0;
 		glm::vec3 elastic_col_1;

@@ -810,6 +810,7 @@ namespace pmk
 	{
 		float c = IncompressibleConstraintError(p->lambda);
 		glm::vec3 c_grad = IncompressibleConstraintErrorGradient(p);
+		p->gradient = c_grad;
 
 		//float w = 1.0f / p->mass;
 		//float lambda = -c / (w * glm::length2(c_grad));

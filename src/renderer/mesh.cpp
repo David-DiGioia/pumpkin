@@ -50,12 +50,13 @@ namespace renderer
 			MPM_PARTICLE_ATTRIBUTE(3, lambda),
 			MPM_PARTICLE_ATTRIBUTE(4, position),
 			MPM_PARTICLE_ATTRIBUTE(5, velocity),
-			MPM_PARTICLE_ATTRIBUTE(6, elastic_col_0),
-			MPM_PARTICLE_ATTRIBUTE(7, elastic_col_1),
-			MPM_PARTICLE_ATTRIBUTE(8, elastic_col_2),
-			MPM_PARTICLE_ATTRIBUTE(9, plastic_col_0),
-			MPM_PARTICLE_ATTRIBUTE(10, plastic_col_1),
-			MPM_PARTICLE_ATTRIBUTE(11, plastic_col_2),
+			MPM_PARTICLE_ATTRIBUTE(6, gradient),
+			MPM_PARTICLE_ATTRIBUTE(7, elastic_col_0),
+			MPM_PARTICLE_ATTRIBUTE(8, elastic_col_1),
+			MPM_PARTICLE_ATTRIBUTE(9, elastic_col_2),
+			MPM_PARTICLE_ATTRIBUTE(10, plastic_col_0),
+			MPM_PARTICLE_ATTRIBUTE(11, plastic_col_1),
+			MPM_PARTICLE_ATTRIBUTE(12, plastic_col_2), //A
 		};
 	}
 

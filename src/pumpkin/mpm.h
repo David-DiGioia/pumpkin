@@ -45,6 +45,7 @@ namespace pmk
 		glm::vec3 position;
 		glm::vec3 position_before_advection;
 		glm::vec3 velocity;
+		glm::vec3 gradient;
 		glm::mat3 affine_matrix;
 		glm::mat3 deformation_gradient_elastic;
 		glm::mat3 deformation_gradient_plastic;
