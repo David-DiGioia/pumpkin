@@ -96,7 +96,7 @@ namespace pmk
 		GridToParticle();
 		UpdateParticleDeformationGradient(delta_time);
 		AdvectParticles(delta_time);
-		SolveConstraints(delta_time);
+		//SolveConstraints(delta_time);
 
 		UpdateIndexBuffers();
 	}
@@ -116,11 +116,10 @@ namespace pmk
 		constexpr float GRID_CELL_VOLUME{ GRID_SIZE * GRID_SIZE * GRID_SIZE };
 		float density{ 0.0f };
 
-		uint32_t node_index_count{};
-		auto node_indices{ GetNodeIndicesWithinRadius(position, &node_index_count) };
-		for (uint32_t i{ 0 }; i < node_index_count; ++i)
+		auto node_indices{ GetNodeIndicesWithinRadius(position) };
+		for (uint32_t node_idx : node_indices)
 		{
-			const GridNode& node{ nodes_[node_indices[i]] };
+			const GridNode& node{ nodes_[node_idx] };
 			if (node.mass == 0.0f) {
 				continue;
 			}
@@ -179,16 +178,14 @@ namespace pmk
 				std::execution::par,
 				nodes_.begin(),
 				nodes_.end(),
-				[&](auto& node)
+				[&](GridNode& node)
 				{
 					node.mass = 0.0f;
 					node.momentum = glm::vec3{ 0.0f, 0.0f, 0.0f };
 
-					uint32_t particle_range_count{};
-					auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
-					for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+					std::vector<uint32_t> start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate) };
+					for (uint32_t range_start : start_of_ranges)
 					{
-						uint32_t range_start{ start_of_ranges[i] };
 						uint32_t current_key{ particle_indices_[range_start].key };
 						for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
 						{
@@ -249,11 +246,9 @@ namespace pmk
 
 				glm::vec3 sum{};
 
-				uint32_t particle_range_count{};
-				auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
-				for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+				auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate) };
+				for (uint32_t range_start : start_of_ranges)
 				{
-					uint32_t range_start{ start_of_ranges[i] };
 					uint32_t current_key{ particle_indices_[range_start].key };
 					for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
 					{
@@ -263,8 +258,8 @@ namespace pmk
 					}
 				}
 
-				node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
-				//node.force = -d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
+				//node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
+				node.force = -d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
 				node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
 
 				if (std::isnan(node.force.x))
@@ -324,11 +319,10 @@ namespace pmk
 				p.velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
 				p.affine_matrix = glm::mat3{ 0.0f };
 
-				uint32_t node_index_count{};
-				auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
-				for (uint32_t i{ 0 }; i < node_index_count; ++i)
+				std::vector<uint32_t> node_indices{ GetNodeIndicesWithinRadius(p.position) };
+				for (uint32_t node_idx : node_indices)
 				{
-					GridNode& node{ nodes_[node_indices[i]] };
+					GridNode& node{ nodes_[node_idx] };
 					if (node.mass == 0.0f) {
 						continue;
 					}
@@ -375,6 +369,9 @@ namespace pmk
 			ZoneScopedN("Sort");
 			std::sort(particle_indices_.begin(), particle_indices_.end());
 		}
+
+		sub_block_indices_.clear();
+		sub_block_indices_.resize(SUB_BLOCK_COUNT, NULL_INDEX);
 
 		{
 			ZoneScopedN("Update keys");
@@ -618,9 +615,9 @@ namespace pmk
 	}
 
 	// Assumes radius of 1.5.
-	std::array<uint32_t, MAXIMUM_NODES_IN_RANGE> MPMContext::GetNodeIndicesWithinRadius(glm::vec3 position, uint32_t* out_count) const
+	std::vector<uint32_t> MPMContext::GetNodeIndicesWithinRadius(glm::vec3 position) const
 	{
-		std::array<uint32_t, MAXIMUM_NODES_IN_RANGE> result{};
+		std::vector<uint32_t> result{};
 		position /= GRID_SIZE;
 
 		uint32_t x_min{};
@@ -633,25 +630,22 @@ namespace pmk
 		GetNodeCoordinateRange(position.y, &y_min, &y_max);
 		GetNodeCoordinateRange(position.z, &z_min, &z_max);
 
-		uint32_t result_idx{ 0 };
 		for (uint32_t x{ x_min }; x <= x_max; ++x)
 		{
 			for (uint32_t y{ y_min }; y <= y_max; ++y)
 			{
-				for (uint32_t z{ z_min }; z <= z_max; ++z)
-				{
-					result[result_idx++] = GridNodeCoordinateToIndex({ x, y, z });
+				for (uint32_t z{ z_min }; z <= z_max; ++z) {
+					result.emplace_back(GridNodeCoordinateToIndex({ x, y, z }));
 				}
 			}
 		}
 
-		*out_count = result_idx;
 		return result;
 	}
 
-	std::array<uint32_t, MAXIMUM_SUB_BLOCKS_IN_RANGE> MPMContext::GetParticleRangesWithinRadius(const glm::uvec3& grid_coord, uint32_t* out_count) const
+	std::vector<uint32_t> MPMContext::GetParticleRangesWithinRadius(const glm::uvec3& grid_coord) const
 	{
-		std::array<uint32_t, MAXIMUM_SUB_BLOCKS_IN_RANGE> result{};
+		std::vector<uint32_t> result{};
 		glm::uvec3 node_sub_coord{ 2u * grid_coord }; // Coordinate into grid subdividing each of grid coordinates.
 
 		uint32_t x_min{ (node_sub_coord.x < 3) ? 0 : node_sub_coord.x - 3 };
@@ -661,7 +655,6 @@ namespace pmk
 		uint32_t z_min{ (node_sub_coord.z < 3) ? 0 : node_sub_coord.z - 3 };
 		uint32_t z_max{ (node_sub_coord.z + 2 >= SUB_BLOCK_ROW_COUNT) ? SUB_BLOCK_ROW_COUNT - 1 : node_sub_coord.z + 2 };
 
-		uint32_t result_idx{ 0 };
 		for (uint32_t i{ x_min }; i <= x_max; ++i)
 		{
 			for (uint32_t j{ y_min }; j <= y_max; ++j)
@@ -671,13 +664,12 @@ namespace pmk
 					glm::uvec3 sub_coord{ i, j, k };
 					uint32_t particle_idx_idx{ sub_block_indices_[SubBlockCoordinateToIndex(sub_coord)] };
 					if (particle_idx_idx != NULL_INDEX) {
-						result[result_idx++] = particle_idx_idx;
+						result.emplace_back(particle_idx_idx);
 					}
 				}
 			}
 		}
 
-		*out_count = result_idx;
 		return result;
 	}
 
@@ -703,6 +695,26 @@ namespace pmk
 					logger::Print("ijk: %u, %u, %u\n", i, j, k);
 					logger::Print("weight: %.9f\n", weight);
 					logger::Print("grad_weight: %.6f, %.6f, %.6f\n\n", grad_weight.x, grad_weight.y, grad_weight.z);
+				}
+			}
+		}
+
+	}
+
+	void MPMContext::PrintNodeMasses() const
+	{
+		logger::Print("h = %.2f\nparticle mass = %.2f\n", GRID_SIZE, particles_[0].mass);
+
+		for (uint32_t i{ 7 }; i <= 9; ++i)
+		{
+			for (uint32_t j{ 10 }; j <= 12; ++j)
+			{
+				for (uint32_t k{ 10 }; k <= 12; ++k)
+				{
+					const GridNode& node{ nodes_[GridNodeCoordinateToIndex(glm::uvec3{ i, j, k })] };
+
+					logger::Print("ijk: %u, %u, %u\n", i, j, k);
+					logger::Print("mass: %.9f\n", node.mass);
 				}
 			}
 		}
@@ -741,7 +753,9 @@ namespace pmk
 	{
 		p->lambda = LAMBDA;
 		p->mu = MU;
-		p->mass = initial_volume * DENSITY;
+		if (p->mass == 0.0f) {
+			p->mass = initial_volume * DENSITY;
+		}
 	}
 
 	glm::mat3 HyperElasticModel::GetJCauchyStress(MaterialPoint& p) const
@@ -792,7 +806,7 @@ namespace pmk
 		//logger::Print("%.4f\n", density_error);
 
 		// For debug rendering.
-		p.mu = std::fabs(density_error);
+		//p.mu = std::fabs(density_error);
 		p.lambda = density;
 
 		// velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
@@ -800,10 +814,10 @@ namespace pmk
 		glm::mat3 stress{ -pressure * glm::mat3(1.0f) + DYNAMIC_VISCOSITY * (velocity_gradient + glm::transpose(velocity_gradient)) };
 
 		// Replaces the initial volume that the caller multiplies with the return value of this function.
-		//float volume = p.mass / density;
+		float volume = p.mass / density;
 
 		// J is assumed to be 1.0f since fluid is incompressible, so no need to multiply by it.
-		return stress;
+		return volume * stress;
 	}
 
 	void FluidModel::SolveConstraints(MaterialPoint* p, float delta_time) const
@@ -830,17 +844,19 @@ namespace pmk
 
 	glm::vec3 FluidModel::IncompressibleConstraintErrorGradient(MaterialPoint* p) const
 	{
-		constexpr float delta{ 0.00001f };
+		constexpr float h{ 0.0005f };
 
 		// Lambda is density at the pressure. Should rename with union probably.
-		float x_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{delta, 0.0f, 0.0f})) };
-		float y_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{0.0f, delta, 0.0f})) };
-		float z_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{0.0f, 0.0f, delta})) };
-		float p_sample{ IncompressibleConstraintError(p->lambda) };
+		float x0_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{-h, 0.0f, 0.0f})) };
+		float y0_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{0.0f, -h, 0.0f})) };
+		float z0_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{0.0f, 0.0f, -h})) };
+		float x1_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{h, 0.0f, 0.0f})) };
+		float y1_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{0.0f, h, 0.0f})) };
+		float z1_sample{ IncompressibleConstraintError(mpm_context_->GetDensity(p->position + glm::vec3{0.0f, 0.0f, h})) };
 
-		float ddx{ (x_sample - p_sample) / delta };
-		float ddy{ (y_sample - p_sample) / delta };
-		float ddz{ (z_sample - p_sample) / delta };
+		float ddx{ (x1_sample - x0_sample) / (2.0f * h) };
+		float ddy{ (y1_sample - y0_sample) / (2.0f * h) };
+		float ddz{ (z1_sample - z0_sample) / (2.0f * h) };
 
 		return { ddx, ddy, ddz };
 	}

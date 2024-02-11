@@ -224,14 +224,16 @@ namespace pmk
 		uint32_t GridNodeCoordinateToIndex(const glm::uvec3& coord) const;
 
 		// Returns vector of indices into nodes_.
-		std::array<uint32_t, MAXIMUM_NODES_IN_RANGE> GetNodeIndicesWithinRadius(glm::vec3 position, uint32_t* out_count) const;
+		std::vector<uint32_t> GetNodeIndicesWithinRadius(glm::vec3 position) const;
 
-		// Returns array of indices into particle_indices_ of first element of contiguous block of particles in same sub block.
-		std::array<uint32_t, MAXIMUM_SUB_BLOCKS_IN_RANGE> GetParticleRangesWithinRadius(const glm::uvec3& grid_coord, uint32_t* out_count) const;
+		// Returns vector of indices into particle_indices_ of first element of contiguous block of particles in same sub block.
+		std::vector<uint32_t> GetParticleRangesWithinRadius(const glm::uvec3& grid_coord) const;
 
 		ConstitutiveModel* GetConstitutiveModel(const MaterialPoint& p);
 
 		void PrintParticleWeights() const;
+
+		void PrintNodeMasses() const;
 
 		friend FluidModel;
 
