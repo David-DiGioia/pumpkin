@@ -105,6 +105,13 @@ private:
 
 	void NodeProperties();
 
+	// Shows render materials for specified editor node, or all materials if node is nullptr.
+	void RenderMaterials(EditorNode* node);
+
+	void PhyicsMaterials();
+
+	void Materials();
+
 	void EngineViewport(ImTextureID* rendered_image_id);
 
 	void FileBrowser();

@@ -69,6 +69,7 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	TreeView();
 	//ImGui::ShowDemoWindow();
 	NodeProperties();
+	Materials();
 	EngineViewport(rendered_image_id);
 	FileBrowser();
 	CameraControls();
@@ -370,91 +371,126 @@ void EditorGui::NodeProperties()
 		ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
 		ImGui::Text("%.2f  %.2f  %.2f  %.2f", rot.x, rot.y, rot.z, rot.w);
 
-		std::vector<int> node_materials{ editor_->GetMaterialIndicesFromNode(active_node) };
-		std::vector<const char*> node_materials_strings(node_materials.size());
-		std::transform(node_materials.begin(), node_materials.end(), node_materials_strings.begin(),
-			[=](int mat_idx) { return editor_->materials_[mat_idx]->GetNameBuffer(); });
-
-		if (material_selected_geometry_index_ >= node_materials.size()) {
-			material_selected_geometry_index_ = 0;
-		}
-
-		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
-		ImGui::Text("Material");
-		ImGui::ListBox("##MaterialList", &material_selected_geometry_index_, node_materials_strings.data(), (int)node_materials_strings.size(), 4);
-
-		if (material_selected_geometry_index_ >= 0 && material_selected_geometry_index_ < (int)node_materials_strings.size())
-		{
-			EditorMaterial* mat{ editor_->materials_[node_materials[material_selected_geometry_index_]] };
-
-			// Combo box to swap selected material for a different existing material.
-			int material_selected_combo = node_materials[material_selected_geometry_index_];
-			if (ImGui::BeginCombo("##MaterialCombo", nullptr, ImGuiComboFlags_NoPreview))
-			{
-				for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
-				{
-					const bool is_selected{ material_selected_combo == mat_idx };
-					if (ImGui::Selectable(editor_->materials_[mat_idx]->GetNameBuffer(), is_selected)) {
-						editor_->SetNodeMaterial(active_node, material_selected_geometry_index_, mat_idx);
-					}
-
-					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
-					if (is_selected) {
-						ImGui::SetItemDefaultFocus();
-					}
-				}
-				ImGui::EndCombo();
-			}
-
-			ImGui::SameLine();
-			ImGui::InputText("##MaterialName", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
-
-			if (mat->user_count > 1)
-			{
-				ImGui::SameLine();
-				std::string user_count_string{ std::to_string(mat->user_count) };
-				if (ImGui::Button(user_count_string.c_str()))
-				{
-					uint32_t mat_copy{ editor_->MakeMaterialUnique((uint32_t)material_selected_combo) };
-					editor_->SetNodeMaterial(active_node, material_selected_geometry_index_, mat_copy);
-				}
-			}
-
-			ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
-
-			bool mat_changed{ false };
-
-			if (!MaterialTextureProperty("Color", &mat->show_color_tex_ui_, &mat->material->color_index, &mat_changed, true)) {
-				mat_changed |= ImGui::ColorEdit3("##Color", glm::value_ptr(mat->material->color));
-			}
-
-			if (!MaterialTextureProperty("Metallic", &mat->show_metallic_tex_ui_, &mat->material->metallic_index, &mat_changed, false)) {
-				mat_changed |= ImGui::DragFloat("##Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
-			}
-
-			if (!MaterialTextureProperty("Roughness", &mat->show_roughness_tex_ui_, &mat->material->roughness_index, &mat_changed, false)) {
-				mat_changed |= ImGui::DragFloat("##Roughness", &mat->material->roughness, 0.01f, 0.0f, 1.0f);
-			}
-
-			if (!MaterialTextureProperty("Emission", &mat->show_emission_tex_ui_, &mat->material->emission_index, &mat_changed, false)) {
-				mat_changed |= ImGui::DragFloat("##Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
-			}
-
-			bool show_normal_texture_ui{ true };
-			MaterialTextureProperty("Normal", &show_normal_texture_ui, &mat->material->normal_index, &mat_changed, false);
-
-			ImGui::Text("IOR");
-			ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
-			mat_changed |= ImGui::DragFloat("##IOR", &mat->material->ior, 0.01f, 1.0f, 2.0f);
-
-			if (mat_changed) {
-				editor_->pumpkin_->UpdateMaterials();
-			}
-		}
+		RenderMaterials(active_node);
 	}
 	else {
 		ImGui::Text("No actively selected node.");
 	}
+
+	ImGui::End();
+}
+
+void EditorGui::RenderMaterials(EditorNode* node)
+{
+	std::vector<int> node_materials{};
+	if (node) {
+		node_materials = editor_->GetMaterialIndicesFromNode(node);
+	}
+	else {
+		node_materials.resize(editor_->materials_.size());
+		std::iota(node_materials.begin(), node_materials.end(), 0);
+	}
+
+	std::vector<const char*> node_materials_strings(node_materials.size());
+	std::transform(node_materials.begin(), node_materials.end(), node_materials_strings.begin(),
+		[=](int mat_idx) { return editor_->materials_[mat_idx]->GetNameBuffer(); });
+
+	if (material_selected_geometry_index_ >= node_materials.size()) {
+		material_selected_geometry_index_ = 0;
+	}
+
+	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+	ImGui::Text("Render material");
+	ImGui::ListBox("##MaterialList", &material_selected_geometry_index_, node_materials_strings.data(), (int)node_materials_strings.size(), 4);
+
+	if (material_selected_geometry_index_ >= 0 && material_selected_geometry_index_ < (int)node_materials_strings.size())
+	{
+		EditorMaterial* mat{ editor_->materials_[node_materials[material_selected_geometry_index_]] };
+
+		// Combo box to swap selected material for a different existing material.
+		int material_selected_combo = node_materials[material_selected_geometry_index_];
+		if (ImGui::BeginCombo("##MaterialCombo", nullptr, ImGuiComboFlags_NoPreview))
+		{
+			for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
+			{
+				const bool is_selected{ material_selected_combo == mat_idx };
+				if (node && ImGui::Selectable(editor_->materials_[mat_idx]->GetNameBuffer(), is_selected)) {
+					editor_->SetNodeMaterial(node, material_selected_geometry_index_, mat_idx);
+				}
+
+				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
+				if (is_selected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		ImGui::SameLine();
+		ImGui::InputText("##MaterialName", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
+
+		if (mat->user_count > 1)
+		{
+			ImGui::SameLine();
+			std::string user_count_string{ std::to_string(mat->user_count) };
+
+			ImGui::BeginDisabled(node == nullptr);
+			if (ImGui::Button(user_count_string.c_str()))
+			{
+				uint32_t mat_copy{ editor_->MakeMaterialUnique((uint32_t)material_selected_combo) };
+				editor_->SetNodeMaterial(node, material_selected_geometry_index_, mat_copy);
+			}
+			ImGui::EndDisabled();
+		}
+
+		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+
+		bool mat_changed{ false };
+
+		if (!MaterialTextureProperty("Color", &mat->show_color_tex_ui_, &mat->material->color_index, &mat_changed, true)) {
+			mat_changed |= ImGui::ColorEdit3("##Color", glm::value_ptr(mat->material->color));
+		}
+
+		if (!MaterialTextureProperty("Metallic", &mat->show_metallic_tex_ui_, &mat->material->metallic_index, &mat_changed, false)) {
+			mat_changed |= ImGui::DragFloat("##Metallic", &mat->material->metallic, 0.01f, 0.000f, 1.0f);
+		}
+
+		if (!MaterialTextureProperty("Roughness", &mat->show_roughness_tex_ui_, &mat->material->roughness_index, &mat_changed, false)) {
+			mat_changed |= ImGui::DragFloat("##Roughness", &mat->material->roughness, 0.01f, 0.0f, 1.0f);
+		}
+
+		if (!MaterialTextureProperty("Emission", &mat->show_emission_tex_ui_, &mat->material->emission_index, &mat_changed, false)) {
+			mat_changed |= ImGui::DragFloat("##Emission", &mat->material->emission, 0.01f, 0.0f, 1000.0f);
+		}
+
+		bool show_normal_texture_ui{ true };
+		MaterialTextureProperty("Normal", &show_normal_texture_ui, &mat->material->normal_index, &mat_changed, false);
+
+		ImGui::Text("IOR");
+		ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+		mat_changed |= ImGui::DragFloat("##IOR", &mat->material->ior, 0.01f, 1.0f, 2.0f);
+
+		if (mat_changed) {
+			editor_->pumpkin_->UpdateMaterials();
+		}
+	}
+
+}
+
+void EditorGui::PhyicsMaterials()
+{
+}
+
+void EditorGui::Materials()
+{
+	if (!ImGui::Begin("Materials"))
+	{
+		ImGui::End();
+		return;
+	}
+
+	RenderMaterials(nullptr);
+	PhyicsMaterials();
 
 	ImGui::End();
 }
