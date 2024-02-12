@@ -969,6 +969,19 @@ uint32_t Editor::MakeMaterialUnique(int material_index)
 	return (uint32_t)(materials_.size() - 1);
 }
 
+uint32_t Editor::NewMaterial()
+{
+	renderer::Material* material{ pumpkin_->NewMaterial() };
+	materials_.push_back(new EditorMaterial{ material, "NewMaterial"});
+	return (uint32_t)(materials_.size() - 1);
+}
+
+void Editor::DeleteMaterial(uint32_t selected_idx)
+{
+	pumpkin_->DeleteMaterial(selected_idx);
+	materials_.erase(materials_.begin() + selected_idx);
+}
+
 std::filesystem::path GetAppDataDirectory()
 {
 	auto path{ std::filesystem::temp_directory_path().parent_path().parent_path().parent_path() };

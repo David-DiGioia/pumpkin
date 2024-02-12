@@ -337,6 +337,11 @@ private:
 	// Makes material into a single-user copy. Returns index to the newly created material.
 	uint32_t MakeMaterialUnique(int material_index);
 
+	// Makes a new material. Returns index to newly created material.
+	uint32_t NewMaterial();
+
+	void DeleteMaterial(uint32_t selected_idx);
+
 	// Load settings from AppData.
 	void LoadEditorSettings();
 

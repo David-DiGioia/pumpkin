@@ -403,6 +403,32 @@ void EditorGui::RenderMaterials(EditorNode* node)
 	ImGui::Text("Render material");
 	ImGui::ListBox("##MaterialList", &material_selected_geometry_index_, node_materials_strings.data(), (int)node_materials_strings.size(), 4);
 
+
+	// We can only add/remove materials if we aren't looking at materials of specific node.
+	if (!node)
+	{
+		ImGui::SameLine();
+		ImGui::BeginGroup();
+
+		// Add new material.
+		if (ImGui::Button("+")) {
+			material_selected_geometry_index_ = (int)editor_->NewMaterial();
+		}
+
+		// Delete selected material.
+		bool selected_idx_in_range{ material_selected_geometry_index_ >= 0 && material_selected_geometry_index_ < (int)node_materials_strings.size() };
+		ImGui::BeginDisabled(node_materials.size() <= 1 || !selected_idx_in_range);
+		if (ImGui::Button("-"))
+		{
+			int selected_idx{ node_materials[material_selected_geometry_index_] };
+			editor_->DeleteMaterial((uint32_t)selected_idx);
+			material_selected_geometry_index_ = -1;
+		}
+		ImGui::EndDisabled();
+
+		ImGui::EndGroup();
+	}
+
 	if (material_selected_geometry_index_ >= 0 && material_selected_geometry_index_ < (int)node_materials_strings.size())
 	{
 		EditorMaterial* mat{ editor_->materials_[node_materials[material_selected_geometry_index_]] };
@@ -490,6 +516,7 @@ void EditorGui::Materials()
 	}
 
 	RenderMaterials(nullptr);
+	ImGui::Separator();
 	PhyicsMaterials();
 
 	ImGui::End();

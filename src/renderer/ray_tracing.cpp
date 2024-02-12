@@ -442,6 +442,8 @@ namespace renderer
 
 	void RayTracingContext::UpdateMaterialBuffers(const std::vector<Material*>& materials, const std::vector<const std::vector<int>*>& indices)
 	{
+		vkDeviceWaitIdle(context_->device);
+
 		std::vector<Material> materials_vec{};
 		materials_vec.reserve(materials.size());
 

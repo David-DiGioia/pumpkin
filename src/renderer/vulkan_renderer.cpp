@@ -1067,6 +1067,29 @@ namespace renderer
 		return new_material;
 	}
 
+	Material* VulkanRenderer::NewMaterial()
+	{
+		Material* new_material{ new Material{default_material} };
+		materials_.push_back(new_material);
+		UpdateMaterials();
+		return new_material;
+	}
+
+	void VulkanRenderer::DeleteMaterial(uint32_t material_index)
+	{
+		materials_.erase(materials_.begin() + material_index);
+
+		for (FrameResources& frame : frame_resources_)
+		{
+			for (RenderObject* ro : frame.render_objects)
+			{
+				std::transform(ro->material_indices.begin(), ro->material_indices.end(), ro->material_indices.begin(),
+					[=](int idx) { return (idx >= material_index) ? std::max(idx - 1, 0) : idx; });
+			}
+		}
+		UpdateMaterials();
+	}
+
 	void VulkanRenderer::UpdateObjectBuffers()
 	{
 		rt_context_.UpdateObjectBuffers(meshes_);
@@ -1599,6 +1622,12 @@ namespace renderer
 		replace_ro_queue_.clear();
 
 		render_object_destroyer_.FrameUpdate();
+
+		if (should_update_materials_)
+		{
+			should_update_materials_ = false;
+			UpdateMaterials();
+		}
 	}
 
 	void VulkanRenderer::ComputeWork()
@@ -1679,7 +1708,7 @@ namespace renderer
 #else
 		return false;
 #endif
-}
+	}
 
 	void VulkanRenderer::ReplaceRenderObjectImpl(RenderObjectHandle ro_target, Mesh* mesh)
 	{
@@ -1748,4 +1777,4 @@ namespace renderer
 	{
 		return (uint32_t)meshes_.size();
 	}
-}
+	}

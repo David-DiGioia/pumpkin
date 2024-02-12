@@ -118,6 +118,16 @@ namespace pmk
 		return renderer_.MakeMaterialUnique(material_index);
 	}
 
+	renderer::Material* Pumpkin::NewMaterial()
+	{
+		return renderer_.NewMaterial();
+	}
+
+	void Pumpkin::DeleteMaterial(uint32_t material_index)
+	{
+		renderer_.DeleteMaterial(material_index);
+	}
+
 	void Pumpkin::SetMaterialIndex(renderer::RenderObjectHandle render_object, uint32_t geometry_index, int material_index)
 	{
 		renderer_.SetMaterialIndex(render_object, geometry_index, material_index);

@@ -46,6 +46,10 @@ namespace pmk
 
 		renderer::Material* MakeMaterialUnique(uint32_t material_index);
 
+		renderer::Material* NewMaterial();
+
+		void DeleteMaterial(uint32_t material_index);
+
 		void SetMaterialIndex(renderer::RenderObjectHandle render_object, uint32_t geometry_index, int material_index);
 
 		void UpdateObjectBuffers();

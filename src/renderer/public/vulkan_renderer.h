@@ -134,6 +134,10 @@ namespace renderer
 
 		Material* MakeMaterialUnique(uint32_t material_index);
 
+		Material* NewMaterial();
+
+		void DeleteMaterial(uint32_t material_index);
+
 		void UpdateObjectBuffers();
 
 		std::vector<Rayhit> CastRays(const std::vector<Raycast>& raycasts);
@@ -303,6 +307,7 @@ namespace renderer
 
 		std::vector<QueuedReplaceRenderObjectInfo> replace_ro_queue_{}; // Render objects to be replaced during next HostRenderWork() invocation.
 		RenderObjectDestroyer render_object_destroyer_{};               // Render objects can't be destroyed while they're in use rendering in previous frame, so use special destroyer class.
+		bool should_update_materials_{};
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
