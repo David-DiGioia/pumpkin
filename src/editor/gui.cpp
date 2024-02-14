@@ -16,6 +16,7 @@
 constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
 constexpr uint32_t NODE_PROPERTY_ALIGNMENT{ 77 };
 constexpr uint32_t SHADER_PROPERTY_ALIGNMENT{ 85 };
+constexpr uint32_t PHYSICS_PROPERTY_ALIGNMENT{ 85 };
 
 bool EditorNodeCmp::operator()(EditorNode* a, EditorNode* b) const
 {
@@ -386,7 +387,8 @@ void EditorGui::RenderMaterials(EditorNode* node)
 	if (node) {
 		node_materials = editor_->GetMaterialIndicesFromNode(node);
 	}
-	else {
+	else
+	{
 		node_materials.resize(editor_->materials_.size());
 		std::iota(node_materials.begin(), node_materials.end(), 0);
 	}
@@ -435,24 +437,26 @@ void EditorGui::RenderMaterials(EditorNode* node)
 
 		// Combo box to swap selected material for a different existing material.
 		int material_selected_combo = node_materials[material_selected_geometry_index_];
-		if (ImGui::BeginCombo("##MaterialCombo", nullptr, ImGuiComboFlags_NoPreview))
+		if (node)
 		{
-			for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
+			if (ImGui::BeginCombo("##MaterialCombo", nullptr, ImGuiComboFlags_NoPreview))
 			{
-				const bool is_selected{ material_selected_combo == mat_idx };
-				if (node && ImGui::Selectable(editor_->materials_[mat_idx]->GetNameBuffer(), is_selected)) {
-					editor_->SetNodeMaterial(node, material_selected_geometry_index_, mat_idx);
-				}
+				for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
+				{
+					const bool is_selected{ material_selected_combo == mat_idx };
+					if (node && ImGui::Selectable(editor_->materials_[mat_idx]->GetNameBuffer(), is_selected)) {
+						editor_->SetNodeMaterial(node, material_selected_geometry_index_, mat_idx);
+					}
 
-				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
-				if (is_selected) {
-					ImGui::SetItemDefaultFocus();
+					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
+					if (is_selected) {
+						ImGui::SetItemDefaultFocus();
+					}
 				}
+				ImGui::EndCombo();
 			}
-			ImGui::EndCombo();
+			ImGui::SameLine();
 		}
-
-		ImGui::SameLine();
 		ImGui::InputText("##MaterialName", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
 
 		if (mat->user_count > 1)
@@ -500,11 +504,119 @@ void EditorGui::RenderMaterials(EditorNode* node)
 			editor_->pumpkin_->UpdateMaterials();
 		}
 	}
-
 }
 
-void EditorGui::PhyicsMaterials()
+void EditorGui::PhysicsMaterials(EditorNode* node)
 {
+	std::vector<int> node_materials{};
+	if (node) {
+		node_materials = editor_->GetMaterialIndicesFromNode(node);
+	}
+	else
+	{
+		node_materials.resize(editor_->physics_materials_.size());
+		std::iota(node_materials.begin(), node_materials.end(), 0);
+	}
+
+	std::vector<const char*> node_materials_strings(node_materials.size());
+	std::transform(node_materials.begin(), node_materials.end(), node_materials_strings.begin(),
+		[=](int mat_idx) { return editor_->physics_materials_[mat_idx]->GetNameBuffer(); });
+
+	if (physics_material_selected_geometry_index_ >= node_materials.size()) {
+		physics_material_selected_geometry_index_ = 0;
+	}
+
+	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+	ImGui::Text("Physics material");
+	ImGui::ListBox("##PhysicsMaterialList", &physics_material_selected_geometry_index_, node_materials_strings.data(), (int)node_materials_strings.size(), 4);
+
+
+	// We can only add/remove materials if we aren't looking at materials of specific node.
+	if (!node)
+	{
+		ImGui::SameLine();
+		ImGui::BeginGroup();
+
+		// Add new material.
+		if (ImGui::Button("+")) {
+			physics_material_selected_geometry_index_ = (int)editor_->NewPhysicsMaterial();
+		}
+
+		// Delete selected material.
+		bool selected_idx_in_range{ physics_material_selected_geometry_index_ >= 0 && physics_material_selected_geometry_index_ < (int)node_materials_strings.size() };
+		ImGui::BeginDisabled(node_materials.size() <= 1 || !selected_idx_in_range);
+		if (ImGui::Button("-"))
+		{
+			int selected_idx{ node_materials[physics_material_selected_geometry_index_] };
+			editor_->DeletePhysicsMaterial((uint32_t)selected_idx);
+			physics_material_selected_geometry_index_ = -1;
+		}
+		ImGui::EndDisabled();
+
+		ImGui::EndGroup();
+	}
+
+	if (physics_material_selected_geometry_index_ >= 0 && physics_material_selected_geometry_index_ < (int)node_materials_strings.size())
+	{
+		EditorPhysicsMaterial* mat{ editor_->physics_materials_[node_materials[physics_material_selected_geometry_index_]] };
+
+		// Combo box to swap selected material for a different existing material.
+		int material_selected_combo = node_materials[physics_material_selected_geometry_index_];
+		if (node)
+		{
+			if (ImGui::BeginCombo("##PhysicsMaterialCombo", nullptr, ImGuiComboFlags_NoPreview))
+			{
+				for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->physics_materials_.size(); ++mat_idx)
+				{
+					const bool is_selected{ material_selected_combo == mat_idx };
+					if (node && ImGui::Selectable(editor_->physics_materials_[mat_idx]->GetNameBuffer(), is_selected)) {
+						editor_->SetNodeMaterial(node, physics_material_selected_geometry_index_, mat_idx);
+					}
+
+					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
+					if (is_selected) {
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::SameLine();
+		}
+		ImGui::InputText("##PhysicsMaterialName", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
+
+		if (mat->user_count > 1)
+		{
+			ImGui::SameLine();
+			std::string user_count_string{ std::to_string(mat->user_count) };
+
+			ImGui::BeginDisabled(node == nullptr);
+			if (ImGui::Button(user_count_string.c_str()))
+			{
+				uint32_t mat_copy{ editor_->MakeMaterialUnique((uint32_t)material_selected_combo) };
+				editor_->SetNodeMaterial(node, physics_material_selected_geometry_index_, mat_copy);
+			}
+			ImGui::EndDisabled();
+		}
+
+		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+
+		bool mat_changed{ false };
+		int selected_idx{ node_materials[physics_material_selected_geometry_index_] };
+		std::vector<std::pair<float*, std::string>> physics_parameters{ editor_->pumpkin_->GetPhysicsParameters(selected_idx) };
+
+		for (std::pair<float*, std::string>& parameter : physics_parameters)
+		{
+			ImGui::Text(parameter.second.c_str());
+			ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
+			std::string imgui_id{ "##" + parameter.second };
+			mat_changed |= ImGui::DragFloat(imgui_id.c_str(), parameter.first, 0.01f, 0.0f, 0.0f);
+		}
+
+		if (mat_changed) {
+			editor_->pumpkin_->PhysicsParametersMutated(selected_idx);
+		}
+	}
+
 }
 
 void EditorGui::Materials()
@@ -517,7 +629,7 @@ void EditorGui::Materials()
 
 	RenderMaterials(nullptr);
 	ImGui::Separator();
-	PhyicsMaterials();
+	PhysicsMaterials(nullptr);
 
 	ImGui::End();
 }

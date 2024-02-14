@@ -103,6 +103,26 @@ private:
 	char* name_buffer_{};
 };
 
+class EditorPhysicsMaterial
+{
+public:
+	EditorPhysicsMaterial(pmk::PhysicsMaterial* pmk_material, const std::string& name);
+
+	EditorPhysicsMaterial(pmk::PhysicsMaterial* pmk_material);
+
+	~EditorPhysicsMaterial();
+
+	std::string GetName() const;
+
+	char* GetNameBuffer() const;
+
+	pmk::PhysicsMaterial* material{};
+	uint32_t user_count{}; // Number of nodes that use this material.
+
+private:
+	char* name_buffer_{};
+};
+
 class EditorShader
 {
 public:
@@ -330,6 +350,7 @@ private:
 	glm::vec2 WorldToScreenSpace(const glm::vec3& world_pos) const;
 
 	// Get all the material indices in the order of the geometries associated with a node, if it has a mesh.
+	// If the node is a physics node, it will instead return physics material indices.
 	const std::vector<int>& GetMaterialIndicesFromNode(EditorNode* node);
 
 	void SetNodeMaterial(EditorNode* node, uint32_t geometry_index, int material_index);
@@ -341,6 +362,10 @@ private:
 	uint32_t NewMaterial();
 
 	void DeleteMaterial(uint32_t selected_idx);
+
+	uint32_t NewPhysicsMaterial();
+
+	void DeletePhysicsMaterial(uint32_t selected_idx);
 
 	// Load settings from AppData.
 	void LoadEditorSettings();
@@ -370,13 +395,14 @@ private:
 	EditorGui gui_{};
 	CameraController controller_{};
 
-	EditorNode* root_node_{};                              // All other nodes are a descendent of the root node.
-	EditorNode* active_selection_node_{ nullptr };         // There can be multiple selected nodes but only one actively selected node.
-	std::unordered_set<EditorNode*> selected_nodes_{};     // Set of all selected nodes. Having a set makes it possible to ierate over only selected nodes.
-	std::unordered_map<uint32_t, EditorNode*> node_map_{}; // The key of this map is pmk::Node::node_id. This allows finding an EditorNode from a pmk::Node.
-	std::vector<EditorMaterial*> materials_{};             // List of EditorMaterials in same order as the renderer's material list, so material index is valid here too.
-	std::vector<EditorTexture*> textures_{};               // List of EditorTextures in same order as the renderer's texture list, so texture index is valid here too.
-	std::vector<EditorShader*> shaders_{};                 // List of EditorShaders, containing path to SPIRV files to be passed to renderer.
+	EditorNode* root_node_{};                                 // All other nodes are a descendent of the root node.
+	EditorNode* active_selection_node_{ nullptr };            // There can be multiple selected nodes but only one actively selected node.
+	std::unordered_set<EditorNode*> selected_nodes_{};        // Set of all selected nodes. Having a set makes it possible to ierate over only selected nodes.
+	std::unordered_map<uint32_t, EditorNode*> node_map_{};    // The key of this map is pmk::Node::node_id. This allows finding an EditorNode from a pmk::Node.
+	std::vector<EditorMaterial*> materials_{};                // List of EditorMaterials in same order as the renderer's material list, so material index is valid here too.
+	std::vector<EditorPhysicsMaterial*> physics_materials_{}; // List of EditorPhysicsMaterials in same order as the Pumpkin's physics material list, so material index is valid here too.
+	std::vector<EditorTexture*> textures_{};                  // List of EditorTextures in same order as the renderer's texture list, so texture index is valid here too.
+	std::vector<EditorShader*> shaders_{};                    // List of EditorShaders, containing path to SPIRV files to be passed to renderer.
 
 	std::filesystem::path project_directory_{};                  // The root directory of the user's project.
 	std::filesystem::path active_selection_file_{};              // The actively selected file.

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include <array>
+#include <string>
 #include "glm/glm.hpp"
 
 namespace pmk
@@ -28,15 +28,6 @@ namespace pmk
 
 	constexpr MPMInterpolationKernel MPM_INTERPOLATION_KERNEL{ MPMInterpolationKernel::QUADRATIC };
 
-	enum class ConstitutiveModelIndex : uint32_t
-	{
-		HYPER_ELASTIC,
-		FLUID,
-		SNOW,
-
-		CONSTITUTIVE_MODEL_COUNT,
-	};
-
 	struct MaterialPoint
 	{
 		float mass;
@@ -49,7 +40,7 @@ namespace pmk
 		glm::mat3 affine_matrix;
 		glm::mat3 deformation_gradient_elastic;
 		glm::mat3 deformation_gradient_plastic;
-		ConstitutiveModelIndex  constitutive_model_index;
+		uint32_t  physics_material_index;
 	};
 
 	class MPMContext;
@@ -64,6 +55,12 @@ namespace pmk
 		// Gets J * Cauchy stress, since the J would cancel out in later calculations.
 		// Or equivalently, Piola-Kirchoff stress times F^T.
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const = 0;
+
+		// For updating the parameters from the UI for making physics materials in the editor.
+		virtual std::vector<std::pair<float*, std::string>> GetParameters() = 0;
+
+		// Should be called after any parameters from GetParameters() are mutated.
+		virtual void OnParametersMutated() = 0;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const;
 
@@ -82,6 +79,10 @@ namespace pmk
 
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
 
+		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
+
+		virtual void OnParametersMutated() override;
+
 		virtual void UpdateLameParameters(MaterialPoint* p) const override;
 
 		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
@@ -89,11 +90,12 @@ namespace pmk
 	private:
 		glm::mat3 GetPiolaKirchoffStress(MaterialPoint& p) const;
 
-		static constexpr float YOUNGS_MODULUS{ 50.0f };
-		static constexpr float POISSONS_RATIO{ 0.4f };
-		static constexpr float MU{ CalculateMu(YOUNGS_MODULUS, POISSONS_RATIO) };
-		static constexpr float LAMBDA{ CalculateLambda(YOUNGS_MODULUS, POISSONS_RATIO) };
-		static constexpr float DENSITY{ 20.0f }; // kilogram per meter cubed.
+		float youngs_modulus_{ 50.0f };
+		float poissons_ratio_{ 0.4f };
+		float density_{ 20.0f }; // kilogram per meter cubed.
+
+		float mu_{};
+		float lambda_{};
 	};
 
 	class FluidModel : public ConstitutiveModel
@@ -103,6 +105,10 @@ namespace pmk
 
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
 
+		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
+
+		virtual void OnParametersMutated() override;
+
 		virtual void SolveConstraints(MaterialPoint* p, float delta_time) const override;
 
 		float IncompressibleConstraintError(float) const;
@@ -110,11 +116,11 @@ namespace pmk
 		glm::vec3 IncompressibleConstraintErrorGradient(MaterialPoint* p) const;
 
 	private:
-		static constexpr float DENSITY{ 50.0f };          // kilogram per meter cubed.
-		static constexpr float REST_DENSITY{ 50.0f };     // kilogram per meter cubed.
-		static constexpr float DYNAMIC_VISCOSITY{ 0.0f };
-		static constexpr float EOS_STIFFNESS{ 10.0f };    // Tait equation of state.
-		static constexpr float EOS_POWER{ 20.0f };        // Tait equation of state.
+		float density_{ 50.0f };          // kilogram per meter cubed.
+		float rest_density_{ 50.0f };     // kilogram per meter cubed.
+		float dynamic_viscosity_{ 0.0f };
+		//float eos_stiffness_{ 10.0f };    // Tait equation of state.
+		//float eos_power_{ 20.0f };        // Tait equation of state.
 	};
 
 	// Takes 12+ substeps, and SVD quality parameters can be adjusted for performance / stability.
@@ -125,19 +131,30 @@ namespace pmk
 
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
 
+		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
+
+		virtual void OnParametersMutated() override;
+
 		virtual void UpdateLameParameters(MaterialPoint* p) const override;
 
 		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
 
 	private:
-		static constexpr float YOUNGS_MODULUS{ 140000.0f };
-		static constexpr float POISSONS_RATIO{ 0.2f };
-		static constexpr float MU{ CalculateMu(YOUNGS_MODULUS, POISSONS_RATIO) };
-		static constexpr float LAMBDA{ CalculateLambda(YOUNGS_MODULUS, POISSONS_RATIO) };
-		static constexpr float DENSITY{ 400.0f }; // kilogram per meter cubed.
-		static constexpr float SIGMA_C{ 0.025f };
-		static constexpr float SIGMA_S{ 0.0075f };
-		static constexpr float HARDENING_PARAMETER{ 10.0f };
+		float youngs_modulus_{ 140000.0f };
+		float poissons_ratio_{ 0.2f };
+		float density_{ 400.0f }; // kilogram per meter cubed.
+		float sigma_c_{ 0.025f };
+		float sigma_s_{ 0.0075f };
+		float hardening_parameter_{ 10.0f };
+
+		float mu_{};
+		float lambda_{};
+	};
+
+	struct PhysicsMaterial
+	{
+		uint32_t render_material;
+		ConstitutiveModel* constitutive_model;
 	};
 
 	// Per-particle cache.
@@ -178,6 +195,14 @@ namespace pmk
 		const std::vector<GridNode>& GetNodes() const;
 
 		float GetDensity(const glm::vec3& position) const;
+
+		PhysicsMaterial* NewPhysicsMaterial();
+
+		void DeletePhysicsMaterial(uint32_t material_index);
+
+		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint32_t material_index);
+
+		void PhysicsParametersMutated(uint32_t material_index);
 
 	private:
 		void ParticleToGrid();
@@ -242,11 +267,7 @@ namespace pmk
 		std::vector<MaterialPointIndex> particle_indices_{}; // Contains indices into particles_, along with a key encoding the sub block coordinate.
 		std::vector<uint32_t> sub_block_indices_{};          // Indices into particle_indices_, showing start of contiguous region containing particles in this sub block.
 		std::vector<GridNode> nodes_{};
-		std::array<ConstitutiveModel*, (uint32_t)ConstitutiveModelIndex::CONSTITUTIVE_MODEL_COUNT> constitutive_models_{
-			new HyperElasticModel{},
-			new FluidModel{},
-			new SnowModel{}
-		};
+		std::vector<PhysicsMaterial*> physics_materials_{};
 
 		float particle_radius_{};
 		float particle_initial_volume_{};

@@ -52,10 +52,6 @@ namespace pmk
 		sub_block_indices_.resize(SUB_BLOCK_COUNT, NULL_INDEX);
 		nodes_.resize(GRID_NODE_COUNT);
 
-		for (ConstitutiveModel* constitutive_model : constitutive_models_) {
-			constitutive_model->Initialize(this);
-		}
-
 		float particle_width = chunk_width / CHUNK_ROW_VOXEL_COUNT;
 		particle_radius_ = 0.5f * particle_width;
 		particle_initial_volume_ = particle_width * particle_width * particle_width;
@@ -148,6 +144,30 @@ namespace pmk
 		}
 
 		return density;
+	}
+
+	PhysicsMaterial* MPMContext::NewPhysicsMaterial()
+	{
+		PhysicsMaterial* new_material{ new PhysicsMaterial{} };
+		new_material->constitutive_model = new FluidModel{};
+		new_material->constitutive_model->Initialize(this);
+		physics_materials_.push_back(new_material);
+		return new_material;
+	}
+
+	void MPMContext::DeletePhysicsMaterial(uint32_t material_index)
+	{
+		physics_materials_.erase(physics_materials_.begin() + material_index);
+	}
+
+	std::vector<std::pair<float*, std::string>> MPMContext::GetPhysicsParameters(uint32_t material_index)
+	{
+		return physics_materials_[material_index]->constitutive_model->GetParameters();
+	}
+
+	void MPMContext::PhysicsParametersMutated(uint32_t material_index)
+	{
+		physics_materials_[material_index]->constitutive_model->OnParametersMutated();
 	}
 
 	void MPMContext::ParticleToGrid()
@@ -675,7 +695,7 @@ namespace pmk
 
 	ConstitutiveModel* MPMContext::GetConstitutiveModel(const MaterialPoint& p)
 	{
-		return constitutive_models_[(uint32_t)p.constitutive_model_index];
+		return physics_materials_[(uint32_t)p.physics_material_index]->constitutive_model;
 	}
 
 	void MPMContext::PrintParticleWeights() const
@@ -732,6 +752,7 @@ namespace pmk
 	void ConstitutiveModel::Initialize(MPMContext* mpm_context)
 	{
 		mpm_context_ = mpm_context;
+		OnParametersMutated();
 	}
 
 	void ConstitutiveModel::UpdateLameParameters(MaterialPoint* p) const
@@ -751,16 +772,31 @@ namespace pmk
 
 	void HyperElasticModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
 	{
-		p->lambda = LAMBDA;
-		p->mu = MU;
+		p->lambda = lambda_;
+		p->mu = mu_;
 		if (p->mass == 0.0f) {
-			p->mass = initial_volume * DENSITY;
+			p->mass = initial_volume * density_;
 		}
 	}
 
 	glm::mat3 HyperElasticModel::GetJCauchyStress(MaterialPoint& p) const
 	{
 		return GetPiolaKirchoffStress(p) * glm::transpose(p.deformation_gradient_elastic);
+	}
+
+	std::vector<std::pair<float*, std::string>> HyperElasticModel::GetParameters()
+	{
+		return {
+			{&youngs_modulus_, "Young's modulus"},
+			{&poissons_ratio_, "Poisson's ratio"},
+			{&density_, "Density"},
+		};
+	}
+
+	void HyperElasticModel::OnParametersMutated()
+	{
+		mu_ = CalculateMu(youngs_modulus_, poissons_ratio_);
+		lambda_ = CalculateLambda(youngs_modulus_, poissons_ratio_);
 	}
 
 	void HyperElasticModel::UpdateLameParameters(MaterialPoint* p) const
@@ -788,7 +824,7 @@ namespace pmk
 
 	void FluidModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
 	{
-		p->mass = initial_volume * DENSITY;
+		p->mass = initial_volume * density_;
 	}
 
 	glm::mat3 FluidModel::GetJCauchyStress(MaterialPoint& p) const
@@ -800,7 +836,7 @@ namespace pmk
 		//float pressure = std::max(-0.1f, EOS_STIFFNESS * (std::powf((density) / 30.0f, EOS_POWER) - 1.0f));
 
 		constexpr float pressure_multiplier{ 10.0f };
-		float density_error{ density - REST_DENSITY };
+		float density_error{ density - rest_density_ };
 		float pressure{ std::max(-0.1f, density_error * pressure_multiplier) };
 
 		//logger::Print("%.4f\n", density_error);
@@ -811,13 +847,26 @@ namespace pmk
 
 		// velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
 		glm::mat3 velocity_gradient = p.affine_matrix * mpm_context_->GetDInverse();
-		glm::mat3 stress{ -pressure * glm::mat3(1.0f) + DYNAMIC_VISCOSITY * (velocity_gradient + glm::transpose(velocity_gradient)) };
+		glm::mat3 stress{ -pressure * glm::mat3(1.0f) + dynamic_viscosity_ * (velocity_gradient + glm::transpose(velocity_gradient)) };
 
 		// Replaces the initial volume that the caller multiplies with the return value of this function.
 		float volume = p.mass / density;
 
 		// J is assumed to be 1.0f since fluid is incompressible, so no need to multiply by it.
 		return volume * stress;
+	}
+
+	std::vector<std::pair<float*, std::string>> FluidModel::GetParameters()
+	{
+		return {
+			{&density_, "Density"},
+			{&rest_density_, "Rest density"},
+			{&dynamic_viscosity_, "Viscosity"},
+		};
+	}
+
+	void FluidModel::OnParametersMutated()
+	{
 	}
 
 	void FluidModel::SolveConstraints(MaterialPoint* p, float delta_time) const
@@ -839,7 +888,7 @@ namespace pmk
 
 	float FluidModel::IncompressibleConstraintError(float density) const
 	{
-		return std::max(density - REST_DENSITY, 0.0f);
+		return std::max(density - rest_density_, 0.0f);
 	}
 
 	glm::vec3 FluidModel::IncompressibleConstraintErrorGradient(MaterialPoint* p) const
@@ -863,9 +912,9 @@ namespace pmk
 
 	void SnowModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
 	{
-		p->lambda = LAMBDA;
-		p->mu = MU;
-		p->mass = initial_volume * DENSITY;
+		p->lambda = lambda_;
+		p->mu = mu_;
+		p->mass = initial_volume * density_;
 	}
 
 	glm::mat3 SnowModel::GetJCauchyStress(MaterialPoint& p) const
@@ -880,14 +929,32 @@ namespace pmk
 		return lhs + rhs;
 	}
 
+	std::vector<std::pair<float*, std::string>> SnowModel::GetParameters()
+	{
+		return {
+			{&youngs_modulus_, "Young's modulus"},
+			{&poissons_ratio_, "Poisson's ratio"},
+			{&density_, "Density"},
+			{&sigma_c_, "Sigma c"},
+			{&sigma_s_, "Sigma s"},
+			{&hardening_parameter_, "Hardening"},
+		};
+	}
+
+	void SnowModel::OnParametersMutated()
+	{
+		mu_ = CalculateMu(youngs_modulus_, poissons_ratio_);
+		lambda_ = CalculateLambda(youngs_modulus_, poissons_ratio_);
+	}
+
 	void SnowModel::UpdateLameParameters(MaterialPoint* p) const
 	{
 		// Snow hardening.
 		float j_p{ glm::determinant(p->deformation_gradient_plastic) };
-		float hardening_exponential{ std::expf(HARDENING_PARAMETER * (1.0f - j_p)) };
+		float hardening_exponential{ std::expf(hardening_parameter_ * (1.0f - j_p)) };
 		hardening_exponential = std::min(1.1f, hardening_exponential);
-		p->mu = MU * hardening_exponential;
-		p->lambda = LAMBDA * hardening_exponential;
+		p->mu = mu_ * hardening_exponential;
+		p->lambda = lambda_ * hardening_exponential;
 	}
 
 	void SnowModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
@@ -900,9 +967,9 @@ namespace pmk
 		glm::mat3 v{};
 		SingularValueDecomposition(tentative_elastic, &u, &s, &v);
 
-		s[0][0] = std::clamp(s[0][0], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
-		s[1][1] = std::clamp(s[1][1], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
-		s[2][2] = std::clamp(s[2][2], 1.0f - SIGMA_C, 1.0f + SIGMA_S);
+		s[0][0] = std::clamp(s[0][0], 1.0f - sigma_c_, 1.0f + sigma_s_);
+		s[1][1] = std::clamp(s[1][1], 1.0f - sigma_c_, 1.0f + sigma_s_);
+		s[2][2] = std::clamp(s[2][2], 1.0f - sigma_c_, 1.0f + sigma_s_);
 
 		p->deformation_gradient_elastic = u * s * glm::transpose(v);
 		p->deformation_gradient_plastic = glm::inverse(p->deformation_gradient_elastic) * deformation_gradient;

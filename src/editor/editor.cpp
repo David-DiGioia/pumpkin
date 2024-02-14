@@ -531,6 +531,11 @@ uint32_t Editor::GenerateParticles(std::function<uint32_t()> particle_gen_func)
 		renderer::Material* mat{ pumpkin_->GetMaterials().back() };
 		materials_.push_back(new EditorMaterial{ mat, "Particles" });
 	}
+
+	if (physics_materials_.empty()) {
+		NewPhysicsMaterial();
+	}
+
 	return particle_count;
 }
 
@@ -972,7 +977,7 @@ uint32_t Editor::MakeMaterialUnique(int material_index)
 uint32_t Editor::NewMaterial()
 {
 	renderer::Material* material{ pumpkin_->NewMaterial() };
-	materials_.push_back(new EditorMaterial{ material, "NewMaterial"});
+	materials_.push_back(new EditorMaterial{ material, "NewMaterial" });
 	return (uint32_t)(materials_.size() - 1);
 }
 
@@ -980,6 +985,19 @@ void Editor::DeleteMaterial(uint32_t selected_idx)
 {
 	pumpkin_->DeleteMaterial(selected_idx);
 	materials_.erase(materials_.begin() + selected_idx);
+}
+
+uint32_t Editor::NewPhysicsMaterial()
+{
+	pmk::PhysicsMaterial* material{ pumpkin_->NewPhysicsMaterial() };
+	physics_materials_.push_back(new EditorPhysicsMaterial{ material, "NewPhysicsMaterial" });
+	return (uint32_t)(physics_materials_.size() - 1);
+}
+
+void Editor::DeletePhysicsMaterial(uint32_t selected_idx)
+{
+	pumpkin_->DeletePhysicsMaterial(selected_idx);
+	physics_materials_.erase(physics_materials_.begin() + selected_idx);
 }
 
 std::filesystem::path GetAppDataDirectory()
@@ -1158,6 +1176,33 @@ std::string EditorMaterial::GetName() const
 }
 
 char* EditorMaterial::GetNameBuffer() const
+{
+	return name_buffer_;
+}
+
+EditorPhysicsMaterial::EditorPhysicsMaterial(pmk::PhysicsMaterial* pmk_material, const std::string& name)
+	: material{ pmk_material }
+	, name_buffer_{ new char[NAME_BUFFER_SIZE] {} }
+{
+	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());
+}
+
+EditorPhysicsMaterial::EditorPhysicsMaterial(pmk::PhysicsMaterial* pmk_material)
+	: EditorPhysicsMaterial(pmk_material, std::string{ "PhysicsMaterial" })
+{
+}
+
+EditorPhysicsMaterial::~EditorPhysicsMaterial()
+{
+	delete[] name_buffer_;
+}
+
+std::string EditorPhysicsMaterial::GetName() const
+{
+	return std::string(name_buffer_);
+}
+
+char* EditorPhysicsMaterial::GetNameBuffer() const
 {
 	return name_buffer_;
 }

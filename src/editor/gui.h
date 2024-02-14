@@ -108,7 +108,7 @@ private:
 	// Shows render materials for specified editor node, or all materials if node is nullptr.
 	void RenderMaterials(EditorNode* node);
 
-	void PhyicsMaterials();
+	void PhysicsMaterials(EditorNode* node);
 
 	void Materials();
 
@@ -143,6 +143,7 @@ private:
 	std::filesystem::path current_directory_{};
 
 	int material_selected_geometry_index_{};
+	int physics_material_selected_geometry_index_{};
 
 	std::chrono::steady_clock::time_point frame_start_time_{};  // For timing frame duration.
 	std::chrono::steady_clock::time_point second_start_time_{}; // For calculating FPS.

@@ -50,6 +50,14 @@ namespace pmk
 
 		void DeleteMaterial(uint32_t material_index);
 
+		PhysicsMaterial* NewPhysicsMaterial();
+
+		void DeletePhysicsMaterial(uint32_t material_index);
+
+		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint32_t material_index);
+
+		void PhysicsParametersMutated(uint32_t material_index);
+
 		void SetMaterialIndex(renderer::RenderObjectHandle render_object, uint32_t geometry_index, int material_index);
 
 		void UpdateObjectBuffers();

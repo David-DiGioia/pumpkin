@@ -379,6 +379,26 @@ namespace pmk
 		particle_context_.PhysicsUpdate(delta_time);
 	}
 
+	PhysicsMaterial* Scene::NewPhysicsMaterial()
+	{
+		return particle_context_.NewPhysicsMaterial();
+	}
+
+	void Scene::DeletePhysicsMaterial(uint32_t material_index)
+	{
+		particle_context_.DeletePhysicsMaterial(material_index);
+	}
+
+	std::vector<std::pair<float*, std::string>> Scene::GetPhysicsParameters(uint32_t material_index)
+	{
+		return particle_context_.GetPhysicsParameters(material_index);
+	}
+
+	void Scene::PhysicsParametersMutated(uint32_t material_index)
+	{
+		particle_context_.PhysicsParametersMutated(material_index);
+	}
+
 	glm::mat4 Camera::GetViewMatrix() const
 	{
 		return glm::inverse(glm::translate(position) * glm::toMat4(rotation));

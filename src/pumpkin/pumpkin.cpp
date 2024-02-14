@@ -128,6 +128,26 @@ namespace pmk
 		renderer_.DeleteMaterial(material_index);
 	}
 
+	PhysicsMaterial* Pumpkin::NewPhysicsMaterial()
+	{
+		return scene_.NewPhysicsMaterial();
+	}
+
+	void Pumpkin::DeletePhysicsMaterial(uint32_t material_index)
+	{
+		scene_.DeletePhysicsMaterial(material_index);
+	}
+
+	std::vector<std::pair<float*, std::string>> Pumpkin::GetPhysicsParameters(uint32_t material_index)
+	{
+		return scene_.GetPhysicsParameters(material_index);
+	}
+
+	void Pumpkin::PhysicsParametersMutated(uint32_t material_index)
+	{
+		scene_.PhysicsParametersMutated(material_index);
+	}
+
 	void Pumpkin::SetMaterialIndex(renderer::RenderObjectHandle render_object, uint32_t geometry_index, int material_index)
 	{
 		renderer_.SetMaterialIndex(render_object, geometry_index, material_index);

@@ -26,9 +26,9 @@ layout(set = 0, binding = 2) writeonly buffer ParticleBufferOut {
 
 layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 
-const uint8_t PARTICLE_TYPE_EMPTY = uint8_t(0);
-const uint8_t PARTICLE_TYPE_JELLO = uint8_t(1);
-const uint8_t PARTICLE_TYPE_SNOW  = uint8_t(2);
+const uint8_t PARTICLE_TYPE_EMPTY = uint8_t(0xFF);
+const uint8_t PARTICLE_TYPE_JELLO = uint8_t(0);
+const uint8_t PARTICLE_TYPE_FLUID = uint8_t(1);
 
 uint IndexFromCoordinate(uvec3 coord)
 {

@@ -91,7 +91,7 @@ namespace pmk
 		uint32_t particle_count{};
 		for (renderer::StaticParticle p : static_particles_)
 		{
-			if (p.type != renderer::ParticleTypeIndex::EMPTY) {
+			if (p.physics_material_index != renderer::PHYSICS_MATERIAL_EMPTY_INDEX) {
 				++particle_count;
 			}
 		}
@@ -140,7 +140,7 @@ namespace pmk
 
 		for (uint32_t i{ 0 }; i < (uint32_t)static_particles_.size(); ++i)
 		{
-			if (static_particles_[i].type == renderer::ParticleTypeIndex::EMPTY) {
+			if (static_particles_[i].physics_material_index == renderer::PHYSICS_MATERIAL_EMPTY_INDEX) {
 				continue;
 			}
 
@@ -155,13 +155,33 @@ namespace pmk
 				.affine_matrix = glm::mat3{0.0f},
 				.deformation_gradient_elastic = glm::mat3{1.0f},
 				.deformation_gradient_plastic = glm::mat3{1.0f},
-				.constitutive_model_index = ConstitutiveModelIndex::FLUID,
+				.physics_material_index = static_particles_[i].physics_material_index,
 			};
 
 			mpm_particles.push_back(mpm_particle);
 		}
 
 		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH);
+	}
+
+	PhysicsMaterial* ParticleContext::NewPhysicsMaterial()
+	{
+		return mpm_context_.NewPhysicsMaterial();
+	}
+
+	void ParticleContext::DeletePhysicsMaterial(uint32_t material_index)
+	{
+		mpm_context_.DeletePhysicsMaterial(material_index);
+	}
+
+	std::vector<std::pair<float*, std::string>> ParticleContext::GetPhysicsParameters(uint32_t material_index)
+	{
+		return mpm_context_.GetPhysicsParameters(material_index);
+	}
+
+	void ParticleContext::PhysicsParametersMutated(uint32_t material_index)
+	{
+		mpm_context_.PhysicsParametersMutated(material_index);
 	}
 
 #ifdef EDITOR_ENABLED
@@ -224,7 +244,7 @@ namespace pmk
 		std::vector<MaterialPoint> dynamic_particles{};
 		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{
-			bool empty{ static_particles[i].type == renderer::ParticleTypeIndex::EMPTY };
+			bool empty{ static_particles[i].physics_material_index == renderer::PHYSICS_MATERIAL_EMPTY_INDEX };
 			bool occluded{ side_flags[i] == (uint8_t)renderer::ParticleSidesFlagBits::ALL_SIDES };
 
 			if (empty || occluded) {

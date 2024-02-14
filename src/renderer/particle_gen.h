@@ -11,14 +11,6 @@ namespace renderer
 {
 	class VulkanRenderer;
 
-	enum class ParticleTypeIndex : uint8_t
-	{
-		EMPTY,
-		JELLO,
-		SNOW,
-	};
-
-
 	// Encodes whether each of the 6 particle neighbors are occupied or not.
 	enum class ParticleSidesFlagBits : uint8_t
 	{
@@ -31,10 +23,13 @@ namespace renderer
 		ALL_SIDES = 0x3F,
 	};
 
+	// Defined in renderer instead of Pumpkin since it's used in particle_gen.cpp.
+	constexpr uint8_t PHYSICS_MATERIAL_EMPTY_INDEX{ 0xFF };
+
 	// Particles that are not being simulated.
 	struct StaticParticle
 	{
-		ParticleTypeIndex type;
+		uint8_t physics_material_index;
 	};
 
 	// Convert a particle 1D buffer index into a 3D coordinate in the chunk.

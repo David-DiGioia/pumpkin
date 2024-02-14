@@ -623,7 +623,7 @@ namespace renderer
 		std::vector<glm::vec3> positions{};
 		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{
-			bool empty{ static_particles[i].type == ParticleTypeIndex::EMPTY };
+			bool empty{ static_particles[i].physics_material_index == PHYSICS_MATERIAL_EMPTY_INDEX };
 			bool occluded{ side_flags[i] == (uint8_t)ParticleSidesFlagBits::ALL_SIDES };
 
 			if (empty || occluded) {
@@ -771,7 +771,7 @@ namespace renderer
 
 					uint32_t current_rect_idx = rectangle_indices_[h];
 					bool in_rectangle_domain{ current_rect_idx != NULL_INDEX };
-					bool solid_particle{ particles[i].type != ParticleTypeIndex::EMPTY };
+					bool solid_particle{ particles[i].physics_material_index != PHYSICS_MATERIAL_EMPTY_INDEX };
 					bool occluded{ (bool)(side_flags[i] & (uint8_t)side) };
 					bool part_of_shell{ solid_particle && !occluded }; // Each solid and non-occluded face will be part of a the triangle shell.
 					bool end_of_row{ h == CHUNK_ROW_VOXEL_COUNT - 1 };

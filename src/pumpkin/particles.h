@@ -13,13 +13,6 @@ namespace pmk
 {
 	struct Node;
 
-	// TODO: Should eventually include parameters of constitutive model here.
-	struct ParticleType
-	{
-		ConstitutiveModelIndex constitutive_model;
-		uint32_t material_index;
-	};
-
 	// Convert a particle 1D buffer index into a 3D coordinate in the chunk.
 	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
 
@@ -50,6 +43,14 @@ namespace pmk
 		uint32_t GenerateTestParticleOnNode(Node* node);
 
 		void TransferStaticParticlesToMPM();
+
+		PhysicsMaterial* NewPhysicsMaterial();
+
+		void DeletePhysicsMaterial(uint32_t material_index);
+
+		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint32_t material_index);
+
+		void PhysicsParametersMutated(uint32_t material_index);
 
 #ifdef EDITOR_ENABLED
 		void SetMPMDebugParticleGenEnabled(bool enabled);
