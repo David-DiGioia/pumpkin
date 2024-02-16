@@ -198,11 +198,17 @@ namespace pmk
 
 		PhysicsMaterial* NewPhysicsMaterial();
 
-		void DeletePhysicsMaterial(uint32_t material_index);
+		void DeletePhysicsMaterial(uint32_t physics_mat_index);
 
-		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint32_t material_index);
+		// Set the physics material's index into render materials. Determines how each physics material is rendered.
+		void SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index);
 
-		void PhysicsParametersMutated(uint32_t material_index);
+		// Get the physics material's index into render materials.
+		uint32_t GetPhysicsMaterialRender(uint32_t physics_mat_index);
+
+		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint32_t physics_mat_index);
+
+		void PhysicsParametersMutated(uint32_t physics_mat_index);
 
 	private:
 		void ParticleToGrid();

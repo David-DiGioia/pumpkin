@@ -16,7 +16,7 @@
 constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
 constexpr uint32_t NODE_PROPERTY_ALIGNMENT{ 77 };
 constexpr uint32_t SHADER_PROPERTY_ALIGNMENT{ 85 };
-constexpr uint32_t PHYSICS_PROPERTY_ALIGNMENT{ 85 };
+constexpr uint32_t PHYSICS_PROPERTY_ALIGNMENT{ 95 };
 
 bool EditorNodeCmp::operator()(EditorNode* a, EditorNode* b) const
 {
@@ -371,8 +371,14 @@ void EditorGui::NodeProperties()
 		ImGui::Text("Rotation");
 		ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
 		ImGui::Text("%.2f  %.2f  %.2f  %.2f", rot.x, rot.y, rot.z, rot.w);
+		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 
-		RenderMaterials(active_node);
+		if (!active_node->node->physics_object) {
+			RenderMaterials(active_node);
+		}
+		else {
+			ImGui::Text("Physics object selected.\nEdit material through Materials tab.");
+		}
 	}
 	else {
 		ImGui::Text("No actively selected node.");
@@ -401,7 +407,6 @@ void EditorGui::RenderMaterials(EditorNode* node)
 		material_selected_geometry_index_ = 0;
 	}
 
-	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 	ImGui::Text("Render material");
 	ImGui::ListBox("##MaterialList", &material_selected_geometry_index_, node_materials_strings.data(), (int)node_materials_strings.size(), 4);
 
@@ -506,102 +511,80 @@ void EditorGui::RenderMaterials(EditorNode* node)
 	}
 }
 
-void EditorGui::PhysicsMaterials(EditorNode* node)
+void EditorGui::PhysicsMaterials()
 {
-	std::vector<int> node_materials{};
-	if (node) {
-		node_materials = editor_->GetMaterialIndicesFromNode(node);
-	}
-	else
-	{
-		node_materials.resize(editor_->physics_materials_.size());
-		std::iota(node_materials.begin(), node_materials.end(), 0);
-	}
-
-	std::vector<const char*> node_materials_strings(node_materials.size());
-	std::transform(node_materials.begin(), node_materials.end(), node_materials_strings.begin(),
-		[=](int mat_idx) { return editor_->physics_materials_[mat_idx]->GetNameBuffer(); });
-
-	if (physics_material_selected_geometry_index_ >= node_materials.size()) {
-		physics_material_selected_geometry_index_ = 0;
-	}
-
-	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 	ImGui::Text("Physics material");
-	ImGui::ListBox("##PhysicsMaterialList", &physics_material_selected_geometry_index_, node_materials_strings.data(), (int)node_materials_strings.size(), 4);
-
-
-	// We can only add/remove materials if we aren't looking at materials of specific node.
-	if (!node)
+	if (editor_->materials_.empty())
 	{
-		ImGui::SameLine();
-		ImGui::BeginGroup();
-
-		// Add new material.
-		if (ImGui::Button("+")) {
-			physics_material_selected_geometry_index_ = (int)editor_->NewPhysicsMaterial();
-		}
-
-		// Delete selected material.
-		bool selected_idx_in_range{ physics_material_selected_geometry_index_ >= 0 && physics_material_selected_geometry_index_ < (int)node_materials_strings.size() };
-		ImGui::BeginDisabled(node_materials.size() <= 1 || !selected_idx_in_range);
-		if (ImGui::Button("-"))
-		{
-			int selected_idx{ node_materials[physics_material_selected_geometry_index_] };
-			editor_->DeletePhysicsMaterial((uint32_t)selected_idx);
-			physics_material_selected_geometry_index_ = -1;
-		}
-		ImGui::EndDisabled();
-
-		ImGui::EndGroup();
+		ImGui::Dummy(ImVec2{ 0.0f, 10.0f }); // Spacing.
+		ImGui::Text("You must create a render material\nbefore creating a physics material.");
+		return;
 	}
 
-	if (physics_material_selected_geometry_index_ >= 0 && physics_material_selected_geometry_index_ < (int)node_materials_strings.size())
+	ImGui::PushID("Physics");
+
+	std::vector<const char*> node_materials_strings(editor_->physics_materials_.size());
+	std::transform(editor_->physics_materials_.begin(), editor_->physics_materials_.end(), node_materials_strings.begin(),
+		[=](EditorPhysicsMaterial* mat) { return mat->GetNameBuffer(); });
+
+	if (physics_material_selected_index_ >= editor_->physics_materials_.size()) {
+		physics_material_selected_index_ = 0;
+	}
+
+	ImGui::ListBox("##PhysicsMaterialList", &physics_material_selected_index_, node_materials_strings.data(), (int)node_materials_strings.size(), 4);
+
+	ImGui::SameLine();
+	ImGui::BeginGroup();
+
+	// Add new material.
+	if (ImGui::Button("+")) {
+		physics_material_selected_index_ = (int)editor_->NewPhysicsMaterial();
+	}
+
+	// Delete selected material.
+	bool selected_idx_in_range{ physics_material_selected_index_ >= 0 && physics_material_selected_index_ < (int)node_materials_strings.size() };
+	ImGui::BeginDisabled(editor_->physics_materials_.size() <= 1 || !selected_idx_in_range);
+	if (ImGui::Button("-"))
 	{
-		EditorPhysicsMaterial* mat{ editor_->physics_materials_[node_materials[physics_material_selected_geometry_index_]] };
+		int selected_idx{ physics_material_selected_index_ };
+		editor_->DeletePhysicsMaterial((uint32_t)selected_idx);
+		physics_material_selected_index_ = -1;
+	}
+	ImGui::EndDisabled();
+	ImGui::EndGroup();
 
-		// Combo box to swap selected material for a different existing material.
-		int material_selected_combo = node_materials[physics_material_selected_geometry_index_];
-		if (node)
-		{
-			if (ImGui::BeginCombo("##PhysicsMaterialCombo", nullptr, ImGuiComboFlags_NoPreview))
-			{
-				for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->physics_materials_.size(); ++mat_idx)
-				{
-					const bool is_selected{ material_selected_combo == mat_idx };
-					if (node && ImGui::Selectable(editor_->physics_materials_[mat_idx]->GetNameBuffer(), is_selected)) {
-						editor_->SetNodeMaterial(node, physics_material_selected_geometry_index_, mat_idx);
-					}
+	if (physics_material_selected_index_ >= 0 && physics_material_selected_index_ < (int)node_materials_strings.size())
+	{
+		EditorPhysicsMaterial* mat{ editor_->physics_materials_[physics_material_selected_index_] };
 
-					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
-					if (is_selected) {
-						ImGui::SetItemDefaultFocus();
-					}
-				}
-				ImGui::EndCombo();
-			}
-			ImGui::SameLine();
-		}
 		ImGui::InputText("##PhysicsMaterialName", mat->GetNameBuffer(), NAME_BUFFER_SIZE);
+		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 
-		if (mat->user_count > 1)
+		uint32_t physics_render_material_index{ editor_->GetPhysicsMaterialRender(physics_material_selected_index_) };
+		ImGui::Text("Render");
+		ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
+		if (ImGui::BeginCombo("##RenderMaterialCombo", editor_->materials_[physics_render_material_index]->GetNameBuffer(), 0))
 		{
-			ImGui::SameLine();
-			std::string user_count_string{ std::to_string(mat->user_count) };
-
-			ImGui::BeginDisabled(node == nullptr);
-			if (ImGui::Button(user_count_string.c_str()))
+			for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
 			{
-				uint32_t mat_copy{ editor_->MakeMaterialUnique((uint32_t)material_selected_combo) };
-				editor_->SetNodeMaterial(node, physics_material_selected_geometry_index_, mat_copy);
-			}
-			ImGui::EndDisabled();
-		}
+				const bool is_selected{ physics_render_material_index == mat_idx };
+				if (ImGui::Selectable(editor_->materials_[mat_idx]->GetNameBuffer(), is_selected))
+				{
+					physics_render_material_index = (int)mat_idx;
+					editor_->SetPhysicsMaterialRender(physics_material_selected_index_, mat_idx);
+				}
 
+				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
+				if (is_selected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
 		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 
 		bool mat_changed{ false };
-		int selected_idx{ node_materials[physics_material_selected_geometry_index_] };
+		int selected_idx{ physics_material_selected_index_ };
 		std::vector<std::pair<float*, std::string>> physics_parameters{ editor_->pumpkin_->GetPhysicsParameters(selected_idx) };
 
 		for (std::pair<float*, std::string>& parameter : physics_parameters)
@@ -616,7 +599,7 @@ void EditorGui::PhysicsMaterials(EditorNode* node)
 			editor_->pumpkin_->PhysicsParametersMutated(selected_idx);
 		}
 	}
-
+	ImGui::PopID();
 }
 
 void EditorGui::Materials()
@@ -628,8 +611,10 @@ void EditorGui::Materials()
 	}
 
 	RenderMaterials(nullptr);
+	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 	ImGui::Separator();
-	PhysicsMaterials(nullptr);
+	ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+	PhysicsMaterials();
 
 	ImGui::End();
 }

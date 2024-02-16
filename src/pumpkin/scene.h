@@ -17,7 +17,7 @@ namespace pmk
 	{
 		const uint32_t node_id;
 		renderer::RenderObjectHandle render_object{ renderer::NULL_HANDLE };
-		bool physics_object;
+		bool physics_object{};
 
 		// Each transform is in local space of parent.
 		glm::vec3 position{};
@@ -139,11 +139,17 @@ namespace pmk
 
 		PhysicsMaterial* NewPhysicsMaterial();
 
-		void DeletePhysicsMaterial(uint32_t material_index);
+		void DeletePhysicsMaterial(uint32_t physics_mat_index);
 
-		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint32_t material_index);
+		// Set the physics material's index into render materials. Determines how each physics material is rendered.
+		void SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index);
 
-		void PhysicsParametersMutated(uint32_t material_index);
+		// Get the physics material's index into render materials.
+		uint32_t GetPhysicsMaterialRender(uint32_t physics_mat_index);
+
+		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint32_t physics_mat_index);
+
+		void PhysicsParametersMutated(uint32_t physics_mat_index);
 
 	private:
 		// Recursive implementation to upload node render object data.

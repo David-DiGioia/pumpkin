@@ -108,7 +108,8 @@ private:
 	// Shows render materials for specified editor node, or all materials if node is nullptr.
 	void RenderMaterials(EditorNode* node);
 
-	void PhysicsMaterials(EditorNode* node);
+	// No node parameter because physics materials are associated with particles from the particle gen shader.
+	void PhysicsMaterials();
 
 	void Materials();
 
@@ -143,7 +144,7 @@ private:
 	std::filesystem::path current_directory_{};
 
 	int material_selected_geometry_index_{};
-	int physics_material_selected_geometry_index_{};
+	int physics_material_selected_index_{};
 
 	std::chrono::steady_clock::time_point frame_start_time_{};  // For timing frame duration.
 	std::chrono::steady_clock::time_point second_start_time_{}; // For calculating FPS.
@@ -155,7 +156,7 @@ private:
 	std::filesystem::path shader_popup_current_directory_{};
 	std::filesystem::directory_entry popup_selected_file_{};
 	bool open_project_selection_popup_{ true };
-	char* popup_name_buffer_;
+	char* popup_name_buffer_{};
 	bool pumpkin_proj_selected_{ false };
 	bool pumpkin_proj_loaded_{ false };
 

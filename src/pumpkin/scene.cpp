@@ -384,19 +384,29 @@ namespace pmk
 		return particle_context_.NewPhysicsMaterial();
 	}
 
-	void Scene::DeletePhysicsMaterial(uint32_t material_index)
+	void Scene::DeletePhysicsMaterial(uint32_t physics_mat_index)
 	{
-		particle_context_.DeletePhysicsMaterial(material_index);
+		particle_context_.DeletePhysicsMaterial(physics_mat_index);
 	}
 
-	std::vector<std::pair<float*, std::string>> Scene::GetPhysicsParameters(uint32_t material_index)
+	void Scene::SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index)
 	{
-		return particle_context_.GetPhysicsParameters(material_index);
+		particle_context_.SetPhysicsMaterialRender(physics_mat_index, render_mat_index);
 	}
 
-	void Scene::PhysicsParametersMutated(uint32_t material_index)
+	uint32_t Scene::GetPhysicsMaterialRender(uint32_t physics_mat_index)
 	{
-		particle_context_.PhysicsParametersMutated(material_index);
+		return particle_context_.GetPhysicsMaterialRender(physics_mat_index);;
+	}
+
+	std::vector<std::pair<float*, std::string>> Scene::GetPhysicsParameters(uint32_t physics_mat_index)
+	{
+		return particle_context_.GetPhysicsParameters(physics_mat_index);
+	}
+
+	void Scene::PhysicsParametersMutated(uint32_t physics_mat_index)
+	{
+		particle_context_.PhysicsParametersMutated(physics_mat_index);
 	}
 
 	glm::mat4 Camera::GetViewMatrix() const

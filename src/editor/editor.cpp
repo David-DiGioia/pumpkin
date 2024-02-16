@@ -519,8 +519,10 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 
 uint32_t Editor::GenerateParticles(std::function<uint32_t()> particle_gen_func)
 {
-	if (!particle_node_) {
+	if (!particle_node_)
+	{
 		particle_node_ = CreateNode("particle_node");
+		particle_node_->node->physics_object = true;
 	}
 
 	// If there are no materials yet, renderer will generate one for the particles.
@@ -998,6 +1000,16 @@ void Editor::DeletePhysicsMaterial(uint32_t selected_idx)
 {
 	pumpkin_->DeletePhysicsMaterial(selected_idx);
 	physics_materials_.erase(physics_materials_.begin() + selected_idx);
+}
+
+void Editor::SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index)
+{
+	pumpkin_->SetPhysicsMaterialRender(physics_mat_index, render_mat_index);
+}
+
+uint32_t Editor::GetPhysicsMaterialRender(uint32_t physics_mat_index)
+{
+	return pumpkin_->GetPhysicsMaterialRender(physics_mat_index);
 }
 
 std::filesystem::path GetAppDataDirectory()
