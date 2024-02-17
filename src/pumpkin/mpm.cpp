@@ -246,8 +246,7 @@ namespace pmk
 
 			if (std::isnan(node.velocity.x))
 			{
-				logger::Error("Node velocity is nan. Aborting.\n");
-				__debugbreak();
+				logger::Error("Node velocity is nan.\n");
 			}
 		}
 	}
@@ -299,8 +298,7 @@ namespace pmk
 
 				if (std::isnan(node.force.x))
 				{
-					logger::Error("Node force is nan. Aborting.\n");
-					__debugbreak();
+					logger::Error("Node force is nan.\n");
 				}
 			});
 	}
@@ -831,8 +829,7 @@ namespace pmk
 		auto tmp = p.mu * (p.deformation_gradient_elastic - f_inv_transpose) + p.lambda * std::logf(j) * f_inv_transpose; // Equation (48).
 		if (std::isnan(tmp[0][0]))
 		{
-			logger::Error("Piola-Kirchoff stress is nan. Aborting.\n");
-			__debugbreak();
+			logger::Error("Piola-Kirchoff stress is nan.\n");
 		}
 		return tmp;
 	}

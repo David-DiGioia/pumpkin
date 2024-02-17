@@ -16,7 +16,7 @@
 constexpr uint32_t PROJECT_NAME_BUFFER_SIZE{ 16 };
 constexpr uint32_t NODE_PROPERTY_ALIGNMENT{ 77 };
 constexpr uint32_t SHADER_PROPERTY_ALIGNMENT{ 85 };
-constexpr uint32_t PHYSICS_PROPERTY_ALIGNMENT{ 95 };
+constexpr uint32_t PHYSICS_PROPERTY_ALIGNMENT{ 118 };
 
 bool EditorNodeCmp::operator()(EditorNode* a, EditorNode* b) const
 {
@@ -561,7 +561,7 @@ void EditorGui::PhysicsMaterials()
 		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 
 		uint32_t physics_render_material_index{ editor_->GetPhysicsMaterialRender(physics_material_selected_index_) };
-		ImGui::Text("Render");
+		ImGui::Text("Render material");
 		ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
 		if (ImGui::BeginCombo("##RenderMaterialCombo", editor_->materials_[physics_render_material_index]->GetNameBuffer(), 0))
 		{
