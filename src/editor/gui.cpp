@@ -568,9 +568,7 @@ void EditorGui::PhysicsMaterials()
 			for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
 			{
 				const bool is_selected{ physics_render_material_index == mat_idx };
-				if (ImGui::Selectable(editor_->materials_[mat_idx]->GetNameBuffer(), is_selected))
-				{
-					physics_render_material_index = (int)mat_idx;
+				if (ImGui::Selectable(editor_->materials_[mat_idx]->GetNameBuffer(), is_selected)) {
 					editor_->SetPhysicsMaterialRender(physics_material_selected_index_, mat_idx);
 				}
 
@@ -581,6 +579,28 @@ void EditorGui::PhysicsMaterials()
 			}
 			ImGui::EndCombo();
 		}
+
+		ConstitutiveModelType selected_model_type{ editor_->GetPhysicsMaterialModelType(physics_material_selected_index_) };
+		const char* selected_model_name{ constitutive_model_names[(uint32_t)selected_model_type].c_str() };
+		ImGui::Text("Model");
+		ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
+		if (ImGui::BeginCombo("##ConstitutiveModelCombo", selected_model_name, 0))
+		{
+			for (uint32_t model_idx = 0; model_idx < (uint32_t)ConstitutiveModelType::CONSTITUTIVE_MODEL_COUNT; ++model_idx)
+			{
+				const bool is_selected{ model_idx == (uint32_t)selected_model_type };
+				if (ImGui::Selectable(constitutive_model_names[model_idx].c_str(), is_selected)) {
+					editor_->SetPhysicsMaterialModelType(physics_material_selected_index_, (ConstitutiveModelType)model_idx);
+				}
+
+				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
+				if (is_selected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
 		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 
 		bool mat_changed{ false };

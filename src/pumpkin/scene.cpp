@@ -399,6 +399,11 @@ namespace pmk
 		return particle_context_.GetPhysicsMaterialRender(physics_mat_index);;
 	}
 
+	ConstitutiveModel* Scene::GetPhysicsMaterialModel(uint32_t physics_mat_index)
+	{
+		return particle_context_.GetPhysicsMaterialModel(physics_mat_index);
+	}
+
 	std::vector<std::pair<float*, std::string>> Scene::GetPhysicsParameters(uint32_t physics_mat_index)
 	{
 		return particle_context_.GetPhysicsParameters(physics_mat_index);

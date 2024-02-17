@@ -1012,6 +1012,40 @@ uint32_t Editor::GetPhysicsMaterialRender(uint32_t physics_mat_index)
 	return pumpkin_->GetPhysicsMaterialRender(physics_mat_index);
 }
 
+void Editor::SetPhysicsMaterialModelType(uint32_t physics_mat_index, ConstitutiveModelType model)
+{
+	switch (model)
+	{
+	case ConstitutiveModelType::HYPER_ELASTIC:
+		pumpkin_->SetPhysicsMaterialModel<pmk::HyperElasticModel>(physics_mat_index);
+		break;
+	case ConstitutiveModelType::FLUID:
+		pumpkin_->SetPhysicsMaterialModel<pmk::FluidModel>(physics_mat_index);
+		break;
+	case ConstitutiveModelType::SNOW:
+		pumpkin_->SetPhysicsMaterialModel<pmk::SnowModel>(physics_mat_index);
+		break;
+	}
+}
+
+ConstitutiveModelType Editor::GetPhysicsMaterialModelType(uint32_t physics_mat_index)
+{
+	pmk::ConstitutiveModel* model{ pumpkin_->GetPhysicsMaterialModel(physics_mat_index) };
+
+	if (dynamic_cast<pmk::HyperElasticModel*>(model)) {
+		return ConstitutiveModelType::HYPER_ELASTIC;
+	}
+	if (dynamic_cast<pmk::FluidModel*>(model)) {
+		return ConstitutiveModelType::FLUID;
+	}
+	if (dynamic_cast<pmk::SnowModel*>(model)) {
+		return ConstitutiveModelType::SNOW;
+	}
+
+	logger::Error("Unrecognized constitutive model type.\n");
+	return {};
+}
+
 std::filesystem::path GetAppDataDirectory()
 {
 	auto path{ std::filesystem::temp_directory_path().parent_path().parent_path().parent_path() };

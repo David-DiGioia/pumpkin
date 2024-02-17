@@ -170,6 +170,11 @@ namespace pmk
 		return physics_materials_[physics_mat_index]->render_material;
 	}
 
+	ConstitutiveModel* MPMContext::GetPhysicsMaterialModel(uint32_t physics_mat_index)
+	{
+		return physics_materials_[physics_mat_index]->constitutive_model;
+	}
+
 	std::vector<std::pair<float*, std::string>> MPMContext::GetPhysicsParameters(uint32_t physics_mat_index)
 	{
 		return physics_materials_[physics_mat_index]->constitutive_model->GetParameters();
@@ -288,8 +293,8 @@ namespace pmk
 					}
 				}
 
-				//node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
-				node.force = -d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
+				node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
+				//node.force = -d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
 				node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
 
 				if (std::isnan(node.force.x))
@@ -860,10 +865,10 @@ namespace pmk
 		glm::mat3 stress{ -pressure * glm::mat3(1.0f) + dynamic_viscosity_ * (velocity_gradient + glm::transpose(velocity_gradient)) };
 
 		// Replaces the initial volume that the caller multiplies with the return value of this function.
-		float volume = p.mass / density;
+		//float volume = p.mass / density;
 
 		// J is assumed to be 1.0f since fluid is incompressible, so no need to multiply by it.
-		return volume * stress;
+		return /*volume * */stress;
 	}
 
 	std::vector<std::pair<float*, std::string>> FluidModel::GetParameters()

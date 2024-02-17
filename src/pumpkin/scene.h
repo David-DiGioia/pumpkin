@@ -147,6 +147,14 @@ namespace pmk
 		// Get the physics material's index into render materials.
 		uint32_t GetPhysicsMaterialRender(uint32_t physics_mat_index);
 
+		template<typename T>
+		void SetPhysicsMaterialModel(uint32_t physics_mat_index)
+		{
+			particle_context_.SetPhysicsMaterialModel<T>(physics_mat_index);
+		}
+
+		ConstitutiveModel* GetPhysicsMaterialModel(uint32_t physics_mat_index);
+
 		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint32_t physics_mat_index);
 
 		void PhysicsParametersMutated(uint32_t physics_mat_index);

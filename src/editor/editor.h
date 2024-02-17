@@ -372,6 +372,10 @@ private:
 	// Get the physics material's index into render materials.
 	uint32_t GetPhysicsMaterialRender(uint32_t physics_mat_index);
 
+	void SetPhysicsMaterialModelType(uint32_t physics_mat_index, ConstitutiveModelType model);
+
+	ConstitutiveModelType GetPhysicsMaterialModelType(uint32_t physics_mat_index);
+
 	// Load settings from AppData.
 	void LoadEditorSettings();
 

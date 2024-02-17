@@ -69,6 +69,21 @@ const std::array<std::string, (uint32_t)NodeColorMode::COLOR_MODE_COUNT> node_co
 	"Force",
 };
 
+enum class ConstitutiveModelType
+{
+	HYPER_ELASTIC,
+	FLUID,
+	SNOW,
+
+	CONSTITUTIVE_MODEL_COUNT,
+};
+
+const std::array<std::string, (uint32_t)ConstitutiveModelType::CONSTITUTIVE_MODEL_COUNT> constitutive_model_names{
+	"Hyperelastic",
+	"Fluid",
+	"Snow",
+};
+
 class EditorGui
 {
 public:
