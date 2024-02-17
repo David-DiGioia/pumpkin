@@ -27,8 +27,8 @@ layout(set = 0, binding = 2) writeonly buffer ParticleBufferOut {
 layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 
 const uint8_t PARTICLE_TYPE_EMPTY = uint8_t(0xFF);
-const uint8_t PARTICLE_TYPE_JELLO = uint8_t(0);
-const uint8_t PARTICLE_TYPE_FLUID = uint8_t(1);
+const uint8_t PARTICLE_TYPE_BOUNCY = uint8_t(0);
+const uint8_t PARTICLE_TYPE_LIQUID = uint8_t(1);
 
 uint IndexFromCoordinate(uvec3 coord)
 {
@@ -45,7 +45,14 @@ void main()
     //float f = 30.0 + 5.0 * sin(coord.x * 0.1) * cos(coord.z * 0.2);
 
     vec3 sphere_center1 = vec3(32.0, 16.0, 32.0);
-    float f = distance(coord, sphere_center1) * distance(coord, ubo.center);
+    float d0 = distance(coord, sphere_center1);
+    float d1 = distance(coord, ubo.center);
+    float f = d0 * d1;
 
-    particles_out[index].type = f > ubo.radius ? PARTICLE_TYPE_EMPTY : PARTICLE_TYPE_JELLO;
+    if (f < ubo.radius) {
+        particles_out[index].type = (d0 < d1) ? PARTICLE_TYPE_LIQUID : PARTICLE_TYPE_BOUNCY;
+    }
+    else {
+        particles_out[index].type = PARTICLE_TYPE_EMPTY;
+    }
 }

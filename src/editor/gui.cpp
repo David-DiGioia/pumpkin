@@ -523,15 +523,23 @@ void EditorGui::PhysicsMaterials()
 
 	ImGui::PushID("Physics");
 
-	std::vector<const char*> node_materials_strings(editor_->physics_materials_.size());
-	std::transform(editor_->physics_materials_.begin(), editor_->physics_materials_.end(), node_materials_strings.begin(),
-		[=](EditorPhysicsMaterial* mat) { return mat->GetNameBuffer(); });
+	// Generate the strings with indices prepended.
+	std::vector<std::string> node_materials_strings{};
+	node_materials_strings.resize(editor_->physics_materials_.size());
+	for (uint32_t i{ 0 }; i < (uint32_t)editor_->physics_materials_.size(); ++i) {
+		node_materials_strings[i] = std::to_string(i) + ": " + editor_->physics_materials_[i]->GetName();
+	}
+
+	// Convert to C strings.
+	std::vector<const char*> node_materials_c_strings(editor_->physics_materials_.size());
+	std::transform(node_materials_strings.begin(), node_materials_strings.end(), node_materials_c_strings.begin(),
+		[=](const std::string& s) { return s.c_str(); });
 
 	if (physics_material_selected_index_ >= editor_->physics_materials_.size()) {
 		physics_material_selected_index_ = 0;
 	}
 
-	ImGui::ListBox("##PhysicsMaterialList", &physics_material_selected_index_, node_materials_strings.data(), (int)node_materials_strings.size(), 4);
+	ImGui::ListBox("##PhysicsMaterialList", &physics_material_selected_index_, node_materials_c_strings.data(), (int)node_materials_c_strings.size(), 4);
 
 	ImGui::SameLine();
 	ImGui::BeginGroup();
