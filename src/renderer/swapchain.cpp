@@ -149,6 +149,7 @@ namespace renderer
 
 	VkSurfaceFormatKHR Swapchain::ChooseSurfaceFormat() const
 	{
+		// Using sRGB as the format for the swapchain applies gamma correction of last step of render pipeline. This is the ONLY place it should be applied.
 		constexpr VkFormat desired_format{ VK_FORMAT_B8G8R8A8_SRGB };
 		constexpr VkColorSpaceKHR desired_color_space{ VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 
@@ -176,6 +177,7 @@ namespace renderer
 		}
 
 		// If we don't find desired format just return first one.
+		logger::Error("Desired surface format not found.\n");
 		return formats[0].surfaceFormat;
 	}
 

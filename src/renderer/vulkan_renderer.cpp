@@ -1459,7 +1459,7 @@ namespace renderer
 				GetViewportExtent(),
 				VK_IMAGE_USAGE_STORAGE_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				swapchain_.GetImageFormat());
+				VK_FORMAT_B8G8R8A8_UNORM);
 
 			rt_images[i] = resource.rt_image;
 			++i;
