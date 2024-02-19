@@ -41,4 +41,4 @@ configure_file(
     COPYONLY
 )
 
-add_subdirectory(assets)
+add_subdirectory(media)
