@@ -334,6 +334,10 @@ namespace renderer
 		// Pass null handle since we're using dynamic rendering.
 		ImGui_ImplVulkan_Init(&init_info, VK_NULL_HANDLE);
 
+		// Load custom font.
+		ImGuiIO& io = ImGui::GetIO();
+		io.Fonts->AddFontFromFileTTF("persans.ttf", 12.0f);
+
 		// Execute a GPU command to upload imgui font textures.
 		auto& cmd{ renderer_->vulkan_util_.Begin() };
 		ImGui_ImplVulkan_CreateFontsTexture(cmd);

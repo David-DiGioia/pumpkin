@@ -40,3 +40,5 @@ configure_file(
     "${PROJECT_BINARY_DIR}/src/editor/default_imgui_layout.ini"
     COPYONLY
 )
+
+add_subdirectory(assets)
