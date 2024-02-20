@@ -200,6 +200,8 @@ namespace pmk
 
 		void DeletePhysicsMaterial(uint32_t physics_mat_index);
 
+		std::vector<int> GetAllPhysicsMaterialRender();
+
 		// Set the physics material's index into render materials. Determines how each physics material is rendered.
 		void SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index);
 

@@ -130,6 +130,10 @@ namespace renderer
 
 		std::vector<const std::vector<int>*> GetMaterialIndices();
 
+		void SetRenderObjectMaterialIndices(RenderObjectHandle render_object_handle, const std::vector<int>& material_indices);
+
+		void SetPhysicsToRenderMaterialMap(std::vector<int>&& physics_to_render_mat_idx);
+
 		void SetMaterialIndex(RenderObjectHandle render_object_handle, uint32_t geometry_index, int material_index);
 
 		Material* MakeMaterialUnique(uint32_t material_index);

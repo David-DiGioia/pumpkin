@@ -388,14 +388,15 @@ namespace renderer
 		return frame_resources_[current_frame_];
 	}
 
-	void ParticleGenContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
+	void ParticleGenContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t offset, uint32_t stride, const std::vector<MaterialOffset>& mat_offsets)
 	{
 		ZoneScoped;
 		Mesh* mesh{ new Mesh{} };
+		mesh->geometries.resize(std::max(mat_offsets.size(), (size_t)1));
 
-		if (position_count)
+		for (uint32_t i{ 0 }; i < (uint32_t)mat_offsets.size(); ++i)
 		{
-			mesh->geometries.resize(1);
+			const MaterialOffset& mat_offset{ mat_offsets[i] };
 
 			// Generate vertices.
 			uint32_t particle_vert_count{};
@@ -403,17 +404,17 @@ namespace renderer
 				ZoneScopedN("Generate vertices");
 				std::vector<Vertex> particle_vertices{ GetParticleVertices() };
 				particle_vert_count = (uint32_t)particle_vertices.size();
-				uint32_t vertex_count{ particle_vert_count * position_count };
-				mesh->geometries[0].vertices.resize(vertex_count);
+				uint32_t vertex_count{ particle_vert_count * mat_offset.count };
+				mesh->geometries[i].vertices.resize(vertex_count);
 
-				for (uint32_t p{ 0 }; p < position_count; ++p)
+				for (uint32_t p{ 0 }; p < mat_offset.count; ++p)
 				{
 					for (uint32_t v{ 0 }; v < particle_vert_count; ++v)
 					{
-						const glm::vec3& position{ *reinterpret_cast<const glm::vec3*>(positions + p * stride + offset) };
+						const glm::vec3& position{ *reinterpret_cast<const glm::vec3*>(positions + (p + mat_offset.offset) * stride + offset) };
 						uint32_t vert_buffer_idx{ p * particle_vert_count + v };
-						mesh->geometries[0].vertices[vert_buffer_idx] = particle_vertices[v];
-						mesh->geometries[0].vertices[vert_buffer_idx].position += glm::vec4{ position, 0.0f };
+						mesh->geometries[i].vertices[vert_buffer_idx] = particle_vertices[v];
+						mesh->geometries[i].vertices[vert_buffer_idx].position += glm::vec4{ position, 0.0f };
 					}
 				}
 			}
@@ -422,29 +423,34 @@ namespace renderer
 			{
 				ZoneScopedN("Generate indices");
 				std::vector<uint32_t> particle_indices{ GetParticleIndices() };
-				uint32_t index_count{ (uint32_t)(particle_indices.size() * position_count) };
-				mesh->geometries[0].indices.resize(index_count);
+				uint32_t index_count{ (uint32_t)(particle_indices.size() * mat_offset.count) };
+				mesh->geometries[i].indices.resize(index_count);
 
-				for (uint32_t p{ 0 }; p < position_count; ++p)
+				for (uint32_t p{ 0 }; p < mat_offset.count; ++p)
 				{
-					for (uint32_t i{ 0 }; i < (uint32_t)particle_indices.size(); ++i)
+					for (uint32_t j{ 0 }; j < (uint32_t)particle_indices.size(); ++j)
 					{
-						uint32_t idx_buffer_idx{ p * (uint32_t)particle_indices.size() + i };
-						mesh->geometries[0].indices[idx_buffer_idx] = p * particle_vert_count + particle_indices[i];
+						uint32_t idx_buffer_idx{ p * (uint32_t)particle_indices.size() + j };
+						mesh->geometries[i].indices[idx_buffer_idx] = p * particle_vert_count + particle_indices[j];
 					}
 				}
 			}
+		}
 
-			{
-				ZoneScopedN("Calculate tangents");
-				CalculateTangents(mesh);
-			}
+		{
+			ZoneScopedN("Calculate tangents");
+			CalculateTangents(mesh);
 		}
 
 		{
 			ZoneScopedN("Replace render object");
 			renderer_->ReplaceRenderObject(ro_target, mesh);
 		}
+	}
+
+	void ParticleGenContext::SetPhysicsToRenderMaterialMap(std::vector<int>&& physics_to_render_mat_idx)
+	{
+		physics_to_render_mat_idx_ = std::move(physics_to_render_mat_idx);
 	}
 
 	void ParticleGenContext::CmdBegin()
@@ -614,13 +620,13 @@ namespace renderer
 		return commands_recorded_;
 	}
 
-	std::vector<glm::vec3> StaticParticleToPositions(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags)
+	std::vector<MaterialPosition> StaticParticleToMaterialPositions(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags)
 	{
 		if (static_particles.empty()) {
 			return {};
 		}
 
-		std::vector<glm::vec3> positions{};
+		std::vector<MaterialPosition> mat_positions{};
 		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{
 			bool empty{ static_particles[i].physics_material_index == PHYSICS_MATERIAL_EMPTY_INDEX };
@@ -630,10 +636,50 @@ namespace renderer
 				continue;
 			}
 
-			glm::vec3 position{ PARTICLE_WIDTH * glm::vec3(ParticleIndexToCoordinate(i)) };
-			positions.push_back(position);
+			MaterialPosition mat_position{
+				.physics_material_index = static_particles[i].physics_material_index,
+				.position = PARTICLE_WIDTH * glm::vec3(ParticleIndexToCoordinate(i)),
+			};
+			mat_positions.push_back(mat_position);
 		}
-		return positions;
+		return mat_positions;
+	}
+
+	// Input material_points must have each material type contiguous with one another (eg sorted, but order of material groups doesn't matter).
+	template <typename T>
+	std::vector<MaterialOffset> GetMaterialOffsets(std::vector<T> material_points)
+	{
+		if (material_points.empty()) {
+			return {};
+		}
+
+		std::vector<MaterialOffset> mat_offsets{};
+		uint8_t current_physics_mat_idx{ material_points.front().physics_material_index };
+		uint32_t offset{ 0 };
+
+		for (uint32_t i{ 0 }; i < (uint32_t)material_points.size(); ++i)
+		{
+			const T& p{ material_points[i] };
+			if (current_physics_mat_idx != p.physics_material_index)
+			{
+				mat_offsets.push_back(MaterialOffset{
+					.physics_material_index = current_physics_mat_idx,
+					.offset = offset,
+					.count = i - offset,
+					});
+
+				offset = i;
+				current_physics_mat_idx = p.physics_material_index;
+			}
+		}
+
+		mat_offsets.push_back(MaterialOffset{
+			.physics_material_index = current_physics_mat_idx,
+			.offset = offset,
+			.count = (uint32_t)material_points.size() - offset,
+			});
+
+		return mat_offsets;
 	}
 
 	void ParticleGenContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
@@ -641,8 +687,21 @@ namespace renderer
 		// When true, forces to always generate dynamic particle meshes for debugging purposes.
 		if (DISABLE_STATIC_PARTICLE_MESH)
 		{
-			std::vector<glm::vec3> positions{ StaticParticleToPositions(particles, side_flags) };
-			GenerateDynamicParticleMesh(ro_target, (const std::byte*)positions.data(), (uint32_t)positions.size(), 0, sizeof(glm::vec3));
+			std::vector<MaterialPosition> mat_positions{ StaticParticleToMaterialPositions(particles, side_flags) };
+
+			// TODO: Use grouping function later instead of fully sorting.
+			std::sort(mat_positions.begin(), mat_positions.end(),
+				[](const MaterialPosition& p0, const MaterialPosition& p1) { return p0.physics_material_index < p1.physics_material_index; });
+
+			std::vector<MaterialOffset> mat_offsets{ GetMaterialOffsets(mat_positions) };
+			GenerateDynamicParticleMesh(ro_target, (const std::byte*)mat_positions.data(), 0, sizeof(MaterialPosition), mat_offsets);
+
+			// Assign render object's material indices based on physics materials.
+			std::vector<int> material_indices{};
+			material_indices.resize(mat_offsets.size());
+			std::transform(mat_offsets.begin(), mat_offsets.end(), material_indices.begin(),
+				[&](const MaterialOffset& m) { return physics_to_render_mat_idx_[m.physics_material_index]; });
+			renderer_->SetRenderObjectMaterialIndices(ro_target, material_indices);
 			return;
 		}
 

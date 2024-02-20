@@ -32,6 +32,21 @@ namespace renderer
 		uint8_t physics_material_index;
 	};
 
+	// Can convert static particles to this as a simplified stand-in for material point.
+	struct MaterialPosition
+	{
+		uint8_t physics_material_index;
+		glm::vec3 position;
+	};
+
+	// Each MaterialOffset specifies a material type and range in the particle buffer.
+	struct MaterialOffset
+	{
+		uint8_t physics_material_index;
+		uint32_t offset; // Index offset, not byte offset.
+		uint32_t count;  // Count of particles with this physics material.
+	};
+
 	// Convert a particle 1D buffer index into a 3D coordinate in the chunk.
 	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
 
@@ -108,8 +123,10 @@ namespace renderer
 
 		// Generates triangles for each individual particle as a cube.
 		// Positions should be an array of glm::vec3 with arbitrary stride between each. Stride is in bytes.
-		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
+		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t offset, uint32_t stride, const std::vector<MaterialOffset>& mat_offsets);
 		
+		void SetPhysicsToRenderMaterialMap(std::vector<int>&& physics_to_render_mat_idx);
+
 		void CmdBegin();
 
 		// Offset and stride must be multiples of 4.
@@ -199,5 +216,7 @@ namespace renderer
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 
 		bool commands_recorded_{};
+
+		std::vector<int> physics_to_render_mat_idx_{}; // Convert a physics material index into a render material index. ith index is render material of ith physics material.
 	};
 }

@@ -160,6 +160,15 @@ namespace pmk
 		physics_materials_.erase(physics_materials_.begin() + physics_mat_index);
 	}
 
+	std::vector<int> MPMContext::GetAllPhysicsMaterialRender()
+	{
+		std::vector<int> result{};
+		result.resize(physics_materials_.size());
+		std::transform(physics_materials_.begin(), physics_materials_.end(), result.begin(),
+			[](pmk::PhysicsMaterial* mat) { return mat->render_material; });
+		return result;
+	}
+
 	void MPMContext::SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index)
 	{
 		physics_materials_[physics_mat_index]->render_material = render_mat_index;
