@@ -388,15 +388,15 @@ namespace renderer
 		return frame_resources_[current_frame_];
 	}
 
-	void ParticleGenContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t offset, uint32_t stride, const std::vector<MaterialOffset>& mat_offsets)
+	void ParticleGenContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t offset, uint32_t stride, const std::vector<MaterialRange>& mat_ranges)
 	{
 		ZoneScoped;
 		Mesh* mesh{ new Mesh{} };
-		mesh->geometries.resize(std::max(mat_offsets.size(), (size_t)1));
+		mesh->geometries.resize(std::max(mat_ranges.size(), (size_t)1));
 
-		for (uint32_t i{ 0 }; i < (uint32_t)mat_offsets.size(); ++i)
+		for (uint32_t i{ 0 }; i < (uint32_t)mat_ranges.size(); ++i)
 		{
-			const MaterialOffset& mat_offset{ mat_offsets[i] };
+			const MaterialRange& mat_offset{ mat_ranges[i] };
 
 			// Generate vertices.
 			uint32_t particle_vert_count{};
@@ -451,6 +451,16 @@ namespace renderer
 	void ParticleGenContext::SetPhysicsToRenderMaterialMap(std::vector<int>&& physics_to_render_mat_idx)
 	{
 		physics_to_render_mat_idx_ = std::move(physics_to_render_mat_idx);
+	}
+
+	void ParticleGenContext::UpdatePhysicsRenderMaterials(RenderObjectHandle ro_target)
+	{
+		// Assign render object's material indices based on physics materials.
+		std::vector<int> material_indices{};
+		material_indices.resize(mat_ranges_.size());
+		std::transform(mat_ranges_.begin(), mat_ranges_.end(), material_indices.begin(),
+			[&](const MaterialRange& m) { return physics_to_render_mat_idx_[m.physics_material_index]; });
+		renderer_->SetRenderObjectMaterialIndices(ro_target, material_indices);
 	}
 
 	void ParticleGenContext::CmdBegin()
@@ -647,13 +657,13 @@ namespace renderer
 
 	// Input material_points must have each material type contiguous with one another (eg sorted, but order of material groups doesn't matter).
 	template <typename T>
-	std::vector<MaterialOffset> GetMaterialOffsets(std::vector<T> material_points)
+	std::vector<MaterialRange> GetMaterialRanges(std::vector<T> material_points)
 	{
 		if (material_points.empty()) {
 			return {};
 		}
 
-		std::vector<MaterialOffset> mat_offsets{};
+		std::vector<MaterialRange> mat_ranges{};
 		uint8_t current_physics_mat_idx{ material_points.front().physics_material_index };
 		uint32_t offset{ 0 };
 
@@ -662,7 +672,7 @@ namespace renderer
 			const T& p{ material_points[i] };
 			if (current_physics_mat_idx != p.physics_material_index)
 			{
-				mat_offsets.push_back(MaterialOffset{
+				mat_ranges.push_back(MaterialRange{
 					.physics_material_index = current_physics_mat_idx,
 					.offset = offset,
 					.count = i - offset,
@@ -673,13 +683,13 @@ namespace renderer
 			}
 		}
 
-		mat_offsets.push_back(MaterialOffset{
+		mat_ranges.push_back(MaterialRange{
 			.physics_material_index = current_physics_mat_idx,
 			.offset = offset,
 			.count = (uint32_t)material_points.size() - offset,
 			});
 
-		return mat_offsets;
+		return mat_ranges;
 	}
 
 	void ParticleGenContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
@@ -693,15 +703,10 @@ namespace renderer
 			std::sort(mat_positions.begin(), mat_positions.end(),
 				[](const MaterialPosition& p0, const MaterialPosition& p1) { return p0.physics_material_index < p1.physics_material_index; });
 
-			std::vector<MaterialOffset> mat_offsets{ GetMaterialOffsets(mat_positions) };
-			GenerateDynamicParticleMesh(ro_target, (const std::byte*)mat_positions.data(), offsetof(MaterialPosition, position), sizeof(MaterialPosition), mat_offsets);
+			mat_ranges_ = GetMaterialRanges(mat_positions);
+			GenerateDynamicParticleMesh(ro_target, (const std::byte*)mat_positions.data(), offsetof(MaterialPosition, position), sizeof(MaterialPosition), mat_ranges_);
 
-			// Assign render object's material indices based on physics materials.
-			std::vector<int> material_indices{};
-			material_indices.resize(mat_offsets.size());
-			std::transform(mat_offsets.begin(), mat_offsets.end(), material_indices.begin(),
-				[&](const MaterialOffset& m) { return physics_to_render_mat_idx_[m.physics_material_index]; });
-			renderer_->SetRenderObjectMaterialIndices(ro_target, material_indices);
+			UpdatePhysicsRenderMaterials(ro_target);
 			return;
 		}
 

@@ -103,7 +103,7 @@ namespace pmk
 		if (renderer_->GetMaterials().empty()) {
 			renderer_->CreateDefaultMaterial();
 		}
-		
+
 		particle_node_ = node;
 		constexpr float youngs_modulus{ 10.0f };
 		constexpr float poissons_ratio{ 0.4f };
@@ -167,20 +167,20 @@ namespace pmk
 	PhysicsMaterial* ParticleContext::NewPhysicsMaterial()
 	{
 		pmk::PhysicsMaterial* mat{ mpm_context_.NewPhysicsMaterial() };
-		renderer_->SetPhysicsToRenderMaterialMap(mpm_context_.GetAllPhysicsMaterialRender());
+		UpdatePhysicsRenderMaterials();
 		return mat;
 	}
 
 	void ParticleContext::DeletePhysicsMaterial(uint32_t physics_mat_index)
 	{
 		mpm_context_.DeletePhysicsMaterial(physics_mat_index);
-		renderer_->SetPhysicsToRenderMaterialMap(mpm_context_.GetAllPhysicsMaterialRender());
+		UpdatePhysicsRenderMaterials();
 	}
 
 	void ParticleContext::SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index)
 	{
 		mpm_context_.SetPhysicsMaterialRender(physics_mat_index, render_mat_index);
-		renderer_->SetPhysicsToRenderMaterialMap(mpm_context_.GetAllPhysicsMaterialRender());
+		UpdatePhysicsRenderMaterials();
 	}
 
 	uint32_t ParticleContext::GetPhysicsMaterialRender(uint32_t physics_mat_index)
@@ -324,5 +324,13 @@ namespace pmk
 		}
 
 		renderer_->SetMPMDebugNodeInstances(mpm_node_instances);
+	}
+
+	void ParticleContext::UpdatePhysicsRenderMaterials()
+	{
+		renderer_->SetPhysicsToRenderMaterialMap(mpm_context_.GetAllPhysicsMaterialRender());
+		if (particle_node_) {
+			renderer_->UpdatePhysicsRenderMaterials(particle_node_->render_object);
+		}
 	}
 }

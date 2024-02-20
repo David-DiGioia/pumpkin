@@ -1064,6 +1064,11 @@ namespace renderer
 		particle_gen_context_.SetPhysicsToRenderMaterialMap(std::move(physics_to_render_mat_idx));
 	}
 
+	void VulkanRenderer::UpdatePhysicsRenderMaterials(RenderObjectHandle ro_target)
+	{
+		particle_gen_context_.UpdatePhysicsRenderMaterials(ro_target);
+	}
+
 	void VulkanRenderer::SetMaterialIndex(RenderObjectHandle render_object_handle, uint32_t geometry_index, int material_index)
 	{
 		for (FrameResources& frame_resource : frame_resources_) {
@@ -1599,7 +1604,7 @@ namespace renderer
 	void VulkanRenderer::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
 	{
 		// TODO: Properly implement this. Though I don't think this function is ever used actually?
-		MaterialOffset tmp{
+		MaterialRange tmp{
 			.physics_material_index = 0,
 			.offset = 0,
 			.count = position_count,

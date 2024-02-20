@@ -83,6 +83,8 @@ namespace pmk
 
 		void GenerateDynamicDebugMPMNodeInstances() const;
 
+		void UpdatePhysicsRenderMaterials();
+
 		std::vector<renderer::StaticParticle> static_particles_{};
 		std::vector<uint8_t> side_flags_{};
 		bool has_played_{}; // True if the particle simulation has been played yet.

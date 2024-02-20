@@ -134,6 +134,8 @@ namespace renderer
 
 		void SetPhysicsToRenderMaterialMap(std::vector<int>&& physics_to_render_mat_idx);
 
+		void UpdatePhysicsRenderMaterials(RenderObjectHandle ro_target);
+
 		void SetMaterialIndex(RenderObjectHandle render_object_handle, uint32_t geometry_index, int material_index);
 
 		Material* MakeMaterialUnique(uint32_t material_index);

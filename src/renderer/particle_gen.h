@@ -40,7 +40,7 @@ namespace renderer
 	};
 
 	// Each MaterialOffset specifies a material type and range in the particle buffer.
-	struct MaterialOffset
+	struct MaterialRange
 	{
 		uint8_t physics_material_index;
 		uint32_t offset; // Index offset, not byte offset.
@@ -123,9 +123,11 @@ namespace renderer
 
 		// Generates triangles for each individual particle as a cube.
 		// Positions should be an array of glm::vec3 with arbitrary stride between each. Stride is in bytes.
-		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t offset, uint32_t stride, const std::vector<MaterialOffset>& mat_offsets);
+		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t offset, uint32_t stride, const std::vector<MaterialRange>& mat_ranges);
 		
 		void SetPhysicsToRenderMaterialMap(std::vector<int>&& physics_to_render_mat_idx);
+
+		void UpdatePhysicsRenderMaterials(RenderObjectHandle ro_target);
 
 		void CmdBegin();
 
@@ -218,5 +220,6 @@ namespace renderer
 		bool commands_recorded_{};
 
 		std::vector<int> physics_to_render_mat_idx_{}; // Convert a physics material index into a render material index. ith index is render material of ith physics material.
+		std::vector<MaterialRange> mat_ranges_{};      // Particle ranges of each physics material.
 	};
 }
