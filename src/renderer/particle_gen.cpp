@@ -694,7 +694,7 @@ namespace renderer
 				[](const MaterialPosition& p0, const MaterialPosition& p1) { return p0.physics_material_index < p1.physics_material_index; });
 
 			std::vector<MaterialOffset> mat_offsets{ GetMaterialOffsets(mat_positions) };
-			GenerateDynamicParticleMesh(ro_target, (const std::byte*)mat_positions.data(), 0, sizeof(MaterialPosition), mat_offsets);
+			GenerateDynamicParticleMesh(ro_target, (const std::byte*)mat_positions.data(), offsetof(MaterialPosition, position), sizeof(MaterialPosition), mat_offsets);
 
 			// Assign render object's material indices based on physics materials.
 			std::vector<int> material_indices{};
