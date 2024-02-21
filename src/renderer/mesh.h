@@ -110,8 +110,14 @@ namespace renderer
 	// from Geometry::vertices and Geometry::indices since they are empty.
 	struct MeshBlasInfo
 	{
-		uint32_t max_index;
-		std::vector<uint32_t> primitive_counts;
+		std::vector<uint32_t> max_indices;
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges; // Each build range corresponds to one geometry.
+
+		// If true, then a single renderer::Geometry must be in renderer::Mesh that's passed to QueueBlas().
+		// Then multiple Vulkan geometries will be constructed refercing the vertex/index buffer from the renderer::Geometry
+		// and using the offsets provided in build_ranges.
+		// If false, then each renderer::Geometry will correspond to a Vulkan geometry like normal, and build range offsets can be 0.
+		bool use_single_buffer;
 	};
 
 	// Return hash of this mesh's vertices.

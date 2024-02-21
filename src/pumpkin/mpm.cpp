@@ -102,6 +102,11 @@ namespace pmk
 		return particles_;
 	}
 
+	std::vector<MaterialPoint>& MPMContext::GetParticles()
+	{
+		return particles_;
+	}
+
 	const std::vector<GridNode>& MPMContext::GetNodes() const
 	{
 		return nodes_;

@@ -27,6 +27,12 @@ namespace renderer
 	class VulkanRenderer
 	{
 	public:
+		template <typename T>
+		std::vector<MaterialRange> GetMaterialRanges(const std::vector<T>& material_points)
+		{
+			return particle_gen_context_.GetMaterialRanges<T>(material_points);
+		}
+
 		void Initialize(GLFWwindow* window);
 
 		void CleanUp();
@@ -57,7 +63,13 @@ namespace renderer
 		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
 
 		// Record commands to generate dynamic particle mesh in graphics queue, and replace the target render object.
-		void CmdGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
+		void CmdGenerateDynamicParticleMesh(
+			RenderObjectHandle ro_target,
+			const std::byte* positions,
+			uint32_t position_count,
+			uint32_t offset,
+			uint32_t stride,
+			const std::vector<MaterialRange>& mat_ranges);
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
 		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);

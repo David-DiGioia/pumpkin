@@ -75,7 +75,7 @@ namespace pmk
 	private:
 		std::vector<MaterialPoint> StaticParticlesToMaterialPoints(const std::vector<renderer::StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const;
 
-		void GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, const std::vector<MaterialPoint>& particles) const;
+		void GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<MaterialPoint>& particles) const;
 
 		void GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target);
 

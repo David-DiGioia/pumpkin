@@ -103,6 +103,43 @@ namespace renderer
 
 	public:
 
+		// Input material_points must have each material type contiguous with one another (eg sorted, but order of material groups doesn't matter).
+		template <typename T>
+		std::vector<MaterialRange> GetMaterialRanges(const std::vector<T>& material_points)
+		{
+			if (material_points.empty()) {
+				return {};
+			}
+
+			std::vector<MaterialRange> mat_ranges{};
+			uint8_t current_physics_mat_idx{ material_points.front().physics_material_index };
+			uint32_t offset{ 0 };
+
+			for (uint32_t i{ 0 }; i < (uint32_t)material_points.size(); ++i)
+			{
+				const T& p{ material_points[i] };
+				if (current_physics_mat_idx != p.physics_material_index)
+				{
+					mat_ranges.push_back(MaterialRange{
+						.physics_material_index = current_physics_mat_idx,
+						.offset = offset,
+						.count = i - offset,
+						});
+
+					offset = i;
+					current_physics_mat_idx = p.physics_material_index;
+				}
+			}
+
+			mat_ranges.push_back(MaterialRange{
+				.physics_material_index = current_physics_mat_idx,
+				.offset = offset,
+				.count = (uint32_t)material_points.size() - offset,
+				});
+
+			return mat_ranges;
+		}
+
 		void Initialize(Context* context, VulkanRenderer* renderer);
 
 		void CleanUp();
@@ -132,7 +169,14 @@ namespace renderer
 		void CmdBegin();
 
 		// Offset and stride must be multiples of 4.
-		void CmdGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride);
+		// Particle positions must be grouped, and correspond to mat_ranges.
+		void CmdGenerateDynamicParticleMesh(
+			RenderObjectHandle ro_target,
+			const std::byte* positions,
+			uint32_t position_count,
+			uint32_t offset,
+			uint32_t stride,
+			const std::vector<MaterialRange>& mat_ranges);
 
 		void CmdSubmit();
 

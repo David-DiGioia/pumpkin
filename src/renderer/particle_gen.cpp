@@ -485,7 +485,13 @@ namespace renderer
 		vkBeginCommandBuffer(GetCurrentFrame().command_buffer, &begin_info);
 	}
 
-	void ParticleGenContext::CmdGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
+	void ParticleGenContext::CmdGenerateDynamicParticleMesh(
+		RenderObjectHandle ro_target,
+		const std::byte* positions,
+		uint32_t position_count,
+		uint32_t offset,
+		uint32_t stride,
+		const std::vector<MaterialRange>& mat_ranges)
 	{
 		VkCommandBuffer& cmd{ GetCurrentFrame().command_buffer };
 		const uint32_t position_buffer_size{ stride * position_count };
@@ -588,9 +594,31 @@ namespace renderer
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT,
 			VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
 
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges{};
+		std::vector<uint32_t> max_indices{};
+		{
+			build_ranges.reserve(mat_ranges.size());
+			max_indices.reserve(mat_ranges.size());
+			uint32_t pos_count_accumulator{ 0 };
+			for (const MaterialRange& mat_range : mat_ranges)
+			{
+				VkAccelerationStructureBuildRangeInfoKHR build_range{
+					.primitiveCount = (CUBE_INDEX_COUNT / 3) * mat_range.count,
+					.primitiveOffset = pos_count_accumulator * CUBE_INDEX_COUNT * sizeof(uint32_t), // Byte offset into index buffer.
+					.firstVertex = 0, // Zero since index values already index into correct part of vertex buffer.
+					.transformOffset = 0,
+				};
+				build_ranges.push_back(std::move(build_range));
+				pos_count_accumulator += mat_range.count;
+
+				max_indices.push_back(pos_count_accumulator * CUBE_INDEX_COUNT - 1);
+			}
+		}
+
 		MeshBlasInfo mesh_info{
-			.max_index = position_count * CUBE_INDEX_COUNT - 1,
-			.primitive_counts = { (CUBE_INDEX_COUNT * position_count) / 3 },
+			.max_indices = std::move(max_indices),
+			.build_ranges = std::move(build_ranges),
+			.use_single_buffer = true, // We only use buffers from a single renderer::Geometry that are shared by all Vulkan geometries.
 		};
 
 		Mesh* mesh{ new Mesh{} };
@@ -653,43 +681,6 @@ namespace renderer
 			mat_positions.push_back(mat_position);
 		}
 		return mat_positions;
-	}
-
-	// Input material_points must have each material type contiguous with one another (eg sorted, but order of material groups doesn't matter).
-	template <typename T>
-	std::vector<MaterialRange> GetMaterialRanges(std::vector<T> material_points)
-	{
-		if (material_points.empty()) {
-			return {};
-		}
-
-		std::vector<MaterialRange> mat_ranges{};
-		uint8_t current_physics_mat_idx{ material_points.front().physics_material_index };
-		uint32_t offset{ 0 };
-
-		for (uint32_t i{ 0 }; i < (uint32_t)material_points.size(); ++i)
-		{
-			const T& p{ material_points[i] };
-			if (current_physics_mat_idx != p.physics_material_index)
-			{
-				mat_ranges.push_back(MaterialRange{
-					.physics_material_index = current_physics_mat_idx,
-					.offset = offset,
-					.count = i - offset,
-					});
-
-				offset = i;
-				current_physics_mat_idx = p.physics_material_index;
-			}
-		}
-
-		mat_ranges.push_back(MaterialRange{
-			.physics_material_index = current_physics_mat_idx,
-			.offset = offset,
-			.count = (uint32_t)material_points.size() - offset,
-			});
-
-		return mat_ranges;
 	}
 
 	void ParticleGenContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)

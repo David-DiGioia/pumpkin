@@ -223,10 +223,15 @@ namespace pmk
 	}
 #endif
 
-	void ParticleContext::GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, const std::vector<MaterialPoint>& particles) const
+	void ParticleContext::GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<MaterialPoint>& particles) const
 	{
 		const std::byte* particle_buffer{ (const std::byte*)particles.data() };
-		renderer_->CmdGenerateDynamicParticleMesh(ro_target, particle_buffer, (uint32_t)particles.size(), offsetof(MaterialPoint, position), sizeof(MaterialPoint));
+		
+		// TODO: Replace with grouping algorithm.
+		std::sort(particles.begin(), particles.end(),
+			[](const MaterialPoint& p0, const MaterialPoint& p1) { return p0.physics_material_index < p1.physics_material_index; });
+		std::vector<renderer::MaterialRange> mat_ranges{ renderer_->GetMaterialRanges<MaterialPoint>(particles) };
+		renderer_->CmdGenerateDynamicParticleMesh(ro_target, particle_buffer, (uint32_t)particles.size(), offsetof(MaterialPoint, position), sizeof(MaterialPoint), mat_ranges);
 
 #ifdef EDITOR_ENABLED
 		if (generate_mpm_particle_instances_) {

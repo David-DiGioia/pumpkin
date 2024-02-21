@@ -40,7 +40,7 @@ namespace pmk
 		glm::mat3 affine_matrix;
 		glm::mat3 deformation_gradient_elastic;
 		glm::mat3 deformation_gradient_plastic;
-		uint32_t  physics_material_index;
+		uint8_t  physics_material_index;
 	};
 
 	class MPMContext;
@@ -191,6 +191,8 @@ namespace pmk
 		void SimulateStep(float delta_time);
 
 		const std::vector<MaterialPoint>& GetParticles() const;
+
+		std::vector<MaterialPoint>& GetParticles();
 
 		const std::vector<GridNode>& GetNodes() const;
 

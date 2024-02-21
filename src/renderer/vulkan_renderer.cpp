@@ -1612,9 +1612,15 @@ namespace renderer
 		particle_gen_context_.GenerateDynamicParticleMesh(ro_target, positions, offset, stride, { tmp });
 	}
 
-	void VulkanRenderer::CmdGenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t position_count, uint32_t offset, uint32_t stride)
+	void VulkanRenderer::CmdGenerateDynamicParticleMesh(
+		RenderObjectHandle ro_target,
+		const std::byte* positions,
+		uint32_t position_count,
+		uint32_t offset,
+		uint32_t stride,
+		const std::vector<MaterialRange>& mat_ranges)
 	{
-		particle_gen_context_.CmdGenerateDynamicParticleMesh(ro_target, positions, position_count, offset, stride);
+		particle_gen_context_.CmdGenerateDynamicParticleMesh(ro_target, positions, position_count, offset, stride, mat_ranges);
 	}
 
 	void VulkanRenderer::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)

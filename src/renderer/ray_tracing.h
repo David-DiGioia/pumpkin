@@ -50,7 +50,7 @@ namespace renderer
 		glm::vec3 position;
 	};
 
-	std::vector<uint32_t> GetGeometryPrimitiveCounts(const std::vector<Geometry>& geometries);
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR> GetGeometryBuidRanges(const std::vector<Geometry>& geometries);
 
 	// Utility for building the shader binding table.
 	// Step 1: Initialize and add all the shader groups.
@@ -120,7 +120,7 @@ namespace renderer
 		void QueueBlas(
 			AccelerationStructure* blas,
 			std::vector<VkAccelerationStructureGeometryKHR>&& vk_geometries,
-			std::vector<uint32_t>&& primitive_counts);
+			std::vector<VkAccelerationStructureBuildRangeInfoKHR>&& build_ranges);
 
 		// Call this if mesh does have CPU side mesh data.
 		void QueueBlas(Mesh* mesh);
@@ -178,7 +178,9 @@ namespace renderer
 
 		VkAccelerationStructureGeometryKHR PumpkinTriGeometryToVulkanGeometry(const Geometry& pmk_geometry) const;
 
-		std::vector<VkAccelerationStructureGeometryKHR> PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries, uint32_t max_vertex) const;
+		std::vector<VkAccelerationStructureGeometryKHR> PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries, const std::vector<uint32_t>& max_vertices) const;
+
+		std::vector<VkAccelerationStructureGeometryKHR> PumpkinSingleGeometryToVulkanGeometries(const Geometry& pmk_geometry, const std::vector<uint32_t>& max_vertices) const;
 
 		std::vector<VkAccelerationStructureGeometryKHR> PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries) const;
 
@@ -216,7 +218,7 @@ namespace renderer
 			AccelerationStructure* blas;
 			// The actual geometry data needed for the BLAS.
 			const std::vector<VkAccelerationStructureGeometryKHR> vk_geometries;
-			std::vector<uint32_t> primitive_counts;
+			std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges;
 		};
 
 		struct QueuedTlasBuildInfo

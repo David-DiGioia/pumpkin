@@ -25,15 +25,21 @@ namespace renderer
 	constexpr uint32_t RAYCASTS_BUFFER_BINDING{ 1 };
 	constexpr uint32_t RAYHITS_BUFFER_BINDING{ 2 };
 
-	std::vector<uint32_t> GetGeometryPrimitiveCounts(const std::vector<Geometry>& geometries)
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR> GetGeometryBuildRanges(const std::vector<Geometry>& geometries)
 	{
 		// Get number of triangles in each geometry.
-		std::vector<uint32_t> max_primitive_counts(geometries.size());
-		std::transform(geometries.begin(), geometries.end(), max_primitive_counts.begin(),
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR> buiid_ranges(geometries.size());
+		std::transform(geometries.begin(), geometries.end(), buiid_ranges.begin(),
 			[](const Geometry& x) {
-				return x.indices.size() / 3;
+				VkAccelerationStructureBuildRangeInfoKHR build_range{
+					.primitiveCount = (uint32_t)x.indices.size() / 3,
+					.primitiveOffset = 0,
+					.firstVertex = 0,
+					.transformOffset = 0,
+				};
+				return build_range;
 			});
-		return max_primitive_counts;
+		return buiid_ranges;
 	}
 
 	void RayTracingContext::Initialize(Context* context,
@@ -95,12 +101,12 @@ namespace renderer
 	void RayTracingContext::QueueBlas(
 		AccelerationStructure* blas,
 		std::vector<VkAccelerationStructureGeometryKHR>&& vk_geometries,
-		std::vector<uint32_t>&& primitive_counts)
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR>&& build_ranges)
 	{
 		QueuedBlasBuildInfo build_info{
 			.blas = blas, // This BLAS will be populated later when build command is called.
 			.vk_geometries = std::move(vk_geometries),
-			.primitive_counts = std::move(primitive_counts),
+			.build_ranges = std::move(build_ranges),
 		};
 		queued_blas_build_infos_.push_back(build_info);
 	}
@@ -111,13 +117,19 @@ namespace renderer
 			logger::Error("Attempting to queue BLAS without CPU side mesh data. Pass MeshBlasInfo parameter if CPU side mesh data is unavailable.");
 		}
 
-		QueueBlas(&mesh->blas, PumpkinTriGeometriesToVulkanGeometries(mesh->geometries), GetGeometryPrimitiveCounts(mesh->geometries));
+		QueueBlas(&mesh->blas, PumpkinTriGeometriesToVulkanGeometries(mesh->geometries), GetGeometryBuildRanges(mesh->geometries));
 	}
 
 	void RayTracingContext::QueueBlas(Mesh* mesh, MeshBlasInfo& mesh_info)
 	{
-
-		QueueBlas(&mesh->blas, PumpkinTriGeometriesToVulkanGeometries(mesh->geometries, mesh_info.max_index), std::move(mesh_info.primitive_counts));
+		std::vector<VkAccelerationStructureGeometryKHR> vk_geometries{};
+		if (mesh_info.use_single_buffer) {
+			vk_geometries = PumpkinSingleGeometryToVulkanGeometries(mesh->geometries.front(), mesh_info.max_indices);
+		}
+		else {
+			vk_geometries = PumpkinTriGeometriesToVulkanGeometries(mesh->geometries, mesh_info.max_indices);
+		}
+		QueueBlas(&mesh->blas, std::move(vk_geometries), std::move(mesh_info.build_ranges));
 	}
 
 	AccelerationStructure* RayTracingContext::QueueTlas(const std::vector<RenderObject*>& render_objects)
@@ -154,20 +166,8 @@ namespace renderer
 
 		for (const QueuedBlasBuildInfo& build_info : queued_blas_build_infos_)
 		{
-			std::vector<VkAccelerationStructureBuildRangeInfoKHR>& geometry_range_infos{ build_range_infos.emplace_back() };
+			build_range_infos.push_back(build_info.build_ranges);
 			all_vk_geometries.push_back(build_info.vk_geometries);
-
-			for (uint32_t primitive_count : build_info.primitive_counts)
-			{
-				VkAccelerationStructureBuildRangeInfoKHR range_info{
-					.primitiveCount = primitive_count,
-					.primitiveOffset = 0,
-					.firstVertex = 0,
-					.transformOffset = 0,
-				};
-
-				geometry_range_infos.push_back(range_info);
-			}
 
 			VkAccelerationStructureBuildGeometryInfoKHR blas_build_info{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -181,7 +181,13 @@ namespace renderer
 				.scratchData = {}, // Populate this after getting scratch buffer size.
 			};
 
-			VkAccelerationStructureBuildSizesInfoKHR build_sizes{ GetAccelerationStructureBuildSizes(blas_build_info, build_info.primitive_counts) };
+			// Extract primitive counts from build ranges.
+			std::vector<uint32_t> primitive_counts{};
+			primitive_counts.resize(build_info.build_ranges.size());
+			std::transform(build_info.build_ranges.begin(), build_info.build_ranges.end(), primitive_counts.begin(),
+				[](const VkAccelerationStructureBuildRangeInfoKHR& range) { return range.primitiveCount; });
+
+			VkAccelerationStructureBuildSizesInfoKHR build_sizes{ GetAccelerationStructureBuildSizes(blas_build_info, primitive_counts) };
 
 			BufferResource scratch_buffer{ allocator_->CreateAlignedBufferResource(
 				build_sizes.buildScratchSize, acceleration_structure_properties_.minAccelerationStructureScratchOffsetAlignment,
@@ -594,12 +600,43 @@ namespace renderer
 		return PumpkinTriGeometryToVulkanGeometry(pmk_geometry, *std::max_element(std::begin(pmk_geometry.indices), std::end(pmk_geometry.indices)));
 	}
 
-	std::vector<VkAccelerationStructureGeometryKHR> RayTracingContext::PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries, uint32_t max_vertex) const
+	std::vector<VkAccelerationStructureGeometryKHR> RayTracingContext::PumpkinTriGeometriesToVulkanGeometries(const std::vector<Geometry>& pmk_geometries, const std::vector<uint32_t>& max_vertices) const
 	{
 		std::vector<VkAccelerationStructureGeometryKHR> vk_geometries{};
 		vk_geometries.reserve(pmk_geometries.size());
-		for (const Geometry& pmk_geometry : pmk_geometries) {
-			vk_geometries.push_back(PumpkinTriGeometryToVulkanGeometry(pmk_geometry, max_vertex));
+
+		for (uint32_t i{ 0 }; i < (uint32_t)pmk_geometries.size(); ++i) {
+			vk_geometries.push_back(PumpkinTriGeometryToVulkanGeometry(pmk_geometries[i], max_vertices[i]));
+		}
+		return vk_geometries;
+	}
+
+	std::vector<VkAccelerationStructureGeometryKHR> RayTracingContext::PumpkinSingleGeometryToVulkanGeometries(const Geometry& pmk_geometry, const std::vector<uint32_t>& max_vertices) const
+	{
+		VkAccelerationStructureGeometryKHR vk_geometry{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+			.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+			.geometry = {
+				.triangles = {
+					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+					.vertexData = DeviceAddress(context_->device, pmk_geometry.vertices_resource.buffer),
+					.vertexStride = sizeof(Vertex),
+					.maxVertex = 0, // Set below.
+					.indexType = std::is_same<uint32_t, decltype(Geometry::indices)::value_type>::value ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16,
+					.indexData = DeviceAddress(context_->device, pmk_geometry.indices_resource.buffer),
+					.transformData = {},
+				},
+			},
+			.flags = 0,
+		};
+
+		std::vector<VkAccelerationStructureGeometryKHR> vk_geometries{};
+		vk_geometries.resize(max_vertices.size());
+		for (uint32_t i{ 0 }; i < (uint32_t)vk_geometries.size(); ++i)
+		{
+			vk_geometry.geometry.triangles.maxVertex = max_vertices[i];
+			vk_geometries[i] = vk_geometry;
 		}
 		return vk_geometries;
 	}
