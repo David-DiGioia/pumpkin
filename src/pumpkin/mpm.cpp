@@ -722,7 +722,13 @@ namespace pmk
 
 	ConstitutiveModel* MPMContext::GetConstitutiveModel(const MaterialPoint& p)
 	{
-		return physics_materials_[(uint32_t)p.physics_material_index]->constitutive_model;
+#ifdef EDITOR_ENABLED
+		// For editor convenience we just use available physics material if enough haven't been created yet.
+		uint32_t idx{ std::min((uint32_t)p.physics_material_index, (uint32_t)(physics_materials_.size() - 1)) };
+#elif
+		uint32_t idx{ (uint32_t)p.physics_material_index };
+#endif
+		return physics_materials_[idx]->constitutive_model;
 	}
 
 	void MPMContext::PrintParticleWeights() const

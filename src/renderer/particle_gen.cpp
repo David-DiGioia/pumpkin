@@ -465,7 +465,15 @@ namespace renderer
 		std::vector<int> material_indices{};
 		material_indices.resize(mat_ranges_.size());
 		std::transform(mat_ranges_.begin(), mat_ranges_.end(), material_indices.begin(),
-			[&](const MaterialRange& m) { return physics_to_render_mat_idx_[m.physics_material_index]; });
+			[&](const MaterialRange& m) {
+#ifdef EDITOR_ENABLED
+				// For editor convenience we just use available physics material if enough haven't been created yet.
+				uint32_t idx{ std::min(m.physics_material_index, (uint8_t)(physics_to_render_mat_idx_.size() - 1))};
+#elif
+				uint32_t idx{ m.physics_material_index };
+#endif
+				return physics_to_render_mat_idx_[idx];
+			});
 		renderer_->SetRenderObjectMaterialIndices(ro_target, material_indices);
 	}
 
