@@ -973,14 +973,7 @@ void EditorGui::ParticleEditor()
 		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
 		ImGui::Text("%u", particle_count_);
 	}
-	else
-	{
-		ImGui::Dummy({});
-		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
-		if (ImGui::Button("Generate test particle")) {
-			editor_->GenerateTestParticle();
-		}
-	}
+
 	if (!editor_->GetParticleSimulationEmpty())
 	{
 		ImGui::Dummy({});
