@@ -525,6 +525,10 @@ uint32_t Editor::GenerateParticles(std::function<uint32_t()> particle_gen_func)
 		particle_node_->node->physics_object = true;
 	}
 
+	if (physics_materials_.empty()) {
+		NewPhysicsMaterial();
+	}
+
 	// If there are no materials yet, renderer will generate one for the particles.
 	bool created_new_material{ materials_.empty() };
 	uint32_t particle_count{ particle_gen_func() };
@@ -532,10 +536,6 @@ uint32_t Editor::GenerateParticles(std::function<uint32_t()> particle_gen_func)
 	{
 		renderer::Material* mat{ pumpkin_->GetMaterials().back() };
 		materials_.push_back(new EditorMaterial{ mat, "Particles" });
-	}
-
-	if (physics_materials_.empty()) {
-		NewPhysicsMaterial();
 	}
 
 	return particle_count;

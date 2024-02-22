@@ -28,9 +28,9 @@ namespace renderer
 	{
 	public:
 		template <typename T>
-		std::vector<MaterialRange> GetMaterialRanges(const std::vector<T>& material_points)
+		std::vector<MaterialRange> CreateMaterialRanges(const std::vector<T>& material_points)
 		{
-			return particle_gen_context_.GetMaterialRanges<T>(material_points);
+			return particle_gen_context_.CreateMaterialRanges<T>(material_points);
 		}
 
 		void Initialize(GLFWwindow* window);

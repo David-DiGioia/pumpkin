@@ -40,6 +40,11 @@ namespace renderer
 		return coord.x + coord.y * CHUNK_ROW_VOXEL_COUNT + coord.z * slice_area;
 	}
 
+	std::vector<MaterialRange> ParticleGenContext::GetMaterialRanges()
+	{
+		return mat_ranges_;
+	}
+
 	void ParticleGenContext::Initialize(Context* context, VulkanRenderer* renderer)
 	{
 		context_ = context;
@@ -391,6 +396,7 @@ namespace renderer
 	void ParticleGenContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t offset, uint32_t stride, const std::vector<MaterialRange>& mat_ranges)
 	{
 		ZoneScoped;
+		mat_ranges_ = mat_ranges;
 		Mesh* mesh{ new Mesh{} };
 		mesh->geometries.resize(std::max(mat_ranges.size(), (size_t)1));
 
@@ -493,6 +499,8 @@ namespace renderer
 		uint32_t stride,
 		const std::vector<MaterialRange>& mat_ranges)
 	{
+		mat_ranges_ = mat_ranges;
+
 		VkCommandBuffer& cmd{ GetCurrentFrame().command_buffer };
 		const uint32_t position_buffer_size{ stride * position_count };
 
@@ -596,19 +604,24 @@ namespace renderer
 
 		std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges{};
 		std::vector<uint32_t> max_indices{};
+		std::vector<uint32_t> index_byte_offsets{};
 		{
 			build_ranges.reserve(mat_ranges.size());
 			max_indices.reserve(mat_ranges.size());
+			index_byte_offsets.reserve(mat_ranges.size());
 			uint32_t pos_count_accumulator{ 0 };
 			for (const MaterialRange& mat_range : mat_ranges)
 			{
+				uint32_t primitive_offset{ pos_count_accumulator * CUBE_INDEX_COUNT * sizeof(uint32_t) };
 				VkAccelerationStructureBuildRangeInfoKHR build_range{
 					.primitiveCount = (CUBE_INDEX_COUNT / 3) * mat_range.count,
-					.primitiveOffset = pos_count_accumulator * CUBE_INDEX_COUNT * sizeof(uint32_t), // Byte offset into index buffer.
+					.primitiveOffset = primitive_offset, // Byte offset into index buffer.
 					.firstVertex = 0, // Zero since index values already index into correct part of vertex buffer.
 					.transformOffset = 0,
 				};
 				build_ranges.push_back(std::move(build_range));
+				index_byte_offsets.push_back(primitive_offset);
+
 				pos_count_accumulator += mat_range.count;
 
 				max_indices.push_back(pos_count_accumulator * CUBE_INDEX_COUNT - 1);
@@ -618,14 +631,15 @@ namespace renderer
 		MeshBlasInfo mesh_info{
 			.max_indices = std::move(max_indices),
 			.build_ranges = std::move(build_ranges),
-			.use_single_buffer = true, // We only use buffers from a single renderer::Geometry that are shared by all Vulkan geometries.
 		};
 
 		Mesh* mesh{ new Mesh{} };
 		mesh->geometries.emplace_back();
-		mesh->geometries[0].indices_resource = GetCurrentFrame().particle_mesh.indices_out;
-		mesh->geometries[0].vertices_resource = GetCurrentFrame().particle_mesh.vertices_out;
+		mesh->geometries.back().indices_resource = GetCurrentFrame().particle_mesh.indices_out;
+		mesh->geometries.back().vertices_resource = GetCurrentFrame().particle_mesh.vertices_out;
 		mesh->preserve_geometry_buffers = true; // Old buffers get cleaned up during ExpandOrReuseBuffer().
+		mesh->use_single_buffer = true;         // We only use buffers from a single renderer::Geometry that are shared by all Vulkan geometries.
+		mesh->index_byte_offsets = std::move(index_byte_offsets);
 
 		renderer_->rt_context_.QueueBlas(mesh, mesh_info);
 
@@ -694,7 +708,7 @@ namespace renderer
 			std::sort(mat_positions.begin(), mat_positions.end(),
 				[](const MaterialPosition& p0, const MaterialPosition& p1) { return p0.physics_material_index < p1.physics_material_index; });
 
-			mat_ranges_ = GetMaterialRanges(mat_positions);
+			mat_ranges_ = CreateMaterialRanges(mat_positions);
 			GenerateDynamicParticleMesh(ro_target, (const std::byte*)mat_positions.data(), offsetof(MaterialPosition, position), sizeof(MaterialPosition), mat_ranges_);
 
 			UpdatePhysicsRenderMaterials(ro_target);

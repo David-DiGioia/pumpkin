@@ -105,7 +105,7 @@ namespace renderer
 
 		// Input material_points must have each material type contiguous with one another (eg sorted, but order of material groups doesn't matter).
 		template <typename T>
-		std::vector<MaterialRange> GetMaterialRanges(const std::vector<T>& material_points)
+		std::vector<MaterialRange> CreateMaterialRanges(const std::vector<T>& material_points)
 		{
 			if (material_points.empty()) {
 				return {};
@@ -139,6 +139,8 @@ namespace renderer
 
 			return mat_ranges;
 		}
+
+		std::vector<MaterialRange> GetMaterialRanges();
 
 		void Initialize(Context* context, VulkanRenderer* renderer);
 

@@ -1,0 +1,56 @@
+#version 450
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_EXT_scalar_block_layout : enable
+
+/* Do not modify this UBO. These are built in descriptors from the engine. */
+layout (set = 0, binding = 0) uniform BuiltInUBO
+{
+    ivec3 chunk_coordinate;
+} built_in_ubo;
+
+/* Modify this UBO to be able to set parameters through the UI. */
+layout (set = 0, binding = 1, scalar) uniform CustomUBO
+{
+    float radius;
+    vec3 center;
+} ubo;
+
+struct StaticParticle
+{
+    uint8_t type;
+};
+
+layout(set = 0, binding = 2) writeonly buffer ParticleBufferOut {
+   StaticParticle particles_out[];
+};
+
+layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+const uint8_t PARTICLE_TYPE_EMPTY = uint8_t(0xFF);
+
+uint IndexFromCoordinate(uvec3 coord)
+{
+    uint global_x_size = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+    uint global_y_size = gl_NumWorkGroups.y * gl_WorkGroupSize.y;
+    return coord.x + coord.y * global_x_size + coord.z * global_x_size * global_y_size;
+}
+
+void main() 
+{
+    uvec3 coord = gl_GlobalInvocationID.xyz;
+    uint index = IndexFromCoordinate(coord);
+
+    //float f = 30.0 + 5.0 * sin(coord.x * 0.1) * cos(coord.z * 0.2);
+
+    vec3 sphere_center1 = vec3(32.0, 16.0, 32.0);
+    float d0 = distance(coord, sphere_center1);
+    float d1 = distance(coord, ubo.center);
+    float f = d0 * d1;
+
+    if (f < ubo.radius) {
+        particles_out[index].type = uint8_t(0);
+    }
+    else {
+        particles_out[index].type = PARTICLE_TYPE_EMPTY;
+    }
+}

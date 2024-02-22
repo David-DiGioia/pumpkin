@@ -123,7 +123,7 @@ namespace renderer
 	void RayTracingContext::QueueBlas(Mesh* mesh, MeshBlasInfo& mesh_info)
 	{
 		std::vector<VkAccelerationStructureGeometryKHR> vk_geometries{};
-		if (mesh_info.use_single_buffer) {
+		if (mesh->use_single_buffer) {
 			vk_geometries = PumpkinSingleGeometryToVulkanGeometries(mesh->geometries.front(), mesh_info.max_indices);
 		}
 		else {
@@ -419,12 +419,28 @@ namespace renderer
 
 			custom_index_map_[&mesh->blas] = custom_index;
 
-			for (Geometry& geometry : mesh->geometries)
+			if (mesh->use_single_buffer)
 			{
-				ObjectBuffers& obj_buffers{ object_buffers_vec.emplace_back() };
-				obj_buffers.vertices = (uint64_t)DeviceAddress(context_->device, geometry.vertices_resource.buffer);
-				obj_buffers.indices = (uint64_t)DeviceAddress(context_->device, geometry.indices_resource.buffer);
-				++custom_index;
+				uint64_t vertices_addr{ (uint64_t)DeviceAddress(context_->device, mesh->geometries.front().vertices_resource.buffer) };
+				uint64_t indices_addr{ (uint64_t)DeviceAddress(context_->device, mesh->geometries.front().indices_resource.buffer) };
+
+				for (uint32_t index_byte_offset : mesh->index_byte_offsets)
+				{
+					ObjectBuffers& obj_buffers{ object_buffers_vec.emplace_back() };
+					obj_buffers.vertices = vertices_addr;
+					obj_buffers.indices = index_byte_offset + indices_addr;
+					++custom_index;
+				}
+			}
+			else
+			{
+				for (Geometry& geometry : mesh->geometries)
+				{
+					ObjectBuffers& obj_buffers{ object_buffers_vec.emplace_back() };
+					obj_buffers.vertices = (uint64_t)DeviceAddress(context_->device, geometry.vertices_resource.buffer);
+					obj_buffers.indices = (uint64_t)DeviceAddress(context_->device, geometry.indices_resource.buffer);
+					++custom_index;
+				}
 			}
 		}
 

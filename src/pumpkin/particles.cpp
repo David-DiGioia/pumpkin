@@ -230,7 +230,7 @@ namespace pmk
 		// TODO: Replace with grouping algorithm.
 		std::sort(particles.begin(), particles.end(),
 			[](const MaterialPoint& p0, const MaterialPoint& p1) { return p0.physics_material_index < p1.physics_material_index; });
-		std::vector<renderer::MaterialRange> mat_ranges{ renderer_->GetMaterialRanges<MaterialPoint>(particles) };
+		std::vector<renderer::MaterialRange> mat_ranges{ renderer_->CreateMaterialRanges<MaterialPoint>(particles) };
 		renderer_->CmdGenerateDynamicParticleMesh(ro_target, particle_buffer, (uint32_t)particles.size(), offsetof(MaterialPoint, position), sizeof(MaterialPoint), mat_ranges);
 
 #ifdef EDITOR_ENABLED
