@@ -1002,17 +1002,17 @@ void Editor::DeletePhysicsMaterial(uint32_t selected_idx)
 	physics_materials_.erase(physics_materials_.begin() + selected_idx);
 }
 
-void Editor::SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index)
+void Editor::SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index)
 {
 	pumpkin_->SetPhysicsMaterialRender(physics_mat_index, render_mat_index);
 }
 
-uint32_t Editor::GetPhysicsMaterialRender(uint32_t physics_mat_index)
+uint32_t Editor::GetPhysicsMaterialRender(uint8_t physics_mat_index)
 {
 	return pumpkin_->GetPhysicsMaterialRender(physics_mat_index);
 }
 
-void Editor::SetPhysicsMaterialModelType(uint32_t physics_mat_index, ConstitutiveModelType model)
+void Editor::SetPhysicsMaterialModelType(uint8_t physics_mat_index, ConstitutiveModelType model)
 {
 	switch (model)
 	{
@@ -1028,7 +1028,7 @@ void Editor::SetPhysicsMaterialModelType(uint32_t physics_mat_index, Constitutiv
 	}
 }
 
-ConstitutiveModelType Editor::GetPhysicsMaterialModelType(uint32_t physics_mat_index)
+ConstitutiveModelType Editor::GetPhysicsMaterialModelType(uint8_t physics_mat_index)
 {
 	pmk::ConstitutiveModel* model{ pumpkin_->GetPhysicsMaterialModel(physics_mat_index) };
 

@@ -200,18 +200,18 @@ namespace pmk
 
 		PhysicsMaterial* NewPhysicsMaterial();
 
-		void DeletePhysicsMaterial(uint32_t physics_mat_index);
+		void DeletePhysicsMaterial(uint8_t physics_mat_index);
 
 		std::vector<int> GetAllPhysicsMaterialRender();
 
 		// Set the physics material's index into render materials. Determines how each physics material is rendered.
-		void SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index);
+		void SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index);
 
 		// Get the physics material's index into render materials.
-		uint32_t GetPhysicsMaterialRender(uint32_t physics_mat_index);
+		uint32_t GetPhysicsMaterialRender(uint8_t physics_mat_index);
 
 		template<typename T>
-		void SetPhysicsMaterialModel(uint32_t physics_mat_index)
+		void SetPhysicsMaterialModel(uint8_t physics_mat_index)
 		{
 			PhysicsMaterial* mat{ physics_materials_[physics_mat_index] };
 			delete mat->constitutive_model;
@@ -219,11 +219,11 @@ namespace pmk
 			mat->constitutive_model->Initialize(this);
 		}
 
-		ConstitutiveModel* GetPhysicsMaterialModel(uint32_t physics_mat_index);
+		ConstitutiveModel* GetPhysicsMaterialModel(uint8_t physics_mat_index);
 
-		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint32_t physics_mat_index);
+		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint8_t physics_mat_index);
 
-		void PhysicsParametersMutated(uint32_t physics_mat_index);
+		void PhysicsParametersMutated(uint8_t physics_mat_index);
 
 	private:
 		void ParticleToGrid();

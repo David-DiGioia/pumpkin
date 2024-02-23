@@ -367,14 +367,14 @@ private:
 	void DeletePhysicsMaterial(uint32_t selected_idx);
 
 	// Set the physics material's index into render materials. Determines how each physics material is rendered.
-	void SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index);
+	void SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index);
 
 	// Get the physics material's index into render materials.
-	uint32_t GetPhysicsMaterialRender(uint32_t physics_mat_index);
+	uint32_t GetPhysicsMaterialRender(uint8_t physics_mat_index);
 
-	void SetPhysicsMaterialModelType(uint32_t physics_mat_index, ConstitutiveModelType model);
+	void SetPhysicsMaterialModelType(uint8_t physics_mat_index, ConstitutiveModelType model);
 
-	ConstitutiveModelType GetPhysicsMaterialModelType(uint32_t physics_mat_index);
+	ConstitutiveModelType GetPhysicsMaterialModelType(uint8_t physics_mat_index);
 
 	// Load settings from AppData.
 	void LoadEditorSettings();

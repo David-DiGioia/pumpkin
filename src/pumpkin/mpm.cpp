@@ -160,7 +160,7 @@ namespace pmk
 		return new_material;
 	}
 
-	void MPMContext::DeletePhysicsMaterial(uint32_t physics_mat_index)
+	void MPMContext::DeletePhysicsMaterial(uint8_t physics_mat_index)
 	{
 		physics_materials_.erase(physics_materials_.begin() + physics_mat_index);
 	}
@@ -174,27 +174,27 @@ namespace pmk
 		return result;
 	}
 
-	void MPMContext::SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index)
+	void MPMContext::SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index)
 	{
 		physics_materials_[physics_mat_index]->render_material = render_mat_index;
 	}
 
-	uint32_t MPMContext::GetPhysicsMaterialRender(uint32_t physics_mat_index)
+	uint32_t MPMContext::GetPhysicsMaterialRender(uint8_t physics_mat_index)
 	{
 		return physics_materials_[physics_mat_index]->render_material;
 	}
 
-	ConstitutiveModel* MPMContext::GetPhysicsMaterialModel(uint32_t physics_mat_index)
+	ConstitutiveModel* MPMContext::GetPhysicsMaterialModel(uint8_t physics_mat_index)
 	{
 		return physics_materials_[physics_mat_index]->constitutive_model;
 	}
 
-	std::vector<std::pair<float*, std::string>> MPMContext::GetPhysicsParameters(uint32_t physics_mat_index)
+	std::vector<std::pair<float*, std::string>> MPMContext::GetPhysicsParameters(uint8_t physics_mat_index)
 	{
 		return physics_materials_[physics_mat_index]->constitutive_model->GetParameters();
 	}
 
-	void MPMContext::PhysicsParametersMutated(uint32_t physics_mat_index)
+	void MPMContext::PhysicsParametersMutated(uint8_t physics_mat_index)
 	{
 		physics_materials_[physics_mat_index]->constitutive_model->OnParametersMutated();
 	}
@@ -725,7 +725,7 @@ namespace pmk
 #ifdef EDITOR_ENABLED
 		// For editor convenience we just use available physics material if enough haven't been created yet.
 		uint32_t idx{ std::min((uint32_t)p.physics_material_index, (uint32_t)(physics_materials_.size() - 1)) };
-#elif
+#else
 		uint32_t idx{ (uint32_t)p.physics_material_index };
 #endif
 		return physics_materials_[idx]->constitutive_model;

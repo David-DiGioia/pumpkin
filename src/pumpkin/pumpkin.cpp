@@ -133,32 +133,32 @@ namespace pmk
 		return scene_.NewPhysicsMaterial();
 	}
 
-	void Pumpkin::DeletePhysicsMaterial(uint32_t physics_mat_index)
+	void Pumpkin::DeletePhysicsMaterial(uint8_t physics_mat_index)
 	{
 		scene_.DeletePhysicsMaterial(physics_mat_index);
 	}
 
-	void Pumpkin::SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index)
+	void Pumpkin::SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index)
 	{
 		scene_.SetPhysicsMaterialRender(physics_mat_index, render_mat_index);
 	}
 
-	uint32_t Pumpkin::GetPhysicsMaterialRender(uint32_t physics_mat_index)
+	uint32_t Pumpkin::GetPhysicsMaterialRender(uint8_t physics_mat_index)
 	{
 		return scene_.GetPhysicsMaterialRender(physics_mat_index);
 	}
 
-	ConstitutiveModel* Pumpkin::GetPhysicsMaterialModel(uint32_t physics_mat_index)
+	ConstitutiveModel* Pumpkin::GetPhysicsMaterialModel(uint8_t physics_mat_index)
 	{
 		return scene_.GetPhysicsMaterialModel(physics_mat_index);
 	}
 
-	std::vector<std::pair<float*, std::string>> Pumpkin::GetPhysicsParameters(uint32_t physics_mat_index)
+	std::vector<std::pair<float*, std::string>> Pumpkin::GetPhysicsParameters(uint8_t physics_mat_index)
 	{
 		return scene_.GetPhysicsParameters(physics_mat_index);
 	}
 
-	void Pumpkin::PhysicsParametersMutated(uint32_t physics_mat_index)
+	void Pumpkin::PhysicsParametersMutated(uint8_t physics_mat_index)
 	{
 		scene_.PhysicsParametersMutated(physics_mat_index);
 	}

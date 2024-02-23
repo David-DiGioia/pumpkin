@@ -171,34 +171,34 @@ namespace pmk
 		return mat;
 	}
 
-	void ParticleContext::DeletePhysicsMaterial(uint32_t physics_mat_index)
+	void ParticleContext::DeletePhysicsMaterial(uint8_t physics_mat_index)
 	{
 		mpm_context_.DeletePhysicsMaterial(physics_mat_index);
 		UpdatePhysicsRenderMaterials();
 	}
 
-	void ParticleContext::SetPhysicsMaterialRender(uint32_t physics_mat_index, uint32_t render_mat_index)
+	void ParticleContext::SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index)
 	{
 		mpm_context_.SetPhysicsMaterialRender(physics_mat_index, render_mat_index);
 		UpdatePhysicsRenderMaterials();
 	}
 
-	uint32_t ParticleContext::GetPhysicsMaterialRender(uint32_t physics_mat_index)
+	uint32_t ParticleContext::GetPhysicsMaterialRender(uint8_t physics_mat_index)
 	{
 		return mpm_context_.GetPhysicsMaterialRender(physics_mat_index);
 	}
 
-	ConstitutiveModel* ParticleContext::GetPhysicsMaterialModel(uint32_t physics_mat_index)
+	ConstitutiveModel* ParticleContext::GetPhysicsMaterialModel(uint8_t physics_mat_index)
 	{
 		return mpm_context_.GetPhysicsMaterialModel(physics_mat_index);
 	}
 
-	std::vector<std::pair<float*, std::string>> ParticleContext::GetPhysicsParameters(uint32_t physics_mat_index)
+	std::vector<std::pair<float*, std::string>> ParticleContext::GetPhysicsParameters(uint8_t physics_mat_index)
 	{
 		return mpm_context_.GetPhysicsParameters(physics_mat_index);
 	}
 
-	void ParticleContext::PhysicsParametersMutated(uint32_t physics_mat_index)
+	void ParticleContext::PhysicsParametersMutated(uint8_t physics_mat_index)
 	{
 		mpm_context_.PhysicsParametersMutated(physics_mat_index);
 	}

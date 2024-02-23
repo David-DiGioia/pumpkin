@@ -469,7 +469,7 @@ namespace renderer
 #ifdef EDITOR_ENABLED
 				// For editor convenience we just use available physics material if enough haven't been created yet.
 				uint32_t idx{ std::min(m.physics_material_index, (uint8_t)(physics_to_render_mat_idx_.size() - 1))};
-#elif
+#else
 				uint32_t idx{ m.physics_material_index };
 #endif
 				return physics_to_render_mat_idx_[idx];
