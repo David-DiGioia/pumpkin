@@ -712,7 +712,6 @@ namespace renderer
 		{
 			std::vector<MaterialPosition> mat_positions{ StaticParticleToMaterialPositions(particles, side_flags) };
 
-			// TODO: Use grouping function later instead of fully sorting.
 			std::sort(mat_positions.begin(), mat_positions.end(),
 				[](const MaterialPosition& p0, const MaterialPosition& p1) { return p0.physics_material_index < p1.physics_material_index; });
 

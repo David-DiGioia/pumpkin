@@ -225,13 +225,23 @@ namespace pmk
 
 	void ParticleContext::GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<MaterialPoint>& particles) const
 	{
-		const std::byte* particle_buffer{ (const std::byte*)particles.data() };
-		
-		// TODO: Replace with grouping algorithm.
-		std::sort(particles.begin(), particles.end(),
-			[](const MaterialPoint& p0, const MaterialPoint& p1) { return p0.physics_material_index < p1.physics_material_index; });
-		std::vector<renderer::MaterialRange> mat_ranges{ renderer_->CreateMaterialRanges<MaterialPoint>(particles) };
-		renderer_->CmdGenerateDynamicParticleMesh(ro_target, particle_buffer, (uint32_t)particles.size(), offsetof(MaterialPoint, position), sizeof(MaterialPoint), mat_ranges);
+		{
+			ZoneScopedN("Sort");
+			// For some reason I will never know, sorting is actually faster than grouping here.
+			std::sort(particles.begin(), particles.end(),
+				[](const MaterialPoint& p0, const MaterialPoint& p1) { return p0.physics_material_index < p1.physics_material_index; });
+		}
+
+		std::vector<renderer::MaterialRange> mat_ranges{};
+		{
+			ZoneScopedN("Create material ranges");
+			mat_ranges = renderer_->CreateMaterialRanges<MaterialPoint>(particles);
+		}
+
+		{
+			ZoneScopedN("Generate mesh");
+			renderer_->CmdGenerateDynamicParticleMesh(ro_target, (const std::byte*)particles.data(), (uint32_t)particles.size(), offsetof(MaterialPoint, position), sizeof(MaterialPoint), mat_ranges);
+		}
 
 #ifdef EDITOR_ENABLED
 		if (generate_mpm_particle_instances_) {

@@ -413,8 +413,9 @@ namespace pmk
 	{
 		ZoneScoped;
 		{
-			ZoneScopedN("Sort");
-			std::sort(particle_indices_.begin(), particle_indices_.end());
+			ZoneScopedN("Group");
+			// Grouping is significantly faster than sorting here.
+			GroupByKey<MaterialPointIndex, SUB_BLOCK_COUNT>(particle_indices_);
 		}
 
 		sub_block_indices_.clear();
@@ -1006,4 +1007,4 @@ namespace pmk
 		p->deformation_gradient_elastic = u * s * glm::transpose(v);
 		p->deformation_gradient_plastic = glm::inverse(p->deformation_gradient_elastic) * deformation_gradient;
 	}
-}
+	}
