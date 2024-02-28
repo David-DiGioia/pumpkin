@@ -23,9 +23,10 @@ namespace pmk
 		return coord.x + coord.y * CHUNK_ROW_VOXEL_COUNT + coord.z * slice_area;
 	}
 
-	void ParticleContext::Initialize(renderer::VulkanRenderer* renderer)
+	void ParticleContext::Initialize(renderer::VulkanRenderer* renderer, const std::vector<PhysicsMaterial*>* physics_materials)
 	{
 		renderer_ = renderer;
+		physics_materials_ = physics_materials;
 	}
 
 	void ParticleContext::CleanUp()
@@ -120,7 +121,7 @@ namespace pmk
 			.deformation_gradient_plastic = glm::mat3{1.0f},
 		};
 		std::vector<MaterialPoint> mpm_particles{ mpm_particle };
-		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH);
+		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH, physics_materials_);
 		// Since we don't use static particles here, we just simulate a single set to get all the MPM
 		// particle info set that needs to be set.
 		update_physics_ = true;
@@ -161,46 +162,20 @@ namespace pmk
 			mpm_particles.push_back(mpm_particle);
 		}
 
-		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH);
+		mpm_context_.Initialize(std::move(mpm_particles), CHUNK_WIDTH, physics_materials_);
 	}
 
-	PhysicsMaterial* ParticleContext::NewPhysicsMaterial()
+	MPMContext* ParticleContext::GetMPMContext()
 	{
-		pmk::PhysicsMaterial* mat{ mpm_context_.NewPhysicsMaterial() };
-		UpdatePhysicsRenderMaterials();
-		return mat;
+		return &mpm_context_;
 	}
 
-	void ParticleContext::DeletePhysicsMaterial(uint8_t physics_mat_index)
+	void ParticleContext::UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials)
 	{
-		mpm_context_.DeletePhysicsMaterial(physics_mat_index);
-		UpdatePhysicsRenderMaterials();
-	}
-
-	void ParticleContext::SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index)
-	{
-		mpm_context_.SetPhysicsMaterialRender(physics_mat_index, render_mat_index);
-		UpdatePhysicsRenderMaterials();
-	}
-
-	uint32_t ParticleContext::GetPhysicsMaterialRender(uint8_t physics_mat_index)
-	{
-		return mpm_context_.GetPhysicsMaterialRender(physics_mat_index);
-	}
-
-	ConstitutiveModel* ParticleContext::GetPhysicsMaterialModel(uint8_t physics_mat_index)
-	{
-		return mpm_context_.GetPhysicsMaterialModel(physics_mat_index);
-	}
-
-	std::vector<std::pair<float*, std::string>> ParticleContext::GetPhysicsParameters(uint8_t physics_mat_index)
-	{
-		return mpm_context_.GetPhysicsParameters(physics_mat_index);
-	}
-
-	void ParticleContext::PhysicsParametersMutated(uint8_t physics_mat_index)
-	{
-		mpm_context_.PhysicsParametersMutated(physics_mat_index);
+		renderer_->SetPhysicsToRenderMaterialMap(std::move(all_physics_render_materials));
+		if (particle_node_) {
+			renderer_->UpdatePhysicsRenderMaterials(particle_node_->render_object);
+		}
 	}
 
 #ifdef EDITOR_ENABLED
@@ -339,13 +314,5 @@ namespace pmk
 		}
 
 		renderer_->SetMPMDebugNodeInstances(mpm_node_instances);
-	}
-
-	void ParticleContext::UpdatePhysicsRenderMaterials()
-	{
-		renderer_->SetPhysicsToRenderMaterialMap(mpm_context_.GetAllPhysicsMaterialRender());
-		if (particle_node_) {
-			renderer_->UpdatePhysicsRenderMaterials(particle_node_->render_object);
-		}
 	}
 }

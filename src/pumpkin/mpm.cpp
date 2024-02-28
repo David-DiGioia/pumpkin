@@ -41,9 +41,10 @@ namespace pmk
 		return sub_coord.x + sub_coord.y * SUB_BLOCK_ROW_COUNT + sub_coord.z * slice_area;
 	}
 
-	void MPMContext::Initialize(std::vector<MaterialPoint>&& particles, float chunk_width)
+	void MPMContext::Initialize(std::vector<MaterialPoint>&& particles, float chunk_width, const std::vector<PhysicsMaterial*>* physics_materials)
 	{
 		particles_ = std::move(particles);
+		physics_materials_ = physics_materials;
 		particle_cache_.clear();
 		particle_cache_.resize(particles_.size());
 		particle_indices_.clear();
@@ -149,54 +150,6 @@ namespace pmk
 		}
 
 		return density;
-	}
-
-	PhysicsMaterial* MPMContext::NewPhysicsMaterial()
-	{
-		PhysicsMaterial* new_material{ new PhysicsMaterial{} };
-		new_material->constitutive_model = new FluidModel{};
-		new_material->constitutive_model->Initialize(this);
-		physics_materials_.push_back(new_material);
-		return new_material;
-	}
-
-	void MPMContext::DeletePhysicsMaterial(uint8_t physics_mat_index)
-	{
-		physics_materials_.erase(physics_materials_.begin() + physics_mat_index);
-	}
-
-	std::vector<int> MPMContext::GetAllPhysicsMaterialRender()
-	{
-		std::vector<int> result{};
-		result.resize(physics_materials_.size());
-		std::transform(physics_materials_.begin(), physics_materials_.end(), result.begin(),
-			[](pmk::PhysicsMaterial* mat) { return mat->render_material; });
-		return result;
-	}
-
-	void MPMContext::SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index)
-	{
-		physics_materials_[physics_mat_index]->render_material = render_mat_index;
-	}
-
-	uint32_t MPMContext::GetPhysicsMaterialRender(uint8_t physics_mat_index)
-	{
-		return physics_materials_[physics_mat_index]->render_material;
-	}
-
-	ConstitutiveModel* MPMContext::GetPhysicsMaterialModel(uint8_t physics_mat_index)
-	{
-		return physics_materials_[physics_mat_index]->constitutive_model;
-	}
-
-	std::vector<std::pair<float*, std::string>> MPMContext::GetPhysicsParameters(uint8_t physics_mat_index)
-	{
-		return physics_materials_[physics_mat_index]->constitutive_model->GetParameters();
-	}
-
-	void MPMContext::PhysicsParametersMutated(uint8_t physics_mat_index)
-	{
-		physics_materials_[physics_mat_index]->constitutive_model->OnParametersMutated();
 	}
 
 	void MPMContext::ParticleToGrid()
@@ -721,15 +674,15 @@ namespace pmk
 		return result;
 	}
 
-	ConstitutiveModel* MPMContext::GetConstitutiveModel(const MaterialPoint& p)
+	const MPMConstitutiveModel* MPMContext::GetConstitutiveModel(const MaterialPoint& p)
 	{
 #ifdef EDITOR_ENABLED
 		// For editor convenience we just use available physics material if enough haven't been created yet.
-		uint32_t idx{ std::min((uint32_t)p.physics_material_index, (uint32_t)(physics_materials_.size() - 1)) };
+		uint32_t idx{ std::min((uint32_t)p.physics_material_index, (uint32_t)(physics_materials_->size() - 1)) };
 #else
 		uint32_t idx{ (uint32_t)p.physics_material_index };
 #endif
-		return physics_materials_[idx]->constitutive_model;
+		return (const MPMConstitutiveModel*)(*physics_materials_)[idx]->constitutive_model;
 	}
 
 	void MPMContext::PrintParticleWeights() const
@@ -783,23 +736,23 @@ namespace pmk
 
 	// Constitutive models -------------------------------------------------------------------------------------------
 
-	void ConstitutiveModel::Initialize(MPMContext* mpm_context)
+	void MPMConstitutiveModel::Initialize(MPMContext* mpm_context)
 	{
 		mpm_context_ = mpm_context;
 		OnParametersMutated();
 	}
 
-	void ConstitutiveModel::UpdateLameParameters(MaterialPoint* p) const
+	void MPMConstitutiveModel::UpdateLameParameters(MaterialPoint* p) const
 	{
 		// No-op by default.
 	}
 
-	void ConstitutiveModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
+	void MPMConstitutiveModel::UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const
 	{
 		// No-op by default.
 	}
 
-	void ConstitutiveModel::SolveConstraints(MaterialPoint* p, float delta_time) const
+	void MPMConstitutiveModel::SolveConstraints(MaterialPoint* p, float delta_time) const
 	{
 		// No-op by default.
 	}

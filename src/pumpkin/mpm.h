@@ -4,6 +4,8 @@
 #include <string>
 #include "glm/glm.hpp"
 
+#include "constitutive_model.h"
+
 namespace pmk
 {
 	constexpr uint32_t MAXIMUM_NODES_IN_RANGE{ 27 };       // Radius for quadratic interpolation is 1.5*h so maximum nodes is 3^3.
@@ -45,7 +47,7 @@ namespace pmk
 
 	class MPMContext;
 
-	class ConstitutiveModel
+	class MPMConstitutiveModel : public ConstitutiveModel
 	{
 	public:
 		void Initialize(MPMContext* mpm_context);
@@ -55,12 +57,6 @@ namespace pmk
 		// Gets J * Cauchy stress, since the J would cancel out in later calculations.
 		// Or equivalently, Piola-Kirchoff stress times F^T.
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const = 0;
-
-		// For updating the parameters from the UI for making physics materials in the editor.
-		virtual std::vector<std::pair<float*, std::string>> GetParameters() = 0;
-
-		// Should be called after any parameters from GetParameters() are mutated.
-		virtual void OnParametersMutated() = 0;
 
 		virtual void UpdateLameParameters(MaterialPoint* p) const;
 
@@ -72,7 +68,7 @@ namespace pmk
 		MPMContext* mpm_context_{};
 	};
 
-	class HyperElasticModel : public ConstitutiveModel
+	class HyperElasticModel : public MPMConstitutiveModel
 	{
 	public:
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
@@ -98,7 +94,7 @@ namespace pmk
 		float lambda_{};
 	};
 
-	class FluidModel : public ConstitutiveModel
+	class FluidModel : public MPMConstitutiveModel
 	{
 	public:
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
@@ -124,7 +120,7 @@ namespace pmk
 	};
 
 	// Takes 12+ substeps, and SVD quality parameters can be adjusted for performance / stability.
-	class SnowModel : public ConstitutiveModel
+	class SnowModel : public MPMConstitutiveModel
 	{
 	public:
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
@@ -149,12 +145,6 @@ namespace pmk
 
 		float mu_{};
 		float lambda_{};
-	};
-
-	struct PhysicsMaterial
-	{
-		uint32_t render_material;
-		ConstitutiveModel* constitutive_model;
 	};
 
 	// Per-particle cache.
@@ -186,7 +176,7 @@ namespace pmk
 	class MPMContext
 	{
 	public:
-		void Initialize(std::vector<MaterialPoint>&& particles, float chunk_width);
+		void Initialize(std::vector<MaterialPoint>&& particles, float chunk_width, const std::vector<PhysicsMaterial*>* physics_materials);
 
 		void SimulateStep(float delta_time);
 
@@ -197,33 +187,6 @@ namespace pmk
 		const std::vector<GridNode>& GetNodes() const;
 
 		float GetDensity(const glm::vec3& position) const;
-
-		PhysicsMaterial* NewPhysicsMaterial();
-
-		void DeletePhysicsMaterial(uint8_t physics_mat_index);
-
-		std::vector<int> GetAllPhysicsMaterialRender();
-
-		// Set the physics material's index into render materials. Determines how each physics material is rendered.
-		void SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index);
-
-		// Get the physics material's index into render materials.
-		uint32_t GetPhysicsMaterialRender(uint8_t physics_mat_index);
-
-		template<typename T>
-		void SetPhysicsMaterialModel(uint8_t physics_mat_index)
-		{
-			PhysicsMaterial* mat{ physics_materials_[physics_mat_index] };
-			delete mat->constitutive_model;
-			mat->constitutive_model = new T{};
-			mat->constitutive_model->Initialize(this);
-		}
-
-		ConstitutiveModel* GetPhysicsMaterialModel(uint8_t physics_mat_index);
-
-		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint8_t physics_mat_index);
-
-		void PhysicsParametersMutated(uint8_t physics_mat_index);
 
 	private:
 		void ParticleToGrid();
@@ -275,7 +238,7 @@ namespace pmk
 		// Returns vector of indices into particle_indices_ of first element of contiguous block of particles in same sub block.
 		std::vector<uint32_t> GetParticleRangesWithinRadius(const glm::uvec3& grid_coord) const;
 
-		ConstitutiveModel* GetConstitutiveModel(const MaterialPoint& p);
+		const MPMConstitutiveModel* GetConstitutiveModel(const MaterialPoint& p);
 
 		void PrintParticleWeights() const;
 
@@ -288,7 +251,8 @@ namespace pmk
 		std::vector<MaterialPointIndex> particle_indices_{}; // Contains indices into particles_, along with a key encoding the sub block coordinate.
 		std::vector<uint32_t> sub_block_indices_{};          // Indices into particle_indices_, showing start of contiguous region containing particles in this sub block.
 		std::vector<GridNode> nodes_{};
-		std::vector<PhysicsMaterial*> physics_materials_{};
+
+		const std::vector<PhysicsMaterial*>* physics_materials_{};
 
 		float particle_radius_{};
 		float particle_initial_volume_{};

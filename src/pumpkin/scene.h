@@ -9,7 +9,7 @@
 #include "glm/gtx/quaternion.hpp"
 
 #include "vulkan_renderer.h"
-#include "particles.h"
+#include "physics.h"
 
 namespace pmk
 {
@@ -150,7 +150,7 @@ namespace pmk
 		template<typename T>
 		void SetPhysicsMaterialModel(uint8_t physics_mat_index)
 		{
-			particle_context_.SetPhysicsMaterialModel<T>(physics_mat_index);
+			physics_context_.SetPhysicsMaterialModel<T>(physics_mat_index);
 		}
 
 		ConstitutiveModel* GetPhysicsMaterialModel(uint8_t physics_mat_index);
@@ -171,6 +171,6 @@ namespace pmk
 		std::vector<Node*> nodes_{};                                                       // All nodes in the scene. We heap allocate the nodes to avoid dangling pointers when nodes_ resizes.
 		std::unordered_map<renderer::RenderObjectHandle, Node*> render_object_node_map_{}; // Map render object handles to nodes. This won't contain nodes without render objects.
 		uint32_t next_node_id_{};                                                          // The next node created will have this id.
-		ParticleContext particle_context_{};
+		PhysicsContext physics_context_{};
 	};
 }

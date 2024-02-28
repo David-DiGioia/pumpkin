@@ -22,7 +22,7 @@ namespace pmk
 	class ParticleContext
 	{
 	public:
-		void Initialize(renderer::VulkanRenderer* renderer);
+		void Initialize(renderer::VulkanRenderer* renderer, const std::vector<PhysicsMaterial*>* physics_materials);
 
 		void CleanUp();
 
@@ -44,27 +44,9 @@ namespace pmk
 
 		void TransferStaticParticlesToMPM();
 
-		PhysicsMaterial* NewPhysicsMaterial();
+		MPMContext* GetMPMContext();
 
-		void DeletePhysicsMaterial(uint8_t physics_mat_index);
-
-		// Set the physics material's index into render materials. Determines how each physics material is rendered.
-		void SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index);
-
-		// Get the physics material's index into render materials.
-		uint32_t GetPhysicsMaterialRender(uint8_t physics_mat_index);
-
-		template<typename T>
-		void SetPhysicsMaterialModel(uint8_t physics_mat_index)
-		{
-			mpm_context_.SetPhysicsMaterialModel<T>(physics_mat_index);
-		}
-
-		ConstitutiveModel* GetPhysicsMaterialModel(uint8_t physics_mat_index);
-
-		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint8_t physics_mat_index);
-
-		void PhysicsParametersMutated(uint8_t physics_mat_index);
+		void UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials);
 
 #ifdef EDITOR_ENABLED
 		void SetMPMDebugParticleGenEnabled(bool enabled);
@@ -83,8 +65,6 @@ namespace pmk
 
 		void GenerateDynamicDebugMPMNodeInstances() const;
 
-		void UpdatePhysicsRenderMaterials();
-
 		std::vector<renderer::StaticParticle> static_particles_{};
 		std::vector<uint8_t> side_flags_{};
 		bool has_played_{}; // True if the particle simulation has been played yet.
@@ -96,5 +76,6 @@ namespace pmk
 		MPMContext mpm_context_{};
 		renderer::VulkanRenderer* renderer_{};
 		Node* particle_node_{};
+		const std::vector<PhysicsMaterial*>* physics_materials_;
 	};
 }

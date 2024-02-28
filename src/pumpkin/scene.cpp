@@ -148,7 +148,7 @@ namespace pmk
 	void Scene::Initialize(renderer::VulkanRenderer* renderer)
 	{
 		renderer_ = renderer;
-		particle_context_.Initialize(renderer);
+		physics_context_.Initialize(this, renderer);
 
 		// Every node will be a descendent of the root node.
 		root_node_ = CreateNode();
@@ -248,7 +248,7 @@ namespace pmk
 			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
 		}
 
-		return particle_context_.GenerateParticlesOnNode(node);
+		return physics_context_.GenerateParticlesOnNode(node);
 	}
 
 	uint32_t Scene::GenerateTestParticleOnNode(Node* node)
@@ -257,38 +257,38 @@ namespace pmk
 			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
 		}
 
-		return particle_context_.GenerateTestParticleOnNode(node);
+		return physics_context_.GenerateTestParticleOnNode(node);
 	}
 
 	void Scene::PlayParticleSimulation()
 	{
-		particle_context_.EnablePhysicsUpdate();
+		physics_context_.EnablePhysicsUpdate();
 	}
 
 	void Scene::PauseParticleSimulation()
 	{
-		particle_context_.DisablePhysicsUpdate();
+		physics_context_.DisablePhysicsUpdate();
 	}
 
 	void Scene::ResetParticleSimulation()
 	{
-		particle_context_.ResetParticles();
+		physics_context_.ResetParticles();
 	}
 
 	bool Scene::GetParticleSimulationEnabled() const
 	{
-		return particle_context_.GetPhysicsUpdateEnabled();
+		return physics_context_.GetPhysicsUpdateEnabled();
 	}
 
 	bool Scene::GetParticleSimulationEmpty() const
 	{
-		return particle_context_.GetParticlesEmpty();
+		return physics_context_.GetParticlesEmpty();
 	}
 
 	void Scene::SetParticleOverlayEnabled(bool rasterize_particles, bool render_nodes)
 	{
-		particle_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
-		particle_context_.SetMPMDebugNodeGenEnabled(render_nodes);
+		physics_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
+		physics_context_.SetMPMDebugNodeGenEnabled(render_nodes);
 	}
 
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
@@ -376,42 +376,42 @@ namespace pmk
 
 	void Scene::ParticlePhysicsUpdate(float delta_time)
 	{
-		particle_context_.PhysicsUpdate(delta_time);
+		physics_context_.PhysicsUpdate(delta_time);
 	}
 
 	PhysicsMaterial* Scene::NewPhysicsMaterial()
 	{
-		return particle_context_.NewPhysicsMaterial();
+		return physics_context_.NewPhysicsMaterial();
 	}
 
 	void Scene::DeletePhysicsMaterial(uint8_t physics_mat_index)
 	{
-		particle_context_.DeletePhysicsMaterial(physics_mat_index);
+		physics_context_.DeletePhysicsMaterial(physics_mat_index);
 	}
 
 	void Scene::SetPhysicsMaterialRender(uint8_t physics_mat_index, uint32_t render_mat_index)
 	{
-		particle_context_.SetPhysicsMaterialRender(physics_mat_index, render_mat_index);
+		physics_context_.SetPhysicsMaterialRender(physics_mat_index, render_mat_index);
 	}
 
 	uint32_t Scene::GetPhysicsMaterialRender(uint8_t physics_mat_index)
 	{
-		return particle_context_.GetPhysicsMaterialRender(physics_mat_index);;
+		return physics_context_.GetPhysicsMaterialRender(physics_mat_index);;
 	}
 
 	ConstitutiveModel* Scene::GetPhysicsMaterialModel(uint8_t physics_mat_index)
 	{
-		return particle_context_.GetPhysicsMaterialModel(physics_mat_index);
+		return physics_context_.GetPhysicsMaterialModel(physics_mat_index);
 	}
 
 	std::vector<std::pair<float*, std::string>> Scene::GetPhysicsParameters(uint8_t physics_mat_index)
 	{
-		return particle_context_.GetPhysicsParameters(physics_mat_index);
+		return physics_context_.GetPhysicsParameters(physics_mat_index);
 	}
 
 	void Scene::PhysicsParametersMutated(uint8_t physics_mat_index)
 	{
-		particle_context_.PhysicsParametersMutated(physics_mat_index);
+		physics_context_.PhysicsParametersMutated(physics_mat_index);
 	}
 
 	glm::mat4 Camera::GetViewMatrix() const
