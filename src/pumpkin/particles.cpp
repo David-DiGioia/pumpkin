@@ -170,6 +170,11 @@ namespace pmk
 		return &mpm_context_;
 	}
 
+	std::vector<renderer::StaticParticle>& ParticleContext::GetStaticParticles()
+	{
+		return static_particles_;
+	}
+
 	void ParticleContext::UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials)
 	{
 		renderer_->SetPhysicsToRenderMaterialMap(std::move(all_physics_render_materials));

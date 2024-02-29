@@ -7,7 +7,7 @@ namespace pmk
 		scene_ = scene;
 		renderer_ = renderer;
 		particle_context_.Initialize(renderer, &physics_materials_);
-		rigid_body_context_.Initialize(scene);
+		rigid_body_context_.Initialize(scene, &physics_materials_);
 	}
 
 	void PhysicsContext::CleanUp()
@@ -23,6 +23,7 @@ namespace pmk
 
 	void PhysicsContext::EnablePhysicsUpdate()
 	{
+		rigid_body_context_.CreateRigidBodiesByConnectedness(particle_context_.GetStaticParticles());
 		particle_context_.EnablePhysicsUpdate();
 	}
 

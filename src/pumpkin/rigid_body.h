@@ -8,10 +8,14 @@
 
 namespace pmk
 {
-	class RigidBodyConstitutiveModel : public ConstitutiveModel
+	class RigidBodyModel : public ConstitutiveModel
 	{
 	public:
+		// For updating the parameters from the UI for making physics materials in the editor.
+		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 
+		// Should be called after any parameters from GetParameters() are mutated.
+		virtual void OnParametersMutated() override;
 	};
 
 	struct RigidBodyVoxel
@@ -34,7 +38,7 @@ namespace pmk
 	class RigidBodyContext
 	{
 	public:
-		void Initialize(Scene* scene);
+		void Initialize(Scene* scene, const std::vector<PhysicsMaterial*>* physics_materials);
 
 		void CleanUp();
 
@@ -46,5 +50,7 @@ namespace pmk
 	private:
 		Scene* scene_;
 		std::vector<RigidBody*> rigid_bodies_{};
+
+		const std::vector<PhysicsMaterial*>* physics_materials_{};
 	};
 }

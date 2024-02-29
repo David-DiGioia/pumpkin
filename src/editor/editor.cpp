@@ -1022,8 +1022,8 @@ void Editor::SetPhysicsMaterialModelType(uint8_t physics_mat_index, Constitutive
 	case ConstitutiveModelType::FLUID:
 		pumpkin_->SetPhysicsMaterialModel<pmk::FluidModel>(physics_mat_index);
 		break;
-	case ConstitutiveModelType::SNOW:
-		pumpkin_->SetPhysicsMaterialModel<pmk::SnowModel>(physics_mat_index);
+	case ConstitutiveModelType::RIGID_BODY:
+		pumpkin_->SetPhysicsMaterialModel<pmk::RigidBodyModel>(physics_mat_index);
 		break;
 	}
 }
@@ -1038,8 +1038,8 @@ ConstitutiveModelType Editor::GetPhysicsMaterialModelType(uint8_t physics_mat_in
 	if (dynamic_cast<pmk::FluidModel*>(model)) {
 		return ConstitutiveModelType::FLUID;
 	}
-	if (dynamic_cast<pmk::SnowModel*>(model)) {
-		return ConstitutiveModelType::SNOW;
+	if (dynamic_cast<pmk::RigidBodyModel*>(model)) {
+		return ConstitutiveModelType::RIGID_BODY;
 	}
 
 	logger::Error("Unrecognized constitutive model type.\n");

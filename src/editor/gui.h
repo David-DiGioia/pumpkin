@@ -73,7 +73,7 @@ enum class ConstitutiveModelType
 {
 	HYPER_ELASTIC,
 	FLUID,
-	SNOW,
+	RIGID_BODY,
 
 	CONSTITUTIVE_MODEL_COUNT,
 };
@@ -81,7 +81,7 @@ enum class ConstitutiveModelType
 const std::array<std::string, (uint32_t)ConstitutiveModelType::CONSTITUTIVE_MODEL_COUNT> constitutive_model_names{
 	"Hyperelastic",
 	"Fluid",
-	"Snow",
+	"Rigid body",
 };
 
 class EditorGui

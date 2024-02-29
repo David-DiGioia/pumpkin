@@ -46,6 +46,8 @@ namespace pmk
 
 		MPMContext* GetMPMContext();
 
+		std::vector<renderer::StaticParticle>& GetStaticParticles();
+
 		void UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials);
 
 #ifdef EDITOR_ENABLED

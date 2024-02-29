@@ -28,8 +28,8 @@ namespace renderer
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR> GetGeometryBuildRanges(const std::vector<Geometry>& geometries)
 	{
 		// Get number of triangles in each geometry.
-		std::vector<VkAccelerationStructureBuildRangeInfoKHR> buiid_ranges(geometries.size());
-		std::transform(geometries.begin(), geometries.end(), buiid_ranges.begin(),
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges(geometries.size());
+		std::transform(geometries.begin(), geometries.end(), build_ranges.begin(),
 			[](const Geometry& x) {
 				VkAccelerationStructureBuildRangeInfoKHR build_range{
 					.primitiveCount = (uint32_t)x.indices.size() / 3,
@@ -39,7 +39,7 @@ namespace renderer
 				};
 				return build_range;
 			});
-		return buiid_ranges;
+		return build_ranges;
 	}
 
 	void RayTracingContext::Initialize(Context* context,
