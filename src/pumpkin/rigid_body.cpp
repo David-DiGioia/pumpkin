@@ -138,7 +138,14 @@ namespace pmk
 						continue;
 					}
 
-					if (rigid_body_mask[p.physics_material_index])
+#ifdef EDITOR_ENABLED
+					// For editor convenience we just use available physics material if enough haven't been created yet.
+					uint32_t idx{ std::min((uint32_t)p.physics_material_index, (uint32_t)(physics_materials_->size() - 1)) };
+#else
+					uint32_t idx{ (uint32_t)p.physics_material_index };
+#endif
+
+					if (rigid_body_mask[idx])
 					{
 						RigidBody* rigid_body{ new RigidBody{} };
 						rigid_body->voxels = RigidBodyFloodFill({ i, j, k }, particles, rigid_body_mask);
