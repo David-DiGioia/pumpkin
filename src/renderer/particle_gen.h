@@ -27,9 +27,51 @@ namespace renderer
 	constexpr uint8_t PHYSICS_MATERIAL_EMPTY_INDEX{ 0xFF };
 
 	// Particles that are not being simulated.
-	struct StaticParticle
+	struct Voxel
 	{
 		uint8_t physics_material_index;
+	};
+
+	class VoxelChunk
+	{
+	public:
+		VoxelChunk(uint32_t width, uint32_t height, uint32_t depth);
+
+		VoxelChunk(uint32_t width, uint32_t height, uint32_t depth, std::vector<std::pair<Voxel, glm::uvec3>>&& voxel_pairs);
+
+		Voxel& Coordinate(uint32_t i, uint32_t j, uint32_t k);
+
+		Voxel& Coordinate(const glm::uvec3& coord);
+
+		const Voxel& Coordinate(uint32_t i, uint32_t j, uint32_t k) const;
+
+		const Voxel& Coordinate(const glm::uvec3& coord) const;
+
+		Voxel& Index(uint32_t idx);
+
+		const Voxel& Index(uint32_t idx) const;
+
+		uint32_t VoxelCount() const;
+
+		bool IsOccluded(uint32_t voxel_idx) const;
+
+		bool IsEmpty(uint32_t voxel_idx) const;
+
+		glm::uvec3 IndexToCoordinate(uint32_t index) const;
+
+		uint32_t CoordinateToIndex(const glm::uvec3& coord) const;
+
+		std::vector<Voxel>& GetVoxels();
+
+		std::vector<uint8_t>& GetSideFlags();
+
+	private:
+		uint32_t width_{};
+		uint32_t height_{};
+		uint32_t depth_{};
+		uint32_t width_height_slice_{};
+		std::vector<Voxel> voxels_{};
+		std::vector<uint8_t> side_flags_{};
 	};
 
 	// Can convert static particles to this as a simplified stand-in for material point.
@@ -47,16 +89,10 @@ namespace renderer
 		uint32_t count;  // Count of particles with this physics material.
 	};
 
-	// Convert a particle 1D buffer index into a 3D coordinate in the chunk.
-	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
-
-	// Convert 3D coordinate in the chunk into a 1D buffer index.
-	uint32_t CoordinateToParticleIndex(const glm::uvec3& coord);
-
 	class StaticParticleMeshGenerator
 	{
 	public:
-		Mesh* Generate(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
+		Mesh* Generate(const VoxelChunk& voxel_chunk);
 
 	private:
 		struct Rectangle
@@ -67,7 +103,7 @@ namespace renderer
 		};
 
 		// Generate a single side of all the voxels. Will need to be called 6 times for full mesh generation.
-		void GenerateSide(ParticleSidesFlagBits side, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
+		void GenerateSide(ParticleSidesFlagBits side, const std::vector<Voxel>& particles, const std::vector<uint8_t>& side_flags);
 
 		void TriangulateRectangle(ParticleSidesFlagBits side, uint32_t rect_idx, uint32_t vertical, uint32_t depth);
 
@@ -146,7 +182,7 @@ namespace renderer
 
 		void CleanUp();
 
-		void InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags);
+		void InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<Voxel>* out_voxels, std::vector<uint8_t>* out_side_flags);
 
 		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
 
@@ -185,7 +221,7 @@ namespace renderer
 		bool CommandsRecordedThisFrame();
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
-		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
+		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk);
 
 		void NextFrame();
 

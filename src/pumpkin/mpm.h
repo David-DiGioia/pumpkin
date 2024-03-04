@@ -71,6 +71,8 @@ namespace pmk
 	class HyperElasticModel : public MPMConstitutiveModel
 	{
 	public:
+		HyperElasticModel();
+
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
 
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
@@ -88,7 +90,6 @@ namespace pmk
 
 		float youngs_modulus_{ 50.0f };
 		float poissons_ratio_{ 0.4f };
-		float density_{ 20.0f }; // kilogram per meter cubed.
 
 		float mu_{};
 		float lambda_{};
@@ -97,6 +98,8 @@ namespace pmk
 	class FluidModel : public MPMConstitutiveModel
 	{
 	public:
+		FluidModel();
+
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
 
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
@@ -112,7 +115,6 @@ namespace pmk
 		glm::vec3 IncompressibleConstraintErrorGradient(MaterialPoint* p) const;
 
 	private:
-		float density_{ 50.0f };          // kilogram per meter cubed.
 		float rest_density_{ 50.0f };     // kilogram per meter cubed.
 		float dynamic_viscosity_{ 0.0f };
 		//float eos_stiffness_{ 10.0f };    // Tait equation of state.
@@ -123,6 +125,8 @@ namespace pmk
 	class SnowModel : public MPMConstitutiveModel
 	{
 	public:
+		SnowModel();
+
 		virtual void InitializeParticle(MaterialPoint* p, float initial_volume) const override;
 
 		virtual glm::mat3 GetJCauchyStress(MaterialPoint& p) const override;
@@ -138,7 +142,6 @@ namespace pmk
 	private:
 		float youngs_modulus_{ 140000.0f };
 		float poissons_ratio_{ 0.2f };
-		float density_{ 400.0f }; // kilogram per meter cubed.
 		float sigma_c_{ 0.025f };
 		float sigma_s_{ 0.0075f };
 		float hardening_parameter_{ 10.0f };

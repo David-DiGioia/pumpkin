@@ -557,7 +557,15 @@ uint32_t Editor::GenerateTestParticle()
 
 void Editor::PlayParticleSimulation()
 {
+	std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
+	size_t node_count{ nodes.size() };
 	pumpkin_->GetScene().PlayParticleSimulation();
+	size_t nodes_created{ node_count - nodes.size() };
+
+	// Rigid bodies get created when play is clicked.
+	for (size_t i{ 0 }; i < nodes_created; ++i) {
+		CreateNode(nodes[nodes.size() - i - 1], "rigid_body");
+	}
 }
 
 void Editor::PauseParticleSimulation()
@@ -1164,12 +1172,17 @@ void Editor::UpdateParticleOverlayEnabled()
 	}
 }
 
+EditorNode* Editor::CreateNode(pmk::Node* pmk_node, const std::string& name)
+{
+	EditorNode* editor_node{ new EditorNode{ pmk_node, name } };
+	node_map_[pmk_node->node_id] = editor_node;
+	return editor_node;
+}
+
 EditorNode* Editor::CreateNode(const std::string& name)
 {
-	pmk::Node* node{ pumpkin_->GetScene().CreateNode() };
-	EditorNode* editor_node{ new EditorNode{ node, name } };
-	node_map_[node->node_id] = editor_node;
-	return editor_node;
+	pmk::Node* pmk_node{ pumpkin_->GetScene().CreateNode() };
+	return CreateNode(pmk_node, name);
 }
 
 EditorNode::EditorNode(pmk::Node* pmk_node, const std::string& name)

@@ -396,6 +396,8 @@ private:
 	// Update whether or not the particle overlay is enabled.
 	void UpdateParticleOverlayEnabled();
 
+	EditorNode* CreateNode(pmk::Node* pmk_node, const std::string& name);
+
 	EditorNode* CreateNode(const std::string& name);
 
 	friend class EditorGui;

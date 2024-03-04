@@ -2,5 +2,8 @@
 
 namespace pmk
 {
-
+    float ConstitutiveModel::GetDensity() const
+    {
+        return density_;
+    }
 }

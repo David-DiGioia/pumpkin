@@ -7,7 +7,7 @@ namespace pmk
 		scene_ = scene;
 		renderer_ = renderer;
 		particle_context_.Initialize(renderer, &physics_materials_);
-		rigid_body_context_.Initialize(scene, &physics_materials_);
+		rigid_body_context_.Initialize(renderer, scene, &physics_materials_);
 	}
 
 	void PhysicsContext::CleanUp()
@@ -23,7 +23,7 @@ namespace pmk
 
 	void PhysicsContext::EnablePhysicsUpdate()
 	{
-		rigid_body_context_.CreateRigidBodiesByConnectedness(particle_context_.GetStaticParticles());
+		rigid_body_context_.CreateRigidBodiesByConnectedness(particle_context_.GetVoxelChunk());
 		particle_context_.EnablePhysicsUpdate();
 	}
 
@@ -49,7 +49,7 @@ namespace pmk
 
 	uint32_t PhysicsContext::GenerateParticlesOnNode(Node* node)
 	{
-		return particle_context_.GenerateParticlesOnNode(node);
+		return particle_context_.GenerateVoxelsOnNode(node);
 	}
 
 	uint32_t PhysicsContext::GenerateTestParticleOnNode(Node* node)

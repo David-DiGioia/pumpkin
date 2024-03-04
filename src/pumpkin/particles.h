@@ -13,12 +13,6 @@ namespace pmk
 {
 	struct Node;
 
-	// Convert a particle 1D buffer index into a 3D coordinate in the chunk.
-	glm::uvec3 ParticleIndexToCoordinate(uint32_t index);
-
-	// Convert 3D coordinate in the chunk into a 1D buffer index.
-	uint32_t CoordinateToParticleIndex(const glm::uvec3& coord);
-
 	class ParticleContext
 	{
 	public:
@@ -38,7 +32,7 @@ namespace pmk
 
 		bool GetParticlesEmpty() const;
 
-		uint32_t GenerateParticlesOnNode(Node* node);
+		uint32_t GenerateVoxelsOnNode(Node* node);
 
 		uint32_t GenerateTestParticleOnNode(Node* node);
 
@@ -46,7 +40,7 @@ namespace pmk
 
 		MPMContext* GetMPMContext();
 
-		std::vector<renderer::StaticParticle>& GetStaticParticles();
+		renderer::VoxelChunk& GetVoxelChunk();
 
 		void UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials);
 
@@ -57,7 +51,7 @@ namespace pmk
 #endif
 
 	private:
-		std::vector<MaterialPoint> StaticParticlesToMaterialPoints(const std::vector<renderer::StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const;
+		std::vector<MaterialPoint> VoxelsToMaterialPoints(const renderer::VoxelChunk& voxel_chunk) const;
 
 		void GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<MaterialPoint>& particles) const;
 
@@ -67,8 +61,7 @@ namespace pmk
 
 		void GenerateDynamicDebugMPMNodeInstances() const;
 
-		std::vector<renderer::StaticParticle> static_particles_{};
-		std::vector<uint8_t> side_flags_{};
+		renderer::VoxelChunk voxel_chunk_{ CHUNK_ROW_VOXEL_COUNT, CHUNK_ROW_VOXEL_COUNT, CHUNK_ROW_VOXEL_COUNT };
 		bool has_played_{}; // True if the particle simulation has been played yet.
 		bool update_physics_{};
 #ifdef EDITOR_ENABLED

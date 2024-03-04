@@ -1,6 +1,8 @@
 #include "particle_gen.h"
 
+#include <execution>
 #include "tracy/Tracy.hpp"
+
 #include "vulkan_renderer.h"
 #include "vulkan_util.h"
 #include "common_constants.h"
@@ -23,26 +25,104 @@ namespace renderer
 	constexpr uint32_t PARTICLE_MESH_OUT_INDICES_BINDING{ 2 };
 	constexpr uint32_t PARTICLE_MESH_UBO_BINDING{ 3 };
 
-
-	glm::uvec3 ParticleIndexToCoordinate(uint32_t index)
+	std::vector<MaterialRange> ParticleGenContext::GetMaterialRanges()
 	{
-		uint32_t slice_area{ CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT };
-		uint32_t z{ index / slice_area };
-		uint32_t y{ (index % slice_area) / CHUNK_ROW_VOXEL_COUNT };
-		uint32_t x{ index % CHUNK_ROW_VOXEL_COUNT };
+		return mat_ranges_;
+	}
+
+	VoxelChunk::VoxelChunk(uint32_t width, uint32_t height, uint32_t depth)
+		: width_{ width }
+		, height_{ height }
+		, depth_{ depth }
+		, width_height_slice_{ width * height }
+	{
+		Voxel empty_voxel{
+			.physics_material_index = PHYSICS_MATERIAL_EMPTY_INDEX,
+		};
+		voxels_.resize((uint64_t)width_height_slice_ * depth_, empty_voxel);
+	}
+
+	VoxelChunk::VoxelChunk(uint32_t width, uint32_t height, uint32_t depth, std::vector<std::pair<Voxel, glm::uvec3>>&& voxel_pairs)
+		: VoxelChunk(width, height, depth)
+	{
+		// Convert the voxel pairs into voxels in the voxels_ vector.
+		std::for_each(
+			std::execution::par,
+			voxel_pairs.begin(),
+			voxel_pairs.end(),
+			[&](std::pair<Voxel, glm::uvec3>& pair)
+			{
+				Coordinate(pair.second.x, pair.second.y, pair.second.z) = pair.first;
+			});
+	}
+
+	Voxel& VoxelChunk::Coordinate(uint32_t i, uint32_t j, uint32_t k)
+	{
+		return voxels_[CoordinateToIndex({ i, j, k })];
+	}
+
+	Voxel& VoxelChunk::Coordinate(const glm::uvec3& coord)
+	{
+		return Coordinate(coord.x, coord.y, coord.z);
+	}
+
+	const Voxel& VoxelChunk::Coordinate(uint32_t i, uint32_t j, uint32_t k) const
+	{
+		return voxels_[CoordinateToIndex({ i, j, k })];
+	}
+
+	const Voxel& VoxelChunk::Coordinate(const glm::uvec3& coord) const
+	{
+		return Coordinate(coord.x, coord.y, coord.z);
+	}
+
+	Voxel& VoxelChunk::Index(uint32_t idx)
+	{
+		return voxels_[idx];
+	}
+
+	const Voxel& VoxelChunk::Index(uint32_t idx) const
+	{
+		return voxels_[idx];
+	}
+
+	uint32_t VoxelChunk::VoxelCount() const
+	{
+		return (uint32_t)voxels_.size();
+	}
+
+	bool VoxelChunk::IsOccluded(uint32_t voxel_idx) const
+	{
+		return side_flags_[voxel_idx] == (uint8_t)ParticleSidesFlagBits::ALL_SIDES;
+	}
+
+	bool VoxelChunk::IsEmpty(uint32_t voxel_idx) const
+	{
+		return voxels_[voxel_idx].physics_material_index == PHYSICS_MATERIAL_EMPTY_INDEX;
+	}
+
+	glm::uvec3 VoxelChunk::IndexToCoordinate(uint32_t index) const
+	{
+		uint32_t z{ index / width_height_slice_ };
+		uint32_t y{ (index % width_height_slice_) / width_ };
+		uint32_t x{ index % width_ };
 
 		return glm::uvec3{ x, y, z };
 	}
 
-	uint32_t CoordinateToParticleIndex(const glm::uvec3& coord)
+	uint32_t VoxelChunk::CoordinateToIndex(const glm::uvec3& coord) const
 	{
-		uint32_t slice_area{ CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT };
-		return coord.x + coord.y * CHUNK_ROW_VOXEL_COUNT + coord.z * slice_area;
+		return coord.x + coord.y * width_ + coord.z * width_height_slice_;
+	}
+	
+	std::vector<Voxel>& VoxelChunk::GetVoxels()
+	{
+		return voxels_;
 	}
 
-	std::vector<MaterialRange> ParticleGenContext::GetMaterialRanges()
+	std::vector<uint8_t>& VoxelChunk::GetSideFlags()
 	{
-		return mat_ranges_;
+		return side_flags_;
 	}
 
 	void ParticleGenContext::Initialize(Context* context, VulkanRenderer* renderer)
@@ -80,7 +160,7 @@ namespace renderer
 		particle_mesh_.pipeline.CleanUp();
 	}
 
-	void ParticleGenContext::InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags)
+	void ParticleGenContext::InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<Voxel>* out_voxels, std::vector<uint8_t>* out_side_flags)
 	{
 		ComputePipeline* particle_gen_pipeline{ renderer_->user_compute_shaders_[particle_gen_.shader_idx] };
 
@@ -97,7 +177,8 @@ namespace renderer
 		VkCommandBuffer cmd{ renderer_->vulkan_util_.Begin() };
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_gen_pipeline->layout, PARTICLE_GEN_DESCRIPTOR_SET, 1, &particle_gen_.descriptor_set_resource.descriptor_set, 0, nullptr);
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, particle_gen_pipeline->pipeline);
-		// Calculate static particles.
+
+		// Calculate voxels.
 		// Work group count of 16 on each dimension with local_group size of 4 on each access for 64x64x64 dispatch size.
 		vkCmdDispatch(cmd, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT, PARTICLE_GROUP_COUNT);
 
@@ -116,9 +197,9 @@ namespace renderer
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
-		out_static_particles->clear();
-		out_static_particles->resize(CHUNK_TOTAL_VOXEL_COUNT);
-		renderer_->vulkan_util_.TransferBufferToHost(*out_static_particles, particle_gen_.particle_out_buffer);
+		out_voxels->clear();
+		out_voxels->resize(CHUNK_TOTAL_VOXEL_COUNT);
+		renderer_->vulkan_util_.TransferBufferToHost(*out_voxels, particle_gen_.particle_out_buffer);
 		renderer_->vulkan_util_.Submit();
 
 		// Copy the particle neighbor data to a vector.
@@ -215,7 +296,7 @@ namespace renderer
 			usage_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		}
 		particle_gen_.particle_out_buffer = renderer_->allocator_.CreateBufferResource(
-			sizeof(StaticParticle) * CHUNK_TOTAL_VOXEL_COUNT,
+			sizeof(Voxel) * CHUNK_TOTAL_VOXEL_COUNT,
 			usage_flags,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		NameObject(context_->device, particle_gen_.particle_out_buffer.buffer, "Particle_Out_Buffer");
@@ -680,37 +761,30 @@ namespace renderer
 		return commands_recorded_;
 	}
 
-	std::vector<MaterialPosition> StaticParticleToMaterialPositions(const std::vector<StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags)
+	std::vector<MaterialPosition> VoxelChunkToMaterialPositions(const VoxelChunk& voxel_chunk)
 	{
-		if (static_particles.empty()) {
-			return {};
-		}
-
 		std::vector<MaterialPosition> mat_positions{};
-		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
+		for (uint32_t i{ 0 }; i < voxel_chunk.VoxelCount(); ++i)
 		{
-			bool empty{ static_particles[i].physics_material_index == PHYSICS_MATERIAL_EMPTY_INDEX };
-			bool occluded{ side_flags[i] == (uint8_t)ParticleSidesFlagBits::ALL_SIDES };
-
-			if (empty || occluded) {
+			if (voxel_chunk.IsEmpty(i) || voxel_chunk.IsOccluded(i)) {
 				continue;
 			}
 
 			MaterialPosition mat_position{
-				.physics_material_index = static_particles[i].physics_material_index,
-				.position = PARTICLE_WIDTH * glm::vec3(ParticleIndexToCoordinate(i)),
+				.physics_material_index = voxel_chunk.Index(i).physics_material_index,
+				.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk.IndexToCoordinate(i)),
 			};
 			mat_positions.push_back(mat_position);
 		}
 		return mat_positions;
 	}
 
-	void ParticleGenContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
+	void ParticleGenContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk)
 	{
 		// When true, forces to always generate dynamic particle meshes for debugging purposes.
 		if (DISABLE_STATIC_PARTICLE_MESH)
 		{
-			std::vector<MaterialPosition> mat_positions{ StaticParticleToMaterialPositions(particles, side_flags) };
+			std::vector<MaterialPosition> mat_positions{ VoxelChunkToMaterialPositions(voxel_chunk) };
 
 			std::sort(mat_positions.begin(), mat_positions.end(),
 				[](const MaterialPosition& p0, const MaterialPosition& p1) { return p0.physics_material_index < p1.physics_material_index; });
@@ -727,7 +801,7 @@ namespace renderer
 		//constexpr uint64_t all_sides{ 0x3F3f3f3f3F3f3f3f };
 
 		StaticParticleMeshGenerator gen{};
-		Mesh* mesh{ gen.Generate(particles, side_flags) };
+		Mesh* mesh{ gen.Generate(voxel_chunk) };
 		renderer_->ReplaceRenderObject(ro_target, mesh);
 	}
 
@@ -813,8 +887,9 @@ namespace renderer
 		};
 	}
 
-	Mesh* StaticParticleMeshGenerator::Generate(const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
+	Mesh* StaticParticleMeshGenerator::Generate(const VoxelChunk& voxel_chunk)
 	{
+		/*
 		mesh_ = new Mesh{};
 		mesh_->geometries.emplace_back();
 
@@ -824,10 +899,13 @@ namespace renderer
 
 		CalculateTangents(mesh_);
 		return mesh_;
+		*/
+		return nullptr;
 	}
 
-	void StaticParticleMeshGenerator::GenerateSide(ParticleSidesFlagBits side, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
+	void StaticParticleMeshGenerator::GenerateSide(ParticleSidesFlagBits side, const std::vector<Voxel>& particles, const std::vector<uint8_t>& side_flags)
 	{
+		/*
 		rectangle_indices_.resize(CHUNK_ROW_VOXEL_COUNT, NULL_INDEX);
 		uint32_t rect_start{}; // Coordinate of start of current rectangle.
 
@@ -905,7 +983,7 @@ namespace renderer
 			}
 			rectangles_.clear();
 		}
-
+		*/
 	}
 
 	void StaticParticleMeshGenerator::TriangulateRectangle(ParticleSidesFlagBits side, uint32_t rect_idx, uint32_t vertical, uint32_t depth)

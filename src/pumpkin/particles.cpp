@@ -7,22 +7,6 @@
 
 namespace pmk
 {
-	glm::uvec3 ParticleIndexToCoordinate(uint32_t index)
-	{
-		uint32_t slice_area{ CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT };
-		uint32_t z{ index / slice_area };
-		uint32_t y{ (index % slice_area) / CHUNK_ROW_VOXEL_COUNT };
-		uint32_t x{ index % CHUNK_ROW_VOXEL_COUNT };
-
-		return glm::uvec3{ x, y, z };
-	}
-
-	uint32_t CoordinateToParticleIndex(const glm::uvec3& coord)
-	{
-		uint32_t slice_area{ CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT };
-		return coord.x + coord.y * CHUNK_ROW_VOXEL_COUNT + coord.z * slice_area;
-	}
-
 	void ParticleContext::Initialize(renderer::VulkanRenderer* renderer, const std::vector<PhysicsMaterial*>* physics_materials)
 	{
 		renderer_ = renderer;
@@ -75,24 +59,24 @@ namespace pmk
 
 	bool ParticleContext::GetParticlesEmpty() const
 	{
-		return static_particles_.empty() && mpm_context_.GetParticles().empty();
+		return (voxel_chunk_.VoxelCount() == 0) && mpm_context_.GetParticles().empty();
 	}
 
-	uint32_t ParticleContext::GenerateParticlesOnNode(Node* node)
+	uint32_t ParticleContext::GenerateVoxelsOnNode(Node* node)
 	{
 		if (renderer_->GetMaterials().empty()) {
 			renderer_->CreateDefaultMaterial();
 		}
 
 		particle_node_ = node;
-		renderer_->InvokeParticleGenShader(node->render_object, &static_particles_, &side_flags_);
+		renderer_->InvokeParticleGenShader(node->render_object, &voxel_chunk_.GetVoxels(), &voxel_chunk_.GetSideFlags());
 		ResetParticles();
 		renderer_->UpdateMaterials();
 
 		uint32_t particle_count{};
-		for (renderer::StaticParticle p : static_particles_)
+		for (uint32_t i{ 0 }; i < voxel_chunk_.VoxelCount(); ++i)
 		{
-			if (p.physics_material_index != renderer::PHYSICS_MATERIAL_EMPTY_INDEX) {
+			if (!voxel_chunk_.IsEmpty(i)) {
 				++particle_count;
 			}
 		}
@@ -139,13 +123,13 @@ namespace pmk
 	{
 		std::vector<MaterialPoint> mpm_particles{};
 
-		for (uint32_t i{ 0 }; i < (uint32_t)static_particles_.size(); ++i)
+		for (uint32_t i{ 0 }; i < voxel_chunk_.VoxelCount(); ++i)
 		{
-			if (static_particles_[i].physics_material_index == renderer::PHYSICS_MATERIAL_EMPTY_INDEX) {
+			if (voxel_chunk_.IsEmpty(i)) {
 				continue;
 			}
 
-			glm::uvec3 coord{ ParticleIndexToCoordinate(i) };
+			glm::uvec3 coord{ voxel_chunk_.IndexToCoordinate(i) };
 
 			MaterialPoint mpm_particle{
 				.mass = {},   // Set later.
@@ -156,7 +140,7 @@ namespace pmk
 				.affine_matrix = glm::mat3{0.0f},
 				.deformation_gradient_elastic = glm::mat3{1.0f},
 				.deformation_gradient_plastic = glm::mat3{1.0f},
-				.physics_material_index = static_particles_[i].physics_material_index,
+				.physics_material_index = voxel_chunk_.Index(i).physics_material_index,
 			};
 
 			mpm_particles.push_back(mpm_particle);
@@ -170,9 +154,9 @@ namespace pmk
 		return &mpm_context_;
 	}
 
-	std::vector<renderer::StaticParticle>& ParticleContext::GetStaticParticles()
+	renderer::VoxelChunk& ParticleContext::GetVoxelChunk()
 	{
-		return static_particles_;
+		return voxel_chunk_;
 	}
 
 	void ParticleContext::UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials)
@@ -236,7 +220,7 @@ namespace pmk
 
 	void ParticleContext::GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target)
 	{
-		renderer_->GenerateStaticParticleMesh(ro_target, static_particles_, side_flags_);
+		renderer_->GenerateStaticParticleMesh(ro_target, voxel_chunk_);
 
 #ifdef EDITOR_ENABLED
 		if (generate_mpm_particle_instances_) {
@@ -249,24 +233,22 @@ namespace pmk
 #endif
 	}
 
-	std::vector<MaterialPoint> ParticleContext::StaticParticlesToMaterialPoints(const std::vector<renderer::StaticParticle>& static_particles, const std::vector<uint8_t>& side_flags) const
+	std::vector<MaterialPoint> ParticleContext::VoxelsToMaterialPoints(const renderer::VoxelChunk& voxel_chunk) const
 	{
-		if (static_particles.empty()) {
+		if (voxel_chunk.VoxelCount() == 0) {
 			return {};
 		}
 
 		std::vector<MaterialPoint> dynamic_particles{};
 		for (uint32_t i{ 0 }; i < CHUNK_TOTAL_VOXEL_COUNT; ++i)
 		{
-			bool empty{ static_particles[i].physics_material_index == renderer::PHYSICS_MATERIAL_EMPTY_INDEX };
-			bool occluded{ side_flags[i] == (uint8_t)renderer::ParticleSidesFlagBits::ALL_SIDES };
 
-			if (empty || occluded) {
+			if (voxel_chunk.IsEmpty(i) || voxel_chunk.IsOccluded(i)) {
 				continue;
 			}
 
 			MaterialPoint particle{
-				.position = PARTICLE_WIDTH * glm::vec3(ParticleIndexToCoordinate(i)),
+				.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk_.IndexToCoordinate(i)),
 			};
 			dynamic_particles.push_back(particle);
 		}
@@ -275,7 +257,7 @@ namespace pmk
 
 	void ParticleContext::GenerateDynamicDebugMPMParticleInstances() const
 	{
-		const std::vector<MaterialPoint>& particles{ has_played_ ? mpm_context_.GetParticles() : StaticParticlesToMaterialPoints(static_particles_, side_flags_) };
+		const std::vector<MaterialPoint>& particles{ has_played_ ? mpm_context_.GetParticles() : VoxelsToMaterialPoints(voxel_chunk_) };
 		if (particles.empty()) {
 			return;
 		}

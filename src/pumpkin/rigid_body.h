@@ -18,19 +18,15 @@ namespace pmk
 		virtual void OnParametersMutated() override;
 	};
 
-	struct RigidBodyVoxel
-	{
-		glm::uvec3 coordinate;
-		uint8_t physics_material_index;
-	};
-
 	struct Node;
 
 	struct RigidBody
 	{
 		Node* node;               // Rigid body transform is stored in node.
+		float mass;               // In kilograms.
 		glm::vec3 center_of_mass; // Relative to voxel coordinates.
-		std::vector<RigidBodyVoxel> voxels;
+
+		renderer::VoxelChunk voxel_chunk;
 	};
 
 	class Scene;
@@ -38,16 +34,23 @@ namespace pmk
 	class RigidBodyContext
 	{
 	public:
-		void Initialize(Scene* scene, const std::vector<PhysicsMaterial*>* physics_materials);
+		void Initialize(renderer::VulkanRenderer* renderer, Scene* scene, const std::vector<PhysicsMaterial*>* physics_materials);
 
 		void CleanUp();
 
-		// Populate rigid_bodies_ with rigid bodies made from connected static particles sharing
+		// Populate rigid_bodies_ with rigid bodies made from connected voxels sharing
 		// the same rigid body physics material.
-		// Removes the rigid body particles from input particles.
-		void CreateRigidBodiesByConnectedness(std::vector<renderer::StaticParticle>& particles);
+		// Removes the rigid body voxels from input voxels.
+		void CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk);
 
 	private:
+		void RigidBodyFloodFill(const glm::uvec3& coordinate, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask);
+
+		float GetVoxelMass(uint32_t physics_material_index) const;
+
+		void CreateRigidBody(std::vector<std::pair<renderer::Voxel, glm::uvec3>>&& voxel_pairs, glm::vec3&& center_of_mass, float mass);
+
+		renderer::VulkanRenderer* renderer_{};
 		Scene* scene_;
 		std::vector<RigidBody*> rigid_bodies_{};
 

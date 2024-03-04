@@ -757,6 +757,12 @@ namespace pmk
 		// No-op by default.
 	}
 
+	HyperElasticModel::HyperElasticModel()
+	{
+		// Initialize density. Kilogram per meter cubed.
+		density_ = 20.0;
+	}
+
 	void HyperElasticModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
 	{
 		p->lambda = lambda_;
@@ -806,6 +812,12 @@ namespace pmk
 			logger::Error("Piola-Kirchoff stress is nan.\n");
 		}
 		return tmp;
+	}
+
+	FluidModel::FluidModel()
+	{
+		// Initialize density. Kilogram per meter cubed.
+		density_ = 50.0;
 	}
 
 	void FluidModel::InitializeParticle(MaterialPoint* p, float initial_volume) const
@@ -894,6 +906,12 @@ namespace pmk
 		float ddz{ (z1_sample - z0_sample) / (2.0f * h) };
 
 		return { ddx, ddy, ddz };
+	}
+
+	SnowModel::SnowModel()
+	{
+		// Initialize density. Kilogram per meter cubed.
+		density_ = 400.0;
 	}
 
 	void SnowModel::InitializeParticle(MaterialPoint* p, float initial_volume) const

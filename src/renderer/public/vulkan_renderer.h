@@ -52,7 +52,7 @@ namespace renderer
 		std::vector<int> LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names);
 
 		// Invoke user-defined particle gen shader. Generated render object will replace ro_target.
-		void InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags);
+		void InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<Voxel>* out_static_particles, std::vector<uint8_t>* out_side_flags);
 
 		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
 
@@ -72,7 +72,7 @@ namespace renderer
 			const std::vector<MaterialRange>& mat_ranges);
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
-		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags);
+		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk);
 
 		void ImportShader(const std::filesystem::path& spirv_path);
 

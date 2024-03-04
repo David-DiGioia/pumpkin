@@ -1586,7 +1586,7 @@ namespace renderer
 		return duplicate_indices;
 	}
 
-	void VulkanRenderer::InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<StaticParticle>* out_static_particles, std::vector<uint8_t>* out_side_flags)
+	void VulkanRenderer::InvokeParticleGenShader(RenderObjectHandle ro_target, std::vector<Voxel>* out_static_particles, std::vector<uint8_t>* out_side_flags)
 	{
 		particle_gen_context_.InvokeParticleGenShader(ro_target, out_static_particles, out_side_flags);
 	}
@@ -1623,9 +1623,9 @@ namespace renderer
 		particle_gen_context_.CmdGenerateDynamicParticleMesh(ro_target, positions, position_count, offset, stride, mat_ranges);
 	}
 
-	void VulkanRenderer::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const std::vector<StaticParticle>& particles, const std::vector<uint8_t>& side_flags)
+	void VulkanRenderer::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk)
 	{
-		particle_gen_context_.GenerateStaticParticleMesh(ro_target, particles, side_flags);
+		particle_gen_context_.GenerateStaticParticleMesh(ro_target, voxel_chunk);
 	}
 
 	void VulkanRenderer::ImportShader(const std::filesystem::path& spirv_path)

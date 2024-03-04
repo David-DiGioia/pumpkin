@@ -13,6 +13,11 @@ namespace pmk
 
 		// Should be called after any parameters from GetParameters() are mutated.
 		virtual void OnParametersMutated() = 0;
+
+		float GetDensity() const;
+
+	protected:
+		float density_;
 	};
 
 	struct PhysicsMaterial
