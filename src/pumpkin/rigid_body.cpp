@@ -8,9 +8,14 @@
 
 namespace pmk
 {
+	RigidBodyModel::RigidBodyModel()
+	{
+		density_ = 50.0f;
+	}
+
 	std::vector<std::pair<float*, std::string>> RigidBodyModel::GetParameters()
 	{
-		return {};
+		return { {&density_, "Density"} };
 	}
 
 	void RigidBodyModel::OnParametersMutated()
@@ -80,6 +85,14 @@ namespace pmk
 		}
 
 		uint32_t idx{ voxel_chunk.Coordinate(coord).physics_material_index };
+
+#ifdef EDITOR_ENABLED
+		// For editor convenience we just use available physics material if enough haven't been created yet.
+		if (idx != renderer::PHYSICS_MATERIAL_EMPTY_INDEX) {
+			idx = std::min(idx, (uint32_t)material_mask.size() - 1);
+		}
+#endif
+
 		return idx == renderer::PHYSICS_MATERIAL_EMPTY_INDEX ? false : material_mask[idx];
 	}
 
@@ -181,6 +194,10 @@ namespace pmk
 
 	float RigidBodyContext::GetVoxelMass(uint32_t physics_material_index) const
 	{
+#ifdef EDITOR_ENABLED
+		// For editor convenience we just use available physics material if enough haven't been created yet.
+		physics_material_index = std::min(physics_material_index, (uint32_t)physics_materials_->size() - 1);
+#endif
 		const float density{ (*physics_materials_)[physics_material_index]->constitutive_model->GetDensity() };
 		return density * PARTICLE_VOLUME;
 	}
@@ -211,8 +228,9 @@ namespace pmk
 			.voxel_chunk = renderer::VoxelChunk(dimensions.x, dimensions.y, dimensions.z, std::move(voxel_pairs)),
 		} };
 
+		rigid_body->node->SetWorldPosition(PARTICLE_WIDTH * (glm::vec3{ min_extents } + rigid_body->center_of_mass));
 		scene_->AddRenderObjectToNode(rigid_body->node, renderer_->CreateBlankRenderObject());
-		renderer_->GenerateStaticParticleMesh(rigid_body->node->render_object, rigid_body->voxel_chunk);
+		renderer_->GenerateStaticParticleMesh(rigid_body->node->render_object, rigid_body->voxel_chunk, PARTICLE_WIDTH * center_of_mass);
 		rigid_bodies_.push_back(rigid_body);
 	}
 }

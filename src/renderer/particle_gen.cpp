@@ -805,7 +805,7 @@ namespace renderer
 		return commands_recorded_;
 	}
 
-	std::vector<MaterialPosition> VoxelChunkToMaterialPositions(const VoxelChunk& voxel_chunk)
+	std::vector<MaterialPosition> VoxelChunkToMaterialPositions(const VoxelChunk& voxel_chunk, const glm::vec3& object_origin)
 	{
 		std::vector<MaterialPosition> mat_positions{};
 		for (uint32_t i{ 0 }; i < voxel_chunk.VoxelCount(); ++i)
@@ -816,19 +816,19 @@ namespace renderer
 
 			MaterialPosition mat_position{
 				.physics_material_index = voxel_chunk.Index(i).physics_material_index,
-				.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk.IndexToCoordinate(i)),
+				.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk.IndexToCoordinate(i)) - object_origin,
 			};
 			mat_positions.push_back(mat_position);
 		}
 		return mat_positions;
 	}
 
-	void ParticleGenContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk)
+	void ParticleGenContext::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk, const glm::vec3& object_origin)
 	{
 		// When true, forces to always generate dynamic particle meshes for debugging purposes.
 		if (DISABLE_STATIC_PARTICLE_MESH)
 		{
-			std::vector<MaterialPosition> mat_positions{ VoxelChunkToMaterialPositions(voxel_chunk) };
+			std::vector<MaterialPosition> mat_positions{ VoxelChunkToMaterialPositions(voxel_chunk, object_origin) };
 
 			std::sort(mat_positions.begin(), mat_positions.end(),
 				[](const MaterialPosition& p0, const MaterialPosition& p1) { return p0.physics_material_index < p1.physics_material_index; });

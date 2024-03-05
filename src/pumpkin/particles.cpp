@@ -189,6 +189,10 @@ namespace pmk
 
 	void ParticleContext::GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<MaterialPoint>& particles) const
 	{
+		if (particles.empty()) {
+			return;
+		}
+
 		{
 			ZoneScopedN("Sort");
 			// For some reason I will never know, sorting is actually faster than grouping here.

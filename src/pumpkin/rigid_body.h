@@ -11,6 +11,8 @@ namespace pmk
 	class RigidBodyModel : public ConstitutiveModel
 	{
 	public:
+		RigidBodyModel();
+
 		// For updating the parameters from the UI for making physics materials in the editor.
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 

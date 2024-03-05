@@ -1623,9 +1623,9 @@ namespace renderer
 		particle_gen_context_.CmdGenerateDynamicParticleMesh(ro_target, positions, position_count, offset, stride, mat_ranges);
 	}
 
-	void VulkanRenderer::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk)
+	void VulkanRenderer::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk, const glm::vec3& object_origin)
 	{
-		particle_gen_context_.GenerateStaticParticleMesh(ro_target, voxel_chunk);
+		particle_gen_context_.GenerateStaticParticleMesh(ro_target, voxel_chunk, object_origin);
 	}
 
 	void VulkanRenderer::ImportShader(const std::filesystem::path& spirv_path)

@@ -72,7 +72,7 @@ namespace renderer
 			const std::vector<MaterialRange>& mat_ranges);
 
 		// Genereates fewest triangles possible as a shell around particle mass. Good for particles not currently being simulated.
-		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk);
+		void GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk, const glm::vec3& object_origin = {});
 
 		void ImportShader(const std::filesystem::path& spirv_path);
 
