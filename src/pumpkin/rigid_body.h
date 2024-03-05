@@ -48,7 +48,12 @@ namespace pmk
 
 		float GetVoxelMass(uint32_t physics_material_index) const;
 
-		void CreateRigidBody(std::vector<std::pair<renderer::Voxel, glm::uvec3>>&& voxel_pairs, glm::vec3&& center_of_mass, float mass);
+		void CreateRigidBody(
+			const glm::uvec3& min_extents,
+			const glm::uvec3& max_extents,
+			std::vector<std::pair<renderer::Voxel, glm::uvec3>>&& voxel_pairs,
+			glm::vec3&& center_of_mass,
+			float mass);
 
 		renderer::VulkanRenderer* renderer_{};
 		Scene* scene_;

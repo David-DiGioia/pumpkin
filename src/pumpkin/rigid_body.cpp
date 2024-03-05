@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <queue>
+#include <execution>
 
 #include "scene.h"
 
@@ -78,7 +79,7 @@ namespace pmk
 			return false;
 		}
 
-		uint32_t idx{ voxel_chunk.Coordinate(coord).physics_material_index};
+		uint32_t idx{ voxel_chunk.Coordinate(coord).physics_material_index };
 		return idx == renderer::PHYSICS_MATERIAL_EMPTY_INDEX ? false : material_mask[idx];
 	}
 
@@ -119,6 +120,8 @@ namespace pmk
 	void RigidBodyContext::RigidBodyFloodFill(const glm::uvec3& coordinate, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask)
 	{
 		std::vector<std::pair<renderer::Voxel, glm::uvec3>> voxel_pairs{};
+		glm::uvec3 min_extents{ UINT_MAX, UINT_MAX, UINT_MAX };
+		glm::uvec3 max_extents{};
 		glm::vec3 center_of_mass{};
 		float rigid_body_mass{};
 		std::queue<glm::uvec3> queue{};
@@ -130,6 +133,14 @@ namespace pmk
 			queue.pop();
 			uint32_t lx{ coord.x };
 
+			// Update extents.
+			min_extents.x = std::min(min_extents.x, coord.x);
+			min_extents.y = std::min(min_extents.y, coord.y);
+			min_extents.z = std::min(min_extents.z, coord.z);
+			max_extents.x = std::max(max_extents.x, coord.x);
+			max_extents.y = std::max(max_extents.y, coord.y);
+			max_extents.z = std::max(max_extents.z, coord.z);
+
 			glm::uvec3 next_coord{ lx - 1, coord.y, coord.z };
 			while (FloodFillInside(next_coord, voxel_chunk, material_mask))
 			{
@@ -137,6 +148,10 @@ namespace pmk
 				const float voxel_mass{ GetVoxelMass(voxel_pairs.back().first.physics_material_index) };
 				rigid_body_mass += voxel_mass;
 				center_of_mass += voxel_mass * glm::vec3{ next_coord };
+
+				// Update x extents.
+				min_extents.x = std::min(min_extents.x, coord.x);
+
 				--lx;
 				next_coord = { lx - 1, coord.y, coord.z };
 			}
@@ -147,6 +162,10 @@ namespace pmk
 				const float voxel_mass{ GetVoxelMass(voxel_pairs.back().first.physics_material_index) };
 				rigid_body_mass += voxel_mass;
 				center_of_mass += voxel_mass * glm::vec3{ coord };
+
+				// Update x extents.
+				max_extents.x = std::max(max_extents.x, coord.x);
+
 				++coord.x;
 			}
 
@@ -157,7 +176,7 @@ namespace pmk
 		}
 
 		center_of_mass /= rigid_body_mass;
-		CreateRigidBody(std::move(voxel_pairs), std::move(center_of_mass), rigid_body_mass);
+		CreateRigidBody(min_extents, max_extents, std::move(voxel_pairs), std::move(center_of_mass), rigid_body_mass);
 	}
 
 	float RigidBodyContext::GetVoxelMass(uint32_t physics_material_index) const
@@ -166,13 +185,30 @@ namespace pmk
 		return density * PARTICLE_VOLUME;
 	}
 
-	void RigidBodyContext::CreateRigidBody(std::vector<std::pair<renderer::Voxel, glm::uvec3>>&& voxel_pairs, glm::vec3&& center_of_mass, float mass)
+	void RigidBodyContext::CreateRigidBody(
+		const glm::uvec3& min_extents,
+		const glm::uvec3& max_extents,
+		std::vector<std::pair<renderer::Voxel, glm::uvec3>>&& voxel_pairs,
+		glm::vec3&& center_of_mass,
+		float mass)
 	{
+		// Subtract min extents to make all coordinates relative to it.
+		std::for_each(
+			std::execution::par,
+			voxel_pairs.begin(),
+			voxel_pairs.end(),
+			[&](std::pair<renderer::Voxel, glm::uvec3>& pair)
+			{
+				pair.second -= min_extents;
+			});
+		center_of_mass -= min_extents;
+		glm::uvec3 dimensions{ max_extents - min_extents + glm::uvec3{1, 1, 1} };
+
 		RigidBody* rigid_body{ new RigidBody{
 			.node = scene_->CreateNode(),
 			.mass = mass,
-			.center_of_mass = glm::vec3{}, // TODO.
-			.voxel_chunk = renderer::VoxelChunk(0, 0, 0, std::move(voxel_pairs))
+			.center_of_mass = std::move(center_of_mass),
+			.voxel_chunk = renderer::VoxelChunk(dimensions.x, dimensions.y, dimensions.z, std::move(voxel_pairs)),
 		} };
 
 		scene_->AddRenderObjectToNode(rigid_body->node, renderer_->CreateBlankRenderObject());

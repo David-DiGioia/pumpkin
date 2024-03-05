@@ -66,6 +66,9 @@ namespace renderer
 		std::vector<uint8_t>& GetSideFlags();
 
 	private:
+		// Helper function for calculating side flags.
+		bool NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset);
+
 		uint32_t width_{};
 		uint32_t height_{};
 		uint32_t depth_{};

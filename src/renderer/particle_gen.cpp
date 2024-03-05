@@ -39,7 +39,10 @@ namespace renderer
 		Voxel empty_voxel{
 			.physics_material_index = PHYSICS_MATERIAL_EMPTY_INDEX,
 		};
-		voxels_.resize((uint64_t)width_height_slice_ * depth_, empty_voxel);
+
+		const uint64_t voxel_count{ (uint64_t)width_height_slice_ * depth_ };
+		voxels_.resize(voxel_count, empty_voxel);
+		side_flags_.resize(voxel_count);
 	}
 
 	VoxelChunk::VoxelChunk(uint32_t width, uint32_t height, uint32_t depth, std::vector<std::pair<Voxel, glm::uvec3>>&& voxel_pairs)
@@ -53,6 +56,41 @@ namespace renderer
 			[&](std::pair<Voxel, glm::uvec3>& pair)
 			{
 				Coordinate(pair.second.x, pair.second.y, pair.second.z) = pair.first;
+			});
+
+		// Create side flags.
+		std::for_each(
+			std::execution::par,
+			voxel_pairs.begin(),
+			voxel_pairs.end(),
+			[&](std::pair<Voxel, glm::uvec3>& pair)
+			{
+				glm::uvec3& coord{ pair.second };
+				uint8_t neighbors{};
+
+				// X-axis neighbors.
+				if (coord.x != width_ - 1 && NeighborOccupied(coord, glm::ivec3(1, 0, 0))) {
+					neighbors |= (uint8_t)ParticleSidesFlagBits::X_POSITIVE;
+				}
+				if (coord.x != 0 && NeighborOccupied(coord, glm::ivec3(-1, 0, 0))) {
+					neighbors |= (uint8_t)ParticleSidesFlagBits::X_NEGATIVE;
+				}
+				// Y-axis neighbors.
+				if (coord.y != height_ - 1 && NeighborOccupied(coord, glm::ivec3(0, 1, 0))) {
+					neighbors |= (uint8_t)ParticleSidesFlagBits::Y_POSITIVE;
+				}
+				if (coord.y != 0 && NeighborOccupied(coord, glm::ivec3(0, -1, 0))) {
+					neighbors |= (uint8_t)ParticleSidesFlagBits::Y_NEGATIVE;
+				}
+				// Y-axis neighbors.
+				if (coord.z != depth_ - 1 && NeighborOccupied(coord, glm::ivec3(0, 0, 1))) {
+					neighbors |= (uint8_t)ParticleSidesFlagBits::Z_POSITIVE;
+				}
+				if (coord.z != 0 && NeighborOccupied(coord, glm::ivec3(0, 0, -1))) {
+					neighbors |= (uint8_t)ParticleSidesFlagBits::Z_NEGATIVE;
+				}
+
+				side_flags_[CoordinateToIndex(coord)] = neighbors;
 			});
 	}
 
@@ -123,6 +161,12 @@ namespace renderer
 	std::vector<uint8_t>& VoxelChunk::GetSideFlags()
 	{
 		return side_flags_;
+	}
+
+	bool VoxelChunk::NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset)
+	{
+		glm::uvec3 neighbor_coord = glm::ivec3{ coord } + offset;
+		return IsEmpty(CoordinateToIndex(neighbor_coord));
 	}
 
 	void ParticleGenContext::Initialize(Context* context, VulkanRenderer* renderer)

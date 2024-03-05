@@ -560,7 +560,7 @@ void Editor::PlayParticleSimulation()
 	std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
 	size_t node_count{ nodes.size() };
 	pumpkin_->GetScene().PlayParticleSimulation();
-	size_t nodes_created{ node_count - nodes.size() };
+	size_t nodes_created{ nodes.size() - node_count };
 
 	// Rigid bodies get created when play is clicked.
 	for (size_t i{ 0 }; i < nodes_created; ++i) {
