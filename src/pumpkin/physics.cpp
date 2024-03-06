@@ -47,7 +47,7 @@ namespace pmk
 		return particle_context_.GetParticlesEmpty();
 	}
 
-	uint32_t PhysicsContext::GenerateParticlesOnNode(Node* node)
+	uint32_t PhysicsContext::GenerateVoxelsOnNode(Node* node)
 	{
 		return particle_context_.GenerateVoxelsOnNode(node);
 	}

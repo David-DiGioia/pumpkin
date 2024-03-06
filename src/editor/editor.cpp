@@ -543,8 +543,8 @@ uint32_t Editor::GenerateParticles(std::function<uint32_t()> particle_gen_func)
 
 uint32_t Editor::GenerateParticles()
 {
-	return GenerateParticles([&]() {
-		return pumpkin_->GetScene().GenerateParticlesOnNode(particle_node_->node);
+	return GenerateParticles([&](){
+		return pumpkin_->GetScene().GenerateVoxelsOnNode(particle_node_->node);
 		});
 }
 

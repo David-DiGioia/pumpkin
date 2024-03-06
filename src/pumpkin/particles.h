@@ -68,6 +68,7 @@ namespace pmk
 		bool generate_mpm_particle_instances_{};
 		bool generate_mpm_node_instances_{};
 #endif
+		uint32_t generated_voxel_count_{}; // The current number of non-empty voxels generated.
 		MPMContext mpm_context_{};
 		renderer::VulkanRenderer* renderer_{};
 		Node* particle_node_{};

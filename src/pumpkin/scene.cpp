@@ -242,13 +242,13 @@ namespace pmk
 		renderer_->UpdateMaterials();
 	}
 
-	uint32_t Scene::GenerateParticlesOnNode(Node* node)
+	uint32_t Scene::GenerateVoxelsOnNode(Node* node)
 	{
 		if (node->render_object == renderer::NULL_HANDLE) {
 			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
 		}
 
-		return physics_context_.GenerateParticlesOnNode(node);
+		return physics_context_.GenerateVoxelsOnNode(node);
 	}
 
 	uint32_t Scene::GenerateTestParticleOnNode(Node* node)

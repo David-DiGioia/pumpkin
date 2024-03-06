@@ -59,7 +59,7 @@ namespace pmk
 
 	bool ParticleContext::GetParticlesEmpty() const
 	{
-		return (voxel_chunk_.VoxelCount() == 0) && mpm_context_.GetParticles().empty();
+		return (generated_voxel_count_ == 0) && mpm_context_.GetParticles().empty();
 	}
 
 	uint32_t ParticleContext::GenerateVoxelsOnNode(Node* node)
@@ -73,14 +73,14 @@ namespace pmk
 		ResetParticles();
 		renderer_->UpdateMaterials();
 
-		uint32_t particle_count{};
+		generated_voxel_count_ = 0;
 		for (uint32_t i{ 0 }; i < voxel_chunk_.VoxelCount(); ++i)
 		{
 			if (!voxel_chunk_.IsEmpty(i)) {
-				++particle_count;
+				++generated_voxel_count_;
 			}
 		}
-		return particle_count;
+		return generated_voxel_count_;
 	}
 
 	uint32_t ParticleContext::GenerateTestParticleOnNode(Node* node)

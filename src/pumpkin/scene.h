@@ -95,7 +95,7 @@ namespace pmk
 
 		// Generate particles and attach render object to specified node.
 		// Returns number of particles generated.
-		uint32_t GenerateParticlesOnNode(Node* node);
+		uint32_t GenerateVoxelsOnNode(Node* node);
 
 		// Returns number of particles generated.
 		uint32_t GenerateTestParticleOnNode(Node* node);

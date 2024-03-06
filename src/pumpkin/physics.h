@@ -24,7 +24,7 @@ namespace pmk
 
 		bool GetParticlesEmpty() const;
 
-		uint32_t GenerateParticlesOnNode(Node* node);
+		uint32_t GenerateVoxelsOnNode(Node* node);
 
 		uint32_t GenerateTestParticleOnNode(Node* node);
 
