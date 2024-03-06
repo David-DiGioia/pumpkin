@@ -152,7 +152,7 @@ namespace renderer
 	{
 		return coord.x + coord.y * width_ + coord.z * width_height_slice_;
 	}
-	
+
 	std::vector<Voxel>& VoxelChunk::GetVoxels()
 	{
 		return voxels_;
@@ -518,7 +518,12 @@ namespace renderer
 		return frame_resources_[current_frame_];
 	}
 
-	void ParticleGenContext::GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t offset, uint32_t stride, const std::vector<MaterialRange>& mat_ranges)
+	void ParticleGenContext::GenerateDynamicParticleMesh(
+		RenderObjectHandle ro_target,
+		const std::byte* positions,
+		uint32_t offset,
+		uint32_t stride,
+		const std::vector<MaterialRange>& mat_ranges)
 	{
 		ZoneScoped;
 		mat_ranges_ = mat_ranges;
@@ -575,7 +580,7 @@ namespace renderer
 
 		{
 			ZoneScopedN("Replace render object");
-			renderer_->ReplaceRenderObject(ro_target, mesh);
+			renderer_->ReplaceRenderObjectAndBuildBlas(ro_target, mesh);
 		}
 	}
 
@@ -593,7 +598,7 @@ namespace renderer
 			[&](const MaterialRange& m) {
 #ifdef EDITOR_ENABLED
 				// For editor convenience we just use available physics material if enough haven't been created yet.
-				uint32_t idx{ std::min(m.physics_material_index, (uint8_t)(physics_to_render_mat_idx_.size() - 1))};
+				uint32_t idx{ std::min(m.physics_material_index, (uint8_t)(physics_to_render_mat_idx_.size() - 1)) };
 #else
 				uint32_t idx{ m.physics_material_index };
 #endif
@@ -777,7 +782,7 @@ namespace renderer
 		renderer_->rt_context_.QueueBlas(mesh, mesh_info);
 
 		// Do not replace render object yet since last frame's resources are still in use. We do it during VulkanRenderer::HostRenderWork().
-		renderer_->QueueReplaceRenderObject(ro_target, mesh, mesh_info);
+		renderer_->QueueReplaceRenderObject(ro_target, mesh);
 	}
 
 	void ParticleGenContext::CmdSubmit()

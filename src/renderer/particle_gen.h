@@ -201,7 +201,12 @@ namespace renderer
 
 		// Generates triangles for each individual particle as a cube.
 		// Positions should be an array of glm::vec3 with arbitrary stride between each. Stride is in bytes.
-		void GenerateDynamicParticleMesh(RenderObjectHandle ro_target, const std::byte* positions, uint32_t offset, uint32_t stride, const std::vector<MaterialRange>& mat_ranges);
+		void GenerateDynamicParticleMesh(
+			RenderObjectHandle ro_target,
+			const std::byte* positions,
+			uint32_t offset,
+			uint32_t stride,
+			const std::vector<MaterialRange>& mat_ranges);
 		
 		void SetPhysicsToRenderMaterialMap(std::vector<int>&& physics_to_render_mat_idx);
 

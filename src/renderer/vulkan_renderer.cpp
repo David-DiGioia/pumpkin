@@ -739,7 +739,7 @@ namespace renderer
 	const VulkanRenderer::FrameResources& VulkanRenderer::GetCurrentFrame() const
 	{
 		return frame_resources_[current_frame_];
-	}
+}
 
 	Extent VulkanRenderer::GetViewportExtent()
 	{
@@ -1257,7 +1257,7 @@ namespace renderer
 		return (RenderObjectHandle)(frame_resources_[0].render_objects.size() - 1);
 	}
 
-	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh)
+	void VulkanRenderer::ReplaceRenderObjectAndBuildBlas(RenderObjectHandle ro_target, Mesh* mesh)
 	{
 		ZoneScopedN("Replace render object");
 
@@ -1273,17 +1273,15 @@ namespace renderer
 		rt_context_.CmdBuildQueuedBlases(cmd);
 		vulkan_util_.Submit();
 
-		ReplaceRenderObjectImpl(ro_target, mesh);
+		ReplaceRenderObject(ro_target, mesh);
 	}
 
-	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info)
+	void VulkanRenderer::QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh)
 	{
-		ReplaceRenderObjectImpl(ro_target, mesh);
-	}
-
-	void VulkanRenderer::QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info)
-	{
-		replace_ro_queue_.emplace_back(ro_target, mesh, mesh_info);
+		QueueHostRenderWork([=]()
+			{
+				ReplaceRenderObject(ro_target, mesh);
+			});
 	}
 
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
@@ -1625,7 +1623,10 @@ namespace renderer
 
 	void VulkanRenderer::GenerateStaticParticleMesh(RenderObjectHandle ro_target, const VoxelChunk& voxel_chunk, const glm::vec3& object_origin)
 	{
-		particle_gen_context_.GenerateStaticParticleMesh(ro_target, voxel_chunk, object_origin);
+		QueueHostRenderWork([this, ro_target, voxel_chunk, object_origin]()
+			{
+				particle_gen_context_.GenerateStaticParticleMesh(ro_target, voxel_chunk, object_origin);
+			});
 	}
 
 	void VulkanRenderer::ImportShader(const std::filesystem::path& spirv_path)
@@ -1643,13 +1644,18 @@ namespace renderer
 		user_compute_shaders_.push_back(compute_pipeline);
 	}
 
+	void VulkanRenderer::QueueHostRenderWork(std::function<void()> func)
+	{
+		host_render_work_queue_.push_back(func);
+	}
+
 	void VulkanRenderer::HostRenderWork()
 	{
 		ZoneScoped;
-		for (QueuedReplaceRenderObjectInfo& info : replace_ro_queue_) {
-			ReplaceRenderObject(info.ro_target, info.mesh, info.mesh_info);
+		for (std::function<void()> host_render_work : host_render_work_queue_) {
+			host_render_work();
 		}
-		replace_ro_queue_.clear();
+		host_render_work_queue_.clear();
 
 		render_object_destroyer_.FrameUpdate();
 
@@ -1740,7 +1746,7 @@ namespace renderer
 #endif
 	}
 
-	void VulkanRenderer::ReplaceRenderObjectImpl(RenderObjectHandle ro_target, Mesh* mesh)
+	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh)
 	{
 		// Either replace old mesh if it exists or create new one.
 		RenderObject* ro_ptr{ GetCurrentFrame().render_objects[ro_target] };
@@ -1752,27 +1758,21 @@ namespace renderer
 			visible = ro_ptr->visible;
 			material_indices = ro_ptr->material_indices;
 			render_object_destroyer_.DestroyElement((uint32_t)ro_target);
-			if (mesh)
-			{
-				mesh_index = render_object_destroyer_.PopVacantMeshIndex();
-
-				if (mesh_index == NULL_INDEX)
-				{
-					mesh_index = (uint32_t)meshes_.size();
-					meshes_.push_back(mesh);
-				}
-				else {
-					meshes_[mesh_index] = mesh;
-				}
-			}
 		}
-		else if (mesh)
+
+		if (mesh)
 		{
-			mesh_index = (uint32_t)meshes_.size();
-			meshes_.push_back(mesh);
-		}
+			mesh_index = render_object_destroyer_.PopVacantMeshIndex();
 
-		if (mesh) {
+			if (mesh_index == NULL_INDEX)
+			{
+				mesh_index = (uint32_t)meshes_.size();
+				meshes_.push_back(mesh);
+			}
+			else {
+				meshes_[mesh_index] = mesh;
+			}
+
 			rt_context_.UpdateObjectBuffers(meshes_);
 		}
 

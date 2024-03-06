@@ -76,6 +76,9 @@ namespace renderer
 
 		void ImportShader(const std::filesystem::path& spirv_path);
 
+		// Queue work to be done at the next HostRenderWork() invocation.
+		void QueueHostRenderWork(std::function<void()> func);
+
 		// CPU work for renderer to do each frame.
 		void HostRenderWork();
 
@@ -93,15 +96,10 @@ namespace renderer
 		// Get a blank render object to be used as a render object target when generating a mesh later.
 		RenderObjectHandle CreateBlankRenderObject();
 
-		// Doesn't take mesh index since it reuses the mesh index that the previous render object used.
-		// If build_blas is true, then BLAS will be built in this function call and will block until it's finished.
-		// Otherwise, the BLAS build can be recorded to the graphics command buffer prior to calling this function.
-		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh);
-
-		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info);
+		void ReplaceRenderObjectAndBuildBlas(RenderObjectHandle ro_target, Mesh* mesh);
 
 		// Will replace the render object during the next HostRenderWork() invocation.
-		void QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, MeshBlasInfo& mesh_info);
+		void QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
@@ -259,7 +257,7 @@ namespace renderer
 
 		bool GetViewportMinimized() const;
 
-		void ReplaceRenderObjectImpl(RenderObjectHandle ro_target, Mesh* mesh);
+		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh);
 
 		struct FrameResources
 		{
@@ -289,13 +287,6 @@ namespace renderer
 #endif
 		};
 
-		struct QueuedReplaceRenderObjectInfo
-		{
-			RenderObjectHandle ro_target;
-			Mesh* mesh;
-			MeshBlasInfo mesh_info;
-		};
-
 		friend class EditorBackend;
 		friend class ImGuiBackend;
 		friend class ParticleGenContext;
@@ -323,9 +314,10 @@ namespace renderer
 		DescriptorSetLayoutResource render_object_layout_resource_{};
 		DescriptorSetLayoutResource composite_layout_resource_{};
 
-		std::vector<QueuedReplaceRenderObjectInfo> replace_ro_queue_{}; // Render objects to be replaced during next HostRenderWork() invocation.
+		std::vector<std::function<void()>> host_render_work_queue_{};   // Queued work to be done at the next HostRenderWork() invocation.
 		RenderObjectDestroyer render_object_destroyer_{};               // Render objects can't be destroyed while they're in use rendering in previous frame, so use special destroyer class.
 		bool should_update_materials_{};
+
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
