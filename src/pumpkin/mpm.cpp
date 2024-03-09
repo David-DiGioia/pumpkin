@@ -118,10 +118,11 @@ namespace pmk
 		constexpr float GRID_CELL_VOLUME{ GRID_SIZE * GRID_SIZE * GRID_SIZE };
 		float density{ 0.0f };
 
-		auto node_indices{ GetNodeIndicesWithinRadius(position) };
-		for (uint32_t node_idx : node_indices)
+		uint32_t node_index_count{};
+		auto node_indices{ GetNodeIndicesWithinRadius(position, &node_index_count) };
+		for (uint32_t i{ 0 }; i < node_index_count; ++i)
 		{
-			const GridNode& node{ nodes_[node_idx] };
+			const GridNode& node{ nodes_[node_indices[i]] };
 			if (node.mass == 0.0f) {
 				continue;
 			}
@@ -185,9 +186,11 @@ namespace pmk
 					node.mass = 0.0f;
 					node.momentum = glm::vec3{ 0.0f, 0.0f, 0.0f };
 
-					std::vector<uint32_t> start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate) };
-					for (uint32_t range_start : start_of_ranges)
+					uint32_t particle_range_count{};
+					auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
+					for (uint32_t i{ 0 }; i < particle_range_count; ++i)
 					{
+						uint32_t range_start{ start_of_ranges[i] };
 						uint32_t current_key{ particle_indices_[range_start].key };
 						for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
 						{
@@ -247,9 +250,11 @@ namespace pmk
 
 				glm::vec3 sum{};
 
-				auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate) };
-				for (uint32_t range_start : start_of_ranges)
+				uint32_t particle_range_count{};
+				auto start_of_ranges{ GetParticleRangesWithinRadius(node.coordinate, &particle_range_count) };
+				for (uint32_t i{ 0 }; i < particle_range_count; ++i)
 				{
+					uint32_t range_start{ start_of_ranges[i] };
 					uint32_t current_key{ particle_indices_[range_start].key };
 					for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
 					{
@@ -319,10 +324,11 @@ namespace pmk
 				p.velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
 				p.affine_matrix = glm::mat3{ 0.0f };
 
-				std::vector<uint32_t> node_indices{ GetNodeIndicesWithinRadius(p.position) };
-				for (uint32_t node_idx : node_indices)
+				uint32_t node_index_count{};
+				auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
+				for (uint32_t i{ 0 }; i < node_index_count; ++i)
 				{
-					GridNode& node{ nodes_[node_idx] };
+					GridNode& node{ nodes_[node_indices[i]] };
 					if (node.mass == 0.0f) {
 						continue;
 					}
@@ -616,9 +622,9 @@ namespace pmk
 	}
 
 	// Assumes radius of 1.5.
-	std::vector<uint32_t> MPMContext::GetNodeIndicesWithinRadius(glm::vec3 position) const
+	std::array<uint32_t, MAXIMUM_NODES_IN_RANGE> MPMContext::GetNodeIndicesWithinRadius(glm::vec3 position, uint32_t* out_count) const
 	{
-		std::vector<uint32_t> result{};
+		std::array<uint32_t, MAXIMUM_NODES_IN_RANGE> result{};
 		position /= GRID_SIZE;
 
 		uint32_t x_min{};
@@ -631,22 +637,24 @@ namespace pmk
 		GetNodeCoordinateRange(position.y, &y_min, &y_max);
 		GetNodeCoordinateRange(position.z, &z_min, &z_max);
 
+		uint32_t result_idx{ 0 };
 		for (uint32_t x{ x_min }; x <= x_max; ++x)
 		{
 			for (uint32_t y{ y_min }; y <= y_max; ++y)
 			{
 				for (uint32_t z{ z_min }; z <= z_max; ++z) {
-					result.emplace_back(GridNodeCoordinateToIndex({ x, y, z }));
+					result[result_idx++] = GridNodeCoordinateToIndex({ x, y, z });
 				}
 			}
 		}
 
+		*out_count = result_idx;
 		return result;
 	}
 
-	std::vector<uint32_t> MPMContext::GetParticleRangesWithinRadius(const glm::uvec3& grid_coord) const
+	std::array<uint32_t, MAXIMUM_SUB_BLOCKS_IN_RANGE> MPMContext::GetParticleRangesWithinRadius(const glm::uvec3& grid_coord, uint32_t* out_count) const
 	{
-		std::vector<uint32_t> result{};
+		std::array<uint32_t, MAXIMUM_SUB_BLOCKS_IN_RANGE> result{};
 		glm::uvec3 node_sub_coord{ 2u * grid_coord }; // Coordinate into grid subdividing each of grid coordinates.
 
 		uint32_t x_min{ (node_sub_coord.x < 3) ? 0 : node_sub_coord.x - 3 };
@@ -656,6 +664,7 @@ namespace pmk
 		uint32_t z_min{ (node_sub_coord.z < 3) ? 0 : node_sub_coord.z - 3 };
 		uint32_t z_max{ (node_sub_coord.z + 2 >= SUB_BLOCK_ROW_COUNT) ? SUB_BLOCK_ROW_COUNT - 1 : node_sub_coord.z + 2 };
 
+		uint32_t result_idx{ 0 };
 		for (uint32_t i{ x_min }; i <= x_max; ++i)
 		{
 			for (uint32_t j{ y_min }; j <= y_max; ++j)
@@ -665,12 +674,13 @@ namespace pmk
 					glm::uvec3 sub_coord{ i, j, k };
 					uint32_t particle_idx_idx{ sub_block_indices_[SubBlockCoordinateToIndex(sub_coord)] };
 					if (particle_idx_idx != NULL_INDEX) {
-						result.emplace_back(particle_idx_idx);
+						result[result_idx++] = particle_idx_idx;
 					}
 				}
 			}
 		}
 
+		*out_count = result_idx;
 		return result;
 	}
 
