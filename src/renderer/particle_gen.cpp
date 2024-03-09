@@ -580,7 +580,20 @@ namespace renderer
 
 		{
 			ZoneScopedN("Replace render object");
-			renderer_->ReplaceRenderObjectAndBuildBlas(ro_target, mesh);
+			std::vector<int> render_mat_indices(mat_ranges_.size());
+			std::transform(mat_ranges_.begin(), mat_ranges_.end(), render_mat_indices.begin(),
+				[this](const MaterialRange& range)
+				{
+#ifdef EDITOR_ENABLED
+					// For editor convenience we just use available physics material if enough haven't been created yet.
+					uint32_t idx{ std::min(range.physics_material_index, (uint8_t)(physics_to_render_mat_idx_.size() - 1)) };
+#else
+					uint32_t idx{ range.physics_material_index };
+#endif
+					return physics_to_render_mat_idx_[idx];
+				});
+
+			renderer_->ReplaceRenderObjectAndBuildBlas(ro_target, mesh, render_mat_indices);
 		}
 	}
 
@@ -781,8 +794,20 @@ namespace renderer
 
 		renderer_->rt_context_.QueueBlas(mesh, mesh_info);
 
+		std::vector<int> render_mat_indices(mat_ranges_.size());
+		std::transform(mat_ranges_.begin(), mat_ranges_.end(), render_mat_indices.begin(),
+			[this](const MaterialRange& range)
+			{
+#ifdef EDITOR_ENABLED
+				// For editor convenience we just use available physics material if enough haven't been created yet.
+				uint32_t idx{ std::min(range.physics_material_index, (uint8_t)(physics_to_render_mat_idx_.size() - 1)) };
+#else
+				uint32_t idx{ range.physics_material_index };
+#endif
+				return physics_to_render_mat_idx_[idx];			});
+
 		// Do not replace render object yet since last frame's resources are still in use. We do it during VulkanRenderer::HostRenderWork().
-		renderer_->QueueReplaceRenderObject(ro_target, mesh);
+		renderer_->QueueReplaceRenderObject(ro_target, mesh, std::move(render_mat_indices));
 	}
 
 	void ParticleGenContext::CmdSubmit()
@@ -840,8 +865,6 @@ namespace renderer
 
 			mat_ranges_ = CreateMaterialRanges(mat_positions);
 			GenerateDynamicParticleMesh(ro_target, (const std::byte*)mat_positions.data(), offsetof(MaterialPosition, position), sizeof(MaterialPosition), mat_ranges_);
-
-			UpdatePhysicsRenderMaterials(ro_target);
 			return;
 		}
 
@@ -849,9 +872,9 @@ namespace renderer
 		//constexpr uint64_t empty_particles{ 0 };
 		//constexpr uint64_t all_sides{ 0x3F3f3f3f3F3f3f3f };
 
-		StaticParticleMeshGenerator gen{};
-		Mesh* mesh{ gen.Generate(voxel_chunk) };
-		renderer_->ReplaceRenderObject(ro_target, mesh);
+		//StaticParticleMeshGenerator gen{};
+		//Mesh* mesh{ gen.Generate(voxel_chunk) };
+		//renderer_->ReplaceRenderObject(ro_target, mesh);
 	}
 
 	std::vector<Vertex> ParticleGenContext::GetParticleVertices() const

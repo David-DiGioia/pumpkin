@@ -96,10 +96,10 @@ namespace renderer
 		// Get a blank render object to be used as a render object target when generating a mesh later.
 		RenderObjectHandle CreateBlankRenderObject();
 
-		void ReplaceRenderObjectAndBuildBlas(RenderObjectHandle ro_target, Mesh* mesh);
+		void ReplaceRenderObjectAndBuildBlas(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices);
 
 		// Will replace the render object during the next HostRenderWork() invocation.
-		void QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh);
+		void QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices);
 
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
@@ -257,7 +257,7 @@ namespace renderer
 
 		bool GetViewportMinimized() const;
 
-		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh);
+		void ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices);
 
 		struct FrameResources
 		{

@@ -1257,7 +1257,7 @@ namespace renderer
 		return (RenderObjectHandle)(frame_resources_[0].render_objects.size() - 1);
 	}
 
-	void VulkanRenderer::ReplaceRenderObjectAndBuildBlas(RenderObjectHandle ro_target, Mesh* mesh)
+	void VulkanRenderer::ReplaceRenderObjectAndBuildBlas(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices)
 	{
 		ZoneScopedN("Replace render object");
 
@@ -1272,14 +1272,14 @@ namespace renderer
 		rt_context_.CmdBuildBlas(cmd, mesh);
 		vulkan_util_.Submit();
 
-		ReplaceRenderObject(ro_target, mesh);
+		ReplaceRenderObject(ro_target, mesh, material_indices);
 	}
 
-	void VulkanRenderer::QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh)
+	void VulkanRenderer::QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices)
 	{
 		QueueHostRenderWork([=]()
 			{
-				ReplaceRenderObject(ro_target, mesh);
+				ReplaceRenderObject(ro_target, mesh, material_indices);
 			});
 	}
 
@@ -1751,17 +1751,15 @@ namespace renderer
 #endif
 	}
 
-	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh)
+	void VulkanRenderer::ReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices)
 	{
 		// Either replace old mesh if it exists or create new one.
 		RenderObject* ro_ptr{ GetCurrentFrame().render_objects[ro_target] };
 		bool visible{ true };
-		std::vector<int> material_indices{ 0 };
 		uint32_t mesh_index{};
 		if (ro_ptr)
 		{
 			visible = ro_ptr->visible;
-			material_indices = ro_ptr->material_indices;
 			render_object_destroyer_.DestroyElement((uint32_t)ro_target);
 		}
 
@@ -1788,7 +1786,7 @@ namespace renderer
 			{
 				RenderObject* render_object{ new RenderObject{
 					.mesh_idx = mesh_index,
-					.material_indices = material_indices,
+					.material_indices = material_indices.empty() ? std::vector<int>{0} : material_indices,
 					.visible = visible,
 					.uniform_buffer = {
 						.transform = glm::mat4(1.0f),
@@ -1806,6 +1804,8 @@ namespace renderer
 				frame.render_objects[(size_t)ro_target] = nullptr;
 			}
 		}
+
+		UpdateMaterials();
 	}
 
 	uint32_t VulkanRenderer::MeshCount() const
