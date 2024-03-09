@@ -739,7 +739,7 @@ namespace renderer
 	const VulkanRenderer::FrameResources& VulkanRenderer::GetCurrentFrame() const
 	{
 		return frame_resources_[current_frame_];
-}
+	}
 
 	Extent VulkanRenderer::GetViewportExtent()
 	{
@@ -1269,8 +1269,7 @@ namespace renderer
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
 
-		rt_context_.QueueBlas(mesh);
-		rt_context_.CmdBuildQueuedBlases(cmd);
+		rt_context_.CmdBuildBlas(cmd, mesh);
 		vulkan_util_.Submit();
 
 		ReplaceRenderObject(ro_target, mesh);
@@ -1514,7 +1513,7 @@ namespace renderer
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
 #endif
-	}
+}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{
@@ -1657,6 +1656,12 @@ namespace renderer
 		}
 		host_render_work_queue_.clear();
 
+		if (should_update_object_buffers_)
+		{
+			should_update_object_buffers_ = false;
+			rt_context_.UpdateObjectBuffers(meshes_);
+		}
+
 		render_object_destroyer_.FrameUpdate();
 
 		if (should_update_materials_)
@@ -1773,7 +1778,7 @@ namespace renderer
 				meshes_[mesh_index] = mesh;
 			}
 
-			rt_context_.UpdateObjectBuffers(meshes_);
+			should_update_object_buffers_ = true;
 		}
 
 		// Replace old render object, referencing either new or replaced mesh.

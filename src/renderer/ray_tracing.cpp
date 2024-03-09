@@ -154,75 +154,19 @@ namespace renderer
 
 	void RayTracingContext::CmdBuildQueuedBlases(VkCommandBuffer cmd)
 	{
-		if (queued_blas_build_infos_.size() == 0) {
-			return;
-		}
+		CmdBuildBlases(cmd, queued_blas_build_infos_);
+	}
 
-		// Vector of arrays of geometry build range infos.
-		std::vector<std::vector<VkAccelerationStructureBuildRangeInfoKHR>> build_range_infos{};
-		std::vector<VkAccelerationStructureBuildGeometryInfoKHR> blas_build_infos{};
-		std::vector<std::vector<VkAccelerationStructureGeometryKHR>> all_vk_geometries{}; // Need to store in function scope so it isn't deallocated before build command.
-		all_vk_geometries.reserve(queued_blas_build_infos_.size()); // Needed so pointers don't become invalidated before calling build command.
+	void RayTracingContext::CmdBuildBlas(VkCommandBuffer cmd, Mesh* mesh)
+	{
+		QueuedBlasBuildInfo build_info{
+			.blas = &mesh->blas, // This BLAS will be populated later when build command is called.
+			.vk_geometries = PumpkinTriGeometriesToVulkanGeometries(mesh->geometries),
+			.build_ranges = GetGeometryBuildRanges(mesh->geometries),
+		};
+		std::vector<QueuedBlasBuildInfo> build_infos{ build_info };
 
-		for (const QueuedBlasBuildInfo& build_info : queued_blas_build_infos_)
-		{
-			build_range_infos.push_back(build_info.build_ranges);
-			all_vk_geometries.push_back(build_info.vk_geometries);
-
-			VkAccelerationStructureBuildGeometryInfoKHR blas_build_info{
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-				.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-				.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
-				.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
-				.srcAccelerationStructure = VK_NULL_HANDLE,
-				.dstAccelerationStructure = VK_NULL_HANDLE, // Populate this after getting acceleration structure size.
-				.geometryCount = (uint32_t)build_info.vk_geometries.size(),
-				.pGeometries = build_info.vk_geometries.data(),
-				.scratchData = {}, // Populate this after getting scratch buffer size.
-			};
-
-			// Extract primitive counts from build ranges.
-			std::vector<uint32_t> primitive_counts{};
-			primitive_counts.resize(build_info.build_ranges.size());
-			std::transform(build_info.build_ranges.begin(), build_info.build_ranges.end(), primitive_counts.begin(),
-				[](const VkAccelerationStructureBuildRangeInfoKHR& range) { return range.primitiveCount; });
-
-			VkAccelerationStructureBuildSizesInfoKHR build_sizes{ GetAccelerationStructureBuildSizes(blas_build_info, primitive_counts) };
-
-			BufferResource scratch_buffer{ allocator_->CreateAlignedBufferResource(
-				build_sizes.buildScratchSize, acceleration_structure_properties_.minAccelerationStructureScratchOffsetAlignment,
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
-			GetCurrentFrame().scratch_buffers_.push_back(scratch_buffer);
-			NameObject(context_->device, scratch_buffer.buffer, "Blas_Scratch_Buffer");
-
-			// We must create the BLAS before we can build it.
-			CreateAccelerationStructure(build_sizes.accelerationStructureSize, false, build_info.blas);
-			NameObject(context_->device, build_info.blas->acceleration_structure, "Blas");
-			NameObject(context_->device, build_info.blas->buffer_resource.buffer, "Blas_Buffer");
-
-			blas_build_info.dstAccelerationStructure = build_info.blas->acceleration_structure;
-			blas_build_info.scratchData.deviceAddress = DeviceAddress(context_->device, scratch_buffer.buffer);
-
-			blas_build_infos.push_back(blas_build_info);
-		}
-
-		// Convert vector of vectors into vector of C pointers.
-		std::vector<VkAccelerationStructureBuildRangeInfoKHR*> build_range_c_ptr_infos(build_range_infos.size());
-		std::transform(build_range_infos.begin(), build_range_infos.end(), build_range_c_ptr_infos.begin(),
-			[](std::vector<VkAccelerationStructureBuildRangeInfoKHR>& x) {
-				return x.data();
-			});
-
-		vkCmdBuildAccelerationStructuresKHR(cmd, (uint32_t)blas_build_infos.size(), blas_build_infos.data(), build_range_c_ptr_infos.data());
-
-		for (const QueuedBlasBuildInfo& build_info : queued_blas_build_infos_)
-		{
-			PipelineBarrier(cmd, build_info.blas->buffer_resource.buffer,
-				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-				VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
-		}
-		queued_blas_build_infos_.clear();
+		CmdBuildBlases(cmd, build_infos);
 	}
 
 	void RayTracingContext::CmdBuildQueuedTlases(VkCommandBuffer cmd)
@@ -1054,6 +998,79 @@ namespace renderer
 
 		raycast_descriptor_set_resource_.LinkBufferToBinding(RAYCASTS_BUFFER_BINDING, raycasts_buffer_);
 		raycast_descriptor_set_resource_.LinkBufferToBinding(RAYHITS_BUFFER_BINDING, rayhits_buffer_);
+	}
+
+	void RayTracingContext::CmdBuildBlases(VkCommandBuffer cmd, std::vector<QueuedBlasBuildInfo>& build_infos)
+	{
+		if (build_infos.size() == 0) {
+			return;
+		}
+
+		// Vector of arrays of geometry build range infos.
+		std::vector<std::vector<VkAccelerationStructureBuildRangeInfoKHR>> build_range_infos{};
+		std::vector<VkAccelerationStructureBuildGeometryInfoKHR> blas_build_infos{};
+		std::vector<std::vector<VkAccelerationStructureGeometryKHR>> all_vk_geometries{}; // Need to store in function scope so it isn't deallocated before build command.
+		all_vk_geometries.reserve(build_infos.size()); // Needed so pointers don't become invalidated before calling build command.
+
+		for (const QueuedBlasBuildInfo& build_info : build_infos)
+		{
+			build_range_infos.push_back(build_info.build_ranges);
+			all_vk_geometries.push_back(build_info.vk_geometries);
+
+			VkAccelerationStructureBuildGeometryInfoKHR blas_build_info{
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+				.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+				.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
+				.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+				.srcAccelerationStructure = VK_NULL_HANDLE,
+				.dstAccelerationStructure = VK_NULL_HANDLE, // Populate this after getting acceleration structure size.
+				.geometryCount = (uint32_t)build_info.vk_geometries.size(),
+				.pGeometries = build_info.vk_geometries.data(),
+				.scratchData = {}, // Populate this after getting scratch buffer size.
+			};
+
+			// Extract primitive counts from build ranges.
+			std::vector<uint32_t> primitive_counts{};
+			primitive_counts.resize(build_info.build_ranges.size());
+			std::transform(build_info.build_ranges.begin(), build_info.build_ranges.end(), primitive_counts.begin(),
+				[](const VkAccelerationStructureBuildRangeInfoKHR& range) { return range.primitiveCount; });
+
+			VkAccelerationStructureBuildSizesInfoKHR build_sizes{ GetAccelerationStructureBuildSizes(blas_build_info, primitive_counts) };
+
+			BufferResource scratch_buffer{ allocator_->CreateAlignedBufferResource(
+				build_sizes.buildScratchSize, acceleration_structure_properties_.minAccelerationStructureScratchOffsetAlignment,
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) };
+			GetCurrentFrame().scratch_buffers_.push_back(scratch_buffer);
+			NameObject(context_->device, scratch_buffer.buffer, "Blas_Scratch_Buffer");
+
+			// We must create the BLAS before we can build it.
+			CreateAccelerationStructure(build_sizes.accelerationStructureSize, false, build_info.blas);
+			NameObject(context_->device, build_info.blas->acceleration_structure, "Blas");
+			NameObject(context_->device, build_info.blas->buffer_resource.buffer, "Blas_Buffer");
+
+			blas_build_info.dstAccelerationStructure = build_info.blas->acceleration_structure;
+			blas_build_info.scratchData.deviceAddress = DeviceAddress(context_->device, scratch_buffer.buffer);
+
+			blas_build_infos.push_back(blas_build_info);
+		}
+
+		// Convert vector of vectors into vector of C pointers.
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR*> build_range_c_ptr_infos(build_range_infos.size());
+		std::transform(build_range_infos.begin(), build_range_infos.end(), build_range_c_ptr_infos.begin(),
+			[](std::vector<VkAccelerationStructureBuildRangeInfoKHR>& x) {
+				return x.data();
+			});
+
+		vkCmdBuildAccelerationStructuresKHR(cmd, (uint32_t)blas_build_infos.size(), blas_build_infos.data(), build_range_c_ptr_infos.data());
+
+		for (const QueuedBlasBuildInfo& build_info : build_infos)
+		{
+			PipelineBarrier(cmd, build_info.blas->buffer_resource.buffer,
+				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+				VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+		}
+		build_infos.clear();
 	}
 
 	void ShaderBindingTableBuilder::Initialize(Context* context, Allocator* allocator, VulkanUtil* vulkan_util, VkPhysicalDeviceRayTracingPipelinePropertiesKHR* rt_pipeline_properties)

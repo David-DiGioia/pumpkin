@@ -138,6 +138,9 @@ namespace renderer
 		// Includes pipeline barriers for BLAS buffers.
 		void CmdBuildQueuedBlases(VkCommandBuffer cmd);
 
+		// Build BLAS immediately, without adding it to the queue.
+		void CmdBuildBlas(VkCommandBuffer cmd, Mesh* mesh);
+
 		// Creates the TLAS objects populating the empty TLASes returned from QueueTlas(...) and writes the build
 		// commands into the command buffer.
 		// Includes pipeline barriers for TLAS buffers.
@@ -212,6 +215,10 @@ namespace renderer
 
 		void CreateAndLinkRaycastBuffers();
 
+		struct QueuedBlasBuildInfo;
+
+		void CmdBuildBlases(VkCommandBuffer cmd, std::vector<QueuedBlasBuildInfo>& build_infos);
+
 		struct QueuedBlasBuildInfo
 		{
 			// Allocate BLAS when it's added to queue so we can return that to caller to associate with the mesh, even though it won't yet be built.
@@ -239,9 +246,9 @@ namespace renderer
 		{
 			BufferResource camera_ubo_buffer;
 			DescriptorSetResource frame_descriptor_set_resource_{};
-			BufferResource instance_buffer_{}; // Store so we can delete it after the TLAS is built.
-			std::vector<BufferResource> scratch_buffers_{};                           // Store these so we can delete them after the acceleration structures are built.
-			std::vector<BufferResource> staging_buffers_{};                           // Store these so we can delete them after the acceleration structures are built.
+			BufferResource instance_buffer_{};              // Store so we can delete it after the TLAS is built.
+			std::vector<BufferResource> scratch_buffers_{}; // Store these so we can delete them after the acceleration structures are built.
+			std::vector<BufferResource> staging_buffers_{}; // Store these so we can delete them after the acceleration structures are built.
 		};
 
 		std::vector<QueuedBlasBuildInfo> queued_blas_build_infos_{};              // Info needed to build the BLASes when CmdBuildQueuedBlases(...) is called.

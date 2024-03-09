@@ -317,7 +317,7 @@ namespace renderer
 		std::vector<std::function<void()>> host_render_work_queue_{};   // Queued work to be done at the next HostRenderWork() invocation.
 		RenderObjectDestroyer render_object_destroyer_{};               // Render objects can't be destroyed while they're in use rendering in previous frame, so use special destroyer class.
 		bool should_update_materials_{};
-
+		bool should_update_object_buffers_{};
 
 		uint32_t current_frame_{};
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
