@@ -1513,7 +1513,7 @@ namespace renderer
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
 #endif
-}
+	}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{
@@ -1812,4 +1812,4 @@ namespace renderer
 	{
 		return (uint32_t)meshes_.size();
 	}
-	}
+}

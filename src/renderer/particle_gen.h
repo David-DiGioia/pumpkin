@@ -57,6 +57,10 @@ namespace renderer
 
 		bool IsEmpty(uint32_t voxel_idx) const;
 
+		bool IsEmpty(const glm::uvec3& voxel_coord) const;
+
+		bool InRange(const glm::uvec3& voxel_coord) const;
+
 		glm::uvec3 IndexToCoordinate(uint32_t index) const;
 
 		uint32_t CoordinateToIndex(const glm::uvec3& coord) const;
@@ -64,6 +68,8 @@ namespace renderer
 		std::vector<Voxel>& GetVoxels();
 
 		std::vector<uint8_t>& GetSideFlags();
+
+		const std::vector<glm::uvec3>& GetOuterVoxelIndices() const;
 
 	private:
 		// Helper function for calculating side flags.
@@ -75,6 +81,7 @@ namespace renderer
 		uint32_t width_height_slice_{};
 		std::vector<Voxel> voxels_{};
 		std::vector<uint8_t> side_flags_{};
+		std::vector<glm::uvec3> outer_voxel_coords_{}; // A list of the non-occluded voxels.
 	};
 
 	// Can convert static particles to this as a simplified stand-in for material point.

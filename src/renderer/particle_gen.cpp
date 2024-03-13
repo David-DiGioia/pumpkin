@@ -92,6 +92,14 @@ namespace renderer
 
 				side_flags_[CoordinateToIndex(coord)] = neighbors;
 			});
+
+		// Create list of outer voxels, for collision detection.
+		for (uint32_t i{ 0 }; i < (uint32_t)voxels_.size(); ++i)
+		{
+			if (!IsEmpty(i) && !IsOccluded(i)) {
+				outer_voxel_coords_.push_back(IndexToCoordinate(i));
+			}
+		}
 	}
 
 	Voxel& VoxelChunk::Coordinate(uint32_t i, uint32_t j, uint32_t k)
@@ -139,6 +147,16 @@ namespace renderer
 		return voxels_[voxel_idx].physics_material_index == PHYSICS_MATERIAL_EMPTY_INDEX;
 	}
 
+	bool VoxelChunk::IsEmpty(const glm::uvec3& voxel_coord) const
+	{
+		return IsEmpty(CoordinateToIndex(voxel_coord));
+	}
+
+	bool VoxelChunk::InRange(const glm::uvec3& voxel_coord) const
+	{
+		return (voxel_coord.x < width_) && (voxel_coord.y < height_) && (voxel_coord.z < depth_);
+	}
+
 	glm::uvec3 VoxelChunk::IndexToCoordinate(uint32_t index) const
 	{
 		uint32_t z{ index / width_height_slice_ };
@@ -163,10 +181,15 @@ namespace renderer
 		return side_flags_;
 	}
 
+	const std::vector<glm::uvec3>& VoxelChunk::GetOuterVoxelIndices() const
+	{
+		return outer_voxel_coords_;
+	}
+
 	bool VoxelChunk::NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset)
 	{
 		glm::uvec3 neighbor_coord = glm::ivec3{ coord } + offset;
-		return IsEmpty(CoordinateToIndex(neighbor_coord));
+		return !IsEmpty(neighbor_coord);
 	}
 
 	void ParticleGenContext::Initialize(Context* context, VulkanRenderer* renderer)

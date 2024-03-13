@@ -19,6 +19,7 @@ namespace pmk
 	void PhysicsContext::PhysicsUpdate(float delta_time)
 	{
 		particle_context_.PhysicsUpdate(delta_time);
+		rigid_body_context_.PhysicsUpdate(delta_time);
 	}
 
 	void PhysicsContext::EnablePhysicsUpdate()

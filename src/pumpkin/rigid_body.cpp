@@ -34,10 +34,17 @@ namespace pmk
 	{
 	}
 
+	void RigidBodyContext::PhysicsUpdate(float delta_time)
+	{
+		if (rigid_bodies_.size() >= 2)
+		{
+			uint32_t count{};
+			auto collision_pairs{ ComputeCollisionPairs(rigid_bodies_[0], rigid_bodies_[1], &count) };
+		}
+	}
+
 	void  RigidBodyContext::CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk)
 	{
-		rigid_bodies_.clear();
-
 		// Create a mask to quickly test if a static particle has a rigid body material.
 		std::vector<uint8_t> rigid_body_mask(physics_materials_->size());
 		std::transform(physics_materials_->begin(), physics_materials_->end(), rigid_body_mask.begin(),
@@ -70,6 +77,45 @@ namespace pmk
 				}
 			}
 		}
+	}
+
+	std::array<CollisionPair, MAX_COLLISION_PAIRS> RigidBodyContext::ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const
+	{
+		std::array<CollisionPair, MAX_COLLISION_PAIRS> collision_pairs{};
+		const RigidBody* small{ a }; // Rigid body with fewer outer voxels.
+		const RigidBody* big{ b };   // Rigid body with more outer voxels.
+
+		if (small->voxel_chunk.GetOuterVoxelIndices().size() > big->voxel_chunk.GetOuterVoxelIndices().size()) {
+			std::swap(small, big);
+		}
+
+		// TODO: Make this multithreaded.
+		uint32_t collision_pair_idx{ 0 };
+		for (const glm::uvec3& small_coord : small->voxel_chunk.GetOuterVoxelIndices())
+		{
+			glm::vec3 global_pos{ CoordinateToGlobal(*small, small_coord) };
+			glm::uvec3 big_coord{ GlobalToCoordinate(*big, global_pos) };
+
+			bool in_bounds{ big_coord.x != UINT_MAX };
+
+			if (in_bounds) {
+				//logger::Print("(%u, %u, %u)", big_coord.x, big_coord.y, big_coord.z);
+			}
+
+			if (in_bounds && !big->voxel_chunk.IsEmpty(big_coord))
+			{
+				collision_pairs[collision_pair_idx++] = CollisionPair{ small_coord, big_coord };
+
+				logger::Print(" Collision!\n");
+				if (collision_pair_idx == MAX_COLLISION_PAIRS) {
+					break;
+				}
+			}
+		}
+		//logger::Print("\n");
+
+		*out_count = collision_pair_idx;
+		return collision_pairs;
 	}
 
 	// Returns true when the given coordinate is inside the region that flood fill is filling.
@@ -202,6 +248,34 @@ namespace pmk
 		return density * PARTICLE_VOLUME;
 	}
 
+	glm::vec3 RigidBodyContext::CoordinateToGlobal(const RigidBody& rb, const glm::uvec3& voxel_coord) const
+	{
+		glm::vec3 local_space{ PARTICLE_WIDTH * glm::vec3{voxel_coord} };
+		local_space -= rb.center_of_mass * PARTICLE_WIDTH;
+		glm::vec4 world_space{ rb.node->GetWorldTransform() * glm::vec4{ local_space, 1.0f} };
+
+		return glm::vec3{ world_space };
+	}
+
+	glm::uvec3 RigidBodyContext::GlobalToCoordinate(const RigidBody& rb, const glm::vec3& global_pos) const
+	{
+		glm::vec3 coord_space{ glm::vec3{glm::inverse(rb.node->GetWorldTransform()) * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
+		coord_space += rb.center_of_mass;
+		// Voxel collision is offset by half a voxel so this undoes that. Since cubes are drawn centered around
+		// the particle position, not the bottom left. So taking the floor later would have collisions wrong by 1/2 voxel length.
+		coord_space += glm::vec3{ 0.5f };
+
+		//logger::Print("(%.4f, %.4f, %.4f)\n", coord_space.x, coord_space.y, coord_space.z);
+
+		// Casting to uint32_t rounds toward 0, which we avoid.
+		if (coord_space.x < 0.0f || coord_space.y < 0.0f || coord_space.z < 0.0f) {
+			return glm::uvec3{ UINT_MAX };
+		}
+
+		glm::uvec3 coord{ glm::uvec3{coord_space} };
+		return rb.voxel_chunk.InRange(coord) ? coord : glm::uvec3{ UINT_MAX };
+	}
+
 	void RigidBodyContext::CreateRigidBody(
 		const glm::uvec3& min_extents,
 		const glm::uvec3& max_extents,
@@ -230,7 +304,7 @@ namespace pmk
 
 		rigid_body->node->SetWorldPosition(PARTICLE_WIDTH * (glm::vec3{ min_extents } + rigid_body->center_of_mass));
 		scene_->AddRenderObjectToNode(rigid_body->node, renderer_->CreateBlankRenderObject());
-		renderer_->GenerateStaticParticleMesh(rigid_body->node->render_object, rigid_body->voxel_chunk, PARTICLE_WIDTH * center_of_mass);
+		renderer_->GenerateStaticParticleMesh(rigid_body->node->render_object, rigid_body->voxel_chunk, PARTICLE_WIDTH * rigid_body->center_of_mass);
 		rigid_bodies_.push_back(rigid_body);
 	}
 }
