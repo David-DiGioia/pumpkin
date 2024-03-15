@@ -25,6 +25,78 @@ namespace renderer
 	constexpr uint32_t PARTICLE_MESH_OUT_INDICES_BINDING{ 2 };
 	constexpr uint32_t PARTICLE_MESH_UBO_BINDING{ 3 };
 
+	static VoxelGeometricFeatureType GeometricFeaturesFromNeighbors(VoxelSidesFlagBits side_flags)
+	{
+		static VoxelGeometricFeatureType lut[64]{
+			VoxelGeometricFeatureType::CORNER,   // No neighbors.
+			VoxelGeometricFeatureType::CORNER,   // X_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, X_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // Y_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_POSITIVE, Y_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_NEGATIVE, Y_POSITIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, X_NEGATIVE, Y_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // Y_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_POSITIVE, Y_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_NEGATIVE, Y_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, X_NEGATIVE, Y_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // Y_POSITIVE, Y_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, Y_POSITIVE, Y_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE.
+			VoxelGeometricFeatureType::FACE,     // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // Z_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_POSITIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, X_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // Y_POSITIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_POSITIVE, Y_POSITIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_NEGATIVE, Y_POSITIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // Y_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_NEGATIVE, Y_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, X_NEGATIVE, Y_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::EDGE,     // Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::FACE,     // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			VoxelGeometricFeatureType::CORNER,   // Z_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, X_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // Y_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_POSITIVE, Y_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_NEGATIVE, Y_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // Y_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::CORNER,   // X_NEGATIVE, Y_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, X_NEGATIVE, Y_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // Y_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, Y_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::FACE,     // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::FACE,     // X_POSITIVE, X_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // Y_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, Y_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_NEGATIVE, Y_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::FACE,     // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::EDGE,     // X_NEGATIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::FACE,     // X_POSITIVE, X_NEGATIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::FACE,     // Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::FACE,     // X_POSITIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::FACE,     // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			VoxelGeometricFeatureType::INTERIOR, // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+		};
+
+		return lut[(uint8_t)side_flags];
+	}
+
 	std::vector<MaterialRange> ParticleGenContext::GetMaterialRanges()
 	{
 		return mat_ranges_;
@@ -70,24 +142,24 @@ namespace renderer
 
 				// X-axis neighbors.
 				if (coord.x != width_ - 1 && NeighborOccupied(coord, glm::ivec3(1, 0, 0))) {
-					neighbors |= (uint8_t)ParticleSidesFlagBits::X_POSITIVE;
+					neighbors |= (uint8_t)VoxelSidesFlagBits::X_POSITIVE;
 				}
 				if (coord.x != 0 && NeighborOccupied(coord, glm::ivec3(-1, 0, 0))) {
-					neighbors |= (uint8_t)ParticleSidesFlagBits::X_NEGATIVE;
+					neighbors |= (uint8_t)VoxelSidesFlagBits::X_NEGATIVE;
 				}
 				// Y-axis neighbors.
 				if (coord.y != height_ - 1 && NeighborOccupied(coord, glm::ivec3(0, 1, 0))) {
-					neighbors |= (uint8_t)ParticleSidesFlagBits::Y_POSITIVE;
+					neighbors |= (uint8_t)VoxelSidesFlagBits::Y_POSITIVE;
 				}
 				if (coord.y != 0 && NeighborOccupied(coord, glm::ivec3(0, -1, 0))) {
-					neighbors |= (uint8_t)ParticleSidesFlagBits::Y_NEGATIVE;
+					neighbors |= (uint8_t)VoxelSidesFlagBits::Y_NEGATIVE;
 				}
 				// Y-axis neighbors.
 				if (coord.z != depth_ - 1 && NeighborOccupied(coord, glm::ivec3(0, 0, 1))) {
-					neighbors |= (uint8_t)ParticleSidesFlagBits::Z_POSITIVE;
+					neighbors |= (uint8_t)VoxelSidesFlagBits::Z_POSITIVE;
 				}
 				if (coord.z != 0 && NeighborOccupied(coord, glm::ivec3(0, 0, -1))) {
-					neighbors |= (uint8_t)ParticleSidesFlagBits::Z_NEGATIVE;
+					neighbors |= (uint8_t)VoxelSidesFlagBits::Z_NEGATIVE;
 				}
 
 				side_flags_[CoordinateToIndex(coord)] = neighbors;
@@ -139,7 +211,7 @@ namespace renderer
 
 	bool VoxelChunk::IsOccluded(uint32_t voxel_idx) const
 	{
-		return side_flags_[voxel_idx] == (uint8_t)ParticleSidesFlagBits::ALL_SIDES;
+		return side_flags_[voxel_idx] == (uint8_t)VoxelSidesFlagBits::ALL_SIDES;
 	}
 
 	bool VoxelChunk::IsEmpty(uint32_t voxel_idx) const
@@ -152,7 +224,7 @@ namespace renderer
 		return IsEmpty(CoordinateToIndex(voxel_coord));
 	}
 
-	bool VoxelChunk::InRange(const glm::uvec3& voxel_coord) const
+	bool VoxelChunk::InBounds(const glm::uvec3& voxel_coord) const
 	{
 		return (voxel_coord.x < width_) && (voxel_coord.y < height_) && (voxel_coord.z < depth_);
 	}
@@ -186,7 +258,40 @@ namespace renderer
 		return outer_voxel_coords_;
 	}
 
-	bool VoxelChunk::NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset)
+	std::array<glm::uvec3, 8> VoxelChunk::GetPotentialCollisions(const glm::vec3& coord_space, uint32_t* potential_collision_count) const
+	{
+		glm::vec3 fract{ glm::fract(coord_space) };
+		glm::ivec3 coord{ glm::ivec3{glm::floor(coord_space + 0.5f)} };
+		int32_t x_offset{ fract.x < 0.5 ? 1 : -1 };
+		int32_t y_offset{ fract.y < 0.5 ? 1 : -1 };
+		int32_t z_offset{ fract.z < 0.5 ? 1 : -1 };
+
+		// Implicity cast each ivec3 to uvec3, intentionally underflowing all negative integers since they're out of bounds.
+		glm::uvec3 out_candidates[8]{
+			coord,
+			coord + glm::ivec3{0, 0, z_offset},
+			coord + glm::ivec3{0, y_offset, 0},
+			coord + glm::ivec3{0, y_offset, z_offset},
+			coord + glm::ivec3{x_offset, 0, 0},
+			coord + glm::ivec3{x_offset, 0, z_offset},
+			coord + glm::ivec3{x_offset, y_offset, 0},
+			coord + glm::ivec3{x_offset, y_offset, z_offset},
+		};
+
+		std::array<glm::uvec3, 8> out_coordinates{};
+		uint32_t i{ 0 };
+		for (const glm::uvec3& candidate : out_candidates)
+		{
+			if (InBounds(candidate) && !IsEmpty(candidate)) {
+				out_coordinates[i++] = candidate;
+			}
+		}
+
+		*potential_collision_count = i;
+		return out_coordinates;
+	}
+
+	bool VoxelChunk::NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset) const
 	{
 		glm::uvec3 neighbor_coord = glm::ivec3{ coord } + offset;
 		return !IsEmpty(neighbor_coord);
@@ -409,7 +514,7 @@ namespace renderer
 
 		// Create and link neighbor out-buffer.
 		particle_neighbors_.neighbor_out_buffer = renderer_->allocator_.CreateBufferResource(
-			sizeof(ParticleSidesFlagBits) * CHUNK_TOTAL_VOXEL_COUNT,
+			sizeof(VoxelSidesFlagBits) * CHUNK_TOTAL_VOXEL_COUNT,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		NameObject(context_->device, particle_neighbors_.neighbor_out_buffer.buffer, "Neighbor_Out_Buffer");
@@ -618,7 +723,7 @@ namespace renderer
 
 			renderer_->ReplaceRenderObjectAndBuildBlas(ro_target, mesh, render_mat_indices);
 		}
-	}
+}
 
 	void ParticleGenContext::SetPhysicsToRenderMaterialMap(std::vector<int>&& physics_to_render_mat_idx)
 	{
@@ -827,7 +932,8 @@ namespace renderer
 #else
 				uint32_t idx{ range.physics_material_index };
 #endif
-				return physics_to_render_mat_idx_[idx];			});
+				return physics_to_render_mat_idx_[idx];
+			});
 
 		// Do not replace render object yet since last frame's resources are still in use. We do it during VulkanRenderer::HostRenderWork().
 		renderer_->QueueReplaceRenderObject(ro_target, mesh, std::move(render_mat_indices));
@@ -998,7 +1104,7 @@ namespace renderer
 		return nullptr;
 	}
 
-	void StaticParticleMeshGenerator::GenerateSide(ParticleSidesFlagBits side, const std::vector<Voxel>& particles, const std::vector<uint8_t>& side_flags)
+	void StaticParticleMeshGenerator::GenerateSide(VoxelSidesFlagBits side, const std::vector<Voxel>& particles, const std::vector<uint8_t>& side_flags)
 	{
 		/*
 		rectangle_indices_.resize(CHUNK_ROW_VOXEL_COUNT, NULL_INDEX);
@@ -1081,7 +1187,7 @@ namespace renderer
 		*/
 	}
 
-	void StaticParticleMeshGenerator::TriangulateRectangle(ParticleSidesFlagBits side, uint32_t rect_idx, uint32_t vertical, uint32_t depth)
+	void StaticParticleMeshGenerator::TriangulateRectangle(VoxelSidesFlagBits side, uint32_t rect_idx, uint32_t vertical, uint32_t depth)
 	{
 		float left{ (float)rectangles_[rect_idx].start_h };
 		float right{ (float)rectangles_[rect_idx].end_h + 1 }; // Add one since triangle ends at rightmost edge of the block.
@@ -1095,30 +1201,30 @@ namespace renderer
 		bool switch_winding_order{}; // Need to switch winding order if z-coordinate is horizontal or vertical.
 		switch (side)
 		{
-		case ParticleSidesFlagBits::X_POSITIVE:
+		case VoxelSidesFlagBits::X_POSITIVE:
 			++depth;
 			[[fallthrough]];
-		case ParticleSidesFlagBits::X_NEGATIVE:
+		case VoxelSidesFlagBits::X_NEGATIVE:
 			top_left = { {     (float)depth, top,    left,  0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
 			top_right = { {    (float)depth, top,    right, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
 			bottom_right = { { (float)depth, bottom, right, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
 			bottom_left = { {  (float)depth, bottom, left,  0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
 			switch_winding_order = true;
 			break;
-		case ParticleSidesFlagBits::Y_POSITIVE:
+		case VoxelSidesFlagBits::Y_POSITIVE:
 			++depth;
 			[[fallthrough]];
-		case ParticleSidesFlagBits::Y_NEGATIVE:
+		case VoxelSidesFlagBits::Y_NEGATIVE:
 			top_left = { {     left,  (float)depth, top,    0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
 			top_right = { {    right, (float)depth, top,    0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
 			bottom_right = { { right, (float)depth, bottom, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
 			bottom_left = { {  left,  (float)depth, bottom, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f} };
 			switch_winding_order = true;
 			break;
-		case ParticleSidesFlagBits::Z_POSITIVE:
+		case VoxelSidesFlagBits::Z_POSITIVE:
 			++depth;
 			[[fallthrough]];
-		case ParticleSidesFlagBits::Z_NEGATIVE:
+		case VoxelSidesFlagBits::Z_NEGATIVE:
 			top_left = { {     left,  top,    (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
 			top_right = { {    right, top,    (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
 			bottom_right = { { right, bottom, (float)depth, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f} };
@@ -1158,21 +1264,21 @@ namespace renderer
 		}
 	}
 
-	uint32_t& StaticParticleMeshGenerator::GetHorizontalReference(ParticleSidesFlagBits side)
+	uint32_t& StaticParticleMeshGenerator::GetHorizontalReference(VoxelSidesFlagBits side)
 	{
 		switch (side)
 		{
-		case ParticleSidesFlagBits::X_POSITIVE:
+		case VoxelSidesFlagBits::X_POSITIVE:
 			return z_;
-		case ParticleSidesFlagBits::X_NEGATIVE:
+		case VoxelSidesFlagBits::X_NEGATIVE:
 			return z_;
-		case ParticleSidesFlagBits::Y_POSITIVE:
+		case VoxelSidesFlagBits::Y_POSITIVE:
 			return x_;
-		case ParticleSidesFlagBits::Y_NEGATIVE:
+		case VoxelSidesFlagBits::Y_NEGATIVE:
 			return x_;
-		case ParticleSidesFlagBits::Z_POSITIVE:
+		case VoxelSidesFlagBits::Z_POSITIVE:
 			return x_;
-		case ParticleSidesFlagBits::Z_NEGATIVE:
+		case VoxelSidesFlagBits::Z_NEGATIVE:
 			return x_;
 		}
 
@@ -1180,21 +1286,21 @@ namespace renderer
 		return x_;
 	}
 
-	uint32_t& StaticParticleMeshGenerator::GetVerticalReference(ParticleSidesFlagBits side)
+	uint32_t& StaticParticleMeshGenerator::GetVerticalReference(VoxelSidesFlagBits side)
 	{
 		switch (side)
 		{
-		case ParticleSidesFlagBits::X_POSITIVE:
+		case VoxelSidesFlagBits::X_POSITIVE:
 			return y_;
-		case ParticleSidesFlagBits::X_NEGATIVE:
+		case VoxelSidesFlagBits::X_NEGATIVE:
 			return y_;
-		case ParticleSidesFlagBits::Y_POSITIVE:
+		case VoxelSidesFlagBits::Y_POSITIVE:
 			return z_;
-		case ParticleSidesFlagBits::Y_NEGATIVE:
+		case VoxelSidesFlagBits::Y_NEGATIVE:
 			return z_;
-		case ParticleSidesFlagBits::Z_POSITIVE:
+		case VoxelSidesFlagBits::Z_POSITIVE:
 			return y_;
-		case ParticleSidesFlagBits::Z_NEGATIVE:
+		case VoxelSidesFlagBits::Z_NEGATIVE:
 			return y_;
 		}
 
@@ -1202,21 +1308,21 @@ namespace renderer
 		return x_;
 	}
 
-	uint32_t& StaticParticleMeshGenerator::GetDepthReference(ParticleSidesFlagBits side)
+	uint32_t& StaticParticleMeshGenerator::GetDepthReference(VoxelSidesFlagBits side)
 	{
 		switch (side)
 		{
-		case ParticleSidesFlagBits::X_POSITIVE:
+		case VoxelSidesFlagBits::X_POSITIVE:
 			return x_;
-		case ParticleSidesFlagBits::X_NEGATIVE:
+		case VoxelSidesFlagBits::X_NEGATIVE:
 			return x_;
-		case ParticleSidesFlagBits::Y_POSITIVE:
+		case VoxelSidesFlagBits::Y_POSITIVE:
 			return y_;
-		case ParticleSidesFlagBits::Y_NEGATIVE:
+		case VoxelSidesFlagBits::Y_NEGATIVE:
 			return y_;
-		case ParticleSidesFlagBits::Z_POSITIVE:
+		case VoxelSidesFlagBits::Z_POSITIVE:
 			return z_;
-		case ParticleSidesFlagBits::Z_NEGATIVE:
+		case VoxelSidesFlagBits::Z_NEGATIVE:
 			return z_;
 		}
 

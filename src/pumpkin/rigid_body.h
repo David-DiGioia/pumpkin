@@ -66,8 +66,9 @@ namespace pmk
 		// Convert voxel coordinate to world space position.
 		glm::vec3 CoordinateToGlobal(const RigidBody& rb, const glm::uvec3& voxel_coord) const;
 
-		// Convert world space position to voxel coordinate.
-		glm::uvec3 GlobalToCoordinate(const RigidBody& rb, const glm::vec3& global_pos) const;
+		// Given voxel world space position, get the voxel coordinate from rb that collides with it.
+		// Returns UINT_MAX if no solution.
+		glm::uvec3 GetCollisionCoordinate(const RigidBody& rb, const glm::vec3& global_pos) const;
 
 		void CreateRigidBody(
 			const glm::uvec3& min_extents,

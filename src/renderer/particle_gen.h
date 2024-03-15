@@ -11,8 +11,8 @@ namespace renderer
 {
 	class VulkanRenderer;
 
-	// Encodes whether each of the 6 particle neighbors are occupied or not.
-	enum class ParticleSidesFlagBits : uint8_t
+	// Encodes whether each of the 6 voxel neighbors are occupied or not.
+	enum class VoxelSidesFlagBits : uint8_t
 	{
 		X_POSITIVE = 0x01,
 		X_NEGATIVE = 0x02,
@@ -21,6 +21,15 @@ namespace renderer
 		Z_POSITIVE = 0x10,
 		Z_NEGATIVE = 0x20,
 		ALL_SIDES = 0x3F,
+	};
+
+	// Each voxel in a rigid body can be labeled based on its neighbors which is useful for collision detection. 
+	enum class VoxelGeometricFeatureType : uint8_t
+	{
+		INTERIOR,
+		CORNER,
+		EDGE,
+		FACE,
 	};
 
 	// Defined in renderer instead of Pumpkin since it's used in particle_gen.cpp.
@@ -59,7 +68,7 @@ namespace renderer
 
 		bool IsEmpty(const glm::uvec3& voxel_coord) const;
 
-		bool InRange(const glm::uvec3& voxel_coord) const;
+		bool InBounds(const glm::uvec3& voxel_coord) const;
 
 		glm::uvec3 IndexToCoordinate(uint32_t index) const;
 
@@ -71,9 +80,13 @@ namespace renderer
 
 		const std::vector<glm::uvec3>& GetOuterVoxelIndices() const;
 
+		// Given a voxel-sized particle in coordinate space (one unit is one voxel width) return all possible voxels in the chunk that could collide with it.
+		// This means the voxels that are a close enough distance and not empty.
+		std::array<glm::uvec3, 8> GetPotentialCollisions(const glm::vec3& coord_space, uint32_t* potential_collision_count) const;
+
 	private:
 		// Helper function for calculating side flags.
-		bool NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset);
+		bool NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset) const;
 
 		uint32_t width_{};
 		uint32_t height_{};
@@ -113,9 +126,9 @@ namespace renderer
 		};
 
 		// Generate a single side of all the voxels. Will need to be called 6 times for full mesh generation.
-		void GenerateSide(ParticleSidesFlagBits side, const std::vector<Voxel>& particles, const std::vector<uint8_t>& side_flags);
+		void GenerateSide(VoxelSidesFlagBits side, const std::vector<Voxel>& particles, const std::vector<uint8_t>& side_flags);
 
-		void TriangulateRectangle(ParticleSidesFlagBits side, uint32_t rect_idx, uint32_t vertical, uint32_t depth);
+		void TriangulateRectangle(VoxelSidesFlagBits side, uint32_t rect_idx, uint32_t vertical, uint32_t depth);
 
 		// Clear indices to a rectangle in rectangles_ between rectangle's start and end.
 		void ClearRectangleIndices(uint32_t rect_idx);
@@ -124,13 +137,13 @@ namespace renderer
 		void SetRectangleIndices(uint32_t rect_idx);
 
 		// Get reference to chunk coordinate currently acting as the horizontal access.
-		uint32_t& GetHorizontalReference(ParticleSidesFlagBits side);
+		uint32_t& GetHorizontalReference(VoxelSidesFlagBits side);
 
 		// Get reference to chunk coordinate currently acting as the vertical access.
-		uint32_t& GetVerticalReference(ParticleSidesFlagBits side);
+		uint32_t& GetVerticalReference(VoxelSidesFlagBits side);
 
 		// Get reference to chunk coordinate currently acting as the depth access.
-		uint32_t& GetDepthReference(ParticleSidesFlagBits side);
+		uint32_t& GetDepthReference(VoxelSidesFlagBits side);
 
 		std::vector<uint32_t> rectangle_indices_{};  // rectangle_indices[j] contains the index into x_positive_partial_rectangles which contains this coordinate in its range. Otherwise contains null index.
 		std::vector<Rectangle> rectangles_{};        // The WIP rectangles that have not been triangulated yet.

@@ -94,13 +94,9 @@ namespace pmk
 		for (const glm::uvec3& small_coord : small->voxel_chunk.GetOuterVoxelIndices())
 		{
 			glm::vec3 global_pos{ CoordinateToGlobal(*small, small_coord) };
-			glm::uvec3 big_coord{ GlobalToCoordinate(*big, global_pos) };
+			glm::uvec3 big_coord{ GetCollisionCoordinate(*big, global_pos) };
 
 			bool in_bounds{ big_coord.x != UINT_MAX };
-
-			if (in_bounds) {
-				//logger::Print("(%u, %u, %u)", big_coord.x, big_coord.y, big_coord.z);
-			}
 
 			if (in_bounds && !big->voxel_chunk.IsEmpty(big_coord))
 			{
@@ -112,7 +108,6 @@ namespace pmk
 				}
 			}
 		}
-		//logger::Print("\n");
 
 		*out_count = collision_pair_idx;
 		return collision_pairs;
@@ -257,23 +252,23 @@ namespace pmk
 		return glm::vec3{ world_space };
 	}
 
-	glm::uvec3 RigidBodyContext::GlobalToCoordinate(const RigidBody& rb, const glm::vec3& global_pos) const
+	glm::uvec3 RigidBodyContext::GetCollisionCoordinate(const RigidBody& rb, const glm::vec3& global_pos) const
 	{
 		glm::vec3 coord_space{ glm::vec3{glm::inverse(rb.node->GetWorldTransform()) * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
 		coord_space += rb.center_of_mass;
-		// Voxel collision is offset by half a voxel so this undoes that. Since cubes are drawn centered around
-		// the particle position, not the bottom left. So taking the floor later would have collisions wrong by 1/2 voxel length.
-		coord_space += glm::vec3{ 0.5f };
 
-		//logger::Print("(%.4f, %.4f, %.4f)\n", coord_space.x, coord_space.y, coord_space.z);
+		uint32_t potential_collision_count{};
+		std::array<glm::uvec3, 8> potential_collisions{ rb.voxel_chunk.GetPotentialCollisions(coord_space, &potential_collision_count) };
 
-		// Casting to uint32_t rounds toward 0, which we avoid.
-		if (coord_space.x < 0.0f || coord_space.y < 0.0f || coord_space.z < 0.0f) {
-			return glm::uvec3{ UINT_MAX };
+		for (uint32_t i{ 0 }; i < potential_collision_count; ++i)
+		{
+			// Check if it's less than one since we are coord space, where 1 voxel width is 1 unit.
+			if (glm::distance2(coord_space, glm::vec3{ potential_collisions[i] }) <= 1.0f) {
+				return potential_collisions[i];
+			}
 		}
 
-		glm::uvec3 coord{ glm::uvec3{coord_space} };
-		return rb.voxel_chunk.InRange(coord) ? coord : glm::uvec3{ UINT_MAX };
+		return glm::uvec3{ UINT_MAX };
 	}
 
 	void RigidBodyContext::CreateRigidBody(
