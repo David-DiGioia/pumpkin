@@ -291,6 +291,21 @@ namespace renderer
 		return out_coordinates;
 	}
 
+	uint32_t VoxelChunk::GetWidth() const
+	{
+		return width_;
+	}
+
+	uint32_t VoxelChunk::GetHeight() const
+	{
+		return height_;
+	}
+
+	uint32_t VoxelChunk::GetDepth() const
+	{
+		return depth_;
+	}
+
 	bool VoxelChunk::NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset) const
 	{
 		glm::uvec3 neighbor_coord = glm::ivec3{ coord } + offset;

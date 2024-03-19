@@ -3,13 +3,14 @@
 
 #include <vector>
 #include "glm/glm.hpp"
+#include "glm/gtc/quaternion.hpp"
 
 #include "vulkan_renderer.h"
 #include "constitutive_model.h"
 
 namespace pmk
 {
-	constexpr uint32_t MAX_COLLISION_PAIRS{ 4 }; // Maximum collision pairs between two voxel objects.
+	constexpr uint32_t MAX_COLLISION_PAIRS{ 1 }; // Maximum collision pairs between two voxel objects.
 
 	class RigidBodyModel : public ConstitutiveModel
 	{
@@ -27,10 +28,15 @@ namespace pmk
 
 	struct RigidBody
 	{
-		Node* node;               // Rigid body transform is stored in node.
-		float mass;               // In kilograms.
-		glm::vec3 center_of_mass; // Relative to voxel coordinates.
+		Node* node;                 // Rigid body transform is stored in node.
+		float mass;                 // In kilograms.
+		glm::vec3 center_of_mass;   // Relative to voxel coordinates.
+		glm::mat3 inertia_tensor;   // In kilogram meter squared.
+		glm::vec3 velocity;         // In meters per second.
+		glm::vec3 angular_momentum; // In kilogram meter squared per second.
 
+		glm::vec3 previous_position;
+		glm::quat previous_rotation;
 		renderer::VoxelChunk voxel_chunk;
 	};
 
@@ -59,6 +65,8 @@ namespace pmk
 		std::array<CollisionPair, MAX_COLLISION_PAIRS> ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const;
 
 	private:
+		void SolvePositions(float h);
+
 		void RigidBodyFloodFill(const glm::uvec3& coordinate, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask);
 
 		float GetVoxelMass(uint32_t physics_material_index) const;
@@ -69,6 +77,8 @@ namespace pmk
 		// Given voxel world space position, get the voxel coordinate from rb that collides with it.
 		// Returns UINT_MAX if no solution.
 		glm::uvec3 GetCollisionCoordinate(const RigidBody& rb, const glm::vec3& global_pos) const;
+
+		glm::mat3 ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass);
 
 		void CreateRigidBody(
 			const glm::uvec3& min_extents,

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <queue>
 #include <execution>
+#include "glm/gtc/quaternion.hpp"
 
 #include "scene.h"
 
@@ -36,10 +37,43 @@ namespace pmk
 
 	void RigidBodyContext::PhysicsUpdate(float delta_time)
 	{
-		if (rigid_bodies_.size() >= 2)
+		constexpr uint32_t substeps{ 2 };
+		//constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
+		constexpr glm::vec3 gravity{ 0.0f, 0.0f, 0.0f };
+
+		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
+		if (rigid_bodies_.size() != 2) {
+			return;
+		}
+
+		float h{ delta_time / substeps };
+		for (uint32_t i{ 0 }; i < substeps; ++i)
 		{
-			uint32_t count{};
-			auto collision_pairs{ ComputeCollisionPairs(rigid_bodies_[0], rigid_bodies_[1], &count) };
+			for (RigidBody* rb : rigid_bodies_)
+			{
+				rb->previous_position = rb->node->position;
+				rb->velocity += h * gravity;
+				rb->node->position += h * rb->velocity;
+
+				rb->previous_rotation = rb->node->rotation;
+				rb->angular_momentum += h * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_momentum, rb->inertia_tensor * rb->angular_momentum));
+				rb->node->rotation += h * 0.5f * glm::quat{ rb->angular_momentum.x, rb->angular_momentum.y, rb->angular_momentum.z, 0.0f } *rb->node->rotation;
+				rb->node->rotation = glm::normalize(rb->node->rotation);
+			}
+
+			SolvePositions(h);
+
+			for (RigidBody* rb : rigid_bodies_)
+			{
+				rb->velocity = (rb->node->position - rb->previous_position) / h;
+				glm::quat delta_q{ rb->node->rotation * glm::inverse(rb->previous_rotation) };
+				rb->angular_momentum = 2.0f * glm::vec3{ delta_q.x, delta_q.y, delta_q.z } / h;
+				if (delta_q.w < 0) {
+					rb->angular_momentum = -rb->angular_momentum;
+				}
+			}
+
+			//SolveVelocities();
 		}
 	}
 
@@ -77,6 +111,11 @@ namespace pmk
 				}
 			}
 		}
+
+		// TODO: Delete this.
+		if (rigid_bodies_.size() == 2) {
+			rigid_bodies_[1]->velocity = glm::vec3{ 0.3f, 0.0f, 0.0f };
+		}
 	}
 
 	std::array<CollisionPair, MAX_COLLISION_PAIRS> RigidBodyContext::ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const
@@ -85,8 +124,11 @@ namespace pmk
 		const RigidBody* small{ a }; // Rigid body with fewer outer voxels.
 		const RigidBody* big{ b };   // Rigid body with more outer voxels.
 
-		if (small->voxel_chunk.GetOuterVoxelIndices().size() > big->voxel_chunk.GetOuterVoxelIndices().size()) {
+		bool ab_swap{ false };
+		if (small->voxel_chunk.GetOuterVoxelIndices().size() > big->voxel_chunk.GetOuterVoxelIndices().size())
+		{
 			std::swap(small, big);
+			ab_swap = true;
 		}
 
 		// TODO: Make this multithreaded.
@@ -100,7 +142,7 @@ namespace pmk
 
 			if (in_bounds && !big->voxel_chunk.IsEmpty(big_coord))
 			{
-				collision_pairs[collision_pair_idx++] = CollisionPair{ small_coord, big_coord };
+				collision_pairs[collision_pair_idx++] = ab_swap ? CollisionPair{ big_coord, small_coord } : CollisionPair{ small_coord, big_coord };
 
 				logger::Print(" Collision!\n");
 				if (collision_pair_idx == MAX_COLLISION_PAIRS) {
@@ -114,7 +156,7 @@ namespace pmk
 	}
 
 	// Returns true when the given coordinate is inside the region that flood fill is filling.
-	bool FloodFillInside(const glm::uvec3& coord, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask)
+	static bool FloodFillInside(const glm::uvec3& coord, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask)
 	{
 		// We only check upper condition since negative uints will overflow anyway.
 		bool x_out_bounds{ coord.x >= CHUNK_ROW_VOXEL_COUNT };
@@ -137,7 +179,7 @@ namespace pmk
 		return idx == renderer::PHYSICS_MATERIAL_EMPTY_INDEX ? false : material_mask[idx];
 	}
 
-	renderer::Voxel FloodFillSet(uint32_t idx, renderer::VoxelChunk& voxel_chunk)
+	static renderer::Voxel FloodFillSet(uint32_t idx, renderer::VoxelChunk& voxel_chunk)
 	{
 		renderer::Voxel voxel{
 			.physics_material_index = voxel_chunk.Index(idx).physics_material_index
@@ -146,7 +188,7 @@ namespace pmk
 		return voxel;
 	}
 
-	void FloodFillScan(
+	static void FloodFillScan(
 		uint32_t lx,
 		uint32_t rx,
 		uint32_t y,
@@ -170,6 +212,65 @@ namespace pmk
 		}
 	}
 
+	void RigidBodyContext::SolvePositions(float h)
+	{
+		constexpr float compliance{ 0.0f };
+
+		constexpr float alpha{ compliance };
+		float alpha_tilde{ alpha / (h * h) };
+
+		RigidBody* rb_a{ rigid_bodies_[0] };
+		RigidBody* rb_b{ rigid_bodies_[1] };
+
+		uint32_t count{};
+		auto collision_pairs{ ComputeCollisionPairs(rb_a, rb_b, &count) };
+
+		for (uint32_t i{ 0 }; i < count; ++i)
+		{
+			CollisionPair& cp{ collision_pairs[i] };
+			// Local position of voxel centers.
+			glm::vec3 r1{ ((glm::vec3)cp.coordinate_a - rb_a->center_of_mass) * PARTICLE_WIDTH };
+			glm::vec3 r2{ ((glm::vec3)cp.coordinate_b - rb_b->center_of_mass) * PARTICLE_WIDTH };
+
+			// World position of voxel centers.
+			glm::vec3 world_pos_a{ glm::vec3{rb_a->node->GetWorldTransform() * glm::vec4{r1, 1.0f}} };
+			glm::vec3 world_pos_b{ glm::vec3{rb_b->node->GetWorldTransform() * glm::vec4{r2, 1.0f}} };
+
+			glm::vec3 delta_x{ world_pos_b - world_pos_a };
+			float c{ glm::length(delta_x) };
+			glm::vec3 n{ delta_x / c };
+			c = std::fabsf(c - PARTICLE_WIDTH); // Distance between sphere surfaces instead of sphere centers.
+
+			// Change r1 and r2 to be points on surface of sphere instead of center.
+			world_pos_a += n * PARTICLE_RADIUS;
+			world_pos_b -= n * PARTICLE_RADIUS;
+			r1 = (glm::vec3)(glm::inverse(rb_a->node->GetWorldTransform()) * glm::vec4{ world_pos_a, 1.0f });
+			r2 = (glm::vec3)(glm::inverse(rb_b->node->GetWorldTransform()) * glm::vec4{ world_pos_b, 1.0f });
+
+			float m1{ GetVoxelMass(rb_a->voxel_chunk.Coordinate(cp.coordinate_a).physics_material_index) };
+			float m2{ GetVoxelMass(rb_b->voxel_chunk.Coordinate(cp.coordinate_b).physics_material_index) };
+			glm::vec3 r1_cross_n{ glm::cross(r1, n) };
+			glm::vec3 r2_cross_n{ glm::cross(r2, n) };
+			glm::mat3 inertia_tensor_inv_a{ glm::inverse(rb_a->inertia_tensor) };
+			glm::mat3 inertia_tensor_inv_b{ glm::inverse(rb_b->inertia_tensor) };
+			float w1{ (1.0f / m1) + glm::dot(r1_cross_n, inertia_tensor_inv_a * r1_cross_n) };
+			float w2{ (1.0f / m2) + glm::dot(r2_cross_n, inertia_tensor_inv_b * r2_cross_n) };
+
+			float lambda{ 0.0f };
+			float delta_lambda{ (-c - alpha_tilde * lambda) / (w1 + w2 + alpha_tilde) };
+			lambda += delta_lambda;
+
+			glm::vec3 p{ delta_lambda * n };
+
+			rb_a->node->position += p / m1;
+			rb_b->node->position -= p / m2;
+			glm::vec3 tmp1{ inertia_tensor_inv_a * glm::cross(r1, p) };
+			glm::vec3 tmp2{ inertia_tensor_inv_b * glm::cross(r2, p) };
+			rb_a->node->rotation += 0.5f * glm::quat{ tmp1.x, tmp1.y, tmp1.z, 0.0f } *rb_a->node->rotation;
+			rb_b->node->rotation -= 0.5f * glm::quat{ tmp2.x, tmp2.y, tmp2.z, 0.0f } *rb_b->node->rotation;
+		}
+	}
+
 	// Creates rigid body based on connected voxels, and adds to rigid_bodies_.
 	void RigidBodyContext::RigidBodyFloodFill(const glm::uvec3& coordinate, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask)
 	{
@@ -177,6 +278,7 @@ namespace pmk
 		glm::uvec3 min_extents{ UINT_MAX, UINT_MAX, UINT_MAX };
 		glm::uvec3 max_extents{};
 		glm::vec3 center_of_mass{};
+		glm::mat3 intertia_tensor{};
 		float rigid_body_mass{};
 		std::queue<glm::uvec3> queue{};
 		queue.push(coordinate);
@@ -271,6 +373,41 @@ namespace pmk
 		return glm::uvec3{ UINT_MAX };
 	}
 
+	glm::mat3 RigidBodyContext::ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass)
+	{
+		glm::mat3 intertia_tensor{};
+
+		for (uint32_t i{ 0 }; i < voxel_chunk.GetWidth(); ++i)
+		{
+			for (uint32_t j{ 0 }; j < voxel_chunk.GetHeight(); ++j)
+			{
+				for (uint32_t k{ 0 }; k < voxel_chunk.GetDepth(); ++k)
+				{
+					glm::vec3 r{ i, j, k };
+					glm::vec3 delta_r{ (r - center_of_mass) * PARTICLE_WIDTH };
+
+					// The square of the cross product matrix of deltra_r.
+					float x2{ delta_r.x * delta_r.x };
+					float y2{ delta_r.y * delta_r.y };
+					float z2{ delta_r.z * delta_r.z };
+					float xy{ delta_r.x * delta_r.y };
+					float xz{ delta_r.x * delta_r.z };
+					float yz{ delta_r.y * delta_r.z };
+					glm::mat3 cross_squared{
+						-y2 - z2, xy, xz,
+						xy, -x2 - z2, yz,
+						xz, yz, -x2 - y2,
+					};
+
+					float mass{ GetVoxelMass(voxel_chunk.Coordinate(i, j, k).physics_material_index) };
+					intertia_tensor += -mass * cross_squared;
+				}
+			}
+		}
+
+		return intertia_tensor;
+	}
+
 	void RigidBodyContext::CreateRigidBody(
 		const glm::uvec3& min_extents,
 		const glm::uvec3& max_extents,
@@ -290,11 +427,13 @@ namespace pmk
 		center_of_mass -= min_extents;
 		glm::uvec3 dimensions{ max_extents - min_extents + glm::uvec3{1, 1, 1} };
 
+		auto voxel_chunk{ renderer::VoxelChunk(dimensions.x, dimensions.y, dimensions.z, std::move(voxel_pairs)) };
 		RigidBody* rigid_body{ new RigidBody{
 			.node = scene_->CreateNode(),
 			.mass = mass,
 			.center_of_mass = std::move(center_of_mass),
-			.voxel_chunk = renderer::VoxelChunk(dimensions.x, dimensions.y, dimensions.z, std::move(voxel_pairs)),
+			.inertia_tensor = ComputeInertiaTensor(voxel_chunk, center_of_mass),
+			.voxel_chunk = std::move(voxel_chunk),
 		} };
 
 		rigid_body->node->SetWorldPosition(PARTICLE_WIDTH * (glm::vec3{ min_extents } + rigid_body->center_of_mass));

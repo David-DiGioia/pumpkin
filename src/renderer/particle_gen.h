@@ -84,6 +84,12 @@ namespace renderer
 		// This means the voxels that are a close enough distance and not empty.
 		std::array<glm::uvec3, 8> GetPotentialCollisions(const glm::vec3& coord_space, uint32_t* potential_collision_count) const;
 
+		uint32_t GetWidth() const;
+
+		uint32_t GetHeight() const;
+
+		uint32_t GetDepth() const;
+
 	private:
 		// Helper function for calculating side flags.
 		bool NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset) const;
