@@ -42,7 +42,7 @@ namespace pmk
 		constexpr glm::vec3 gravity{ 0.0f, 0.0f, 0.0f };
 
 		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
-		if (rigid_bodies_.size() != 2) {
+		if (rigid_bodies_.size() != 1) {
 			return;
 		}
 
@@ -56,20 +56,20 @@ namespace pmk
 				rb->node->position += h * rb->velocity;
 
 				rb->previous_rotation = rb->node->rotation;
-				rb->angular_momentum += h * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_momentum, rb->inertia_tensor * rb->angular_momentum));
-				rb->node->rotation += h * 0.5f * glm::quat{ rb->angular_momentum.x, rb->angular_momentum.y, rb->angular_momentum.z, 0.0f } *rb->node->rotation;
+				rb->angular_velocity += h * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_velocity, rb->inertia_tensor * rb->angular_velocity));
+				rb->node->rotation += h * 0.5f * glm::quat{ 0.0f, rb->angular_velocity.x, rb->angular_velocity.y, rb->angular_velocity.z } *rb->node->rotation;
 				rb->node->rotation = glm::normalize(rb->node->rotation);
 			}
 
-			SolvePositions(h);
+			//SolvePositions(h);
 
 			for (RigidBody* rb : rigid_bodies_)
 			{
 				rb->velocity = (rb->node->position - rb->previous_position) / h;
 				glm::quat delta_q{ rb->node->rotation * glm::inverse(rb->previous_rotation) };
-				rb->angular_momentum = 2.0f * glm::vec3{ delta_q.x, delta_q.y, delta_q.z } / h;
+				rb->angular_velocity = 2.0f * glm::vec3{ delta_q.x, delta_q.y, delta_q.z } / h;
 				if (delta_q.w < 0) {
-					rb->angular_momentum = -rb->angular_momentum;
+					rb->angular_velocity = -rb->angular_velocity;
 				}
 			}
 
@@ -113,8 +113,10 @@ namespace pmk
 		}
 
 		// TODO: Delete this.
-		if (rigid_bodies_.size() == 2) {
-			rigid_bodies_[1]->velocity = glm::vec3{ 0.3f, 0.0f, 0.0f };
+		if (rigid_bodies_.size() == 1)
+		{
+			rigid_bodies_[0]->velocity = glm::vec3{ 1.0f, 0.0f, 0.0f };
+			rigid_bodies_[0]->angular_velocity = glm::vec3{ 1.0f, 0.0f, 0.0f };
 		}
 	}
 
@@ -375,7 +377,12 @@ namespace pmk
 
 	glm::mat3 RigidBodyContext::ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass)
 	{
-		glm::mat3 intertia_tensor{};
+		float xx{};
+		float yy{};
+		float zz{};
+		float xy{};
+		float yz{};
+		float xz{};
 
 		for (uint32_t i{ 0 }; i < voxel_chunk.GetWidth(); ++i)
 		{
@@ -393,19 +400,23 @@ namespace pmk
 					float xy{ delta_r.x * delta_r.y };
 					float xz{ delta_r.x * delta_r.z };
 					float yz{ delta_r.y * delta_r.z };
-					glm::mat3 cross_squared{
-						-y2 - z2, xy, xz,
-						xy, -x2 - z2, yz,
-						xz, yz, -x2 - y2,
-					};
-
 					float mass{ GetVoxelMass(voxel_chunk.Coordinate(i, j, k).physics_material_index) };
-					intertia_tensor += -mass * cross_squared;
+
+					xx += (y2 + z2) * mass;
+					yy += (x2 + z2) * mass;
+					zz += (x2 + y2) * mass;
+					xy -= (xy)*mass;
+					yz -= (yz)*mass;
+					xz -= (xz)*mass;
 				}
 			}
 		}
 
-		return intertia_tensor;
+		return glm::mat3{
+			xx, xy, xz,
+			xy, yy, yz,
+			xz, yz, zz,
+		};
 	}
 
 	void RigidBodyContext::CreateRigidBody(

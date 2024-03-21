@@ -33,7 +33,7 @@ namespace pmk
 		glm::vec3 center_of_mass;   // Relative to voxel coordinates.
 		glm::mat3 inertia_tensor;   // In kilogram meter squared.
 		glm::vec3 velocity;         // In meters per second.
-		glm::vec3 angular_momentum; // In kilogram meter squared per second.
+		glm::vec3 angular_velocity; // In radians per second.
 
 		glm::vec3 previous_position;
 		glm::quat previous_rotation;
