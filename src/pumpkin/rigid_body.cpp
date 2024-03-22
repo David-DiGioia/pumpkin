@@ -42,7 +42,7 @@ namespace pmk
 		constexpr glm::vec3 gravity{ 0.0f, 0.0f, 0.0f };
 
 		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
-		if (rigid_bodies_.size() != 1) {
+		if (rigid_bodies_.size() != 2) {
 			return;
 		}
 
@@ -61,7 +61,7 @@ namespace pmk
 				rb->node->rotation = glm::normalize(rb->node->rotation);
 			}
 
-			//SolvePositions(h);
+			SolvePositions(h);
 
 			for (RigidBody* rb : rigid_bodies_)
 			{
@@ -113,10 +113,10 @@ namespace pmk
 		}
 
 		// TODO: Delete this.
-		if (rigid_bodies_.size() == 1)
+		if (rigid_bodies_.size() == 2)
 		{
-			rigid_bodies_[0]->velocity = glm::vec3{ 1.0f, 0.0f, 0.0f };
-			rigid_bodies_[0]->angular_velocity = glm::vec3{ 1.0f, 0.0f, 0.0f };
+			rigid_bodies_[1]->velocity = glm::vec3{ 1.0f, 0.0f, 0.0f };
+			rigid_bodies_[1]->angular_velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
 		}
 	}
 
@@ -266,10 +266,10 @@ namespace pmk
 
 			rb_a->node->position += p / m1;
 			rb_b->node->position -= p / m2;
-			glm::vec3 tmp1{ inertia_tensor_inv_a * glm::cross(r1, p) };
-			glm::vec3 tmp2{ inertia_tensor_inv_b * glm::cross(r2, p) };
-			rb_a->node->rotation += 0.5f * glm::quat{ tmp1.x, tmp1.y, tmp1.z, 0.0f } *rb_a->node->rotation;
-			rb_b->node->rotation -= 0.5f * glm::quat{ tmp2.x, tmp2.y, tmp2.z, 0.0f } *rb_b->node->rotation;
+			glm::vec3 tmp1{ inertia_tensor_inv_a * glm::cross(r1, p / m1) };
+			glm::vec3 tmp2{ inertia_tensor_inv_b * glm::cross(r2, p / m2) };
+			rb_a->node->rotation += 0.5f * glm::quat{ 0.0f, tmp1.x, tmp1.y, tmp1.z } *rb_a->node->rotation;
+			rb_b->node->rotation -= 0.5f * glm::quat{ 0.0f, tmp2.x, tmp2.y, tmp2.z } *rb_b->node->rotation;
 		}
 	}
 
