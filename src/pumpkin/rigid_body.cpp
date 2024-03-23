@@ -95,7 +95,8 @@ namespace pmk
 	{
 		update_physics_ = true;
 
-		if (is_reset_)
+		bool rigid_body_added{ rigid_bodies_.size() != rigid_bodies_initial_.size() };
+		if (is_reset_ || rigid_body_added)
 		{
 			rigid_bodies_initial_.resize(rigid_bodies_.size());
 			for (uint32_t i{ 0 }; i < (uint32_t)rigid_bodies_.size(); ++i)
