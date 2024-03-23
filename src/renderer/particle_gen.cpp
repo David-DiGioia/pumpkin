@@ -102,6 +102,11 @@ namespace renderer
 		return mat_ranges_;
 	}
 
+	VoxelChunk::VoxelChunk()
+		: VoxelChunk{1, 1, 1} // Dummy voxel chunk.
+	{
+	}
+
 	VoxelChunk::VoxelChunk(uint32_t width, uint32_t height, uint32_t depth)
 		: width_{ width }
 		, height_{ height }
@@ -1003,6 +1008,9 @@ namespace renderer
 		if (DISABLE_STATIC_PARTICLE_MESH)
 		{
 			std::vector<MaterialPosition> mat_positions{ VoxelChunkToMaterialPositions(voxel_chunk, object_origin) };
+			if (mat_positions.empty()) {
+				return;
+			}
 
 			std::sort(mat_positions.begin(), mat_positions.end(),
 				[](const MaterialPosition& p0, const MaterialPosition& p1) { return p0.physics_material_index < p1.physics_material_index; });

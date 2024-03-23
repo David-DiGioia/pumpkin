@@ -29,20 +29,32 @@ namespace pmk
 		renderer_ = renderer;
 		scene_ = scene;
 		physics_materials_ = physics_materials;
+		is_reset_ = true;
 	}
 
 	void RigidBodyContext::CleanUp()
 	{
+		for (RigidBody* rb : rigid_bodies_) {
+			delete rb;
+		}
+
+		for (RigidBody* rb : rigid_bodies_initial_) {
+			delete rb;
+		}
 	}
 
 	void RigidBodyContext::PhysicsUpdate(float delta_time)
 	{
-		constexpr uint32_t substeps{ 2 };
-		//constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
-		constexpr glm::vec3 gravity{ 0.0f, 0.0f, 0.0f };
+		if (!update_physics_) {
+			return;
+		}
+
+		constexpr uint32_t substeps{ 3 };
+		constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
+		//constexpr glm::vec3 gravity{ 0.0f, 0.0f, 0.0f };
 
 		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
-		if (rigid_bodies_.size() != 2) {
+		if (rigid_bodies_.size() != 3) {
 			return;
 		}
 
@@ -52,7 +64,9 @@ namespace pmk
 			for (RigidBody* rb : rigid_bodies_)
 			{
 				rb->previous_position = rb->node->position;
-				rb->velocity += h * gravity;
+				if (!rb->immovable) {
+					rb->velocity += h * gravity;
+				}
 				rb->node->position += h * rb->velocity;
 
 				rb->previous_rotation = rb->node->rotation;
@@ -74,6 +88,41 @@ namespace pmk
 			}
 
 			//SolveVelocities();
+		}
+	}
+
+	void RigidBodyContext::EnablePhysicsUpdate()
+	{
+		update_physics_ = true;
+
+		if (is_reset_)
+		{
+			rigid_bodies_initial_.resize(rigid_bodies_.size());
+			for (uint32_t i{ 0 }; i < (uint32_t)rigid_bodies_.size(); ++i)
+			{
+				if (!rigid_bodies_initial_[i])
+				{
+					rigid_bodies_initial_[i] = new RigidBody{};
+					rigid_bodies_initial_[i]->node = new Node(*rigid_bodies_[i]->node);
+				}
+				CopyRigidBodyAttributes(rigid_bodies_[i], rigid_bodies_initial_[i]);
+			}
+			is_reset_ = false;
+		}
+	}
+
+	void RigidBodyContext::DisablePhysicsUpdate()
+	{
+		update_physics_ = false;
+	}
+
+	void RigidBodyContext::ResetRigidBodies()
+	{
+		is_reset_ = true;
+		DisablePhysicsUpdate();
+
+		for (uint32_t i{ 0 }; i < (uint32_t)rigid_bodies_.size(); ++i) {
+			CopyRigidBodyAttributes(rigid_bodies_initial_[i], rigid_bodies_[i]);
 		}
 	}
 
@@ -108,17 +157,18 @@ namespace pmk
 						glm::vec3 center_of_mass{};
 						RigidBodyFloodFill({ i, j, k }, voxel_chunk, rigid_body_mask);
 					}
+					}
 				}
 			}
-		}
 
 		// TODO: Delete this.
 		if (rigid_bodies_.size() == 2)
 		{
+			rigid_bodies_[0]->immovable = true;
 			rigid_bodies_[1]->velocity = glm::vec3{ 1.0f, 0.0f, 0.0f };
 			rigid_bodies_[1]->angular_velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
 		}
-	}
+		}
 
 	std::array<CollisionPair, MAX_COLLISION_PAIRS> RigidBodyContext::ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const
 	{
@@ -221,55 +271,69 @@ namespace pmk
 		constexpr float alpha{ compliance };
 		float alpha_tilde{ alpha / (h * h) };
 
-		RigidBody* rb_a{ rigid_bodies_[0] };
-		RigidBody* rb_b{ rigid_bodies_[1] };
-
-		uint32_t count{};
-		auto collision_pairs{ ComputeCollisionPairs(rb_a, rb_b, &count) };
-
-		for (uint32_t i{ 0 }; i < count; ++i)
+		// TODO: Don't check every pair of rigid bodies.
+		for (uint32_t a_idx{ 0 }; a_idx < (uint32_t)rigid_bodies_.size() - 1; ++a_idx)
 		{
-			CollisionPair& cp{ collision_pairs[i] };
-			// Local position of voxel centers.
-			glm::vec3 r1{ ((glm::vec3)cp.coordinate_a - rb_a->center_of_mass) * PARTICLE_WIDTH };
-			glm::vec3 r2{ ((glm::vec3)cp.coordinate_b - rb_b->center_of_mass) * PARTICLE_WIDTH };
+			for (uint32_t b_idx{ a_idx + 1 }; b_idx < (uint32_t)rigid_bodies_.size(); ++b_idx)
+			{
+				RigidBody* rb_a{ rigid_bodies_[a_idx] };
+				RigidBody* rb_b{ rigid_bodies_[b_idx] };
 
-			// World position of voxel centers.
-			glm::vec3 world_pos_a{ glm::vec3{rb_a->node->GetWorldTransform() * glm::vec4{r1, 1.0f}} };
-			glm::vec3 world_pos_b{ glm::vec3{rb_b->node->GetWorldTransform() * glm::vec4{r2, 1.0f}} };
+				uint32_t count{};
+				auto collision_pairs{ ComputeCollisionPairs(rb_a, rb_b, &count) };
 
-			glm::vec3 delta_x{ world_pos_b - world_pos_a };
-			float c{ glm::length(delta_x) };
-			glm::vec3 n{ delta_x / c };
-			c = std::fabsf(c - PARTICLE_WIDTH); // Distance between sphere surfaces instead of sphere centers.
+				for (uint32_t i{ 0 }; i < count; ++i)
+				{
+					CollisionPair& cp{ collision_pairs[i] };
+					// Local position of voxel centers.
+					glm::vec3 r1{ ((glm::vec3)cp.coordinate_a - rb_a->center_of_mass) * PARTICLE_WIDTH };
+					glm::vec3 r2{ ((glm::vec3)cp.coordinate_b - rb_b->center_of_mass) * PARTICLE_WIDTH };
 
-			// Change r1 and r2 to be points on surface of sphere instead of center.
-			world_pos_a += n * PARTICLE_RADIUS;
-			world_pos_b -= n * PARTICLE_RADIUS;
-			r1 = (glm::vec3)(glm::inverse(rb_a->node->GetWorldTransform()) * glm::vec4{ world_pos_a, 1.0f });
-			r2 = (glm::vec3)(glm::inverse(rb_b->node->GetWorldTransform()) * glm::vec4{ world_pos_b, 1.0f });
+					// World position of voxel centers.
+					glm::vec3 world_pos_a{ glm::vec3{rb_a->node->GetWorldTransform() * glm::vec4{r1, 1.0f}} };
+					glm::vec3 world_pos_b{ glm::vec3{rb_b->node->GetWorldTransform() * glm::vec4{r2, 1.0f}} };
 
-			float m1{ GetVoxelMass(rb_a->voxel_chunk.Coordinate(cp.coordinate_a).physics_material_index) };
-			float m2{ GetVoxelMass(rb_b->voxel_chunk.Coordinate(cp.coordinate_b).physics_material_index) };
-			glm::vec3 r1_cross_n{ glm::cross(r1, n) };
-			glm::vec3 r2_cross_n{ glm::cross(r2, n) };
-			glm::mat3 inertia_tensor_inv_a{ glm::inverse(rb_a->inertia_tensor) };
-			glm::mat3 inertia_tensor_inv_b{ glm::inverse(rb_b->inertia_tensor) };
-			float w1{ (1.0f / m1) + glm::dot(r1_cross_n, inertia_tensor_inv_a * r1_cross_n) };
-			float w2{ (1.0f / m2) + glm::dot(r2_cross_n, inertia_tensor_inv_b * r2_cross_n) };
+					glm::vec3 delta_x{ world_pos_b - world_pos_a };
+					float c{ glm::length(delta_x) };
+					glm::vec3 n{ delta_x / c };
+					c = std::fabsf(c - PARTICLE_WIDTH); // Distance between sphere surfaces instead of sphere centers.
 
-			float lambda{ 0.0f };
-			float delta_lambda{ (-c - alpha_tilde * lambda) / (w1 + w2 + alpha_tilde) };
-			lambda += delta_lambda;
+					// Change r1 and r2 to be points on surface of sphere instead of center.
+					world_pos_a += n * PARTICLE_RADIUS;
+					world_pos_b -= n * PARTICLE_RADIUS;
+					r1 = (glm::vec3)(glm::inverse(rb_a->node->GetWorldTransform()) * glm::vec4{ world_pos_a, 1.0f });
+					r2 = (glm::vec3)(glm::inverse(rb_b->node->GetWorldTransform()) * glm::vec4{ world_pos_b, 1.0f });
 
-			glm::vec3 p{ delta_lambda * n };
+					float m1{ rb_a->immovable ? std::numeric_limits<float>::infinity() : GetVoxelMass(rb_a->voxel_chunk.Coordinate(cp.coordinate_a).physics_material_index) };
+					float m2{ rb_b->immovable ? std::numeric_limits<float>::infinity() : GetVoxelMass(rb_b->voxel_chunk.Coordinate(cp.coordinate_b).physics_material_index) };
+					glm::vec3 r1_cross_n{ glm::cross(r1, n) };
+					glm::vec3 r2_cross_n{ glm::cross(r2, n) };
+					glm::mat3 inertia_tensor_inv_a{ glm::inverse(rb_a->inertia_tensor) };
+					glm::mat3 inertia_tensor_inv_b{ glm::inverse(rb_b->inertia_tensor) };
+					float w1{ (1.0f / m1) + glm::dot(r1_cross_n, inertia_tensor_inv_a * r1_cross_n) };
+					float w2{ (1.0f / m2) + glm::dot(r2_cross_n, inertia_tensor_inv_b * r2_cross_n) };
 
-			rb_a->node->position += p / m1;
-			rb_b->node->position -= p / m2;
-			glm::vec3 tmp1{ inertia_tensor_inv_a * glm::cross(r1, p / m1) };
-			glm::vec3 tmp2{ inertia_tensor_inv_b * glm::cross(r2, p / m2) };
-			rb_a->node->rotation += 0.5f * glm::quat{ 0.0f, tmp1.x, tmp1.y, tmp1.z } *rb_a->node->rotation;
-			rb_b->node->rotation -= 0.5f * glm::quat{ 0.0f, tmp2.x, tmp2.y, tmp2.z } *rb_b->node->rotation;
+					float lambda{ 0.0f };
+					float delta_lambda{ (-c - alpha_tilde * lambda) / (w1 + w2 + alpha_tilde) };
+					lambda += delta_lambda;
+
+					glm::vec3 p{ delta_lambda * n };
+
+					if (!rb_a->immovable)
+					{
+						rb_a->node->position += p / m1;
+						glm::vec3 tmp1{ inertia_tensor_inv_a * glm::cross(r1, p) };
+						rb_a->node->rotation += 0.5f * glm::quat{ 0.0f, tmp1.x, tmp1.y, tmp1.z } *rb_a->node->rotation;
+					}
+
+					if (!rb_b->immovable)
+					{
+						rb_b->node->position -= p / m2;
+						glm::vec3 tmp2{ inertia_tensor_inv_b * glm::cross(r2, p) };
+						rb_b->node->rotation -= 0.5f * glm::quat{ 0.0f, tmp2.x, tmp2.y, tmp2.z } *rb_b->node->rotation;
+					}
+				}
+			}
 		}
 	}
 
@@ -375,6 +439,18 @@ namespace pmk
 		return glm::uvec3{ UINT_MAX };
 	}
 
+	void RigidBodyContext::CopyRigidBodyAttributes(RigidBody* from, RigidBody* to) const
+	{
+		to->node->position = from->node->position;
+		to->node->rotation = from->node->rotation;
+		to->mass = from->mass;
+		to->center_of_mass = from->center_of_mass;
+		to->inertia_tensor = from->inertia_tensor;
+		to->velocity = from->velocity;
+		to->angular_velocity = from->angular_velocity;
+		to->immovable = from->immovable;
+	}
+
 	glm::mat3 RigidBodyContext::ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass)
 	{
 		float xx{};
@@ -452,4 +528,4 @@ namespace pmk
 		renderer_->GenerateStaticParticleMesh(rigid_body->node->render_object, rigid_body->voxel_chunk, PARTICLE_WIDTH * rigid_body->center_of_mass);
 		rigid_bodies_.push_back(rigid_body);
 	}
-}
+	}

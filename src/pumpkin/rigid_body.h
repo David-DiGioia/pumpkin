@@ -10,7 +10,7 @@
 
 namespace pmk
 {
-	constexpr uint32_t MAX_COLLISION_PAIRS{ 1 }; // Maximum collision pairs between two voxel objects.
+	constexpr uint32_t MAX_COLLISION_PAIRS{ 4 }; // Maximum collision pairs between two voxel objects.
 
 	class RigidBodyModel : public ConstitutiveModel
 	{
@@ -34,6 +34,7 @@ namespace pmk
 		glm::mat3 inertia_tensor;   // In kilogram meter squared.
 		glm::vec3 velocity;         // In meters per second.
 		glm::vec3 angular_velocity; // In radians per second.
+		bool immovable;
 
 		glm::vec3 previous_position;
 		glm::quat previous_rotation;
@@ -56,6 +57,12 @@ namespace pmk
 		void CleanUp();
 
 		void PhysicsUpdate(float delta_time);
+
+		void EnablePhysicsUpdate();
+
+		void DisablePhysicsUpdate();
+
+		void ResetRigidBodies();
 
 		// Populate rigid_bodies_ with rigid bodies made from connected voxels sharing
 		// the same rigid body physics material.
@@ -87,9 +94,15 @@ namespace pmk
 			glm::vec3&& center_of_mass,
 			float mass);
 
+		// Copy all the members of a rigid body except temporary variables and voxel chunk.
+		void CopyRigidBodyAttributes(RigidBody* from, RigidBody* to) const;
+
 		renderer::VulkanRenderer* renderer_{};
 		Scene* scene_;
 		std::vector<RigidBody*> rigid_bodies_{};
+		std::vector<RigidBody*> rigid_bodies_initial_{}; // Original state of all rigid bodies to allow resetting simulation.
+		bool update_physics_{};
+		bool is_reset_{}; // True if scene has been reset and play button has not been pressed since then.
 
 		const std::vector<PhysicsMaterial*>* physics_materials_{};
 	};

@@ -25,16 +25,19 @@ namespace pmk
 	void PhysicsContext::EnablePhysicsUpdate()
 	{
 		rigid_body_context_.CreateRigidBodiesByConnectedness(particle_context_.GetVoxelChunk());
+		rigid_body_context_.EnablePhysicsUpdate();
 		particle_context_.EnablePhysicsUpdate();
 	}
 
 	void PhysicsContext::DisablePhysicsUpdate()
 	{
+		rigid_body_context_.DisablePhysicsUpdate();
 		particle_context_.DisablePhysicsUpdate();
 	}
 
 	void PhysicsContext::ResetParticles()
 	{
+		rigid_body_context_.ResetRigidBodies();
 		particle_context_.ResetParticles();
 	}
 

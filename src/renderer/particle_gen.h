@@ -44,6 +44,8 @@ namespace renderer
 	class VoxelChunk
 	{
 	public:
+		VoxelChunk();
+
 		VoxelChunk(uint32_t width, uint32_t height, uint32_t depth);
 
 		VoxelChunk(uint32_t width, uint32_t height, uint32_t depth, std::vector<std::pair<Voxel, glm::uvec3>>&& voxel_pairs);
