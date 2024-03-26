@@ -98,7 +98,7 @@ namespace pmk
 		void CopyRigidBodyAttributes(RigidBody* from, RigidBody* to) const;
 
 		renderer::VulkanRenderer* renderer_{};
-		Scene* scene_;
+		Scene* scene_{};
 		std::vector<RigidBody*> rigid_bodies_{};
 		std::vector<RigidBody*> rigid_bodies_initial_{}; // Original state of all rigid bodies to allow resetting simulation.
 		bool update_physics_{};

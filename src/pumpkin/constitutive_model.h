@@ -5,6 +5,8 @@
 
 namespace pmk
 {
+	class PhysicsContext;
+
 	class ConstitutiveModel
 	{
 	public:
@@ -17,12 +19,14 @@ namespace pmk
 		float GetDensity() const;
 
 	protected:
+		friend PhysicsContext;
+
 		float density_;
 	};
 
 	struct PhysicsMaterial
 	{
 		uint32_t render_material;
-		ConstitutiveModel* constitutive_model;
+		ConstitutiveModel* constitutive_model; // This is the owner of constitutive_model; there is no separate vector of constitutive models.
 	};
 }

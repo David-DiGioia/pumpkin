@@ -68,6 +68,8 @@ namespace pmk
 
 		ConstitutiveModel* GetPhysicsMaterialModel(uint8_t physics_mat_index);
 
+		PhysicsMaterial* GetPhysicsMaterial(uint8_t physics_mat_index);
+
 		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint8_t physics_mat_index);
 
 		void PhysicsParametersMutated(uint8_t physics_mat_index);
@@ -78,12 +80,15 @@ namespace pmk
 
 		float GetDeltaTime() const;
 
-		// Write render data info to json, and vertex data to a binary file.
+		// Write render data to json, and vertex data to a binary file.
 		void DumpRenderData(
 			nlohmann::json& j,
 			const std::filesystem::path& vertex_path,
 			const std::filesystem::path& index_path,
 			const std::filesystem::path& texture_path);
+
+		// Write physics data to json.
+		void DumpPhysicsMaterials(nlohmann::json& j);
 
 		// The out_material_indices writes a list of material indices used by the newly loaded geometries, to update user count for materials.
 		void LoadRenderData(
@@ -92,6 +97,8 @@ namespace pmk
 			const std::filesystem::path& index_path,
 			const std::filesystem::path& texture_path,
 			std::vector<int>* out_material_indices);
+
+		void LoadPhysicsMaterials(nlohmann::json& j);
 
 #ifdef EDITOR_ENABLED
 		void ClearOutlineSets();

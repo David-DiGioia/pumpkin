@@ -155,9 +155,16 @@ namespace pmk
 
 		ConstitutiveModel* GetPhysicsMaterialModel(uint8_t physics_mat_index);
 
+		PhysicsMaterial* GetPhysicsMaterial(uint8_t physics_mat_index);
+
 		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint8_t physics_mat_index);
 
 		void PhysicsParametersMutated(uint8_t physics_mat_index);
+
+		// Write physics data to json.
+		void DumpPhysicsMaterials(nlohmann::json& j);
+
+		void LoadPhysicsMaterials(nlohmann::json& j);
 
 	private:
 		// Recursive implementation to upload node render object data.

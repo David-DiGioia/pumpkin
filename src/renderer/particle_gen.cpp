@@ -676,6 +676,7 @@ namespace renderer
 		ZoneScoped;
 		mat_ranges_ = mat_ranges;
 		Mesh* mesh{ new Mesh{} };
+		mesh->write_to_disk = false;
 		mesh->geometries.resize(std::max(mat_ranges.size(), (size_t)1));
 
 		for (uint32_t i{ 0 }; i < (uint32_t)mat_ranges.size(); ++i)
@@ -938,6 +939,7 @@ namespace renderer
 		mesh->geometries.back().vertices_resource = GetCurrentFrame().particle_mesh.vertices_out;
 		mesh->preserve_geometry_buffers = true; // Old buffers get cleaned up during ExpandOrReuseBuffer().
 		mesh->use_single_buffer = true;         // We only use buffers from a single renderer::Geometry that are shared by all Vulkan geometries.
+		mesh->write_to_disk = false;
 		mesh->index_byte_offsets = std::move(index_byte_offsets);
 
 		renderer_->rt_context_.QueueBlas(mesh, mesh_info);

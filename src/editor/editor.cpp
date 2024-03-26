@@ -9,8 +9,8 @@
 #include "glm/gtx/vector_angle.hpp"
 #include "glm/gtx/quaternion.hpp"
 #include "stb_image.h"
-#include "user_shader_util.h"
 
+#include "user_shader_util.h"
 #include "gui.h"
 
 #undef max
@@ -55,14 +55,28 @@ namespace jsonkey
 	const std::string MATERIAL_NAME{ "name" };
 	// End editor material members.
 
+	const std::string PHYSICS_MATERIALS{ "physics_materials" };
+	// Begin editor physics material members.
+	const std::string PHYSICS_MATERIAL_NAME{ "name" };
+	// End editor physics material members.
+
 	const std::string TEXTURES{ "textures" };
 	// Begin editor texture members.
 	const std::string TEXTURE_NAME{ "name" };
 	// End editor texture members.
 
+	const std::string PARTICLE_GEN_SHADER_INDEX{ "particle_gen_shader_index" };
+	const std::string PARTICLE_NODE_ID{ "particle_node_id" };
+	const std::string SHADERS{ "shaders" };
+	// Begin editor shader members.
+	const std::string SHADER_NAME{ "name" };
+	const std::string GLSL_PATH{ "glsl_path" };
+	const std::string SPIRV_PATH{ "spirv_path" };
+	const std::string UBO_PARAMETERS{ "ubo_parameters" };
+	// End editor shader members.
+
 	// Editor settings.
 	const std::string SETTINGS_PROJECT_DIRECTORIES_PATH{ "project_directories_path" };
-
 }
 
 void InitializationCallback(void* user_data)
@@ -102,6 +116,10 @@ void Editor::CleanUp()
 
 	for (EditorTexture* texture : textures_) {
 		delete texture;
+	}
+
+	for (EditorShader* shader : shaders_) {
+		delete shader;
 	}
 
 	gui_.CleanUp();
@@ -356,6 +374,7 @@ void Editor::SaveProject() const
 	std::filesystem::create_directories(project_data_path); // Make the directory if it doesn't exist.
 
 	pumpkin_->DumpRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME, project_data_path / TEXTURE_DATA_FILE_NAME);
+	pumpkin_->DumpPhysicsMaterials(j);
 
 	// The other texture properties are saved in DumpRenderData() but the texture name is specific to the editor so it's saved here.
 	uint32_t tex_idx{ 0 };
@@ -367,6 +386,20 @@ void Editor::SaveProject() const
 	uint32_t mat_idx{ 0 };
 	for (auto& json_material : j[jsonkey::MATERIALS]) {
 		json_material[jsonkey::MATERIAL_NAME] = materials_[mat_idx++]->GetName();
+	}
+
+	// The other physics material properties are saved in DumpPhysicsMaterials() but the name is specific to the editor so it's saved here.
+	uint32_t phys_mat_idx{ 0 };
+	for (auto& json_material : j[jsonkey::PHYSICS_MATERIALS]) {
+		json_material[jsonkey::PHYSICS_MATERIAL_NAME] = physics_materials_[phys_mat_idx++]->GetName();
+	}
+
+	// Dump shader path and parameters.
+	j[jsonkey::PARTICLE_GEN_SHADER_INDEX] = particle_gen_shader_idx_;
+	j[jsonkey::PARTICLE_NODE_ID] = particle_node_ ? particle_node_->node->node_id : NULL_INDEX;
+
+	for (EditorShader* shader : shaders_) {
+		j[jsonkey::SHADERS] += shader->ToJson();
 	}
 
 	auto json_path{ project_data_path / PROJECT_DATA_JSON_NAME };
@@ -402,6 +435,7 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 
 	LoadNodeData(j);
 	pumpkin_->LoadRenderData(j, project_data_path / VERTEX_DATA_FILE_NAME, project_data_path / INDEX_DATA_FILE_NAME, project_data_path / TEXTURE_DATA_FILE_NAME, &material_indices);
+	pumpkin_->LoadPhysicsMaterials(j);
 
 	// Load viewport camera.
 	{
@@ -432,6 +466,33 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 	// Update the new materials user count.
 	for (int i : material_indices) {
 		++materials_[material_start_idx + i]->user_count;
+	}
+
+	// Create new editor physics materials.
+	uint32_t i{ 0 };
+	for (auto& json_mat : j[jsonkey::PHYSICS_MATERIALS])
+	{
+		std::string material_name{ json_mat[jsonkey::PHYSICS_MATERIAL_NAME] };
+		physics_materials_.push_back(new EditorPhysicsMaterial{ pumpkin_->GetPhysicsMaterial(i++), material_name });
+	}
+
+	// Load user shaders (eg particle gen shader).
+	uint32_t particle_node_id{ j[jsonkey::PARTICLE_NODE_ID] };
+	if (particle_node_id != NULL_INDEX) {
+		particle_node_ = node_map_[particle_node_id];
+	}
+
+	for (auto& json_shader : j[jsonkey::SHADERS])
+	{
+		std::string spirv_path{ json_shader[jsonkey::SPIRV_PATH] };
+		pumpkin_->ImportShader(std::filesystem::path{ spirv_path });
+		shaders_.push_back(new EditorShader{ json_shader });
+	}
+
+	SetParticleGenShader(j[jsonkey::PARTICLE_GEN_SHADER_INDEX]);
+
+	if (!shaders_.empty()) {
+		GenerateParticles();
 	}
 }
 
@@ -543,7 +604,7 @@ uint32_t Editor::GenerateParticles(std::function<uint32_t()> particle_gen_func)
 
 uint32_t Editor::GenerateParticles()
 {
-	return GenerateParticles([&](){
+	return GenerateParticles([&]() {
 		return pumpkin_->GetScene().GenerateVoxelsOnNode(particle_node_->node);
 		});
 }
@@ -1301,6 +1362,20 @@ EditorShader::EditorShader(const std::filesystem::path& glsl_path, const std::fi
 	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());
 }
 
+EditorShader::EditorShader(nlohmann::json& j)
+	: custom_ubo_{}
+	, glsl_path_{ std::string{j[jsonkey::GLSL_PATH]} }
+	, spirv_path_{ std::string{j[jsonkey::SPIRV_PATH]} }
+	, name_buffer_{ new char[NAME_BUFFER_SIZE] {} }
+{
+	ShaderParser parser{};
+	parser.Parse(glsl_path_);
+	custom_ubo_ = parser.GetUniformBuffer();
+
+	std::string name{ j[jsonkey::SHADER_NAME] };
+	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());
+}
+
 EditorShader::~EditorShader()
 {
 	delete[] name_buffer_;
@@ -1314,4 +1389,14 @@ char* EditorShader::GetNameBuffer() const
 UniformBuffer& EditorShader::GetCustomUniformBuffer()
 {
 	return custom_ubo_;
+}
+
+nlohmann::json EditorShader::ToJson() const
+{
+	nlohmann::json j{};
+	j[jsonkey::SHADER_NAME] = glsl_path_.filename().string();
+	j[jsonkey::GLSL_PATH] = glsl_path_;
+	j[jsonkey::SPIRV_PATH] = spirv_path_;
+	j[jsonkey::UBO_PARAMETERS] = custom_ubo_.ToJson();
+	return j;
 }

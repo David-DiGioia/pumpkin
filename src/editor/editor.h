@@ -127,11 +127,15 @@ class EditorShader
 public:
 	EditorShader(const std::filesystem::path& glsl_path, const std::filesystem::path& spirv_path, const std::string& name);
 
+	EditorShader(nlohmann::json& j);
+
 	~EditorShader();
 
 	char* GetNameBuffer() const;
 
 	UniformBuffer& GetCustomUniformBuffer();
+
+	nlohmann::json ToJson() const;
 
 private:
 	UniformBuffer custom_ubo_;

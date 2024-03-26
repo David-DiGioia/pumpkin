@@ -153,6 +153,11 @@ namespace pmk
 		return scene_.GetPhysicsMaterialModel(physics_mat_index);
 	}
 
+	PhysicsMaterial* Pumpkin::GetPhysicsMaterial(uint8_t physics_mat_index)
+	{
+		return scene_.GetPhysicsMaterial(physics_mat_index);
+	}
+
 	std::vector<std::pair<float*, std::string>> Pumpkin::GetPhysicsParameters(uint8_t physics_mat_index)
 	{
 		return scene_.GetPhysicsParameters(physics_mat_index);
@@ -187,6 +192,11 @@ namespace pmk
 		renderer_.DumpRenderData(j, vertex_path, index_path, texture_path);
 	}
 
+	void Pumpkin::DumpPhysicsMaterials(nlohmann::json& j)
+	{
+		scene_.DumpPhysicsMaterials(j);
+	}
+
 	void Pumpkin::LoadRenderData(
 		nlohmann::json& j,
 		const std::filesystem::path& vertex_path,
@@ -195,6 +205,11 @@ namespace pmk
 		std::vector<int>* out_material_indices)
 	{
 		renderer_.LoadRenderData(j, vertex_path, index_path, texture_path, out_material_indices);
+	}
+
+	void Pumpkin::LoadPhysicsMaterials(nlohmann::json& j)
+	{
+		scene_.LoadPhysicsMaterials(j);
 	}
 
 #ifdef EDITOR_ENABLED

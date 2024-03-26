@@ -110,6 +110,10 @@ namespace renderer
 		// and using the offsets provided in build_ranges.
 		// If false, then each renderer::Geometry will correspond to a Vulkan geometry like normal, and build range offsets can be 0.
 		bool use_single_buffer;
+
+		// If true, then this mesh data will be written to disk when the project is saved.
+		// This would be false for generated mesh data, like voxels..
+		bool write_to_disk;
 		std::vector<uint32_t> index_byte_offsets;  // Only used if use_single_buffer is true.
 	};
 

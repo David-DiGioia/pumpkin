@@ -404,6 +404,11 @@ namespace pmk
 		return physics_context_.GetPhysicsMaterialModel(physics_mat_index);
 	}
 
+	PhysicsMaterial* Scene::GetPhysicsMaterial(uint8_t physics_mat_index)
+	{
+		return physics_context_.GetPhysicsMaterial(physics_mat_index);
+	}
+
 	std::vector<std::pair<float*, std::string>> Scene::GetPhysicsParameters(uint8_t physics_mat_index)
 	{
 		return physics_context_.GetPhysicsParameters(physics_mat_index);
@@ -412,6 +417,16 @@ namespace pmk
 	void Scene::PhysicsParametersMutated(uint8_t physics_mat_index)
 	{
 		physics_context_.PhysicsParametersMutated(physics_mat_index);
+	}
+
+	void Scene::DumpPhysicsMaterials(nlohmann::json& j)
+	{
+		physics_context_.DumpPhysicsMaterials(j);
+	}
+
+	void Scene::LoadPhysicsMaterials(nlohmann::json& j)
+	{
+		physics_context_.LoadPhysicsMaterials(j);
 	}
 
 	glm::mat4 Camera::GetViewMatrix() const

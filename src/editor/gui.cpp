@@ -355,7 +355,7 @@ bool EditorGui::MaterialTextureProperty(const std::string& name, bool* show_tex_
 bool EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, bool* compile_error)
 {
 	bool show_texture_ui{ true };
-	bool shader_loaded{ false };
+	bool shader_idx_changed{ false };
 	ImGui::PushID(name.c_str());
 
 	ImGui::Text(name.c_str());
@@ -369,6 +369,7 @@ bool EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 			if (ImGui::Selectable(editor_->shaders_[idx]->GetNameBuffer(), is_selected))
 			{
 				*shader_index = idx;
+				shader_idx_changed = true;
 			}
 
 			// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
@@ -394,7 +395,7 @@ bool EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 			*compile_error = (idx == NULL_INDEX);
 
 			if (!*compile_error) {
-				shader_loaded = true;
+				shader_idx_changed = true;
 			}
 		}
 	}
@@ -413,7 +414,7 @@ bool EditorGui::ShaderProperty(const std::string& name, uint32_t* shader_index, 
 	}
 
 	ImGui::PopID();
-	return shader_loaded;
+	return shader_idx_changed;
 }
 
 void EditorGui::NodeProperties()

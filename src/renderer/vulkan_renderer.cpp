@@ -20,7 +20,10 @@
 #include "descriptor_set.h"
 #include "common_constants.h"
 
-namespace jsonkey {
+namespace jsonkey
+{
+	const std::string NULL_OBJECT{ "null" };
+
 	const std::string RENDER_OBJECTS{ "render_objects" };
 	// Render object members.
 	const std::string MESH_INDEX{ "mesh_index" };
@@ -769,6 +772,12 @@ namespace renderer
 		// Save render objects.
 		for (RenderObject* ro : GetCurrentFrame().render_objects)
 		{
+			if (!meshes_[ro->mesh_idx]->write_to_disk)
+			{
+				j[jsonkey::RENDER_OBJECTS] += jsonkey::NULL_OBJECT;
+				continue;
+			}
+
 			j[jsonkey::RENDER_OBJECTS] += {
 				{ jsonkey::MESH_INDEX, ro->mesh_idx },
 				{ jsonkey::MATERIAL_INDICES, ro->material_indices },
@@ -786,8 +795,13 @@ namespace renderer
 		// Save meshes.
 		for (const Mesh* mesh : meshes_)
 		{
-			nlohmann::json json_mesh{};
+			if (!mesh || !mesh->write_to_disk)
+			{
+				j[jsonkey::MESHES] += jsonkey::NULL_OBJECT;
+				continue;
+			}
 
+			nlohmann::json json_mesh{};
 			for (const Geometry& geometry : mesh->geometries)
 			{
 				json_mesh[jsonkey::GEOMETRIES] += {
@@ -912,7 +926,14 @@ namespace renderer
 		// Load meshes.
 		for (auto& json_mesh : j[jsonkey::MESHES])
 		{
+			if (json_mesh == jsonkey::NULL_OBJECT)
+			{
+				meshes_.push_back(nullptr);
+				continue;
+			}
+
 			Mesh* mesh{ new Mesh{} };
+			mesh->write_to_disk = true;
 			meshes_.push_back(mesh);
 
 			for (auto& json_geometry : json_mesh[jsonkey::GEOMETRIES])
@@ -966,6 +987,12 @@ namespace renderer
 		// Load render objects.
 		for (auto& json_ro : j[jsonkey::RENDER_OBJECTS])
 		{
+			if (json_ro == jsonkey::NULL_OBJECT)
+			{
+				CreateBlankRenderObject();
+				continue;
+			}
+
 			std::vector<int> material_indices{ json_ro[jsonkey::MATERIAL_INDICES].get<std::vector<int>>() };
 			CreateRenderObject(json_ro[jsonkey::MESH_INDEX], material_indices);
 			out_material_indices->insert(out_material_indices->end(), material_indices.begin(), material_indices.end());
@@ -1526,6 +1553,7 @@ namespace renderer
 		for (tinygltf::Mesh& tinygltf_mesh : model.meshes)
 		{
 			Mesh* mesh{ new Mesh{} };
+			mesh->write_to_disk = true;
 			mesh->geometries.resize(tinygltf_mesh.primitives.size());
 
 			uint64_t vertex_hash{ LoadVerticesGLTF(model, tinygltf_mesh, mesh) };

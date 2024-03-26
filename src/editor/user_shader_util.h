@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <vector>
 #include <string>
+#include "nlohmann/json.hpp"
 
 enum class MemberType
 {
@@ -40,7 +41,9 @@ public:
 
 	// Draw the ImGui elements for each of the UBO members, that allow each member to be modified.
 	// Return true if any of the gui values are changed this frame.
-	bool DrawGui(uint32_t alignment);
+	bool DrawGui(float alignment);
+
+	nlohmann::json ToJson() const;
 
 private:
 	std::vector<MemberVariable> members_{};   // Type info about each of the members of the UBO struct.

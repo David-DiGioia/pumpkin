@@ -68,6 +68,8 @@ namespace pmk
 		MPMContext* mpm_context_{};
 	};
 
+	class PhysicsContext;
+
 	class HyperElasticModel : public MPMConstitutiveModel
 	{
 	public:
@@ -86,6 +88,8 @@ namespace pmk
 		virtual void UpdateDeformationGradient(MaterialPoint* p, float d_inverse, float delta_time) const override;
 
 	private:
+		friend PhysicsContext;
+
 		glm::mat3 GetPiolaKirchoffStress(MaterialPoint& p) const;
 
 		float youngs_modulus_{ 50.0f };
@@ -115,6 +119,8 @@ namespace pmk
 		glm::vec3 IncompressibleConstraintErrorGradient(MaterialPoint* p) const;
 
 	private:
+		friend PhysicsContext;
+
 		float rest_density_{ 50.0f };     // kilogram per meter cubed.
 		float dynamic_viscosity_{ 0.0f };
 		//float eos_stiffness_{ 10.0f };    // Tait equation of state.

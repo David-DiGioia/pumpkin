@@ -10,6 +10,12 @@
 #include "string_util.h"
 #include "logger.h"
 
+namespace jsonkey
+{
+	const std::string MEMBER_NAME{ "name" };
+	const std::string MEMBER_VALUE{ "value" };
+}
+
 void ShaderParser::Parse(const std::filesystem::path& shader_path)
 {
 	std::ifstream file{ shader_path };
@@ -256,7 +262,7 @@ const std::vector<std::byte>& UniformBuffer::GetBuffer() const
 	return uniform_buffer_;
 }
 
-bool UniformBuffer::DrawGui(uint32_t alignment)
+bool UniformBuffer::DrawGui(float alignment)
 {
 	bool value_changed{ false };
 	ImGui::PushID(members_.data());
@@ -305,4 +311,83 @@ bool UniformBuffer::DrawGui(uint32_t alignment)
 
 	ImGui::PopID();
 	return value_changed;
+}
+
+nlohmann::json UniformBuffer::ToJson() const
+{
+	nlohmann::json j{};
+
+	for (const MemberVariable& member : members_)
+	{
+		const void* ptr{ &uniform_buffer_[member.offset] };
+
+		nlohmann::json member_json{};
+
+		member_json[jsonkey::MEMBER_NAME] = member.name;
+
+		switch (member.type)
+		{
+		case MemberType::BOOL:
+		{
+			bool b{};
+			std::memcpy(&b, ptr, sizeof(bool));
+			member_json[jsonkey::MEMBER_VALUE] = b;
+			break;
+		}
+		case MemberType::INT:
+		{
+			int i{};
+			std::memcpy(&i, ptr, sizeof(int));
+			member_json[jsonkey::MEMBER_VALUE] = i;
+			break;
+		}
+		case MemberType::UINT:
+		{
+			uint32_t u{};
+			std::memcpy(&u, ptr, sizeof(uint32_t));
+			member_json[jsonkey::MEMBER_VALUE] = u;
+			break;
+		}
+		case MemberType::FLOAT:
+		{
+			float f{};
+			std::memcpy(&f, ptr, sizeof(float));
+			member_json[jsonkey::MEMBER_VALUE] = f;
+			break;
+		}
+		case MemberType::DOUBLE:
+		{
+			double d{};
+			std::memcpy(&d, ptr, sizeof(double));
+			member_json[jsonkey::MEMBER_VALUE] = d;
+			break;
+		}
+		case MemberType::VEC2:
+		{
+			glm::vec2 v{};
+			std::memcpy(&v, ptr, sizeof(glm::vec2));
+			member_json[jsonkey::MEMBER_VALUE] = { v.x, v.y };
+			break;
+		}
+		case MemberType::VEC3:
+		{
+			glm::vec3 v{};
+			std::memcpy(&v, ptr, sizeof(glm::vec3));
+			member_json[jsonkey::MEMBER_VALUE] = { v.x, v.y, v.z };
+			break;
+		}
+		case MemberType::VEC4:
+			break;
+		case MemberType::MAT2:
+			break;
+		case MemberType::MAT3:
+			break;
+		case MemberType::MAT4:
+			break;
+		}
+
+		j += member_json;
+	}
+
+	return j;
 }
