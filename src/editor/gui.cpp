@@ -1123,7 +1123,10 @@ void EditorGui::UpdateViewportSize()
 void EditorGui::LoadProject()
 {
 	current_directory_ = popup_selected_file_ / ASSETS_RELATIVE_PATH;
-	editor_->LoadProject(popup_selected_file_);
+	ProjectLoadGuiInfo info{ editor_->LoadProject(popup_selected_file_) };
+	particle_count_ = info.particle_count;
+	gen_shader_index_ = info.gen_shader_index;
+
 	popup_selected_file_ = {};
 	pumpkin_proj_selected_ = false;
 	pumpkin_proj_loaded_ = true;

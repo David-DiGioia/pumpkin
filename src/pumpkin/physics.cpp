@@ -223,6 +223,7 @@ namespace pmk
 			}
 			++physics_mat_idx;
 		}
+		UpdatePhysicsRenderMaterials();
 	}
 
 #ifdef EDITOR_ENABLED

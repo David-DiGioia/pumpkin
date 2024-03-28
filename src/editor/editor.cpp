@@ -418,7 +418,7 @@ void Editor::NewProject(const std::filesystem::path& proj_dir)
 	SaveProject(); // Save so the empty project can be loaded again if user doesn't ever save this project.
 }
 
-void Editor::LoadProject(const std::filesystem::path& proj_dir)
+ProjectLoadGuiInfo Editor::LoadProject(const std::filesystem::path& proj_dir)
 {
 	if (!project_directory_.empty()) {
 		//ResetProject();
@@ -489,11 +489,16 @@ void Editor::LoadProject(const std::filesystem::path& proj_dir)
 		shaders_.push_back(new EditorShader{ json_shader });
 	}
 
-	SetParticleGenShader(j[jsonkey::PARTICLE_GEN_SHADER_INDEX]);
+	ProjectLoadGuiInfo gui_info{};
 
-	if (!shaders_.empty()) {
-		GenerateParticles();
+	if (!shaders_.empty())
+	{
+		SetParticleGenShader(j[jsonkey::PARTICLE_GEN_SHADER_INDEX]);
+		gui_info.particle_count = UpdateParticleGenShaderCustomUBO();
+		gui_info.gen_shader_index = particle_gen_shader_idx_;
 	}
+
+	return gui_info;
 }
 
 void Editor::LoadNodeData(const nlohmann::json& j)
@@ -1371,6 +1376,66 @@ EditorShader::EditorShader(nlohmann::json& j)
 	ShaderParser parser{};
 	parser.Parse(glsl_path_);
 	custom_ubo_ = parser.GetUniformBuffer();
+
+	uint32_t buffer_offset{ 0 };
+	std::byte* buffer{ custom_ubo_.GetBuffer().data() };
+	for (nlohmann::json& member_json : j[jsonkey::UBO_PARAMETERS])
+	{
+		if (member_json[jsonkey::MEMBER_TYPE] == "bool")
+		{
+			bool b{ member_json[jsonkey::MEMBER_VALUE] };
+			std::memcpy(buffer + buffer_offset, &b, sizeof(bool));
+			buffer_offset += sizeof(bool);
+		}
+		else if (member_json[jsonkey::MEMBER_TYPE] == "int")
+		{
+			int i{ member_json[jsonkey::MEMBER_VALUE] };
+			std::memcpy(buffer + buffer_offset, &i, sizeof(int));
+			buffer_offset += sizeof(int);
+		}
+		else if (member_json[jsonkey::MEMBER_TYPE] == "uint")
+		{
+			uint32_t u{ member_json[jsonkey::MEMBER_VALUE] };
+			std::memcpy(buffer + buffer_offset, &u, sizeof(uint32_t));
+			buffer_offset += sizeof(uint32_t);
+		}
+		else if (member_json[jsonkey::MEMBER_TYPE] == "float")
+		{
+			float f{ member_json[jsonkey::MEMBER_VALUE] };
+			std::memcpy(buffer + buffer_offset, &f, sizeof(float));
+			buffer_offset += sizeof(float);
+		}
+		else if (member_json[jsonkey::MEMBER_TYPE] == "double")
+		{
+			double d{ member_json[jsonkey::MEMBER_VALUE] };
+			std::memcpy(buffer + buffer_offset, &d, sizeof(double));
+			buffer_offset += sizeof(double);
+		}
+		else if (member_json[jsonkey::MEMBER_TYPE] == "vec2")
+		{
+			float f{ member_json[jsonkey::MEMBER_VALUE][0] };
+			std::memcpy(buffer + buffer_offset, &f, sizeof(float));
+			buffer_offset += sizeof(float);
+
+			f = member_json[jsonkey::MEMBER_VALUE][1];
+			std::memcpy(buffer + buffer_offset, &f, sizeof(float));
+			buffer_offset += sizeof(float);
+		}
+		else if (member_json[jsonkey::MEMBER_TYPE] == "vec3")
+		{
+			float f{ member_json[jsonkey::MEMBER_VALUE][0] };
+			std::memcpy(buffer + buffer_offset, &f, sizeof(float));
+			buffer_offset += sizeof(float);
+
+			f = member_json[jsonkey::MEMBER_VALUE][1];
+			std::memcpy(buffer + buffer_offset, &f, sizeof(float));
+			buffer_offset += sizeof(float);
+
+			f = member_json[jsonkey::MEMBER_VALUE][2];
+			std::memcpy(buffer + buffer_offset, &f, sizeof(float));
+			buffer_offset += sizeof(float);
+		}
+	}
 
 	std::string name{ j[jsonkey::SHADER_NAME] };
 	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());

@@ -250,7 +250,7 @@ public:
 
 	void NewProject(const std::filesystem::path& proj_dir);
 
-	void LoadProject(const std::filesystem::path& proj_dir);
+	ProjectLoadGuiInfo LoadProject(const std::filesystem::path& proj_dir);
 
 	void LoadNodeData(const nlohmann::json& j);
 

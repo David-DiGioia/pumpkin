@@ -10,12 +10,6 @@
 #include "string_util.h"
 #include "logger.h"
 
-namespace jsonkey
-{
-	const std::string MEMBER_NAME{ "name" };
-	const std::string MEMBER_VALUE{ "value" };
-}
-
 void ShaderParser::Parse(const std::filesystem::path& shader_path)
 {
 	std::ifstream file{ shader_path };
@@ -257,6 +251,11 @@ void UniformBuffer::Initialize(const std::vector<MemberVariable>& members)
 	uniform_buffer_.resize(buffer_size, (std::byte)0u);
 }
 
+std::vector<std::byte>& UniformBuffer::GetBuffer()
+{
+	return uniform_buffer_;
+}
+
 const std::vector<std::byte>& UniformBuffer::GetBuffer() const
 {
 	return uniform_buffer_;
@@ -332,6 +331,7 @@ nlohmann::json UniformBuffer::ToJson() const
 			bool b{};
 			std::memcpy(&b, ptr, sizeof(bool));
 			member_json[jsonkey::MEMBER_VALUE] = b;
+			member_json[jsonkey::MEMBER_TYPE] = "bool";
 			break;
 		}
 		case MemberType::INT:
@@ -339,6 +339,7 @@ nlohmann::json UniformBuffer::ToJson() const
 			int i{};
 			std::memcpy(&i, ptr, sizeof(int));
 			member_json[jsonkey::MEMBER_VALUE] = i;
+			member_json[jsonkey::MEMBER_TYPE] = "int";
 			break;
 		}
 		case MemberType::UINT:
@@ -346,6 +347,7 @@ nlohmann::json UniformBuffer::ToJson() const
 			uint32_t u{};
 			std::memcpy(&u, ptr, sizeof(uint32_t));
 			member_json[jsonkey::MEMBER_VALUE] = u;
+			member_json[jsonkey::MEMBER_TYPE] = "uint";
 			break;
 		}
 		case MemberType::FLOAT:
@@ -353,6 +355,7 @@ nlohmann::json UniformBuffer::ToJson() const
 			float f{};
 			std::memcpy(&f, ptr, sizeof(float));
 			member_json[jsonkey::MEMBER_VALUE] = f;
+			member_json[jsonkey::MEMBER_TYPE] = "float";
 			break;
 		}
 		case MemberType::DOUBLE:
@@ -360,6 +363,7 @@ nlohmann::json UniformBuffer::ToJson() const
 			double d{};
 			std::memcpy(&d, ptr, sizeof(double));
 			member_json[jsonkey::MEMBER_VALUE] = d;
+			member_json[jsonkey::MEMBER_TYPE] = "double";
 			break;
 		}
 		case MemberType::VEC2:
@@ -367,6 +371,7 @@ nlohmann::json UniformBuffer::ToJson() const
 			glm::vec2 v{};
 			std::memcpy(&v, ptr, sizeof(glm::vec2));
 			member_json[jsonkey::MEMBER_VALUE] = { v.x, v.y };
+			member_json[jsonkey::MEMBER_TYPE] = "vec2";
 			break;
 		}
 		case MemberType::VEC3:
@@ -374,6 +379,7 @@ nlohmann::json UniformBuffer::ToJson() const
 			glm::vec3 v{};
 			std::memcpy(&v, ptr, sizeof(glm::vec3));
 			member_json[jsonkey::MEMBER_VALUE] = { v.x, v.y, v.z };
+			member_json[jsonkey::MEMBER_TYPE] = "vec3";
 			break;
 		}
 		case MemberType::VEC4:

@@ -84,6 +84,13 @@ const std::array<std::string, (uint32_t)ConstitutiveModelType::CONSTITUTIVE_MODE
 	"Rigid body",
 };
 
+// Info that the GUI needs when a project is loaded.
+struct ProjectLoadGuiInfo
+{
+	uint32_t particle_count;
+	uint32_t gen_shader_index;
+};
+
 class EditorGui
 {
 public:

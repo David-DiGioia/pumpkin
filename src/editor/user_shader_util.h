@@ -6,6 +6,13 @@
 #include <string>
 #include "nlohmann/json.hpp"
 
+namespace jsonkey
+{
+	const std::string MEMBER_NAME{ "name" };
+	const std::string MEMBER_VALUE{ "value" };
+	const std::string MEMBER_TYPE{ "type" };
+}
+
 enum class MemberType
 {
 	BOOL,
@@ -36,6 +43,8 @@ class UniformBuffer
 {
 public:
 	void Initialize(const std::vector<MemberVariable>& members);
+
+	std::vector<std::byte>& GetBuffer();
 
 	const std::vector<std::byte>& GetBuffer() const;
 
