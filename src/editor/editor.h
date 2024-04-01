@@ -257,6 +257,9 @@ public:
 	// Get the EditorNode which contains the specified pmk::Node.
 	EditorNode* NodeToEditorNode(pmk::Node* node);
 
+	// Update node_map_ to no longer contain destroyed pmk::Nodes.
+	void RemoveDestroyedNodes();
+
 	// Import the whole GLTF hierarchy, adding all nodes to scene.
 	// Note that Blender doesn't export cameras or lights.
 	//
@@ -264,22 +267,22 @@ public:
 	void ImportGLTF(const std::filesystem::path& path);
 
 	// Will create node and material if necessary, and invokes arbitrary particle generation function.
-	// Returns number of particles generated.
-	uint32_t GenerateParticles(std::function<uint32_t()> particle_gen_func);
+	// Returns number of voxels generated.
+	uint32_t GenerateVoxels(std::function<uint32_t()> particle_gen_func);
 
-	// Returns number of particles generated.
-	uint32_t GenerateParticles();
+	// Returns number of voxels generated.
+	uint32_t GenerateVoxels();
 
 	// Generate single particle for verifying P2G and G2P.
 	uint32_t GenerateTestParticle();
 
-	void PlayParticleSimulation();
+	void PlayPhysicsSimulation();
 
-	void PauseParticleSimulation();
+	void PausePhysicsSimulation();
 
-	void ResetParticleSimulation();
+	void ResetPhysicsSimulation();
 
-	bool GetParticleSimulationEnabled() const;
+	bool GetPhysicsSimulationEnabled() const;
 
 	bool GetParticleSimulationEmpty() const;
 

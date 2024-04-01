@@ -47,9 +47,10 @@ namespace pmk
 		rigid_body_context_.PhysicsUpdate(delta_time);
 	}
 
-	void PhysicsContext::EnablePhysicsUpdate()
+	std::vector<uint32_t> PhysicsContext::EnablePhysicsUpdate()
 	{
-		bool voxel_chunk_empty{ rigid_body_context_.CreateRigidBodiesByConnectedness(particle_context_.GetVoxelChunk()) };
+		bool voxel_chunk_empty{};
+		std::vector<uint32_t> node_ids{ rigid_body_context_.CreateRigidBodiesByConnectedness(particle_context_.GetVoxelChunk(), &voxel_chunk_empty) };
 		rigid_body_context_.EnablePhysicsUpdate();
 
 		if (voxel_chunk_empty) {
@@ -59,6 +60,7 @@ namespace pmk
 			particle_context_.EnablePhysicsUpdate();
 		}
 		UpdatePhysicsRenderMaterials();
+		return node_ids;
 	}
 
 	void PhysicsContext::DisablePhysicsUpdate()
@@ -67,7 +69,7 @@ namespace pmk
 		particle_context_.DisablePhysicsUpdate();
 	}
 
-	void PhysicsContext::ResetParticles()
+	void PhysicsContext::Reset()
 	{
 		rigid_body_context_.ResetRigidBodies();
 		particle_context_.ResetParticles();

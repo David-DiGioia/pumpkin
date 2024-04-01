@@ -5,6 +5,7 @@
 #include <array>
 #include <string>
 #include <filesystem>
+#include <stack>
 #include "glm/glm.hpp"
 #include "glm/gtx/quaternion.hpp"
 
@@ -100,13 +101,14 @@ namespace pmk
 		// Returns number of particles generated.
 		uint32_t GenerateTestParticleOnNode(Node* node);
 
-		void PlayParticleSimulation();
+		// Returns list of indices/IDs of nodes created (eg from rigid bodies).
+		std::vector<uint32_t> PlayPhysicsSimulation();
 
-		void PauseParticleSimulation();
+		void PausePhysicsSimulation();
 
-		void ResetParticleSimulation();
+		void ResetPhysicsSimulation();
 
-		bool GetParticleSimulationEnabled() const;
+		bool GetPhysicsSimulationEnabled() const;
 
 		bool GetParticleSimulationEmpty() const;
 
@@ -124,8 +126,7 @@ namespace pmk
 		// This should only be used when loading an existing node hierarchy from disk. Afterwards SetNextNodeID() MUST be called.
 		Node* CreateNodeFromID(uint32_t id);
 
-		// This should only be used after loading an existing node hierarchy from dist after creating nodes with CreateNodeFromID().
-		void SetNextNodeID(uint32_t id);
+		void DestroyNode(Node* node);
 
 		std::vector<Node*>& GetNodes();
 
@@ -177,7 +178,7 @@ namespace pmk
 		Node* root_node_{};
 		std::vector<Node*> nodes_{};                                                       // All nodes in the scene. We heap allocate the nodes to avoid dangling pointers when nodes_ resizes.
 		std::unordered_map<renderer::RenderObjectHandle, Node*> render_object_node_map_{}; // Map render object handles to nodes. This won't contain nodes without render objects.
-		uint32_t next_node_id_{};                                                          // The next node created will have this id.
 		PhysicsContext physics_context_{};
+		std::stack<uint32_t> vacant_node_indices_{}; // Unused node indices from deleted nodes to recycle.
 	};
 }

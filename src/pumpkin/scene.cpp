@@ -260,22 +260,22 @@ namespace pmk
 		return physics_context_.GenerateTestParticleOnNode(node);
 	}
 
-	void Scene::PlayParticleSimulation()
+	std::vector<uint32_t> Scene::PlayPhysicsSimulation()
 	{
-		physics_context_.EnablePhysicsUpdate();
+		return physics_context_.EnablePhysicsUpdate();
 	}
 
-	void Scene::PauseParticleSimulation()
+	void Scene::PausePhysicsSimulation()
 	{
 		physics_context_.DisablePhysicsUpdate();
 	}
 
-	void Scene::ResetParticleSimulation()
+	void Scene::ResetPhysicsSimulation()
 	{
-		physics_context_.ResetParticles();
+		physics_context_.Reset();
 	}
 
-	bool Scene::GetParticleSimulationEnabled() const
+	bool Scene::GetPhysicsSimulationEnabled() const
 	{
 		return physics_context_.GetPhysicsUpdateEnabled();
 	}
@@ -325,15 +325,25 @@ namespace pmk
 
 	Node* Scene::CreateNode(uint32_t id)
 	{
+		if (id >= (uint32_t)nodes_.size()) {
+			nodes_.resize((size_t)id + 1);
+		}
+
 		Node* node_ptr{ new Node(id) };
 		node_ptr->SetParent(root_node_);
-		nodes_.push_back(node_ptr);
+		nodes_[id] = node_ptr;
 		return node_ptr;
 	}
 
 	Node* Scene::CreateNode()
 	{
-		return CreateNode(next_node_id_++);
+		uint32_t next_node_id{ (uint32_t)nodes_.size() };
+		if (!vacant_node_indices_.empty())
+		{
+			next_node_id = vacant_node_indices_.top();
+			vacant_node_indices_.pop();
+		}
+		return CreateNode(next_node_id);
 	}
 
 	Node* Scene::CreateNodeFromID(uint32_t id)
@@ -341,9 +351,23 @@ namespace pmk
 		return CreateNode(id);
 	}
 
-	void Scene::SetNextNodeID(uint32_t id)
+	void Scene::DestroyNode(Node* node)
 	{
-		next_node_id_ = id;
+		if (node->render_object != renderer::NULL_HANDLE) {
+			renderer_->QueueDestroyRenderObject(node->render_object);
+		}
+
+		if (node->parent_) {
+			node->parent_->children_.erase(node);
+		}
+
+		for (Node* child : node->children_) {
+			DestroyNode(child);
+		}
+
+		vacant_node_indices_.push(node->node_id);
+		nodes_[node->node_id] = nullptr;
+		delete node;
 	}
 
 	std::vector<Node*>& Scene::GetNodes()

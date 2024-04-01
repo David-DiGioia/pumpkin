@@ -105,7 +105,10 @@ namespace renderer
 				DestroyQueuedElement(ro_index);
 				destruction_queue_.erase(ro_index);
 			}
+		}
 
+		void NextFrame()
+		{
 			current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
 		}
 

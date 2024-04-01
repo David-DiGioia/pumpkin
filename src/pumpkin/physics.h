@@ -14,11 +14,12 @@ namespace pmk
 
 		void PhysicsUpdate(float delta_time);
 
-		void EnablePhysicsUpdate();
+		// Returns list of node indices/IDs created (eg from rigid bodies).
+		std::vector<uint32_t> EnablePhysicsUpdate();
 
 		void DisablePhysicsUpdate();
 
-		void ResetParticles();
+		void Reset();
 
 		bool GetPhysicsUpdateEnabled() const;
 

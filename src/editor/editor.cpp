@@ -525,7 +525,6 @@ void Editor::LoadNodeData(const nlohmann::json& j)
 		node->scale = glm::vec3{ s[0], s[1], s[2] };
 		node->rotation = glm::quat{ q[3], q[0], q[1], q[2] };
 	}
-	pumpkin_->GetScene().SetNextNodeID(j[jsonkey::MAX_NODE_ID] + 1);
 
 	// Set node parent/child data.
 	for (auto& json_node : j[jsonkey::NODES])
@@ -542,7 +541,23 @@ void Editor::LoadNodeData(const nlohmann::json& j)
 
 EditorNode* Editor::NodeToEditorNode(pmk::Node* node)
 {
+	assert(node_map_.contains(node->node_id));
 	return node_map_[node->node_id];
+}
+
+void Editor::RemoveDestroyedNodes()
+{
+	std::vector<pmk::Node*>& pmk_nodes{ pumpkin_->GetScene().GetNodes() };
+	for (uint32_t id{ 0 }; id < (uint32_t)pmk_nodes.size(); ++id)
+	{
+		auto itr{ node_map_.find(id) };
+		bool node_is_destroyed{ !pmk_nodes[id] };
+		bool editor_contains_node{ itr != node_map_.end() };
+
+		if (node_is_destroyed && editor_contains_node) {
+			node_map_.erase(itr);
+		}
+	}
 }
 
 void Editor::ImportGLTF(const std::filesystem::path& path)
@@ -586,11 +601,11 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	}
 }
 
-uint32_t Editor::GenerateParticles(std::function<uint32_t()> particle_gen_func)
+uint32_t Editor::GenerateVoxels(std::function<uint32_t()> particle_gen_func)
 {
 	if (!particle_node_)
 	{
-		particle_node_ = CreateNode("particle_node");
+		particle_node_ = CreateNode("voxel_node");
 		particle_node_->node->physics_object = true;
 	}
 
@@ -604,52 +619,53 @@ uint32_t Editor::GenerateParticles(std::function<uint32_t()> particle_gen_func)
 	if (created_new_material)
 	{
 		renderer::Material* mat{ pumpkin_->GetMaterials().back() };
-		materials_.push_back(new EditorMaterial{ mat, "Particles" });
+		materials_.push_back(new EditorMaterial{ mat, "Voxels" });
 	}
 
 	return particle_count;
 }
 
-uint32_t Editor::GenerateParticles()
+uint32_t Editor::GenerateVoxels()
 {
-	return GenerateParticles([&]() {
+	return GenerateVoxels([&]() {
 		return pumpkin_->GetScene().GenerateVoxelsOnNode(particle_node_->node);
 		});
 }
 
 uint32_t Editor::GenerateTestParticle()
 {
-	return GenerateParticles([&]() {
+	return GenerateVoxels([&]() {
 		return pumpkin_->GetScene().GenerateTestParticleOnNode(particle_node_->node);
 		});
 }
 
-void Editor::PlayParticleSimulation()
+void Editor::PlayPhysicsSimulation()
 {
 	std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
-	size_t node_count{ nodes.size() };
-	pumpkin_->GetScene().PlayParticleSimulation();
-	size_t nodes_created{ nodes.size() - node_count };
+	std::vector<uint32_t> nodes_created{ pumpkin_->GetScene().PlayPhysicsSimulation() };
 
 	// Rigid bodies get created when play is clicked.
-	for (size_t i{ 0 }; i < nodes_created; ++i) {
-		CreateNode(nodes[nodes.size() - i - 1], "rigid_body");
+	for (uint32_t id : nodes_created) {
+		CreateNode(nodes[id], "rigid_body");
 	}
 }
 
-void Editor::PauseParticleSimulation()
+void Editor::PausePhysicsSimulation()
 {
-	pumpkin_->GetScene().PauseParticleSimulation();
+	pumpkin_->GetScene().PausePhysicsSimulation();
 }
 
-void Editor::ResetParticleSimulation()
+void Editor::ResetPhysicsSimulation()
 {
-	pumpkin_->GetScene().ResetParticleSimulation();
+	pumpkin_->GetScene().ResetPhysicsSimulation();
+	// Rigid bodies are destroyed when simulation is reset, so remove them from editor.
+	RemoveDestroyedNodes();
+	GenerateVoxels();
 }
 
-bool Editor::GetParticleSimulationEnabled() const
+bool Editor::GetPhysicsSimulationEnabled() const
 {
-	return pumpkin_->GetScene().GetParticleSimulationEnabled();
+	return pumpkin_->GetScene().GetPhysicsSimulationEnabled();
 }
 
 bool Editor::GetParticleSimulationEmpty() const
@@ -1013,7 +1029,7 @@ void Editor::SetParticleGenShader(uint32_t shader_idx)
 uint32_t Editor::UpdateParticleGenShaderCustomUBO()
 {
 	pumpkin_->UpdateParticleGenShaderCustomUBO(shaders_[particle_gen_shader_idx_]->GetCustomUniformBuffer().GetBuffer());
-	return GenerateParticles();
+	return GenerateVoxels();
 }
 
 glm::vec2 Editor::WorldToScreenSpace(const glm::vec3& world_pos) const

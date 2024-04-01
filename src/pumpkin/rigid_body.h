@@ -67,8 +67,8 @@ namespace pmk
 		// Populate rigid_bodies_ with rigid bodies made from connected voxels sharing
 		// the same rigid body physics material.
 		// Removes the rigid body voxels from input voxels.
-		// Returns true if the voxel chunk is empty after creating rigid bodies.
-		bool CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk);
+		// Returns list of node indices/IDs created from rigid bodies.
+		std::vector<uint32_t> CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk, bool* out_is_empty);
 
 		std::array<CollisionPair, MAX_COLLISION_PAIRS> ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const;
 
@@ -95,15 +95,10 @@ namespace pmk
 			glm::vec3&& center_of_mass,
 			float mass);
 
-		// Copy all the members of a rigid body except temporary variables and voxel chunk.
-		void CopyRigidBodyAttributes(RigidBody* from, RigidBody* to) const;
-
 		renderer::VulkanRenderer* renderer_{};
 		Scene* scene_{};
 		std::vector<RigidBody*> rigid_bodies_{};
-		std::vector<RigidBody*> rigid_bodies_initial_{}; // Original state of all rigid bodies to allow resetting simulation.
 		bool update_physics_{};
-		bool is_reset_{}; // True if scene has been reset and play button has not been pressed since then.
 
 		const std::vector<PhysicsMaterial*>* physics_materials_{};
 	};

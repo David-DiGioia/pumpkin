@@ -732,6 +732,7 @@ namespace renderer
 		current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
 		vulkan_util_.NextFrame();
 		particle_gen_context_.NextFrame();
+		render_object_destroyer_.NextFrame();
 	}
 
 	VulkanRenderer::FrameResources& VulkanRenderer::GetCurrentFrame()
@@ -1701,6 +1702,8 @@ namespace renderer
 	void VulkanRenderer::HostRenderWork()
 	{
 		ZoneScoped;
+		render_object_destroyer_.FrameUpdate();
+
 		for (std::function<void()> host_render_work : host_render_work_queue_) {
 			host_render_work();
 		}
@@ -1711,8 +1714,6 @@ namespace renderer
 			should_update_object_buffers_ = false;
 			rt_context_.UpdateObjectBuffers(meshes_);
 		}
-
-		render_object_destroyer_.FrameUpdate();
 
 		if (should_update_materials_)
 		{

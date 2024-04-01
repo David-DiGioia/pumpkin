@@ -30,16 +30,11 @@ namespace pmk
 		renderer_ = renderer;
 		scene_ = scene;
 		physics_materials_ = physics_materials;
-		is_reset_ = true;
 	}
 
 	void RigidBodyContext::CleanUp()
 	{
 		for (RigidBody* rb : rigid_bodies_) {
-			delete rb;
-		}
-
-		for (RigidBody* rb : rigid_bodies_initial_) {
 			delete rb;
 		}
 	}
@@ -91,22 +86,6 @@ namespace pmk
 	void RigidBodyContext::EnablePhysicsUpdate()
 	{
 		update_physics_ = true;
-
-		bool rigid_body_added{ rigid_bodies_.size() != rigid_bodies_initial_.size() };
-		if (is_reset_ || rigid_body_added)
-		{
-			rigid_bodies_initial_.resize(rigid_bodies_.size());
-			for (uint32_t i{ 0 }; i < (uint32_t)rigid_bodies_.size(); ++i)
-			{
-				if (!rigid_bodies_initial_[i])
-				{
-					rigid_bodies_initial_[i] = new RigidBody{};
-					rigid_bodies_initial_[i]->node = new Node(*rigid_bodies_[i]->node);
-				}
-				CopyRigidBodyAttributes(rigid_bodies_[i], rigid_bodies_initial_[i]);
-			}
-			is_reset_ = false;
-		}
 	}
 
 	void RigidBodyContext::DisablePhysicsUpdate()
@@ -116,15 +95,15 @@ namespace pmk
 
 	void RigidBodyContext::ResetRigidBodies()
 	{
-		is_reset_ = true;
 		DisablePhysicsUpdate();
-
-		for (uint32_t i{ 0 }; i < (uint32_t)rigid_bodies_.size(); ++i) {
-			CopyRigidBodyAttributes(rigid_bodies_initial_[i], rigid_bodies_[i]);
+		for (RigidBody* rb : rigid_bodies_) {
+			scene_->DestroyNode(rb->node);
+			delete rb;
 		}
+		rigid_bodies_.clear();
 	}
 
-	bool RigidBodyContext::CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk)
+	std::vector<uint32_t> RigidBodyContext::CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk, bool* out_is_empty)
 	{
 		// Create a mask to quickly test if a static particle has a rigid body material.
 		std::vector<uint8_t> rigid_body_mask(physics_materials_->size());
@@ -171,7 +150,13 @@ namespace pmk
 				}
 			});
 
-		return voxel_chunk_empty.load(std::memory_order_relaxed);
+		*out_is_empty = voxel_chunk_empty.load(std::memory_order_relaxed);
+
+		std::vector<uint32_t> node_ids{};
+		node_ids.resize(rigid_bodies_.size());
+		std::transform(rigid_bodies_.begin(), rigid_bodies_.end(), node_ids.begin(),
+			[](RigidBody* rb) { return rb->node->node_id; });
+		return node_ids;
 	}
 
 	std::array<CollisionPair, MAX_COLLISION_PAIRS> RigidBodyContext::ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const
@@ -445,18 +430,6 @@ namespace pmk
 		}
 
 		return glm::uvec3{ UINT_MAX };
-	}
-
-	void RigidBodyContext::CopyRigidBodyAttributes(RigidBody* from, RigidBody* to) const
-	{
-		to->node->position = from->node->position;
-		to->node->rotation = from->node->rotation;
-		to->mass = from->mass;
-		to->center_of_mass = from->center_of_mass;
-		to->inertia_tensor = from->inertia_tensor;
-		to->velocity = from->velocity;
-		to->angular_velocity = from->angular_velocity;
-		to->immovable = from->immovable;
 	}
 
 	glm::mat3 RigidBodyContext::ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass)

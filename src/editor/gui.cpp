@@ -150,7 +150,7 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	EngineViewport(rendered_image_id);
 	FileBrowser();
 	CameraControls();
-	ParticleEditor();
+	VoxelEditor();
 	Debug();
 	CheckProjectSelectionPopup();
 }
@@ -950,15 +950,15 @@ void EditorGui::CameraControls()
 	ImGui::End();
 }
 
-void EditorGui::ParticleEditor()
+void EditorGui::VoxelEditor()
 {
-	if (!ImGui::Begin("Particle Editor"))
+	if (!ImGui::Begin("Voxel Editor"))
 	{
 		ImGui::End();
 		return;
 	}
 
-	ImGui::Text("Particle shader");
+	ImGui::Text("Voxel shader");
 
 	if (ShaderProperty("Generation", &gen_shader_index_, &gen_shader_compile_error_)) {
 		editor_->SetParticleGenShader(gen_shader_index_);
@@ -972,11 +972,11 @@ void EditorGui::ParticleEditor()
 
 		ImGui::Dummy({});
 		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
-		if (ImGui::Button("Generate particles")) {
-			particle_count_ = editor_->GenerateParticles();
+		if (ImGui::Button("Generate voxels")) {
+			particle_count_ = editor_->GenerateVoxels();
 		}
 
-		ImGui::Text("Particles");
+		ImGui::Text("Voxels");
 		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
 		ImGui::Text("%u", particle_count_);
 	}
@@ -985,21 +985,21 @@ void EditorGui::ParticleEditor()
 	{
 		ImGui::Dummy({});
 		ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
-		if (editor_->GetParticleSimulationEnabled())
+		if (editor_->GetPhysicsSimulationEnabled())
 		{
 			if (ImGui::Button("Pause")) {
-				editor_->PauseParticleSimulation();
+				editor_->PausePhysicsSimulation();
 			}
 		}
 		else
 		{
 			if (ImGui::Button("Play ")) {
-				editor_->PlayParticleSimulation();
+				editor_->PlayPhysicsSimulation();
 			}
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Reset")) {
-			editor_->ResetParticleSimulation();
+			editor_->ResetPhysicsSimulation();
 		}
 	}
 
@@ -1024,7 +1024,7 @@ void EditorGui::ParticleEditor()
 
 	ImGui::PushItemWidth(combo_width);
 	const char* selected_particle_color_named{ particle_color_mode_names[(uint32_t)editor_->particle_color_mode_].c_str() };
-	ImGui::Text("Particles");
+	ImGui::Text("Voxels");
 	ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
 	if (ImGui::BeginCombo("##ParticleColorMode", selected_particle_color_named))
 	{

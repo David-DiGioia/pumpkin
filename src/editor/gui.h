@@ -143,7 +143,7 @@ private:
 
 	void CameraControls();
 
-	void ParticleEditor();
+	void VoxelEditor();
 
 	void Debug();
 
