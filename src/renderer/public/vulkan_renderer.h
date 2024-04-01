@@ -101,6 +101,8 @@ namespace renderer
 		// Will replace the render object during the next HostRenderWork() invocation.
 		void QueueReplaceRenderObject(RenderObjectHandle ro_target, Mesh* mesh, const std::vector<int>& material_indices);
 
+		void QueueDestroyRenderObject(RenderObjectHandle ro_target);
+
 		void SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform);
 
 		void SetRenderObjectVisible(RenderObjectHandle render_object_handle, bool visible);

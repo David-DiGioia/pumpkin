@@ -145,6 +145,12 @@ namespace renderer
 			if (render_object && render_object->visible) {
 				build_info.instances.push_back(RenderObjectToVulkanInstance(*render_object));
 			}
+			else
+			{
+				// Inactive instance according to Vulkan spec since acceleration structure reference is 0.
+				// We include this so indices don't get messed up for rt instances.
+				build_info.instances.push_back(VkAccelerationStructureInstanceKHR{});
+			}
 		}
 
 		queued_tlas_build_infos_.push_back(build_info);
@@ -433,14 +439,26 @@ namespace renderer
 		const std::vector<const std::vector<int>*>* indices_ptr{ &indices };
 		const std::vector<int> dummy_index{ 0 };
 		const std::vector<const std::vector<int>*> dummy_indices{ &dummy_index };
-		if (indices_ptr->empty()) {
+		bool indices_empty{ true };
+		// We consider indices to be empty if either the vector is empty or all members are null.
+		for (const std::vector<int>* geometry_mat_indices : *indices_ptr)
+		{
+			if (geometry_mat_indices) {
+				indices_empty = false;
+				break;
+			}
+		}
+		if (indices_empty) {
 			indices_ptr = &dummy_indices;
 		}
 
 		// Concatenate indices together.
 		std::vector<uint32_t> indices_vec{};
-		for (const std::vector<int>* geometry_mat_indices : *indices_ptr) {
-			indices_vec.insert(indices_vec.end(), geometry_mat_indices->begin(), geometry_mat_indices->end());
+		for (const std::vector<int>* geometry_mat_indices : *indices_ptr)
+		{
+			if (geometry_mat_indices) {
+				indices_vec.insert(indices_vec.end(), geometry_mat_indices->begin(), geometry_mat_indices->end());
+			}
 		}
 
 		// Make buffer for concatenated material indices.
@@ -462,7 +480,10 @@ namespace renderer
 		for (const std::vector<int>* geometry_mat_indices : *indices_ptr)
 		{
 			index_addresses.push_back(current_address);
-			current_address += geometry_mat_indices->size() * sizeof(decltype(indices_vec)::value_type);
+			// If a rt instance is disabled it will have null geometry_mat_indices, but we still must push back an address so gl_InstanceID indexes correctly.
+			if (geometry_mat_indices) {
+				current_address += geometry_mat_indices->size() * sizeof(decltype(indices_vec)::value_type);
+			}
 		}
 
 		// Make buffer of devices addresses which point to arrays contained in material_indices_resource_.

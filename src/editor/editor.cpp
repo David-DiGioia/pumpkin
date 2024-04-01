@@ -497,6 +497,9 @@ ProjectLoadGuiInfo Editor::LoadProject(const std::filesystem::path& proj_dir)
 		gui_info.particle_count = UpdateParticleGenShaderCustomUBO();
 		gui_info.gen_shader_index = particle_gen_shader_idx_;
 	}
+	else {
+		gui_info.gen_shader_index = NULL_INDEX;
+	}
 
 	return gui_info;
 }
@@ -1221,6 +1224,10 @@ void Editor::UpdateParticleOverlayRenderObject()
 
 void Editor::UpdateParticleOverlayEnabled()
 {
+	if (particle_node_ && particle_node_->node->render_object == renderer::NULL_HANDLE) {
+		return;
+	}
+
 	if (active_selection_node_ && active_selection_node_ == particle_node_)
 	{
 		bool show_particle_colors{ particle_color_mode_ != ParticleColorMode::FINAL_SHADING };

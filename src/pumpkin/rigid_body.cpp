@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <queue>
 #include <execution>
+#include <atomic>
 #include "glm/gtc/quaternion.hpp"
 
 #include "scene.h"
@@ -49,14 +50,10 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t substeps{ 3 };
+		constexpr uint32_t substeps{ 1 };
 		constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
-		//constexpr glm::vec3 gravity{ 0.0f, 0.0f, 0.0f };
 
 		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
-		if (rigid_bodies_.size() != 3) {
-			return;
-		}
 
 		float h{ delta_time / substeps };
 		for (uint32_t i{ 0 }; i < substeps; ++i)
@@ -127,7 +124,7 @@ namespace pmk
 		}
 	}
 
-	void  RigidBodyContext::CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk)
+	bool RigidBodyContext::CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk)
 	{
 		// Create a mask to quickly test if a static particle has a rigid body material.
 		std::vector<uint8_t> rigid_body_mask(physics_materials_->size());
@@ -158,18 +155,24 @@ namespace pmk
 						glm::vec3 center_of_mass{};
 						RigidBodyFloodFill({ i, j, k }, voxel_chunk, rigid_body_mask);
 					}
-					}
 				}
 			}
+		}
 
-		// TODO: Delete this.
-		if (rigid_bodies_.size() == 2)
-		{
-			rigid_bodies_[0]->immovable = true;
-			rigid_bodies_[1]->velocity = glm::vec3{ 1.0f, 0.0f, 0.0f };
-			rigid_bodies_[1]->angular_velocity = glm::vec3{ 0.0f, 0.0f, 0.0f };
-		}
-		}
+		// Check for existence of non-rigid body voxels remaining.
+		std::atomic_bool voxel_chunk_empty{ true };
+		std::for_each(
+			std::execution::par,
+			voxel_chunk.GetVoxels().begin(),
+			voxel_chunk.GetVoxels().end(),
+			[&](renderer::Voxel v) {
+				if (v.physics_material_index != renderer::PHYSICS_MATERIAL_EMPTY_INDEX) {
+					voxel_chunk_empty.store(false, std::memory_order_relaxed);
+				}
+			});
+
+		return voxel_chunk_empty.load(std::memory_order_relaxed);
+	}
 
 	std::array<CollisionPair, MAX_COLLISION_PAIRS> RigidBodyContext::ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const
 	{
@@ -267,6 +270,10 @@ namespace pmk
 
 	void RigidBodyContext::SolvePositions(float h)
 	{
+		if (rigid_bodies_.empty()) {
+			return;
+		}
+
 		constexpr float compliance{ 0.0f };
 
 		constexpr float alpha{ compliance };
@@ -529,4 +536,4 @@ namespace pmk
 		renderer_->GenerateStaticParticleMesh(rigid_body->node->render_object, rigid_body->voxel_chunk, PARTICLE_WIDTH * rigid_body->center_of_mass);
 		rigid_bodies_.push_back(rigid_body);
 	}
-	}
+}

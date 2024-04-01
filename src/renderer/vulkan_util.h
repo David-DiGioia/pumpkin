@@ -59,6 +59,11 @@ namespace renderer
 
 		void DestroyElement(uint32_t index)
 		{
+			// Do nothing for null render objects.
+			if (index == NULL_INDEX || !frame_resource_[0]->at(index)) {
+				return;
+			}
+
 			DestroyElementCurrentFrame(index, false);
 
 			// We've immediately destroyed the current frame's render object, but we queue the other ones to be destroyed next frame.

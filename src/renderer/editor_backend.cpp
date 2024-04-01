@@ -896,7 +896,13 @@ namespace renderer
 
 		for (uint32_t render_object_index : outline_set.render_object_indices)
 		{
+			if (render_object_index == NULL_INDEX) {
+				continue;
+			}
 			RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[render_object_index] };
+			if (!render_object) {
+				continue;
+			}
 
 			vkCmdBindDescriptorSets(
 				cmd,

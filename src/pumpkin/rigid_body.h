@@ -67,7 +67,8 @@ namespace pmk
 		// Populate rigid_bodies_ with rigid bodies made from connected voxels sharing
 		// the same rigid body physics material.
 		// Removes the rigid body voxels from input voxels.
-		void CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk);
+		// Returns true if the voxel chunk is empty after creating rigid bodies.
+		bool CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk);
 
 		std::array<CollisionPair, MAX_COLLISION_PAIRS> ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const;
 

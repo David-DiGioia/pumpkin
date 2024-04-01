@@ -1043,7 +1043,10 @@ namespace renderer
 	const std::vector<int>& VulkanRenderer::GetMaterialIndices(RenderObjectHandle render_object_handle)
 	{
 		RenderObject* render_object{ GetCurrentFrame().render_objects[render_object_handle] };
-		return render_object->material_indices;
+		if (render_object) {
+			return render_object->material_indices;
+		}
+		return {};
 	}
 
 	uint32_t VulkanRenderer::GetCurrentFrameNumber() const
@@ -1073,6 +1076,9 @@ namespace renderer
 		{
 			if (ro) {
 				material_indices.push_back(&ro->material_indices);
+			}
+			else {
+				material_indices.push_back(nullptr);
 			}
 		}
 		return material_indices;
@@ -1128,6 +1134,10 @@ namespace renderer
 		{
 			for (RenderObject* ro : frame.render_objects)
 			{
+				if (!ro) {
+					continue;
+				}
+
 				std::transform(ro->material_indices.begin(), ro->material_indices.end(), ro->material_indices.begin(),
 					[=](int idx) { return (idx >= material_index) ? std::max(idx - 1, 0) : idx; });
 			}
@@ -1310,6 +1320,14 @@ namespace renderer
 			});
 	}
 
+	void VulkanRenderer::QueueDestroyRenderObject(RenderObjectHandle ro_target)
+	{
+		QueueHostRenderWork([=]()
+			{
+				render_object_destroyer_.DestroyElement((uint32_t)ro_target);
+			});
+	}
+
 	void VulkanRenderer::SetRenderObjectTransform(RenderObjectHandle render_object_handle, const glm::mat4& transform)
 	{
 		// This is called every frame by Pumpkin so we only update for the current frame resources.
@@ -1328,8 +1346,12 @@ namespace renderer
 
 	void VulkanRenderer::SetRenderObjectVisible(RenderObjectHandle render_object_handle, bool visible)
 	{
-		for (auto& frame : frame_resources_) {
-			frame.render_objects[render_object_handle]->visible = visible;
+		for (auto& frame : frame_resources_)
+		{
+			RenderObject* ro{ frame.render_objects[render_object_handle] };
+			if (ro) {
+				ro->visible = visible;
+			}
 		}
 	}
 
@@ -1540,7 +1562,7 @@ namespace renderer
 
 		// Maybe TODO: Transition image with image barrier for being a depth image?
 #endif
-	}
+}
 
 	std::vector<int> VulkanRenderer::LoadMeshesAndMaterialsGLTF(tinygltf::Model& model, std::vector<std::string>* out_material_names)
 	{

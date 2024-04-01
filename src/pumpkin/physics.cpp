@@ -49,9 +49,16 @@ namespace pmk
 
 	void PhysicsContext::EnablePhysicsUpdate()
 	{
-		rigid_body_context_.CreateRigidBodiesByConnectedness(particle_context_.GetVoxelChunk());
+		bool voxel_chunk_empty{ rigid_body_context_.CreateRigidBodiesByConnectedness(particle_context_.GetVoxelChunk()) };
 		rigid_body_context_.EnablePhysicsUpdate();
-		particle_context_.EnablePhysicsUpdate();
+
+		if (voxel_chunk_empty) {
+			particle_context_.DestroyVoxelRenderObject();
+		}
+		else {
+			particle_context_.EnablePhysicsUpdate();
+		}
+		UpdatePhysicsRenderMaterials();
 	}
 
 	void PhysicsContext::DisablePhysicsUpdate()
@@ -200,7 +207,7 @@ namespace pmk
 			physics_mat->constitutive_model->density_ = json_physics_mat[jsonkey::CONSTITUTIVE_MODEL_DENSITY];
 
 			std::string model_type{ json_physics_mat[jsonkey::CONSTITUTIVE_MODEL_TYPE] };
-			
+
 			if (model_type == jsonkey::HYPER_ELASTIC_MODEL)
 			{
 				SetPhysicsMaterialModel<HyperElasticModel>(physics_mat_idx);

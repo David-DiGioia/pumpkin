@@ -428,7 +428,7 @@ private:
 	TransformInfo transform_info_{};
 
 	EditorNode* particle_node_{};
-	uint32_t particle_gen_shader_idx_{};
+	uint32_t particle_gen_shader_idx_{ NULL_INDEX };
 	bool show_particle_grid_{};
 	bool use_particle_depth_{};
 	ParticleColorMode particle_color_mode_{};

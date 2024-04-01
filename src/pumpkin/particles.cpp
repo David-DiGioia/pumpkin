@@ -162,8 +162,17 @@ namespace pmk
 	void ParticleContext::UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials)
 	{
 		renderer_->SetPhysicsToRenderMaterialMap(std::move(all_physics_render_materials));
-		if (particle_node_) {
+		if (particle_node_ && particle_node_->render_object != renderer::NULL_HANDLE) {
 			renderer_->UpdatePhysicsRenderMaterials(particle_node_->render_object);
+		}
+	}
+
+	void ParticleContext::DestroyVoxelRenderObject()
+	{
+		if (particle_node_)
+		{
+			renderer_->QueueDestroyRenderObject(particle_node_->render_object);
+			particle_node_->render_object = renderer::NULL_HANDLE;
 		}
 	}
 

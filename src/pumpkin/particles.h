@@ -44,6 +44,8 @@ namespace pmk
 
 		void UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials);
 
+		void DestroyVoxelRenderObject();
+
 #ifdef EDITOR_ENABLED
 		void SetMPMDebugParticleGenEnabled(bool enabled);
 

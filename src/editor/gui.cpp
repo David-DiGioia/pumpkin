@@ -466,6 +466,10 @@ void EditorGui::NodeProperties()
 
 void EditorGui::RenderMaterials(EditorNode* node)
 {
+	if (node && node->node->render_object == renderer::NULL_HANDLE) {
+		return;
+	}
+
 	std::vector<int> node_materials{};
 	if (node) {
 		node_materials = editor_->GetMaterialIndicesFromNode(node);
@@ -648,7 +652,9 @@ void EditorGui::PhysicsMaterials()
 		uint32_t physics_render_material_index{ editor_->GetPhysicsMaterialRender(physics_material_selected_index_) };
 		ImGui::Text("Render material");
 		ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
-		if (ImGui::BeginCombo("##RenderMaterialCombo", editor_->materials_[physics_render_material_index]->GetNameBuffer(), 0))
+
+		std::string display_name{ physics_render_material_index < (uint32_t)editor_->materials_.size() ? editor_->materials_[physics_render_material_index]->GetName() : "Invalid" };
+		if (ImGui::BeginCombo("##RenderMaterialCombo", display_name.c_str(), 0))
 		{
 			for (uint32_t mat_idx = 0; mat_idx < (uint32_t)editor_->materials_.size(); ++mat_idx)
 			{
