@@ -81,7 +81,7 @@ namespace renderer
 				// From the renderer's point of view, they've all been deleted already.
 				vec[index] = nullptr;
 			}
-			destruction_queue_[index] = other_render_objects;
+			destruction_queue_.push_back({ index, other_render_objects });
 		}
 
 		uint32_t PopVacantMeshIndex()
@@ -98,13 +98,12 @@ namespace renderer
 		// Call once per frame.
 		void FrameUpdate()
 		{
-			auto destruction_queue_copy{ destruction_queue_ };
-			for (const auto& [ro_index, render_objects] : destruction_queue_copy)
+			for (auto& [ro_index, render_objects] : destruction_queue_)
 			{
 				vacant_mesh_indices_.push_back(render_objects[0]->mesh_idx);
-				DestroyQueuedElement(ro_index);
-				destruction_queue_.erase(ro_index);
+				DestroyQueuedElement(render_objects);
 			}
+			destruction_queue_.clear();
 		}
 
 		void NextFrame()
@@ -120,10 +119,10 @@ namespace renderer
 			vec[index] = nullptr;
 		}
 
-		void DestroyQueuedElement(uint32_t index)
+		void DestroyQueuedElement(std::array<RenderObject*, FRAMES_IN_FLIGHT - 1>& render_objects)
 		{
 			uint32_t i{ 0 };
-			for (RenderObject* ro_ptr : destruction_queue_[index])
+			for (RenderObject* ro_ptr : render_objects)
 			{
 				bool last_element{ i == FRAMES_IN_FLIGHT - 2 }; // Since destruction queue element has FRAMES_IN_FLIGHT - 1 elements.
 				destroyer_func_(ro_ptr, last_element);
@@ -152,8 +151,8 @@ namespace renderer
 		std::function<void(RenderObject*, bool)> destroyer_func_{};
 		uint32_t current_frame_{};
 
-		std::unordered_map<uint32_t, std::array<RenderObject*, FRAMES_IN_FLIGHT - 1>> destruction_queue_{}; // Indices queued for destruction. Pairs of (ro_idx, render objects).
-		std::vector<uint32_t> vacant_mesh_indices_{};                                                       // Destroyed indices ready to be reused.
+		std::vector<std::pair<uint32_t, std::array<RenderObject*, FRAMES_IN_FLIGHT - 1>>> destruction_queue_{}; // Indices queued for destruction. Pairs of (ro_idx, render objects).
+		std::vector<uint32_t> vacant_mesh_indices_{};                                                           // Destroyed indices ready to be reused.
 	};
 
 	void CheckResult(VkResult result, const std::string& msg);

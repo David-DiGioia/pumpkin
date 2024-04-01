@@ -62,6 +62,8 @@ namespace pmk
 
 		void DisablePhysicsUpdate();
 
+		bool GetPhysicsUpdateEnabled() const;
+
 		void ResetRigidBodies();
 
 		// Populate rigid_bodies_ with rigid bodies made from connected voxels sharing

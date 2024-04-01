@@ -93,6 +93,11 @@ namespace pmk
 		update_physics_ = false;
 	}
 
+	bool RigidBodyContext::GetPhysicsUpdateEnabled() const
+	{
+		return update_physics_;
+	}
+
 	void RigidBodyContext::ResetRigidBodies()
 	{
 		DisablePhysicsUpdate();

@@ -77,7 +77,7 @@ namespace pmk
 
 	bool PhysicsContext::GetPhysicsUpdateEnabled() const
 	{
-		return particle_context_.GetPhysicsUpdateEnabled();
+		return particle_context_.GetPhysicsUpdateEnabled() || rigid_body_context_.GetPhysicsUpdateEnabled();
 	}
 
 	bool PhysicsContext::GetParticlesEmpty() const
