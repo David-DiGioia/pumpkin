@@ -45,7 +45,7 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t substeps{ 1 };
+		constexpr uint32_t substeps{ 10 };
 		constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
 
 		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
