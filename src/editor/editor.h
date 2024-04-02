@@ -258,7 +258,8 @@ public:
 	EditorNode* NodeToEditorNode(pmk::Node* node);
 
 	// Update node_map_ to no longer contain destroyed pmk::Nodes.
-	void RemoveDestroyedNodes();
+	// The active_node_id is the last active selected node, so it can be set to null if it's deleted.
+	void RemoveDestroyedNodes(uint32_t active_node_id);
 
 	// Import the whole GLTF hierarchy, adding all nodes to scene.
 	// Note that Blender doesn't export cameras or lights.

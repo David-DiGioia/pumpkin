@@ -925,7 +925,7 @@ namespace renderer
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 
 		// Load meshes.
-		uint32_t mesh_idx{0};
+		uint32_t mesh_idx{ 0 };
 		std::vector<uint32_t> vacant_mesh_indices{};
 		for (auto& json_mesh : j[jsonkey::MESHES])
 		{
@@ -1048,9 +1048,12 @@ namespace renderer
 
 	const std::vector<int>& VulkanRenderer::GetMaterialIndices(RenderObjectHandle render_object_handle)
 	{
-		RenderObject* render_object{ GetCurrentFrame().render_objects[render_object_handle] };
-		if (render_object) {
-			return render_object->material_indices;
+		if (render_object_handle != renderer::NULL_HANDLE)
+		{
+			RenderObject* render_object{ GetCurrentFrame().render_objects[render_object_handle] };
+			if (render_object) {
+				return render_object->material_indices;
+			}
 		}
 		return {};
 	}

@@ -56,13 +56,11 @@ namespace pmk
 			for (RigidBody* rb : rigid_bodies_)
 			{
 				rb->previous_position = rb->node->position;
-				if (!rb->immovable) {
-					rb->velocity += h * gravity;
-				}
+				rb->velocity = rb->immovable ? glm::vec3{} : rb->velocity + h * gravity;
 				rb->node->position += h * rb->velocity;
 
 				rb->previous_rotation = rb->node->rotation;
-				rb->angular_velocity += h * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_velocity, rb->inertia_tensor * rb->angular_velocity));
+				rb->angular_velocity = rb->immovable ? glm::vec3{} : rb->angular_velocity + h * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_velocity, rb->inertia_tensor * rb->angular_velocity));
 				rb->node->rotation += h * 0.5f * glm::quat{ 0.0f, rb->angular_velocity.x, rb->angular_velocity.y, rb->angular_velocity.z } *rb->node->rotation;
 				rb->node->rotation = glm::normalize(rb->node->rotation);
 			}
@@ -190,7 +188,6 @@ namespace pmk
 			{
 				collision_pairs[collision_pair_idx++] = ab_swap ? CollisionPair{ big_coord, small_coord } : CollisionPair{ small_coord, big_coord };
 
-				logger::Print(" Collision!\n");
 				if (collision_pair_idx == MAX_COLLISION_PAIRS) {
 					break;
 				}
@@ -509,6 +506,7 @@ namespace pmk
 			.voxel_chunk = std::move(voxel_chunk),
 		} };
 
+		rigid_body->node->rigid_body = rigid_body;
 		rigid_body->node->SetWorldPosition(PARTICLE_WIDTH * (glm::vec3{ min_extents } + rigid_body->center_of_mass));
 		scene_->AddRenderObjectToNode(rigid_body->node, renderer_->CreateBlankRenderObject());
 		renderer_->GenerateStaticParticleMesh(rigid_body->node->render_object, rigid_body->voxel_chunk, PARTICLE_WIDTH * rigid_body->center_of_mass);

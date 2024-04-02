@@ -18,7 +18,7 @@ namespace pmk
 	{
 		const uint32_t node_id;
 		renderer::RenderObjectHandle render_object{ renderer::NULL_HANDLE };
-		bool physics_object{};
+		RigidBody* rigid_body{};
 
 		// Each transform is in local space of parent.
 		glm::vec3 position{};

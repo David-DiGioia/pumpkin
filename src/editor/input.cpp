@@ -97,6 +97,23 @@ void EditorInput::ProcessViewportAllInput(Editor* editor, const renderer::Extent
 			editor->CastSelectionRay(mouse_pos, viewport_extent);
 		}
 	}
+
+	// Keyboard input.
+	{
+		// Play/pause/reset physics simulation.
+		if (!editor->GetParticleSimulationEmpty() && ImGui::IsKeyPressed(ImGuiKey_Space, false))
+		{
+			if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+				editor->ResetPhysicsSimulation();
+			}
+			else if (editor->GetPhysicsSimulationEnabled()) {
+				editor->PausePhysicsSimulation();
+			}
+			else {
+				editor->PlayPhysicsSimulation();
+			}
+		}
+	}
 }
 
 void EditorInput::ProcessViewportFocusInput(Editor* editor, const renderer::Extent& viewport_extent)

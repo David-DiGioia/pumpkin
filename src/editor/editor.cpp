@@ -545,7 +545,7 @@ EditorNode* Editor::NodeToEditorNode(pmk::Node* node)
 	return node_map_[node->node_id];
 }
 
-void Editor::RemoveDestroyedNodes()
+void Editor::RemoveDestroyedNodes(uint32_t active_node_id)
 {
 	std::vector<pmk::Node*>& pmk_nodes{ pumpkin_->GetScene().GetNodes() };
 	for (uint32_t id{ 0 }; id < (uint32_t)pmk_nodes.size(); ++id)
@@ -554,8 +554,13 @@ void Editor::RemoveDestroyedNodes()
 		bool node_is_destroyed{ !pmk_nodes[id] };
 		bool editor_contains_node{ itr != node_map_.end() };
 
-		if (node_is_destroyed && editor_contains_node) {
+		if (node_is_destroyed && editor_contains_node)
+		{
 			node_map_.erase(itr);
+
+			if (id == active_node_id) {
+				active_selection_node_ = nullptr;
+			}
 		}
 	}
 }
@@ -603,10 +608,8 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 
 uint32_t Editor::GenerateVoxels(std::function<uint32_t()> particle_gen_func)
 {
-	if (!particle_node_)
-	{
+	if (!particle_node_) {
 		particle_node_ = CreateNode("voxel_node");
-		particle_node_->node->physics_object = true;
 	}
 
 	if (physics_materials_.empty()) {
@@ -657,9 +660,10 @@ void Editor::PausePhysicsSimulation()
 
 void Editor::ResetPhysicsSimulation()
 {
+	uint32_t active_selection_id{ active_selection_node_ ? active_selection_node_->node->node_id : NULL_INDEX };
 	pumpkin_->GetScene().ResetPhysicsSimulation();
 	// Rigid bodies are destroyed when simulation is reset, so remove them from editor.
-	RemoveDestroyedNodes();
+	RemoveDestroyedNodes(active_selection_id);
 	GenerateVoxels();
 }
 

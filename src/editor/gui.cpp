@@ -450,11 +450,33 @@ void EditorGui::NodeProperties()
 		ImGui::Text("%.2f  %.2f  %.2f  %.2f", rot.x, rot.y, rot.z, rot.w);
 		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
 
-		if (!active_node->node->physics_object) {
-			RenderMaterials(active_node);
-		}
-		else {
-			ImGui::Text("Physics object selected.\nEdit material through Materials tab.");
+		RenderMaterials(active_node);
+
+		// Rigid body gui.
+		pmk::RigidBody* rb{ active_node->node->rigid_body };
+		if (rb)
+		{
+			ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+			ImGui::Separator();
+			ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+
+			ImGui::Text("Rigid body");
+
+			ImGui::Text("Immovable");
+			ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+			ImGui::Checkbox("##Immovable", &rb->immovable);
+
+			ImGui::Text("Mass");
+			ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+			ImGui::DragFloat("##RigidBodyMass", &rb->mass, 0.01f);
+
+			ImGui::Text("Velocity");
+			ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+			ImGui::DragFloat3("##Velocity", glm::value_ptr(rb->velocity), 0.1f);
+
+			ImGui::Text("Angular vel");
+			ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
+			ImGui::DragFloat3("##AngularVelocity", glm::value_ptr(rb->angular_velocity), 0.1f);
 		}
 	}
 	else {
