@@ -111,6 +111,12 @@ namespace renderer
 			current_frame_ = (current_frame_ + 1) % FRAMES_IN_FLIGHT;
 		}
 
+		// Should only be called when new project is loaded.
+		void SetVacantMeshIndices(std::vector<uint32_t>&& mesh_indices)
+		{
+			vacant_mesh_indices_ = std::move(mesh_indices);
+		}
+
 	private:
 		void DestroyElementCurrentFrame(uint32_t index, bool last_resource)
 		{

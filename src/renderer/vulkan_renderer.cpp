@@ -925,17 +925,21 @@ namespace renderer
 		VkCommandBuffer cmd{ vulkan_util_.Begin() };
 
 		// Load meshes.
+		uint32_t mesh_idx{0};
+		std::vector<uint32_t> vacant_mesh_indices{};
 		for (auto& json_mesh : j[jsonkey::MESHES])
 		{
 			if (json_mesh == jsonkey::NULL_OBJECT)
 			{
 				meshes_.push_back(nullptr);
+				vacant_mesh_indices.push_back(mesh_idx++);
 				continue;
 			}
 
 			Mesh* mesh{ new Mesh{} };
 			mesh->write_to_disk = true;
 			meshes_.push_back(mesh);
+			vacant_mesh_indices.push_back(mesh_idx++);
 
 			for (auto& json_geometry : json_mesh[jsonkey::GEOMETRIES])
 			{
@@ -955,6 +959,7 @@ namespace renderer
 			UploadMeshToDevice(vulkan_util_, *mesh);
 			rt_context_.QueueBlas(mesh);
 		}
+		render_object_destroyer_.SetVacantMeshIndices(std::move(vacant_mesh_indices));
 
 		// Load materials.
 		for (auto& json_material : j[jsonkey::MATERIALS])
