@@ -773,7 +773,7 @@ namespace renderer
 		// Save render objects.
 		for (RenderObject* ro : GetCurrentFrame().render_objects)
 		{
-			if (!meshes_[ro->mesh_idx]->write_to_disk)
+			if (!ro || !meshes_[ro->mesh_idx]->write_to_disk)
 			{
 				j[jsonkey::RENDER_OBJECTS] += jsonkey::NULL_OBJECT;
 				continue;

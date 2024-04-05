@@ -103,7 +103,7 @@ namespace renderer
 	}
 
 	VoxelChunk::VoxelChunk()
-		: VoxelChunk{1, 1, 1} // Dummy voxel chunk.
+		: VoxelChunk{ 1, 1, 1 } // Dummy voxel chunk.
 	{
 	}
 
@@ -309,6 +309,11 @@ namespace renderer
 	uint32_t VoxelChunk::GetDepth() const
 	{
 		return depth_;
+	}
+
+	bool VoxelChunk::IsPointMass() const
+	{
+		return (width_ == 1) && (height_ == 1) && (depth_ == 1);
 	}
 
 	bool VoxelChunk::NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset) const
@@ -744,7 +749,7 @@ namespace renderer
 
 			renderer_->ReplaceRenderObjectAndBuildBlas(ro_target, mesh, render_mat_indices);
 		}
-}
+	}
 
 	void ParticleGenContext::SetPhysicsToRenderMaterialMap(std::vector<int>&& physics_to_render_mat_idx)
 	{

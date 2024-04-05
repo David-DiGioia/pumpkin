@@ -660,6 +660,7 @@ void Editor::PausePhysicsSimulation()
 
 void Editor::ResetPhysicsSimulation()
 {
+	SetActiveTransformType(TransformType::NONE);
 	uint32_t active_selection_id{ active_selection_node_ ? active_selection_node_->node->node_id : NULL_INDEX };
 	pumpkin_->GetScene().ResetPhysicsSimulation();
 	// Rigid bodies are destroyed when simulation is reset, so remove them from editor.

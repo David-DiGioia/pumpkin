@@ -92,6 +92,8 @@ namespace renderer
 
 		uint32_t GetDepth() const;
 
+		bool IsPointMass() const;
+
 	private:
 		// Helper function for calculating side flags.
 		bool NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset) const;

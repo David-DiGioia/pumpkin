@@ -47,6 +47,7 @@ namespace pmk
 
 		constexpr uint32_t substeps{ 10 };
 		constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
+		//constexpr glm::vec3 gravity{ 0.0f, 0.0f, 0.0f };
 
 		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
 
@@ -61,8 +62,12 @@ namespace pmk
 
 				rb->previous_rotation = rb->node->rotation;
 				rb->angular_velocity = rb->immovable ? glm::vec3{} : rb->angular_velocity + h * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_velocity, rb->inertia_tensor * rb->angular_velocity));
-				rb->node->rotation += h * 0.5f * glm::quat{ 0.0f, rb->angular_velocity.x, rb->angular_velocity.y, rb->angular_velocity.z } *rb->node->rotation;
-				rb->node->rotation = glm::normalize(rb->node->rotation);
+
+				if (!rb->voxel_chunk.IsPointMass())
+				{
+					rb->node->rotation += h * 0.5f * glm::quat{ 0.0f, rb->angular_velocity.x, rb->angular_velocity.y, rb->angular_velocity.z } *rb->node->rotation;
+					rb->node->rotation = glm::normalize(rb->node->rotation);
+				}
 			}
 
 			SolvePositions(h);
@@ -70,10 +75,13 @@ namespace pmk
 			for (RigidBody* rb : rigid_bodies_)
 			{
 				rb->velocity = (rb->node->position - rb->previous_position) / h;
-				glm::quat delta_q{ rb->node->rotation * glm::inverse(rb->previous_rotation) };
-				rb->angular_velocity = 2.0f * glm::vec3{ delta_q.x, delta_q.y, delta_q.z } / h;
-				if (delta_q.w < 0) {
-					rb->angular_velocity = -rb->angular_velocity;
+				if (!rb->voxel_chunk.IsPointMass())
+				{
+					glm::quat delta_q{ rb->node->rotation * glm::inverse(rb->previous_rotation) };
+					rb->angular_velocity = 2.0f * glm::vec3{ delta_q.x, delta_q.y, delta_q.z } / h;
+					if (delta_q.w < 0) {
+						rb->angular_velocity = -rb->angular_velocity;
+					}
 				}
 			}
 
@@ -281,30 +289,36 @@ namespace pmk
 				{
 					CollisionPair& cp{ collision_pairs[i] };
 					// Local position of voxel centers.
-					glm::vec3 r1{ ((glm::vec3)cp.coordinate_a - rb_a->center_of_mass) * PARTICLE_WIDTH };
-					glm::vec3 r2{ ((glm::vec3)cp.coordinate_b - rb_b->center_of_mass) * PARTICLE_WIDTH };
+					glm::vec3 r1_local{ ((glm::vec3)cp.coordinate_a - rb_a->center_of_mass) * PARTICLE_WIDTH };
+					glm::vec3 r2_local{ ((glm::vec3)cp.coordinate_b - rb_b->center_of_mass) * PARTICLE_WIDTH };
+
+					glm::vec3 world_center_of_mass_a{ rb_a->node->position };
+					glm::vec3 world_center_of_mass_b{ rb_b->node->position };
 
 					// World position of voxel centers.
-					glm::vec3 world_pos_a{ glm::vec3{rb_a->node->GetWorldTransform() * glm::vec4{r1, 1.0f}} };
-					glm::vec3 world_pos_b{ glm::vec3{rb_b->node->GetWorldTransform() * glm::vec4{r2, 1.0f}} };
+					glm::vec3 world_pos_a{ glm::vec3{rb_a->node->GetWorldTransform() * glm::vec4{r1_local, 1.0f}} };
+					glm::vec3 world_pos_b{ glm::vec3{rb_b->node->GetWorldTransform() * glm::vec4{r2_local, 1.0f}} };
 
 					glm::vec3 delta_x{ world_pos_b - world_pos_a };
 					float c{ glm::length(delta_x) };
 					glm::vec3 n{ delta_x / c };
 					c = std::fabsf(c - PARTICLE_WIDTH); // Distance between sphere surfaces instead of sphere centers.
 
-					// Change r1 and r2 to be points on surface of sphere instead of center.
+					// Change world positions to be points on surface of sphere instead of center.
 					world_pos_a += n * PARTICLE_RADIUS;
 					world_pos_b -= n * PARTICLE_RADIUS;
-					r1 = (glm::vec3)(glm::inverse(rb_a->node->GetWorldTransform()) * glm::vec4{ world_pos_a, 1.0f });
-					r2 = (glm::vec3)(glm::inverse(rb_b->node->GetWorldTransform()) * glm::vec4{ world_pos_b, 1.0f });
+					glm::vec3 r1{ world_pos_a - world_center_of_mass_a };
+					glm::vec3 r2{ world_pos_b - world_center_of_mass_b };
+
+					//r1 = (glm::vec3)(glm::inverse(rb_a->node->GetWorldTransform()) * glm::vec4{ world_pos_a, 1.0f });
+					//r2 = (glm::vec3)(glm::inverse(rb_b->node->GetWorldTransform()) * glm::vec4{ world_pos_b, 1.0f });
 
 					float m1{ rb_a->immovable ? std::numeric_limits<float>::infinity() : GetVoxelMass(rb_a->voxel_chunk.Coordinate(cp.coordinate_a).physics_material_index) };
 					float m2{ rb_b->immovable ? std::numeric_limits<float>::infinity() : GetVoxelMass(rb_b->voxel_chunk.Coordinate(cp.coordinate_b).physics_material_index) };
 					glm::vec3 r1_cross_n{ glm::cross(r1, n) };
 					glm::vec3 r2_cross_n{ glm::cross(r2, n) };
-					glm::mat3 inertia_tensor_inv_a{ glm::inverse(rb_a->inertia_tensor) };
-					glm::mat3 inertia_tensor_inv_b{ glm::inverse(rb_b->inertia_tensor) };
+					glm::mat3 inertia_tensor_inv_a{ rb_a->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_a->inertia_tensor) };
+					glm::mat3 inertia_tensor_inv_b{ rb_b->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_b->inertia_tensor) };
 					float w1{ (1.0f / m1) + glm::dot(r1_cross_n, inertia_tensor_inv_a * r1_cross_n) };
 					float w2{ (1.0f / m2) + glm::dot(r2_cross_n, inertia_tensor_inv_b * r2_cross_n) };
 
@@ -317,15 +331,21 @@ namespace pmk
 					if (!rb_a->immovable)
 					{
 						rb_a->node->position += p / m1;
-						glm::vec3 tmp1{ inertia_tensor_inv_a * glm::cross(r1, p) };
-						rb_a->node->rotation += 0.5f * glm::quat{ 0.0f, tmp1.x, tmp1.y, tmp1.z } *rb_a->node->rotation;
+						if (!rb_a->voxel_chunk.IsPointMass())
+						{
+							glm::vec3 tmp1{ inertia_tensor_inv_a * glm::cross(r1, p) };
+							rb_a->node->rotation += 0.5f * glm::quat{ 0.0f, tmp1.x, tmp1.y, tmp1.z } *rb_a->node->rotation;
+						}
 					}
 
 					if (!rb_b->immovable)
 					{
 						rb_b->node->position -= p / m2;
-						glm::vec3 tmp2{ inertia_tensor_inv_b * glm::cross(r2, p) };
-						rb_b->node->rotation -= 0.5f * glm::quat{ 0.0f, tmp2.x, tmp2.y, tmp2.z } *rb_b->node->rotation;
+						if (!rb_b->voxel_chunk.IsPointMass())
+						{
+							glm::vec3 tmp2{ inertia_tensor_inv_b * glm::cross(r2, p) };
+							rb_b->node->rotation -= 0.5f * glm::quat{ 0.0f, tmp2.x, tmp2.y, tmp2.z } *rb_b->node->rotation;
+						}
 					}
 				}
 			}
@@ -501,7 +521,7 @@ namespace pmk
 		RigidBody* rigid_body{ new RigidBody{
 			.node = scene_->CreateNode(),
 			.mass = mass,
-			.center_of_mass = std::move(center_of_mass),
+			.center_of_mass = center_of_mass,
 			.inertia_tensor = ComputeInertiaTensor(voxel_chunk, center_of_mass),
 			.voxel_chunk = std::move(voxel_chunk),
 		} };
