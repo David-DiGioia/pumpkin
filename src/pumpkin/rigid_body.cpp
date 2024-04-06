@@ -310,15 +310,12 @@ namespace pmk
 					glm::vec3 r1{ world_pos_a - world_center_of_mass_a };
 					glm::vec3 r2{ world_pos_b - world_center_of_mass_b };
 
-					//r1 = (glm::vec3)(glm::inverse(rb_a->node->GetWorldTransform()) * glm::vec4{ world_pos_a, 1.0f });
-					//r2 = (glm::vec3)(glm::inverse(rb_b->node->GetWorldTransform()) * glm::vec4{ world_pos_b, 1.0f });
-
-					float m1{ rb_a->immovable ? std::numeric_limits<float>::infinity() : GetVoxelMass(rb_a->voxel_chunk.Coordinate(cp.coordinate_a).physics_material_index) };
-					float m2{ rb_b->immovable ? std::numeric_limits<float>::infinity() : GetVoxelMass(rb_b->voxel_chunk.Coordinate(cp.coordinate_b).physics_material_index) };
+					float m1{ rb_a->immovable ? std::numeric_limits<float>::infinity() : rb_a->mass };
+					float m2{ rb_b->immovable ? std::numeric_limits<float>::infinity() : rb_b->mass };
 					glm::vec3 r1_cross_n{ glm::cross(r1, n) };
 					glm::vec3 r2_cross_n{ glm::cross(r2, n) };
-					glm::mat3 inertia_tensor_inv_a{ rb_a->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_a->inertia_tensor) };
-					glm::mat3 inertia_tensor_inv_b{ rb_b->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_b->inertia_tensor) };
+					glm::mat3 inertia_tensor_inv_a{  rb_a->immovable || rb_a->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_a->inertia_tensor) };
+					glm::mat3 inertia_tensor_inv_b{  rb_b->immovable || rb_b->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_b->inertia_tensor) };
 					float w1{ (1.0f / m1) + glm::dot(r1_cross_n, inertia_tensor_inv_a * r1_cross_n) };
 					float w2{ (1.0f / m2) + glm::dot(r2_cross_n, inertia_tensor_inv_b * r2_cross_n) };
 
@@ -469,6 +466,11 @@ namespace pmk
 			{
 				for (uint32_t k{ 0 }; k < voxel_chunk.GetDepth(); ++k)
 				{
+					uint8_t physics_mat_index{ voxel_chunk.Coordinate(i, j, k).physics_material_index };
+					if (physics_mat_index == renderer::PHYSICS_MATERIAL_EMPTY_INDEX) {
+						continue;
+					}
+
 					glm::vec3 r{ i, j, k };
 					glm::vec3 delta_r{ (r - center_of_mass) * PARTICLE_WIDTH };
 
@@ -476,17 +478,17 @@ namespace pmk
 					float x2{ delta_r.x * delta_r.x };
 					float y2{ delta_r.y * delta_r.y };
 					float z2{ delta_r.z * delta_r.z };
-					float xy{ delta_r.x * delta_r.y };
-					float xz{ delta_r.x * delta_r.z };
-					float yz{ delta_r.y * delta_r.z };
-					float mass{ GetVoxelMass(voxel_chunk.Coordinate(i, j, k).physics_material_index) };
+					float x_times_y{ delta_r.x * delta_r.y };
+					float x_times_z{ delta_r.x * delta_r.z };
+					float y_times_z{ delta_r.y * delta_r.z };
+					float mass{ GetVoxelMass(physics_mat_index) };
 
 					xx += (y2 + z2) * mass;
 					yy += (x2 + z2) * mass;
 					zz += (x2 + y2) * mass;
-					xy -= (xy)*mass;
-					yz -= (yz)*mass;
-					xz -= (xz)*mass;
+					xy -= x_times_y * mass;
+					yz -= y_times_z * mass;
+					xz -= x_times_z * mass;
 				}
 			}
 		}
