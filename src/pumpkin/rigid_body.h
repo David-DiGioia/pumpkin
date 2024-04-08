@@ -10,7 +10,7 @@
 
 namespace pmk
 {
-	constexpr uint32_t MAX_COLLISION_PAIRS{ 4 }; // Maximum collision pairs between two voxel objects.
+	constexpr uint32_t MAX_COLLISION_PAIRS{ 32 }; // Maximum collision pairs between two voxel objects.
 
 	class RigidBodyModel : public ConstitutiveModel
 	{

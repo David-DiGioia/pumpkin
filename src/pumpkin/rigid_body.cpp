@@ -301,6 +301,11 @@ namespace pmk
 
 					glm::vec3 delta_x{ world_pos_b - world_pos_a };
 					float c{ glm::length(delta_x) };
+
+					if (c > PARTICLE_WIDTH) {
+						continue;
+					}
+
 					glm::vec3 n{ delta_x / c };
 					c = std::fabsf(c - PARTICLE_WIDTH); // Distance between sphere surfaces instead of sphere centers.
 
@@ -314,8 +319,8 @@ namespace pmk
 					float m2{ rb_b->immovable ? std::numeric_limits<float>::infinity() : rb_b->mass };
 					glm::vec3 r1_cross_n{ glm::cross(r1, n) };
 					glm::vec3 r2_cross_n{ glm::cross(r2, n) };
-					glm::mat3 inertia_tensor_inv_a{  rb_a->immovable || rb_a->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_a->inertia_tensor) };
-					glm::mat3 inertia_tensor_inv_b{  rb_b->immovable || rb_b->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_b->inertia_tensor) };
+					glm::mat3 inertia_tensor_inv_a{ rb_a->immovable || rb_a->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_a->inertia_tensor) };
+					glm::mat3 inertia_tensor_inv_b{ rb_b->immovable || rb_b->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb_b->inertia_tensor) };
 					float w1{ (1.0f / m1) + glm::dot(r1_cross_n, inertia_tensor_inv_a * r1_cross_n) };
 					float w2{ (1.0f / m2) + glm::dot(r2_cross_n, inertia_tensor_inv_b * r2_cross_n) };
 
@@ -440,12 +445,21 @@ namespace pmk
 		uint32_t potential_collision_count{};
 		std::array<glm::uvec3, 8> potential_collisions{ rb.voxel_chunk.GetPotentialCollisions(coord_space, &potential_collision_count) };
 
+		float closest_sqr{ std::numeric_limits<float>::infinity() };
+		float closest_idx{};
 		for (uint32_t i{ 0 }; i < potential_collision_count; ++i)
 		{
-			// Check if it's less than one since we are coord space, where 1 voxel width is 1 unit.
-			if (glm::distance2(coord_space, glm::vec3{ potential_collisions[i] }) <= 1.0f) {
-				return potential_collisions[i];
+			float distance_sqr{ glm::distance2(coord_space, glm::vec3{ potential_collisions[i] }) };
+			if (distance_sqr < closest_sqr)
+			{
+				closest_sqr = distance_sqr;
+				closest_idx = i;
 			}
+		}
+
+		// Check if it's less than one since we are coord space, where 1 voxel width is 1 unit.
+		if (closest_sqr < 1.0f) {
+			return potential_collisions[closest_idx];
 		}
 
 		return glm::uvec3{ UINT_MAX };
