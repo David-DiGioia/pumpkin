@@ -1,5 +1,6 @@
 #pragma once
 
+#include <queue>
 #include "glm/glm.hpp"
 
 #include "descriptor_set.h"
@@ -41,6 +42,12 @@ namespace renderer
 		uint8_t physics_material_index;
 	};
 
+	struct OuterVoxel
+	{
+		glm::uvec3 coord;
+		glm::vec3 normal;
+	};
+
 	class VoxelChunk
 	{
 	public:
@@ -80,7 +87,7 @@ namespace renderer
 
 		std::vector<uint8_t>& GetSideFlags();
 
-		const std::vector<glm::uvec3>& GetOuterVoxelIndices() const;
+		const std::vector<OuterVoxel>& GetOuterVoxels() const;
 
 		// Given a voxel-sized particle in coordinate space (one unit is one voxel width) return all possible voxels in the chunk that could collide with it.
 		// This means the voxels that are a close enough distance and not empty.
@@ -95,6 +102,22 @@ namespace renderer
 		bool IsPointMass() const;
 
 	private:
+		bool FloodFillInside(const glm::uvec3& coord, const std::vector<uint8_t>& mask) const;
+
+		OuterVoxel FloodFillSet(const glm::uvec3& coord, const glm::vec3& prev_normal, std::vector<uint8_t>& mask) const;
+
+		void FloodFillScan(
+			uint32_t lx,
+			const glm::uvec3& coord,
+			uint32_t original_x,
+			int32_t y_offset,
+			int32_t z_offset,
+			std::queue<OuterVoxel>& queue,
+			const std::vector<uint8_t>& mask);
+
+		// Flood fill for gathering outer voxels and calculating their normals.
+		void OuterVoxelFloodFill(OuterVoxel&& outer_voxel, std::vector<uint8_t>& mask);
+
 		// Helper function for calculating side flags.
 		bool NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset) const;
 
@@ -104,7 +127,7 @@ namespace renderer
 		uint32_t width_height_slice_{};
 		std::vector<Voxel> voxels_{};
 		std::vector<uint8_t> side_flags_{};
-		std::vector<glm::uvec3> outer_voxel_coords_{}; // A list of the non-occluded voxels.
+		std::vector<OuterVoxel> outer_voxels_{}; // A list of the non-occluded voxels and their normals.
 	};
 
 	// Can convert static particles to this as a simplified stand-in for material point.

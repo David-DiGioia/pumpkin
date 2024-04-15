@@ -45,7 +45,7 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t substeps{ 10 };
+		constexpr uint32_t substeps{ 8 };
 		constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
 		//constexpr glm::vec3 gravity{ 0.0f, 0.0f, 0.0f };
 
@@ -177,7 +177,7 @@ namespace pmk
 		const RigidBody* big{ b };   // Rigid body with more outer voxels.
 
 		bool ab_swap{ false };
-		if (small->voxel_chunk.GetOuterVoxelIndices().size() > big->voxel_chunk.GetOuterVoxelIndices().size())
+		if (small->voxel_chunk.GetOuterVoxels().size() > big->voxel_chunk.GetOuterVoxels().size())
 		{
 			std::swap(small, big);
 			ab_swap = true;
@@ -185,8 +185,9 @@ namespace pmk
 
 		// TODO: Make this multithreaded.
 		uint32_t collision_pair_idx{ 0 };
-		for (const glm::uvec3& small_coord : small->voxel_chunk.GetOuterVoxelIndices())
+		for (const renderer::OuterVoxel& ov : small->voxel_chunk.GetOuterVoxels())
 		{
+			glm::uvec3 small_coord{ ov.coord };
 			glm::vec3 global_pos{ CoordinateToGlobal(*small, small_coord) };
 			glm::uvec3 big_coord{ GetCollisionCoordinate(*big, global_pos) };
 
@@ -206,70 +207,13 @@ namespace pmk
 		return collision_pairs;
 	}
 
-	// Returns true when the given coordinate is inside the region that flood fill is filling.
-	static bool FloodFillInside(const glm::uvec3& coord, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask)
-	{
-		// We only check upper condition since negative uints will overflow anyway.
-		bool x_out_bounds{ coord.x >= CHUNK_ROW_VOXEL_COUNT };
-		bool y_out_bounds{ coord.y >= CHUNK_ROW_VOXEL_COUNT };
-		bool z_out_bounds{ coord.z >= CHUNK_ROW_VOXEL_COUNT };
-
-		if (x_out_bounds || y_out_bounds || z_out_bounds) {
-			return false;
-		}
-
-		uint32_t idx{ voxel_chunk.Coordinate(coord).physics_material_index };
-
-#ifdef EDITOR_ENABLED
-		// For editor convenience we just use available physics material if enough haven't been created yet.
-		if (idx != renderer::PHYSICS_MATERIAL_EMPTY_INDEX) {
-			idx = std::min(idx, (uint32_t)material_mask.size() - 1);
-		}
-#endif
-
-		return idx == renderer::PHYSICS_MATERIAL_EMPTY_INDEX ? false : material_mask[idx];
-	}
-
-	static renderer::Voxel FloodFillSet(uint32_t idx, renderer::VoxelChunk& voxel_chunk)
-	{
-		renderer::Voxel voxel{
-			.physics_material_index = voxel_chunk.Index(idx).physics_material_index
-		};
-		voxel_chunk.Index(idx).physics_material_index = renderer::PHYSICS_MATERIAL_EMPTY_INDEX;
-		return voxel;
-	}
-
-	static void FloodFillScan(
-		uint32_t lx,
-		uint32_t rx,
-		uint32_t y,
-		uint32_t z,
-		std::queue<glm::uvec3>& queue,
-		renderer::VoxelChunk& voxel_chunk,
-		const std::vector<uint8_t>& material_mask)
-	{
-		bool span_added{ false };
-
-		for (uint32_t x{ lx }; x < rx; ++x)
-		{
-			if (!FloodFillInside({ x, y, z }, voxel_chunk, material_mask)) {
-				span_added = false;
-			}
-			else if (!span_added)
-			{
-				queue.push({ x, y, z });
-				span_added = true;
-			}
-		}
-	}
-
 	void RigidBodyContext::SolvePositions(float h)
 	{
 		if (rigid_bodies_.empty()) {
 			return;
 		}
 
-		constexpr float compliance{ 0.0f };
+		constexpr float compliance{ 0.000001f };
 
 		constexpr float alpha{ compliance };
 		float alpha_tilde{ alpha / (h * h) };
@@ -350,6 +294,63 @@ namespace pmk
 						}
 					}
 				}
+			}
+		}
+	}
+
+	// Returns true when the given coordinate is inside the region that flood fill is filling.
+	static bool FloodFillInside(const glm::uvec3& coord, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask)
+	{
+		// We only check upper condition since negative uints will overflow anyway.
+		bool x_out_bounds{ coord.x >= CHUNK_ROW_VOXEL_COUNT };
+		bool y_out_bounds{ coord.y >= CHUNK_ROW_VOXEL_COUNT };
+		bool z_out_bounds{ coord.z >= CHUNK_ROW_VOXEL_COUNT };
+
+		if (x_out_bounds || y_out_bounds || z_out_bounds) {
+			return false;
+		}
+
+		uint32_t idx{ voxel_chunk.Coordinate(coord).physics_material_index };
+
+#ifdef EDITOR_ENABLED
+		// For editor convenience we just use available physics material if enough haven't been created yet.
+		if (idx != renderer::PHYSICS_MATERIAL_EMPTY_INDEX) {
+			idx = std::min(idx, (uint32_t)material_mask.size() - 1);
+		}
+#endif
+
+		return idx == renderer::PHYSICS_MATERIAL_EMPTY_INDEX ? false : material_mask[idx];
+	}
+
+	static renderer::Voxel FloodFillSet(uint32_t idx, renderer::VoxelChunk& voxel_chunk)
+	{
+		renderer::Voxel voxel{
+			.physics_material_index = voxel_chunk.Index(idx).physics_material_index
+		};
+		voxel_chunk.Index(idx).physics_material_index = renderer::PHYSICS_MATERIAL_EMPTY_INDEX;
+		return voxel;
+	}
+
+	static void FloodFillScan(
+		uint32_t lx,
+		uint32_t rx,
+		uint32_t y,
+		uint32_t z,
+		std::queue<glm::uvec3>& queue,
+		renderer::VoxelChunk& voxel_chunk,
+		const std::vector<uint8_t>& material_mask)
+	{
+		bool span_added{ false };
+
+		for (uint32_t x{ lx }; x < rx; ++x)
+		{
+			if (!FloodFillInside({ x, y, z }, voxel_chunk, material_mask)) {
+				span_added = false;
+			}
+			else if (!span_added)
+			{
+				queue.push({ x, y, z });
+				span_added = true;
 			}
 		}
 	}

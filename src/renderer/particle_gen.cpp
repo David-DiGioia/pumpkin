@@ -97,6 +97,79 @@ namespace renderer
 		return lut[(uint8_t)side_flags];
 	}
 
+	// Return value may need to be multiplied by -1 to keep consistent normal direction with neighbors.
+	static glm::vec3 NormalFromNeighbors(VoxelSidesFlagBits side_flags)
+	{
+		static glm::vec3 lut[64]{
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // No neighbors.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // X_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // X_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, X_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // Y_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_POSITIVE, Y_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_NEGATIVE, Y_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_POSITIVE, X_NEGATIVE, Y_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // Y_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_POSITIVE, Y_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_NEGATIVE, Y_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_POSITIVE, X_NEGATIVE, Y_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_POSITIVE, Y_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_POSITIVE, Y_POSITIVE, Y_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // Z_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, X_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_POSITIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, 1.0f, 1.0f }),   // X_POSITIVE, Y_POSITIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, -1.0f, -1.0f }), // X_NEGATIVE, Y_POSITIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 1.0f }),   // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, -1.0f, 1.0f }),  // X_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, 1.0f, -1.0f }),  // X_NEGATIVE, Y_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, -1.0f }),  // X_POSITIVE, X_NEGATIVE, Y_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 1.0f }),   // X_POSITIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 1.0f }),   // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, X_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 1.0f, -1.0f }),  // X_POSITIVE, Y_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, -1.0f, 1.0f }),  // X_NEGATIVE, Y_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, -1.0f }),  // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, -1.0f, -1.0f }), // X_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 1.0f, 1.0f }),   // X_NEGATIVE, Y_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 1.0f }),   // X_POSITIVE, X_NEGATIVE, Y_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, -1.0f }),  // X_POSITIVE, Y_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 1.0f }),   // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, X_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 1.0f, 0.0f }),   // X_POSITIVE, Y_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, -1.0f, 0.0f }),  // X_NEGATIVE, Y_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, -1.0f, 0.0f }),  // X_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 1.0f, 0.0f }),   // X_NEGATIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, X_NEGATIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // X_POSITIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+			glm::normalize(glm::vec3{ 0.0f, 0.0f, 0.0f }),   // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE.
+		};
+
+		return lut[(uint8_t)side_flags];
+	}
+
 	std::vector<MaterialRange> ParticleGenContext::GetMaterialRanges()
 	{
 		return mat_ranges_;
@@ -171,10 +244,20 @@ namespace renderer
 			});
 
 		// Create list of outer voxels, for collision detection.
+		std::vector<uint8_t> mask{};
+		mask.resize(voxels_.size());
 		for (uint32_t i{ 0 }; i < (uint32_t)voxels_.size(); ++i)
 		{
-			if (!IsEmpty(i) && !IsOccluded(i)) {
-				outer_voxel_coords_.push_back(IndexToCoordinate(i));
+			glm::uvec3 coord{ IndexToCoordinate(i) };
+			if (FloodFillInside(coord, mask))
+			{
+				OuterVoxel outer_voxel{
+					.coord = coord,
+					.normal = NormalFromNeighbors((VoxelSidesFlagBits)side_flags_[i]),
+				};
+
+				// We flood fill outer voxels to propogate consistent normal direction.
+				OuterVoxelFloodFill(std::move(outer_voxel), mask);
 			}
 		}
 	}
@@ -258,9 +341,9 @@ namespace renderer
 		return side_flags_;
 	}
 
-	const std::vector<glm::uvec3>& VoxelChunk::GetOuterVoxelIndices() const
+	const std::vector<OuterVoxel>& VoxelChunk::GetOuterVoxels() const
 	{
-		return outer_voxel_coords_;
+		return outer_voxels_;
 	}
 
 	std::array<glm::uvec3, 8> VoxelChunk::GetPotentialCollisions(const glm::vec3& coord_space, uint32_t* potential_collision_count) const
@@ -315,6 +398,120 @@ namespace renderer
 	{
 		return (width_ == 1) && (height_ == 1) && (depth_ == 1);
 	}
+
+	// Returns true when the given coordinate is inside the region that flood fill is filling.
+	bool VoxelChunk::FloodFillInside(const glm::uvec3& coord, const std::vector<uint8_t>& mask) const
+	{
+		// We only check upper condition since negative uints will overflow anyway.
+		bool x_out_bounds{ coord.x >= width_ };
+		bool y_out_bounds{ coord.y >= height_ };
+		bool z_out_bounds{ coord.z >= depth_ };
+
+		if (x_out_bounds || y_out_bounds || z_out_bounds) {
+			return false;
+		}
+
+		uint32_t idx{ CoordinateToIndex(coord) };
+		return !mask[idx] && !IsEmpty(idx) && !IsOccluded(idx); // Mask indicates if it's already been added to outer_voxels_.
+	}
+
+	OuterVoxel VoxelChunk::FloodFillSet(const glm::uvec3& coord, const glm::vec3& prev_normal, std::vector<uint8_t>& mask) const
+	{
+		uint32_t idx{ CoordinateToIndex(coord) };
+
+		glm::vec3 normal{ NormalFromNeighbors((VoxelSidesFlagBits)side_flags_[idx]) };
+		if (glm::dot(normal, prev_normal) < 0.0f) {
+			normal = -normal;
+		}
+
+		mask[idx] = true;
+
+		return OuterVoxel{
+			.coord = coord,
+			.normal = normal,
+		};
+	}
+
+	void VoxelChunk::FloodFillScan(
+		uint32_t lx,
+		const glm::uvec3& coord,
+		uint32_t original_x,
+		int32_t y_offset,
+		int32_t z_offset,
+		std::queue<OuterVoxel>& queue,
+		const std::vector<uint8_t>& mask)
+	{
+		uint32_t rx{ coord.x };
+		uint32_t y{ coord.y + y_offset };
+		uint32_t z{ coord.z + z_offset };
+		bool span_added{ false };
+
+		for (uint32_t x{ lx }; x < rx; ++x)
+		{
+			if (!FloodFillInside({ x, y, z }, mask)) {
+				span_added = false;
+			}
+			else if (!span_added)
+			{
+				uint32_t added_voxel_count{ rx - lx };
+				size_t start_idx{ outer_voxels_.size() - added_voxel_count };
+				uint32_t new_voxel_idx{ x - lx };
+
+				// Flip index since the left side outer voxels were added in reverse order.
+				if (x < original_x)
+				{
+					uint32_t left_size{ original_x - lx };
+					new_voxel_idx = left_size - new_voxel_idx - 1;
+				}
+
+				glm::vec3 adjacent_normal{ outer_voxels_[start_idx + new_voxel_idx].normal };
+				queue.push({ { x, y, z }, adjacent_normal });
+				span_added = true;
+			}
+		}
+	}
+
+	void VoxelChunk::OuterVoxelFloodFill(OuterVoxel&& outer_voxel, std::vector<uint8_t>& mask)
+	{
+		std::queue<OuterVoxel> queue{};
+		queue.push(std::move(outer_voxel));
+
+		while (!queue.empty())
+		{
+			OuterVoxel ov{ queue.front() };
+			queue.pop();
+			uint32_t lx{ ov.coord.x };
+			glm::vec3 prev_normal{ ov.normal };
+
+			glm::uvec3 next_coord{ lx - 1, ov.coord.y, ov.coord.z };
+			while (FloodFillInside(next_coord, mask))
+			{
+				OuterVoxel new_ov{ FloodFillSet(next_coord, prev_normal, mask) };
+				prev_normal = new_ov.normal;
+				outer_voxels_.push_back(std::move(new_ov));
+
+				--lx;
+				next_coord = { lx - 1, ov.coord.y, ov.coord.z };
+			}
+
+			uint32_t original_x{ ov.coord.x };
+			prev_normal = ov.normal;
+			while (FloodFillInside(ov.coord, mask))
+			{
+				OuterVoxel new_ov{ FloodFillSet(ov.coord, prev_normal, mask) };
+				prev_normal = new_ov.normal;
+				outer_voxels_.push_back(std::move(new_ov));
+
+				++ov.coord.x;
+			}
+
+			FloodFillScan(lx, ov.coord, original_x, 1, 0, queue, mask);
+			FloodFillScan(lx, ov.coord, original_x, -1, 0, queue, mask);
+			FloodFillScan(lx, ov.coord, original_x, 0, 1, queue, mask);
+			FloodFillScan(lx, ov.coord, original_x, 0, -1, queue, mask);
+		}
+	}
+
 
 	bool VoxelChunk::NeighborOccupied(glm::uvec3 coord, glm::ivec3 offset) const
 	{
