@@ -82,11 +82,11 @@ namespace pmk
 		float GetVoxelMass(uint32_t physics_material_index) const;
 
 		// Convert voxel coordinate to world space position.
-		glm::vec3 CoordinateToGlobal(const RigidBody& rb, const glm::uvec3& voxel_coord) const;
+		glm::vec3 CoordinateToGlobal(const glm::vec3& center_of_mass, const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const;
 
 		// Given voxel world space position, get the voxel coordinate from rb that collides with it.
 		// Returns UINT_MAX if no solution.
-		glm::uvec3 GetCollisionCoordinate(const RigidBody& rb, const glm::vec3& global_pos) const;
+		glm::uvec3 GetCollisionCoordinate(const RigidBody& rb, const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const;
 
 		glm::mat3 ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass);
 

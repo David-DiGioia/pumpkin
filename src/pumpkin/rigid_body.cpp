@@ -184,12 +184,14 @@ namespace pmk
 		}
 
 		// TODO: Make this multithreaded.
+		glm::mat4 small_world{ small->node->GetWorldTransform() };
+		glm::mat4 inv_big_world{ glm::inverse(big->node->GetWorldTransform()) };
 		uint32_t collision_pair_idx{ 0 };
 		for (const renderer::OuterVoxel& ov : small->voxel_chunk.GetOuterVoxels())
 		{
 			glm::uvec3 small_coord{ ov.coord };
-			glm::vec3 global_pos{ CoordinateToGlobal(*small, small_coord) };
-			glm::uvec3 big_coord{ GetCollisionCoordinate(*big, global_pos) };
+			glm::vec3 global_pos{ CoordinateToGlobal(small->center_of_mass, small_world, small_coord) };
+			glm::uvec3 big_coord{ GetCollisionCoordinate(*big, inv_big_world, global_pos) };
 
 			bool in_bounds{ big_coord.x != UINT_MAX };
 
@@ -429,18 +431,18 @@ namespace pmk
 		return density * PARTICLE_VOLUME;
 	}
 
-	glm::vec3 RigidBodyContext::CoordinateToGlobal(const RigidBody& rb, const glm::uvec3& voxel_coord) const
+	glm::vec3 RigidBodyContext::CoordinateToGlobal(const glm::vec3& center_of_mass, const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const
 	{
 		glm::vec3 local_space{ PARTICLE_WIDTH * glm::vec3{voxel_coord} };
-		local_space -= rb.center_of_mass * PARTICLE_WIDTH;
-		glm::vec4 world_space{ rb.node->GetWorldTransform() * glm::vec4{ local_space, 1.0f} };
+		local_space -= center_of_mass * PARTICLE_WIDTH;
+		glm::vec4 world_space{ world_transform * glm::vec4{ local_space, 1.0f} };
 
 		return glm::vec3{ world_space };
 	}
 
-	glm::uvec3 RigidBodyContext::GetCollisionCoordinate(const RigidBody& rb, const glm::vec3& global_pos) const
+	glm::uvec3 RigidBodyContext::GetCollisionCoordinate(const RigidBody& rb, const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const
 	{
-		glm::vec3 coord_space{ glm::vec3{glm::inverse(rb.node->GetWorldTransform()) * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
+		glm::vec3 coord_space{ glm::vec3{inv_world_transform * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
 		coord_space += rb.center_of_mass;
 
 		uint32_t potential_collision_count{};
