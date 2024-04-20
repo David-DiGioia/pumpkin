@@ -40,6 +40,14 @@
 		.format = GetVulkanFormat<decltype(MPMDebugNodeInstance::attr)>(),	\
 		.offset = offsetof(MPMDebugNodeInstance, attr),						\
 	}
+
+#define RIGID_BODY_VOXEL_ATTRIBUTE(loc, attr)										\
+	VkVertexInputAttributeDescription{												\
+		.location = loc,															\
+		.binding = INSTANCE_BINDING,												\
+		.format = GetVulkanFormat<decltype(RigidBodyDebugVoxelInstance::attr)>(),	\
+		.offset = offsetof(RigidBodyDebugVoxelInstance, attr),						\
+	}
 #endif
 
 namespace renderer

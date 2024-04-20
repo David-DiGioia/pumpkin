@@ -229,6 +229,12 @@ namespace pmk
 		renderer_.SetParticleOverlayEnabled(render_grid, render_nodes, rasterize_particles, use_particle_depth);
 	}
 
+	void Pumpkin::SetRigidBodyOverlayEnabled(bool enabled)
+	{
+		scene_.SetRigidBodyOverlayEnabled(enabled);
+		renderer_.SetRigidBodyOverlayEnabled(enabled);
+	}
+
 	void Pumpkin::SetParticleOverlay(renderer::RenderObjectHandle render_object)
 	{
 		renderer_.SetParticleOverlay(render_object);

@@ -58,6 +58,14 @@ namespace renderer
 
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};
+
+	struct RigidBodyDebugVoxelInstance
+	{
+		glm::vec3 position;
+		glm::vec3 normal;
+
+		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
+	};
 #endif
 
 	struct Material

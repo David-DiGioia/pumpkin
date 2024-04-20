@@ -291,6 +291,11 @@ namespace pmk
 		physics_context_.SetMPMDebugNodeGenEnabled(render_nodes);
 	}
 
+	void Scene::SetRigidBodyOverlayEnabled(bool enabled)
+	{
+		physics_context_.SetRigidBodyOverlayEnabled(enabled);
+	}
+
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)
 	{
 		glm::mat4 local_transform{ root->GetLocalTransform() };

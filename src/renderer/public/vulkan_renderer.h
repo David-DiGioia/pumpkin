@@ -178,6 +178,8 @@ namespace renderer
 
 		void SetParticleOverlay(RenderObjectHandle render_object);
 
+		void SetRigidBodyOverlayEnabled(bool enabled);
+
 		void ClearOutlineSets();
 
 		void SetParticleColorMode(uint32_t color_mode);
@@ -190,9 +192,11 @@ namespace renderer
 
 		void SetRenderCubeNodesEnabled(bool enabled);
 
-		void SetMPMDebugParticleInstances(const std::vector<renderer::MPMDebugParticleInstance>& mpm_particle_instances);
+		void SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& mpm_particle_instances);
 
-		void SetMPMDebugNodeInstances(const std::vector<renderer::MPMDebugNodeInstance>& mpm_node_instances);
+		void SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& mpm_node_instances);
+
+		void SetDebugRbVoxelInstances(const std::vector<RigidBodyDebugVoxelInstance>& rb_voxel_instances);
 #endif
 
 	private:

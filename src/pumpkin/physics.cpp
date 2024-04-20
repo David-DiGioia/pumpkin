@@ -245,6 +245,11 @@ namespace pmk
 	{
 		particle_context_.SetMPMDebugNodeGenEnabled(enabled);
 	}
+
+	void PhysicsContext::SetRigidBodyOverlayEnabled(bool enabled)
+	{
+		rigid_body_context_.SetRigidBodyOverlayEnabled(enabled);
+	}
 #endif
 
 	void PhysicsContext::UpdatePhysicsRenderMaterials()

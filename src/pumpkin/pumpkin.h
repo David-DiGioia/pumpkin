@@ -107,6 +107,8 @@ namespace pmk
 
 		void SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth);
 
+		void SetRigidBodyOverlayEnabled(bool enabled);
+
 		void SetParticleOverlay(renderer::RenderObjectHandle render_object);
 
 		void SetParticleColorMode(uint32_t color_mode);

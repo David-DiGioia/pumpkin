@@ -131,7 +131,7 @@ namespace renderer
 			glm::normalize(glm::vec3{ 0.0f, 1.0f, -1.0f }),  // X_POSITIVE, X_NEGATIVE, Y_NEGATIVE, Z_POSITIVE.
 			glm::normalize(glm::vec3{ 1.0f, 0.0f, 0.0f }),   // Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
 			glm::normalize(glm::vec3{ 1.0f, 0.0f, 1.0f }),   // X_POSITIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
-			glm::normalize(glm::vec3{ 1.0f, 0.0f, 1.0f }),   // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
+			glm::normalize(glm::vec3{ 1.0f, 0.0f, -1.0f }),  // X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
 			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE.
 			glm::normalize(glm::vec3{ 0.0f, 0.0f, 1.0f }),   // Z_NEGATIVE.
 			glm::normalize(glm::vec3{ 0.0f, 1.0f, 0.0f }),   // X_POSITIVE, Z_NEGATIVE.

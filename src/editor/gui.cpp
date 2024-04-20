@@ -477,6 +477,9 @@ void EditorGui::NodeProperties()
 			ImGui::Text("Angular vel");
 			ImGui::SameLine(NODE_PROPERTY_ALIGNMENT);
 			ImGui::DragFloat3("##AngularVelocity", glm::value_ptr(rb->angular_velocity), 0.1f);
+
+			ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+			ImGui::Text("Debug rendering");
 		}
 	}
 	else {
@@ -1099,6 +1102,12 @@ void EditorGui::VoxelEditor()
 			editor_->UpdateNodeColorModeMaxValue();
 		}
 		ImGui::PopItemWidth();
+	}
+
+	ImGui::Text("Normals");
+	ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
+	if (ImGui::Checkbox("##ShowRigidBodyNormals", &editor_->show_rigid_body_normals_)) {
+		editor_->UpdateRigidBodyOverlayEnabled();
 	}
 
 	ImGui::End();

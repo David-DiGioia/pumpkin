@@ -87,6 +87,12 @@ namespace pmk
 
 			//SolveVelocities();
 		}
+
+#ifdef EDITOR_ENABLED
+		if (generate_rb_voxel_instances_) {
+			GenerateDynamicDebugRbVoxelInstances();
+		}
+#endif
 	}
 
 	void RigidBodyContext::EnablePhysicsUpdate()
@@ -207,6 +213,15 @@ namespace pmk
 
 		*out_count = collision_pair_idx;
 		return collision_pairs;
+	}
+
+	void RigidBodyContext::SetRigidBodyOverlayEnabled(bool enabled)
+	{
+		generate_rb_voxel_instances_ = enabled;
+
+		if (enabled) {
+			GenerateDynamicDebugRbVoxelInstances();
+		}
 	}
 
 	void RigidBodyContext::SolvePositions(float h)
@@ -550,5 +565,36 @@ namespace pmk
 		scene_->AddRenderObjectToNode(rigid_body->node, renderer_->CreateBlankRenderObject());
 		renderer_->GenerateStaticParticleMesh(rigid_body->node->render_object, rigid_body->voxel_chunk, PARTICLE_WIDTH * rigid_body->center_of_mass);
 		rigid_bodies_.push_back(rigid_body);
+	}
+
+	void RigidBodyContext::GenerateDynamicDebugRbVoxelInstances() const
+	{
+		size_t outer_voxel_count{};
+		for (const RigidBody* rb : rigid_bodies_) {
+			outer_voxel_count += rb->voxel_chunk.GetOuterVoxels().size();
+		}
+
+		if (outer_voxel_count == 0) {
+			return;
+		}
+
+		std::vector<renderer::RigidBodyDebugVoxelInstance> debug_instances{};
+		debug_instances.reserve(outer_voxel_count);
+		for (const RigidBody* rb : rigid_bodies_)
+		{
+			glm::mat4 world_transform{ rb->node->GetWorldTransform() };
+			glm::mat3 rotation{ glm::toMat3(rb->node->rotation) };
+			for (const renderer::OuterVoxel& ov : rb->voxel_chunk.GetOuterVoxels())
+			{
+				renderer::RigidBodyDebugVoxelInstance debug_instance{
+					.position = CoordinateToGlobal(rb->center_of_mass, world_transform, ov.coord),
+					.normal = rotation * ov.normal,
+				};
+
+				debug_instances.push_back(std::move(debug_instance));
+			}
+		}
+
+		renderer_->SetDebugRbVoxelInstances(debug_instances);
 	}
 }

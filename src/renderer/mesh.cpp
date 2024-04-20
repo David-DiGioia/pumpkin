@@ -56,7 +56,7 @@ namespace renderer
 			MPM_PARTICLE_ATTRIBUTE(9, elastic_col_2),
 			MPM_PARTICLE_ATTRIBUTE(10, plastic_col_0),
 			MPM_PARTICLE_ATTRIBUTE(11, plastic_col_1),
-			MPM_PARTICLE_ATTRIBUTE(12, plastic_col_2), //A
+			MPM_PARTICLE_ATTRIBUTE(12, plastic_col_2),
 		};
 	}
 
@@ -72,6 +72,18 @@ namespace renderer
 			MPM_NODE_ATTRIBUTE(3, velocity),
 			MPM_NODE_ATTRIBUTE(4, momentum),
 			MPM_NODE_ATTRIBUTE(5, force),
+		};
+	}
+
+	std::vector<VkVertexInputAttributeDescription> RigidBodyDebugVoxelInstance::GetVertexAttributes()
+	{
+		return {
+			// Vertex attributes.
+			VERTEX_ATTRIBUTE(0, position),
+
+			// Instance attributes.
+			RIGID_BODY_VOXEL_ATTRIBUTE(1, position),
+			RIGID_BODY_VOXEL_ATTRIBUTE(2, normal),
 		};
 	}
 #endif

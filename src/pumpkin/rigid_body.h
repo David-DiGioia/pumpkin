@@ -74,6 +74,10 @@ namespace pmk
 
 		std::array<CollisionPair, MAX_COLLISION_PAIRS> ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const;
 
+#ifdef EDITOR_ENABLED
+		void SetRigidBodyOverlayEnabled(bool enabled);
+#endif
+
 	private:
 		void SolvePositions(float h);
 
@@ -97,10 +101,15 @@ namespace pmk
 			glm::vec3&& center_of_mass,
 			float mass);
 
+		void GenerateDynamicDebugRbVoxelInstances() const;
+
 		renderer::VulkanRenderer* renderer_{};
 		Scene* scene_{};
 		std::vector<RigidBody*> rigid_bodies_{};
 		bool update_physics_{};
+#ifdef EDITOR_ENABLED
+		bool generate_rb_voxel_instances_{};
+#endif
 
 		const std::vector<PhysicsMaterial*>* physics_materials_{};
 	};

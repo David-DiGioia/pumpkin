@@ -404,6 +404,8 @@ private:
 	// Update whether or not the particle overlay is enabled.
 	void UpdateParticleOverlayEnabled();
 
+	void UpdateRigidBodyOverlayEnabled();
+
 	EditorNode* CreateNode(pmk::Node* pmk_node, const std::string& name);
 
 	EditorNode* CreateNode(const std::string& name);
@@ -435,6 +437,7 @@ private:
 	uint32_t particle_gen_shader_idx_{ NULL_INDEX };
 	bool show_particle_grid_{};
 	bool use_particle_depth_{};
+	bool show_rigid_body_normals_{};
 	ParticleColorMode particle_color_mode_{};
 	float particle_color_max_value_{ 1.0f };
 	NodeColorMode node_color_mode_{};

@@ -131,9 +131,13 @@ namespace renderer
 		// Whether to use raster particle's depth buffer to occlude the particle overlay.
 		void SetParticleDepthEnabled(bool enabled);
 
+		void SetRigidBodyOverlayEnabled(bool enabled);
+
 		void SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances);
 
 		void SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& node_instances);
+
+		void SetDebugRbVoxelInstances(const std::vector<RigidBodyDebugVoxelInstance>& rb_voxel_instances);
 
 		void SetParticleColorMode(uint32_t color_mode);
 
@@ -166,7 +170,7 @@ namespace renderer
 			float max_value{};
 		};
 
-		struct MPMDebugInfo
+		struct PhysicsDebugInfo
 		{
 			// Vertices of particle sized cube used for both raster particles and node mass visualization.
 			BufferResource cube_vertices; // Of type Vertex.
@@ -184,11 +188,15 @@ namespace renderer
 			BufferResource node_instances[FRAMES_IN_FLIGHT]; // Of type MPMDebugNodeInstance.
 			uint32_t node_idx;                               // Current index into particle_instances.
 
+			BufferResource rb_voxel_instances[FRAMES_IN_FLIGHT]; // Of type RigidBodyDebugVoxelInstance.
+			uint32_t rigid_body_idx;                                     // Current index into particle_instances.
+
 			uint32_t render_object_index;
 			uint32_t particle_instance_count;
 			uint32_t cube_vertex_count;
 			uint32_t cube_index_count;
 			uint32_t node_instance_count;
+			uint32_t rb_voxel_instance_count;
 
 			uint32_t grid_vertex_count;
 			BufferResource grid_vertices; // Of type Vertex.
@@ -211,7 +219,7 @@ namespace renderer
 
 		void OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set);
 
-		void RenderMPMGridAndRasterParticles(VkCommandBuffer cmd);
+		void RenderPhysicsOverlay(VkCommandBuffer cmd);
 
 		// Render particle depth buffer and optionally color.
 		void ParticleRasterRenderPass(VkCommandBuffer cmd);
@@ -219,6 +227,8 @@ namespace renderer
 		void GridRenderPass(VkCommandBuffer cmd);
 
 		void NodeRenderPass(VkCommandBuffer cmd);
+
+		void RigidBodyRenderPass(VkCommandBuffer cmd);
 
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
 
@@ -231,13 +241,15 @@ namespace renderer
 		GraphicsPipeline grid_pipeline_{};
 		GraphicsPipeline node_line_pipeline_{};
 		GraphicsPipeline node_cube_pipeline_{};
+		GraphicsPipeline rigid_body_line_pipeline_{};
 		std::vector<OutlineObjects> outline_objects_{}; // Editor render pass will draw outlines around these sets of render objects.
 		DescriptorSetLayoutResource outline_layout_resource_{};
-		MPMDebugInfo mpm_debug_{};
+		PhysicsDebugInfo physics_debug_{};
 		bool grid_enabled_{};
 		bool raster_particles_enabled_{};
 		bool use_particle_depth_{};
 		bool nodes_enabled_{};
 		bool render_nodes_as_cubes_{};
+		bool rigid_bodies_enabled_{};
 	};
 }

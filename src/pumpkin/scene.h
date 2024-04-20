@@ -114,6 +114,8 @@ namespace pmk
 
 		void SetParticleOverlayEnabled(bool rasterize_particles, bool render_nodes);
 
+		void SetRigidBodyOverlayEnabled(bool enabled);
+
 		// Update all render objects transforms to reflect their containing node.
 		void UploadRenderObjects();
 

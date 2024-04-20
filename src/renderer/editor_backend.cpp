@@ -361,27 +361,27 @@ namespace renderer
 		InitializeDescriptorSetLayouts();
 
 		// Create cube vertex/index buffers.
-		mpm_debug_.cube_vertex_count = (uint32_t)cube_vertices.size();
-		mpm_debug_.cube_index_count = (uint32_t)cube_indices.size();
+		physics_debug_.cube_vertex_count = (uint32_t)cube_vertices.size();
+		physics_debug_.cube_index_count = (uint32_t)cube_indices.size();
 
-		mpm_debug_.cube_vertices = renderer_->allocator_.CreateBufferResource(
-			mpm_debug_.cube_vertex_count * sizeof(Vertex),
+		physics_debug_.cube_vertices = renderer_->allocator_.CreateBufferResource(
+			physics_debug_.cube_vertex_count * sizeof(Vertex),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		NameObject(context_->device, mpm_debug_.cube_vertices.buffer, "Debug_Cube_Vertices");
+		NameObject(context_->device, physics_debug_.cube_vertices.buffer, "Debug_Cube_Vertices");
 
-		mpm_debug_.cube_indices = renderer_->allocator_.CreateBufferResource(
-			mpm_debug_.cube_index_count * sizeof(uint32_t),
+		physics_debug_.cube_indices = renderer_->allocator_.CreateBufferResource(
+			physics_debug_.cube_index_count * sizeof(uint32_t),
 			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		NameObject(context_->device, mpm_debug_.cube_indices.buffer, "Debug_Cube_Indices");
+		NameObject(context_->device, physics_debug_.cube_indices.buffer, "Debug_Cube_Indices");
 
 		// Create line vertices.
-		mpm_debug_.line_vertices = renderer_->allocator_.CreateBufferResource(
+		physics_debug_.line_vertices = renderer_->allocator_.CreateBufferResource(
 			LINE_VERTEX_COUNT * sizeof(Vertex),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		NameObject(context_->device, mpm_debug_.line_vertices.buffer, "Debug_Node_Line_Vertices");
+		NameObject(context_->device, physics_debug_.line_vertices.buffer, "Debug_Node_Line_Vertices");
 
 		Vertex v0{
 			.position = glm::vec4{0.0f, 0.0f, 0.0f, 0.0f},
@@ -393,9 +393,9 @@ namespace renderer
 
 		// Transfer vertex data to device.
 		renderer_->vulkan_util_.Begin();
-		renderer_->vulkan_util_.TransferBufferToDevice(cube_vertices, mpm_debug_.cube_vertices);
-		renderer_->vulkan_util_.TransferBufferToDevice(cube_indices, mpm_debug_.cube_indices);
-		renderer_->vulkan_util_.TransferBufferToDevice(line_vertices, mpm_debug_.line_vertices);
+		renderer_->vulkan_util_.TransferBufferToDevice(cube_vertices, physics_debug_.cube_vertices);
+		renderer_->vulkan_util_.TransferBufferToDevice(cube_indices, physics_debug_.cube_indices);
+		renderer_->vulkan_util_.TransferBufferToDevice(line_vertices, physics_debug_.line_vertices);
 		renderer_->vulkan_util_.Submit();
 
 		// Make pipelines.
@@ -518,18 +518,36 @@ namespace renderer
 		NameObject(context_->device, node_cube_pipeline_.pipeline, "Node_Cube_Pipeline");
 		NameObject(context_->device, node_cube_pipeline_.layout, "Node_Cube_Pipeline_Layout");
 
-		mpm_debug_.render_object_index = NULL_INDEX;
+		std::vector<DescriptorSetLayoutResource> rigid_body_set_layouts{
+			renderer_->camera_layout_resource_,
+			renderer_->render_object_layout_resource_,
+		};
+
+		rigid_body_line_pipeline_.Initialize(
+			context,
+			rigid_body_set_layouts,
+			{},
+			FINAL_IMAGE_FORMAT,
+			renderer_->GetDepthImageFormat(),
+			VertexAttributes::RIGID_BODY_VOXEL,
+			VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+			SPIRV_PREFIX / "rigid_body_render_object_transform.vert.spv",
+			SPIRV_PREFIX / "rigid_body.frag.spv");
+		NameObject(context_->device, rigid_body_line_pipeline_.pipeline, "Rigid_Body_Pipeline");
+		NameObject(context_->device, rigid_body_line_pipeline_.layout, "Rigid_Body_Pipeline_Layout");
+
+		physics_debug_.render_object_index = NULL_INDEX;
 
 		InitializeFrameResources();
 
 		// Initialize grid buffer (but don't generate vertices yet).
 		uint32_t line_count{ 3 * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
-		mpm_debug_.grid_vertex_count = line_count * 2;
-		mpm_debug_.grid_vertices = renderer_->allocator_.CreateBufferResource(
-			mpm_debug_.grid_vertex_count * sizeof(Vertex),
+		physics_debug_.grid_vertex_count = line_count * 2;
+		physics_debug_.grid_vertices = renderer_->allocator_.CreateBufferResource(
+			physics_debug_.grid_vertex_count * sizeof(Vertex),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		NameObject(context_->device, mpm_debug_.grid_vertices.buffer, "Grid_Vertex_Buffer");
+		NameObject(context_->device, physics_debug_.grid_vertices.buffer, "Grid_Vertex_Buffer");
 	}
 
 	void EditorBackend::CleanUp()
@@ -538,16 +556,17 @@ namespace renderer
 
 		for (uint32_t i{ 0 }; i < FRAMES_IN_FLIGHT; ++i)
 		{
-			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.particle_instances[i]);
-			renderer_->allocator_.DestroyBufferResource(&mpm_debug_.node_instances[i]);
+			renderer_->allocator_.DestroyBufferResource(&physics_debug_.particle_instances[i]);
+			renderer_->allocator_.DestroyBufferResource(&physics_debug_.node_instances[i]);
+			renderer_->allocator_.DestroyBufferResource(&physics_debug_.rb_voxel_instances[i]);
 		}
 
-		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.cube_vertices);
-		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.cube_indices);
-		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.line_vertices);
+		renderer_->allocator_.DestroyBufferResource(&physics_debug_.cube_vertices);
+		renderer_->allocator_.DestroyBufferResource(&physics_debug_.cube_indices);
+		renderer_->allocator_.DestroyBufferResource(&physics_debug_.line_vertices);
 
 
-		renderer_->allocator_.DestroyBufferResource(&mpm_debug_.grid_vertices);
+		renderer_->allocator_.DestroyBufferResource(&physics_debug_.grid_vertices);
 
 		mask_pipeline_.CleanUp();
 		outline_pipeline_.CleanUp();
@@ -555,6 +574,7 @@ namespace renderer
 		particle_raster_pipeline_.CleanUp();
 		node_line_pipeline_.CleanUp();
 		node_cube_pipeline_.CleanUp();
+		rigid_body_line_pipeline_.CleanUp();
 
 		for (FrameResources& resource : frame_resources_)
 		{
@@ -603,9 +623,10 @@ namespace renderer
 
 	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd)
 	{
-		if (mpm_debug_.render_object_index != NULL_INDEX) {
-			RenderMPMGridAndRasterParticles(cmd);
+		if (physics_debug_.render_object_index != NULL_INDEX) {
+			RenderPhysicsOverlay(cmd);
 		}
+
 		RenderOutlines(cmd);
 	}
 
@@ -623,7 +644,7 @@ namespace renderer
 
 	void EditorBackend::SetRenderObjectInfo(float chunk_width, uint32_t render_object_index)
 	{
-		mpm_debug_.render_object_index = render_object_index;
+		physics_debug_.render_object_index = render_object_index;
 
 		// Construct vertex buffer for grid lines.
 		uint32_t line_count{ 3 * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
@@ -666,7 +687,7 @@ namespace renderer
 		}
 
 		renderer_->vulkan_util_.Begin();
-		renderer_->vulkan_util_.TransferBufferToDevice(grid_vertices, mpm_debug_.grid_vertices);
+		renderer_->vulkan_util_.TransferBufferToDevice(grid_vertices, physics_debug_.grid_vertices);
 		renderer_->vulkan_util_.Submit();
 	}
 
@@ -695,63 +716,87 @@ namespace renderer
 		use_particle_depth_ = enabled;
 	}
 
+	void EditorBackend::SetRigidBodyOverlayEnabled(bool enabled)
+	{
+		rigid_bodies_enabled_ = enabled;
+	}
+
 	void EditorBackend::SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances)
 	{
 		// Increment so we work on the next buffer in the array and don't interfere with one being used for rendering.
-		mpm_debug_.particle_idx = (mpm_debug_.particle_idx + 1) % FRAMES_IN_FLIGHT;
+		physics_debug_.particle_idx = (physics_debug_.particle_idx + 1) % FRAMES_IN_FLIGHT;
 
-		mpm_debug_.particle_instance_count = (uint32_t)particle_instances.size();
+		physics_debug_.particle_instance_count = (uint32_t)particle_instances.size();
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
-			mpm_debug_.particle_instance_count * sizeof(MPMDebugParticleInstance),
+			physics_debug_.particle_instance_count * sizeof(MPMDebugParticleInstance),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			mpm_debug_.particle_instances[mpm_debug_.particle_idx]);
-		NameObject(context_->device, mpm_debug_.particle_instances[mpm_debug_.particle_idx].buffer, "Debug_Particle_Instances");
+			physics_debug_.particle_instances[physics_debug_.particle_idx]);
+		NameObject(context_->device, physics_debug_.particle_instances[physics_debug_.particle_idx].buffer, "Debug_Particle_Instances");
 
 		// TODO: Could make this part of the same command buffer being submitted for rasterizing particles.
 		renderer_->vulkan_util_.Begin();
-		renderer_->vulkan_util_.TransferBufferToDevice(particle_instances, mpm_debug_.particle_instances[mpm_debug_.particle_idx]);
+		renderer_->vulkan_util_.TransferBufferToDevice(particle_instances, physics_debug_.particle_instances[physics_debug_.particle_idx]);
 		renderer_->vulkan_util_.Submit();
 	}
 
 	void EditorBackend::SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& node_instances)
 	{
 		// Increment so we work on the next buffer in the array and don't interfere with one being used for rendering.
-		mpm_debug_.node_idx = (mpm_debug_.node_idx + 1) % FRAMES_IN_FLIGHT;
+		physics_debug_.node_idx = (physics_debug_.node_idx + 1) % FRAMES_IN_FLIGHT;
 
-		mpm_debug_.node_instance_count = (uint32_t)node_instances.size();
+		physics_debug_.node_instance_count = (uint32_t)node_instances.size();
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
-			mpm_debug_.node_instance_count * sizeof(MPMDebugNodeInstance),
+			physics_debug_.node_instance_count * sizeof(MPMDebugNodeInstance),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			mpm_debug_.node_instances[mpm_debug_.node_idx]);
-		NameObject(context_->device, mpm_debug_.node_instances[mpm_debug_.node_idx].buffer, "Debug_Node_Instances");
+			physics_debug_.node_instances[physics_debug_.node_idx]);
+		NameObject(context_->device, physics_debug_.node_instances[physics_debug_.node_idx].buffer, "Debug_Node_Instances");
 
 		renderer_->vulkan_util_.Begin();
-		renderer_->vulkan_util_.TransferBufferToDevice(node_instances, mpm_debug_.node_instances[mpm_debug_.node_idx]);
+		renderer_->vulkan_util_.TransferBufferToDevice(node_instances, physics_debug_.node_instances[physics_debug_.node_idx]);
+		renderer_->vulkan_util_.Submit();
+	}
+
+	void EditorBackend::SetDebugRbVoxelInstances(const std::vector<RigidBodyDebugVoxelInstance>& rb_voxel_instances)
+	{
+		// Increment so we work on the next buffer in the array and don't interfere with one being used for rendering.
+		physics_debug_.rigid_body_idx = (physics_debug_.rigid_body_idx + 1) % FRAMES_IN_FLIGHT;
+
+		physics_debug_.rb_voxel_instance_count = (uint32_t)rb_voxel_instances.size();
+
+		renderer_->allocator_.ExpandOrReuseBuffer(
+			physics_debug_.rb_voxel_instance_count * sizeof(RigidBodyDebugVoxelInstance),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			physics_debug_.rb_voxel_instances[physics_debug_.rigid_body_idx]);
+		NameObject(context_->device, physics_debug_.rb_voxel_instances[physics_debug_.rigid_body_idx].buffer, "Debug_Rigid_Body_Voxel_Instances");
+
+		renderer_->vulkan_util_.Begin();
+		renderer_->vulkan_util_.TransferBufferToDevice(rb_voxel_instances, physics_debug_.rb_voxel_instances[physics_debug_.rigid_body_idx]);
 		renderer_->vulkan_util_.Submit();
 	}
 
 	void EditorBackend::SetParticleColorMode(uint32_t color_mode)
 	{
-		mpm_debug_.particle_push_constant.particle_color_mode = color_mode;
+		physics_debug_.particle_push_constant.particle_color_mode = color_mode;
 	}
 
 	void EditorBackend::SetParticleColorModeMaxValue(float max_value)
 	{
-		mpm_debug_.particle_push_constant.max_value = max_value;
+		physics_debug_.particle_push_constant.max_value = max_value;
 	}
 
 	void EditorBackend::SetNodeColorMode(uint32_t color_mode)
 	{
-		mpm_debug_.node_push_constant.particle_color_mode = color_mode;
+		physics_debug_.node_push_constant.particle_color_mode = color_mode;
 	}
 
 	void EditorBackend::SetNodeColorModeMaxValue(float max_value)
 	{
-		mpm_debug_.node_push_constant.max_value = max_value;
+		physics_debug_.node_push_constant.max_value = max_value;
 	}
 
 	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
@@ -970,7 +1015,7 @@ namespace renderer
 		vkCmdEndRendering(cmd);
 	}
 
-	void EditorBackend::RenderMPMGridAndRasterParticles(VkCommandBuffer cmd)
+	void EditorBackend::RenderPhysicsOverlay(VkCommandBuffer cmd)
 	{
 		if (raster_particles_enabled_) {
 			ParticleRasterRenderPass(cmd);
@@ -992,6 +1037,10 @@ namespace renderer
 
 		if (nodes_enabled_) {
 			NodeRenderPass(cmd);
+		}
+
+		if (rigid_bodies_enabled_) {
+			RigidBodyRenderPass(cmd);
 		}
 	}
 
@@ -1059,9 +1108,9 @@ namespace renderer
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			0,
 			sizeof(ColorModePushConstant),
-			&mpm_debug_.particle_push_constant);
+			&physics_debug_.particle_push_constant);
 
-		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[mpm_debug_.render_object_index] };
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[physics_debug_.render_object_index] };
 
 		vkCmdBindDescriptorSets(
 			cmd,
@@ -1073,12 +1122,12 @@ namespace renderer
 			0,
 			nullptr);
 
-		VkBuffer vertex_buffers[2]{ mpm_debug_.cube_vertices.buffer, mpm_debug_.particle_instances[mpm_debug_.particle_idx].buffer };
+		VkBuffer vertex_buffers[2]{ physics_debug_.cube_vertices.buffer, physics_debug_.particle_instances[physics_debug_.particle_idx].buffer };
 		VkDeviceSize zero_offsets[2]{ 0, 0 };
 
 		vkCmdBindVertexBuffers(cmd, 0, 2, vertex_buffers, zero_offsets);
-		vkCmdBindIndexBuffer(cmd, mpm_debug_.cube_indices.buffer, 0, CUBE_INDEX_TYPE);
-		vkCmdDrawIndexed(cmd, mpm_debug_.cube_index_count, mpm_debug_.particle_instance_count, 0, 0, 0);
+		vkCmdBindIndexBuffer(cmd, physics_debug_.cube_indices.buffer, 0, CUBE_INDEX_TYPE);
+		vkCmdDrawIndexed(cmd, physics_debug_.cube_index_count, physics_debug_.particle_instance_count, 0, 0, 0);
 
 		vkCmdEndRendering(cmd);
 	}
@@ -1142,7 +1191,7 @@ namespace renderer
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, grid_pipeline_.pipeline);
 
 		VkDeviceSize zero_offset{ 0 };
-		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[mpm_debug_.render_object_index] };
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[physics_debug_.render_object_index] };
 
 		vkCmdBindDescriptorSets(
 			cmd,
@@ -1154,8 +1203,8 @@ namespace renderer
 			0,
 			nullptr);
 
-		vkCmdBindVertexBuffers(cmd, 0, 1, &mpm_debug_.grid_vertices.buffer, &zero_offset);
-		vkCmdDraw(cmd, mpm_debug_.grid_vertex_count, 1, 0, 0);
+		vkCmdBindVertexBuffers(cmd, 0, 1, &physics_debug_.grid_vertices.buffer, &zero_offset);
+		vkCmdDraw(cmd, physics_debug_.grid_vertex_count, 1, 0, 0);
 		vkCmdEndRendering(cmd);
 	}
 
@@ -1204,7 +1253,7 @@ namespace renderer
 		};
 
 		GraphicsPipeline& pipeline{ render_nodes_as_cubes_ ? node_cube_pipeline_ : node_line_pipeline_ };
-		BufferResource& vertex_buffer{ render_nodes_as_cubes_ ? mpm_debug_.cube_vertices : mpm_debug_.line_vertices };
+		BufferResource& vertex_buffer{ render_nodes_as_cubes_ ? physics_debug_.cube_vertices : physics_debug_.line_vertices };
 
 		vkCmdBeginRendering(cmd, &rendering_info);
 
@@ -1226,9 +1275,9 @@ namespace renderer
 			VK_SHADER_STAGE_VERTEX_BIT,
 			0,
 			sizeof(ColorModePushConstant),
-			&mpm_debug_.node_push_constant);
+			&physics_debug_.node_push_constant);
 
-		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[mpm_debug_.render_object_index] };
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[physics_debug_.render_object_index] };
 
 		vkCmdBindDescriptorSets(
 			cmd,
@@ -1240,21 +1289,98 @@ namespace renderer
 			0,
 			nullptr);
 
-		VkBuffer vertex_buffers[2]{ vertex_buffer.buffer, mpm_debug_.node_instances[mpm_debug_.node_idx].buffer };
+		VkBuffer vertex_buffers[2]{ vertex_buffer.buffer, physics_debug_.node_instances[physics_debug_.node_idx].buffer };
 		VkDeviceSize zero_offsets[2]{ 0, 0 };
 
 		vkCmdBindVertexBuffers(cmd, 0, 2, vertex_buffers, zero_offsets);
 
 		if (render_nodes_as_cubes_)
 		{
-			vkCmdBindIndexBuffer(cmd, mpm_debug_.cube_indices.buffer, 0, CUBE_INDEX_TYPE);
-			vkCmdDrawIndexed(cmd, mpm_debug_.cube_index_count, mpm_debug_.node_instance_count, 0, 0, 0);
+			vkCmdBindIndexBuffer(cmd, physics_debug_.cube_indices.buffer, 0, CUBE_INDEX_TYPE);
+			vkCmdDrawIndexed(cmd, physics_debug_.cube_index_count, physics_debug_.node_instance_count, 0, 0, 0);
 		}
 		else {
-			vkCmdDraw(cmd, LINE_VERTEX_COUNT, mpm_debug_.node_instance_count, 0, 0);
+			vkCmdDraw(cmd, LINE_VERTEX_COUNT, physics_debug_.node_instance_count, 0, 0);
 		}
 
 		vkCmdEndRendering(cmd);
+	}
 
+	void EditorBackend::RigidBodyRenderPass(VkCommandBuffer cmd)
+	{
+		Extent viewport_extents{ renderer_->GetViewportExtent() };
+		VkClearColorValue clear_color{ 1.0f, 1.0f, 1.0f, 1.0f };
+
+		VkRenderingAttachmentInfo color_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = imgui_backend_.GetViewportImage().image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingAttachmentInfo depth_attachment_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = GetCurrentFrame().particle_depth.image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.clearValue = clear_color,
+		};
+
+		VkRenderingInfo rendering_info{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.flags = 0,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = { viewport_extents.width, viewport_extents.height },
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment_info,
+			.pDepthAttachment = &depth_attachment_info,
+			.pStencilAttachment = nullptr,
+		};
+
+		vkCmdBeginRendering(cmd, &rendering_info);
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			rigid_body_line_pipeline_.layout,
+			EDITOR_CAMERA_UBO_SET,
+			1,
+			&renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, rigid_body_line_pipeline_.pipeline);
+
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[physics_debug_.render_object_index] };
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			rigid_body_line_pipeline_.layout,
+			EDITOR_RENDER_OBJECT_UBO_SET,
+			1,
+			&render_object->ubo_descriptor_set_resource.descriptor_set,
+			0,
+			nullptr);
+
+		VkBuffer vertex_buffers[2]{ physics_debug_.line_vertices.buffer, physics_debug_.rb_voxel_instances[physics_debug_.rigid_body_idx].buffer };
+		VkDeviceSize zero_offsets[2]{ 0, 0 };
+
+		vkCmdBindVertexBuffers(cmd, 0, 2, vertex_buffers, zero_offsets);
+		vkCmdDraw(cmd, LINE_VERTEX_COUNT, physics_debug_.rb_voxel_instance_count, 0, 0);
+		vkCmdEndRendering(cmd);
 	}
 }

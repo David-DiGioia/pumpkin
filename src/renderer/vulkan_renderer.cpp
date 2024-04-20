@@ -195,6 +195,11 @@ namespace renderer
 		editor_backend_.SetRenderObjectInfo(CHUNK_WIDTH, (uint32_t)render_object);
 	}
 
+	void VulkanRenderer::SetRigidBodyOverlayEnabled(bool enabled)
+	{
+		editor_backend_.SetRigidBodyOverlayEnabled(enabled);
+	}
+
 	void VulkanRenderer::ClearOutlineSets()
 	{
 		editor_backend_.ClearOutlineSets();
@@ -225,16 +230,20 @@ namespace renderer
 		editor_backend_.SetRenderCubeNodesEnabled(enabled);
 	}
 
-	void VulkanRenderer::SetMPMDebugParticleInstances(const std::vector<renderer::MPMDebugParticleInstance>& mpm_particle_instances)
+	void VulkanRenderer::SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& mpm_particle_instances)
 	{
 		editor_backend_.SetMPMDebugParticleInstances(mpm_particle_instances);
 	}
 
-	void VulkanRenderer::SetMPMDebugNodeInstances(const std::vector<renderer::MPMDebugNodeInstance>& mpm_node_instances)
+	void VulkanRenderer::SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& mpm_node_instances)
 	{
 		editor_backend_.SetMPMDebugNodeInstances(mpm_node_instances);
 	}
 
+	void VulkanRenderer::SetDebugRbVoxelInstances(const std::vector<RigidBodyDebugVoxelInstance>& rb_voxel_instances)
+	{
+		editor_backend_.SetDebugRbVoxelInstances(rb_voxel_instances);
+	}
 #endif
 
 	void VulkanRenderer::CleanUp()

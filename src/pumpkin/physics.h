@@ -74,6 +74,8 @@ namespace pmk
 		void SetMPMDebugParticleGenEnabled(bool enabled);
 
 		void SetMPMDebugNodeGenEnabled(bool enabled);
+
+		void SetRigidBodyOverlayEnabled(bool enabled);
 #endif
 
 	private:
