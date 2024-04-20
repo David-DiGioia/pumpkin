@@ -219,7 +219,7 @@ namespace renderer
 
 		void OutlineRenderPass(VkCommandBuffer cmd, const OutlineObjects& outline_set);
 
-		void RenderPhysicsOverlay(VkCommandBuffer cmd);
+		void RenderSelectedChunkOverlay(VkCommandBuffer cmd);
 
 		// Render particle depth buffer and optionally color.
 		void ParticleRasterRenderPass(VkCommandBuffer cmd);

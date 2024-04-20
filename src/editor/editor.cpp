@@ -666,7 +666,6 @@ void Editor::ResetPhysicsSimulation()
 	// Rigid bodies are destroyed when simulation is reset, so remove them from editor.
 	RemoveDestroyedNodes(active_selection_id);
 	GenerateVoxels();
-	show_rigid_body_normals_ = false;
 	UpdateRigidBodyOverlayEnabled();
 }
 
@@ -1238,7 +1237,7 @@ void Editor::UpdateSelectionOutlines()
 
 void Editor::UpdateParticleOverlayRenderObject()
 {
-	if (active_selection_node_ == particle_node_ || active_selection_node_->node->rigid_body)
+	if (active_selection_node_ == particle_node_)
 	{
 		renderer::RenderObjectHandle render_object{ active_selection_node_->node->render_object };
 		pumpkin_->SetParticleOverlay(render_object);

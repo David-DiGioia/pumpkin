@@ -520,7 +520,6 @@ namespace renderer
 
 		std::vector<DescriptorSetLayoutResource> rigid_body_set_layouts{
 			renderer_->camera_layout_resource_,
-			renderer_->render_object_layout_resource_,
 		};
 
 		rigid_body_line_pipeline_.Initialize(
@@ -624,7 +623,11 @@ namespace renderer
 	void EditorBackend::EditorRenderPasses(VkCommandBuffer cmd)
 	{
 		if (physics_debug_.render_object_index != NULL_INDEX) {
-			RenderPhysicsOverlay(cmd);
+			RenderSelectedChunkOverlay(cmd);
+		}
+
+		if (rigid_bodies_enabled_ && physics_debug_.rb_voxel_instance_count > 0) {
+			RigidBodyRenderPass(cmd);
 		}
 
 		RenderOutlines(cmd);
@@ -766,6 +769,10 @@ namespace renderer
 		physics_debug_.rigid_body_idx = (physics_debug_.rigid_body_idx + 1) % FRAMES_IN_FLIGHT;
 
 		physics_debug_.rb_voxel_instance_count = (uint32_t)rb_voxel_instances.size();
+
+		if (rb_voxel_instances.empty()) {
+			return;
+		}
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
 			physics_debug_.rb_voxel_instance_count * sizeof(RigidBodyDebugVoxelInstance),
@@ -1015,7 +1022,7 @@ namespace renderer
 		vkCmdEndRendering(cmd);
 	}
 
-	void EditorBackend::RenderPhysicsOverlay(VkCommandBuffer cmd)
+	void EditorBackend::RenderSelectedChunkOverlay(VkCommandBuffer cmd)
 	{
 		if (raster_particles_enabled_) {
 			ParticleRasterRenderPass(cmd);
@@ -1037,10 +1044,6 @@ namespace renderer
 
 		if (nodes_enabled_) {
 			NodeRenderPass(cmd);
-		}
-
-		if (rigid_bodies_enabled_) {
-			RigidBodyRenderPass(cmd);
 		}
 	}
 
@@ -1363,18 +1366,6 @@ namespace renderer
 			nullptr);
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, rigid_body_line_pipeline_.pipeline);
-
-		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[physics_debug_.render_object_index] };
-
-		vkCmdBindDescriptorSets(
-			cmd,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			rigid_body_line_pipeline_.layout,
-			EDITOR_RENDER_OBJECT_UBO_SET,
-			1,
-			&render_object->ubo_descriptor_set_resource.descriptor_set,
-			0,
-			nullptr);
 
 		VkBuffer vertex_buffers[2]{ physics_debug_.line_vertices.buffer, physics_debug_.rb_voxel_instances[physics_debug_.rigid_body_idx].buffer };
 		VkDeviceSize zero_offsets[2]{ 0, 0 };

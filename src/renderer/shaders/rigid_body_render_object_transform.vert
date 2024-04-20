@@ -13,10 +13,6 @@ layout (set = 0, binding = 0) uniform CameraUBO {
     mat4 projection_view;
 } camera_ubo;
 
-layout (set = 1, binding = 0) uniform RenderObjectUBO {
-    mat4 transform;
-} render_object_ubo;
-
 const float normal_length = 0.01;
 
 void main()

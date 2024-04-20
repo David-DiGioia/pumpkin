@@ -574,10 +574,6 @@ namespace pmk
 			outer_voxel_count += rb->voxel_chunk.GetOuterVoxels().size();
 		}
 
-		if (outer_voxel_count == 0) {
-			return;
-		}
-
 		std::vector<renderer::RigidBodyDebugVoxelInstance> debug_instances{};
 		debug_instances.reserve(outer_voxel_count);
 		for (const RigidBody* rb : rigid_bodies_)
