@@ -3,12 +3,15 @@
 #include <algorithm>
 #include <execution>
 #include <ranges>
-#include "renderer_constants.h"
-#include "logger.h"
-#include "common_constants.h"
 #include "tracy/Tracy.hpp"
 #include "glm/gtx/norm.hpp"
 #include "glm/gtc/matrix_inverse.hpp"
+
+#include "renderer_constants.h"
+#include "logger.h"
+#include "common_constants.h"
+#include "rigid_body.h"
+#include "scene.h"
 
 namespace pmk
 {
@@ -83,9 +86,11 @@ namespace pmk
 		UpdateIndexBuffers();
 	}
 
-	void MPMContext::SimulateStep(float delta_time)
+	void MPMContext::SimulateStep(float delta_time, const std::vector<RigidBody*>& rigid_bodies)
 	{
-		ParticleToGrid();
+		ComputeGridCDF(rigid_bodies);
+		ReconstructParticleCDF();
+		ParticleToGrid(rigid_bodies);
 		ComputeGridVelocities();
 		UpdateLameParameters();
 		ComputeExplicitGridForces();
@@ -153,7 +158,164 @@ namespace pmk
 		return density;
 	}
 
-	void MPMContext::ParticleToGrid()
+	static uint32_t ComputeAffinitiyTag(uint32_t bits, uint8_t index, bool tag)
+	{
+		// Leftmost 16 bits are tag and rightmost 16 bits are affinity.
+		constexpr uint8_t affinity{ 1 }; // Know affinity is 1 is this is being called since rigid body is in range.
+		return (bits & ~(0b1'0000'0000'0000'0001 << index)) | (affinity << index) | ((uint8_t)tag << (index + TAG_OFFSET));
+	}
+
+	// Check compatibility between a particle and node as defined in MLS-MPM 5.3.4.
+	static bool Compatible(uint32_t grid_color, uint32_t particle_color)
+	{
+		uint16_t shared_affinity{ (uint16_t)(grid_color & particle_color) };
+		uint16_t grid_tag{ (uint16_t)(grid_color >> 16) };
+		uint16_t partcle_tag{ (uint16_t)(particle_color >> 16) };
+		return (grid_tag & shared_affinity) == (partcle_tag & shared_affinity);
+	}
+
+	void MPMContext::ComputeGridCDF(const std::vector<RigidBody*>& rigid_bodies)
+	{
+		// Reset all nodes distance to inf.
+		std::for_each(
+			std::execution::par,
+			nodes_.begin(),
+			nodes_.end(),
+			[&](GridNode& node)
+			{
+				node.rb_distance = std::numeric_limits<float>::infinity();
+				node.affinitiy_tag = 0;
+			});
+
+		for (uint8_t rb_idx{ 0 }; rb_idx < (uint8_t)rigid_bodies.size(); ++rb_idx)
+		{
+			RigidBody* rb{ rigid_bodies[rb_idx] };
+			glm::mat4 world_transform{ rb->node->GetWorldTransform() };
+			for (const renderer::OuterVoxel& ov : rb->voxel_chunk.GetOuterVoxels())
+			{
+				glm::vec3 pos{ rb->CoordinateToGlobal(world_transform, ov.coord) };
+
+				uint32_t node_index_count{};
+				auto node_indices{ GetNodeIndicesWithinRadius(pos, &node_index_count) };
+				for (uint32_t i{ 0 }; i < node_index_count; ++i)
+				{
+					GridNode& node{ nodes_[node_indices[i]] };
+					glm::vec3 diff{ node.position - pos };
+					float distance{ glm::length(diff) };
+					if (distance < node.rb_distance)
+					{
+						node.closest_rb_index = rb_idx;
+						node.closest_voxel_index = rb->voxel_chunk.CoordinateToIndex(ov.coord);
+						node.rb_distance = distance;
+					}
+
+					assert(rb_idx < 16); // Currently 16 is the maximum number of rigid bodies that can be coupled.
+					bool tag{ glm::dot(diff, ov.normal) > 0.0f };
+					node.affinitiy_tag = ComputeAffinitiyTag(node.affinitiy_tag, rb_idx, tag);
+				}
+			}
+		}
+	}
+
+	void MPMContext::ReconstructParticleCDF()
+	{
+		std::for_each(
+			//std::execution::par,
+			particles_.begin(),
+			particles_.end(),
+			[&](MaterialPoint& p)
+			{
+				constexpr uint8_t MAX_RIGID_BODY_COUNT{ 16 };
+				p.affinity_tag = 0;
+
+				uint32_t node_index_count{};
+				auto node_indices{ GetNodeIndicesWithinRadius(p.position, &node_index_count) };
+
+				// TODO: Can do some bit magic later to avoid iterating over all bits.
+				for (uint8_t rb_idx{ 0 }; rb_idx < MAX_RIGID_BODY_COUNT; ++rb_idx)
+				{
+					float sum{ 0.0f };
+					bool affinity{ false };
+
+					for (uint32_t i{ 0 }; i < node_index_count; ++i)
+					{
+						GridNode& node{ nodes_[node_indices[i]] };
+
+						// Node is not close to this rigid body so we skip it.
+						if (!(node.affinitiy_tag & (1 << rb_idx))) {
+							continue;
+						}
+						affinity = true;
+						sum += GetWeight(node.position, p.position) * node.rb_distance * GetTag(node, rb_idx);
+					}
+
+					if (affinity) {
+						p.affinity_tag = ComputeAffinitiyTag(p.affinity_tag, rb_idx, sum > 0.0f);
+					}
+				}
+
+				if (GetAffinityBits(p.affinity_tag) == 0)
+				{
+					p.rb_distance = std::numeric_limits<float>::infinity();
+					return; // Acts as continue in for_each.
+				}
+
+				glm::vec4 qt_xi_u{};
+				glm::mat4 m{};
+				for (uint32_t i{ 0 }; i < node_index_count; ++i)
+				{
+					GridNode& node{ nodes_[node_indices[i]] };
+
+					// Skip nodes that are not close enough to rigid body.
+					if (!GetAffinity(node, node.closest_rb_index)) {
+						continue;
+					}
+
+					float xi{ GetWeight(node.position, p.position) };
+					float u{ node.rb_distance * GetTag(node, node.closest_rb_index) };
+					glm::vec4 q{ 1.0f, node.position - p.position };
+					qt_xi_u += q * u * xi;
+
+					// M is symmetric so only calculate lower half in loop.
+					m[0][0] += xi;
+					m[0][1] += xi * q[1];
+					m[0][2] += xi * q[2];
+					m[0][3] += xi * q[3];
+
+					m[1][1] += xi * q[1] * q[1];
+					m[1][2] += xi * q[1] * q[2];
+					m[1][3] += xi * q[1] * q[3];
+
+					m[2][2] += xi * q[2] * q[2];
+					m[2][3] += xi * q[2] * q[3];
+
+					m[3][3] += xi * q[3] * q[3];
+				}
+				m[1][0] = m[0][1];
+				m[2][0] = m[0][2];
+				m[2][1] = m[1][2];
+				m[3][0] = m[0][3];
+				m[3][1] = m[1][3];
+				m[3][2] = m[2][3];
+
+				glm::vec4 u{ glm::inverse(m) * qt_xi_u }; // Equation (4) of MLS-MPM.
+				glm::vec3 normal{ glm::normalize(glm::vec3{ u.y, u.z, u.w }) };
+
+				// If m is too small, its inverse can become nan.
+				if (std::isnan(u.x) || std::isnan(normal.x))
+				{
+					p.rb_distance = std::numeric_limits<float>::infinity();
+				}
+				else
+				{
+					p.rb_distance = u.x;
+					p.rb_normal = normal;
+				}
+			});
+
+	}
+
+	void MPMContext::ParticleToGrid(const std::vector<RigidBody*>& rigid_bodies)
 	{
 		ZoneScoped;
 
@@ -178,7 +340,7 @@ namespace pmk
 		{
 			ZoneScopedN("P2G");
 			std::for_each(
-				std::execution::par,
+				//std::execution::par,
 				nodes_.begin(),
 				nodes_.end(),
 				[&](GridNode& node)
@@ -198,8 +360,19 @@ namespace pmk
 							ParticleCache& c{ particle_cache_[particle_indices_[j].index] };
 
 							float weight{ GetWeight(node.position, p.position) };
-							node.mass += weight * p.mass;                                      // Equation (172).
-							node.momentum += weight * (c.p2g_lhs + c.p2g_rhs * node.position); // Equation (173).
+							if (Compatible(node.affinitiy_tag, p.affinity_tag))
+							{
+								node.mass += weight * p.mass;                                      // Equation (172).
+								node.momentum += weight * (c.p2g_lhs + c.p2g_rhs * node.position); // Equation (173).
+							}
+							else if (!std::isinf(p.rb_distance)) // In theory, p.rb_distance should never be inf in this case, but with numerical error it can be.
+							{
+								// Apply impulse to closest rigid body.
+								RigidBody* rb{ rigid_bodies[node.closest_rb_index] };
+								glm::vec3 impulse{ p.velocity - rb->VelocityProject(p.velocity, p.rb_normal, node.position) * weight };
+								// TODO: MAKE THIS THREAD SAFE.
+								rb->ApplyImpulse(impulse, p.position + p.rb_normal * p.rb_distance);
+							}
 						}
 					}
 				});
@@ -209,7 +382,6 @@ namespace pmk
 	void MPMContext::ComputeGridVelocities()
 	{
 		ZoneScoped;
-		// TODO: This can later be put into ParticleToGrid(). Probably will me more efficient.
 		for (GridNode& node : nodes_)
 		{
 			node.velocity = (node.mass == 0.0f) ? glm::vec3{ 0.0f, 0.0f, 0.0f } : node.momentum / node.mass;
@@ -266,7 +438,7 @@ namespace pmk
 
 				node.force = -particle_initial_volume_ * d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
 				//node.force = -d_inverse * sum; // Equation (18) of MLS-MPM. Replaces equation (189) of UCLA paper.
-				node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
+				//node.force += node.mass * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity?
 
 				if (std::isnan(node.force.x))
 				{
@@ -333,8 +505,9 @@ namespace pmk
 						continue;
 					}
 					float w{ GetWeight(node.position, p.position) };
-					p.velocity += w * node.velocity;                                                     // Equation (175).
-					p.affine_matrix += glm::outerProduct(w * node.velocity, node.position - p.position); // Equation (176).
+					glm::vec3 velocity{ Compatible(node.affinitiy_tag, p.affinity_tag) ? node.velocity : p.velocity };
+					p.velocity += w * velocity;                                                     // Equation (175).
+					p.affine_matrix += glm::outerProduct(w * velocity, node.position - p.position); // Equation (176).
 				}
 			});
 	}
@@ -602,12 +775,11 @@ namespace pmk
 	// Get the 1D range of node coordinates given a position.
 	void GetNodeCoordinateRange(float pos, uint32_t* out_min, uint32_t* out_max)
 	{
-		pos = std::clamp(pos, 0.0f, (float)(GRID_NODE_ROW_COUNT));
-
 		float pos_floor{ std::floorf(pos) };
 		float pos_frac{ pos - pos_floor };
 		uint32_t n{ (uint32_t)pos_floor };
 		const uint32_t last_index{ GRID_NODE_ROW_COUNT - 1 };
+		n = std::clamp(n, 0u, last_index);
 
 		if (pos_frac <= 0.5f)
 		{
@@ -988,4 +1160,4 @@ namespace pmk
 		p->deformation_gradient_elastic = u * s * glm::transpose(v);
 		p->deformation_gradient_plastic = glm::inverse(p->deformation_gradient_elastic) * deformation_gradient;
 	}
-	}
+}

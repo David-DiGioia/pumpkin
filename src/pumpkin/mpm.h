@@ -43,6 +43,11 @@ namespace pmk
 		glm::mat3 deformation_gradient_elastic;
 		glm::mat3 deformation_gradient_plastic;
 		uint8_t  physics_material_index;
+
+		// Rigid body coupling info.
+		float rb_distance;     // The minimum unsigned rigid body distance from this particle.
+		uint32_t affinity_tag; // Affinity and tag of each rigid body (2 bits per rigid body).
+		glm::vec3 rb_normal;   // Normal pointing towards rigid body surface.
 	};
 
 	class MPMContext;
@@ -180,14 +185,49 @@ namespace pmk
 		glm::vec3 momentum;
 		glm::vec3 force;
 		glm::uvec3 coordinate;
+
+		// Rigid body coupling info.
+		uint8_t closest_rb_index;
+		uint32_t closest_voxel_index;
+		float rb_distance;      // The minimum unsigned rigid body distance from this grid node.
+		uint32_t affinitiy_tag; // Affinity and tag of each rigid body (2 bits per rigid body).
 	};
+
+	constexpr uint32_t TAG_OFFSET{ 16 }; // The offset (in bits) of the tag into affinity_tag.
+
+	inline uint16_t GetAffinityBits(uint32_t affinity_tag)
+	{
+		return (uint16_t)affinity_tag;
+	}
+
+	inline uint16_t GetTagBits(uint32_t affinity_tag)
+	{
+		return (uint16_t)(affinity_tag >> 16);
+	}
+
+	// Where t is a MaterialPoint or a GridNode.
+	template<typename T>
+	bool GetAffinity(T t, uint32_t rb_index)
+	{
+		return (bool)(t.affinitiy_tag & (1 << rb_index));
+	}
+
+	// Where t is a MaterialPoint or a GridNode.
+	template<typename T>
+	float GetTag(T t, uint32_t rb_index)
+	{
+		// Bit 1 encodes 1.0f, and bit 0 encodes -1.0f for tag.
+		return (t.affinitiy_tag & (1 << rb_index + TAG_OFFSET)) ? 1.0f : -1.0f;
+	}
+
+	struct RigidBody;
 
 	class MPMContext
 	{
 	public:
 		void Initialize(std::vector<MaterialPoint>&& particles, float chunk_width, const std::vector<PhysicsMaterial*>* physics_materials);
 
-		void SimulateStep(float delta_time);
+		void SimulateStep(float delta_time, const std::vector<RigidBody*>& rigid_bodies);
 
 		const std::vector<MaterialPoint>& GetParticles() const;
 
@@ -198,7 +238,12 @@ namespace pmk
 		float GetDensity(const glm::vec3& position) const;
 
 	private:
-		void ParticleToGrid();
+		// Compute grid's colored distance field.
+		void ComputeGridCDF(const std::vector<RigidBody*>& rigid_bodies);
+
+		void ReconstructParticleCDF();
+
+		void ParticleToGrid(const std::vector<RigidBody*>& rigid_bodies);
 
 		void ComputeGridVelocities();
 

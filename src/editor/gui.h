@@ -57,6 +57,7 @@ enum class NodeColorMode
 	VELOCITY,
 	MOMENTUM,
 	FORCE,
+	RIGID_BODY_DISTANCE,
 
 	COLOR_MODE_COUNT,
 };
@@ -67,6 +68,7 @@ const std::array<std::string, (uint32_t)NodeColorMode::COLOR_MODE_COUNT> node_co
 	"Velocity",
 	"Momentum",
 	"Force",
+	"Rigid body distance"
 };
 
 enum class ConstitutiveModelType

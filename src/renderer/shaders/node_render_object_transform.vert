@@ -5,10 +5,11 @@ layout (location = 0) in vec3 vertex_position;
 
 // Instance attributes.
 layout (location = 1) in float mass;
-layout (location = 2) in vec3 position;
-layout (location = 3) in vec3 velocity;
-layout (location = 4) in vec3 momentum;
-layout (location = 5) in vec3 force;
+layout (location = 2) in float rigid_body_distance;
+layout (location = 3) in vec3 position;
+layout (location = 4) in vec3 velocity;
+layout (location = 5) in vec3 momentum;
+layout (location = 6) in vec3 force;
 
 layout (location = 0) out vec3 out_color;
 
@@ -25,11 +26,12 @@ layout (push_constant) uniform PushConstant {
     float max_value;
 } constants;
 
-const uint COLOR_MODE_NONE     = 0;
-const uint COLOR_MODE_MASS     = 1;
-const uint COLOR_MODE_VELOCITY = 2;
-const uint COLOR_MODE_MOMENTUM = 3;
-const uint COLOR_MODE_FORCE    = 4;
+const uint COLOR_MODE_NONE                = 0;
+const uint COLOR_MODE_MASS                = 1;
+const uint COLOR_MODE_VELOCITY            = 2;
+const uint COLOR_MODE_MOMENTUM            = 3;
+const uint COLOR_MODE_FORCE               = 4;
+const uint COLOR_MODE_RIGID_BODY_DISTANCE = 5;
 
 const float PI = 3.14159265359;
 
@@ -47,7 +49,6 @@ vec3 Heatmap(float val, float lower, float upper)
 void main()
 {
     vec3 final_position;
-    const float mass_cube_scale = 2.0;
 
     switch(constants.node_color_mode)
     {
@@ -55,8 +56,8 @@ void main()
         // We should never reach this case since the shader won't be invoked.
         break;
     case COLOR_MODE_MASS:
+        final_position = position + vertex_position * mass / constants.max_value;
         out_color = Heatmap(mass, 0.0, constants.max_value);
-        final_position = position + mass_cube_scale * vertex_position * mass / constants.max_value;
         break;
     case COLOR_MODE_VELOCITY:
         // The vertex_position.x is either 0.0 or 1.0 for the two line vertices.
@@ -70,6 +71,10 @@ void main()
     case COLOR_MODE_FORCE:
         final_position = position + vertex_position.x * force / constants.max_value;
         out_color = Heatmap(length(force), 0.0, constants.max_value);
+        break;
+    case COLOR_MODE_RIGID_BODY_DISTANCE:
+        final_position = position + vertex_position * (1.0 / (1.0 + rigid_body_distance)) / constants.max_value;
+        out_color = Heatmap((1.0 / (1.0 + rigid_body_distance)), 0.0, constants.max_value);
         break;
     }
 

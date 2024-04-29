@@ -12,6 +12,7 @@
 namespace pmk
 {
 	struct Node;
+	struct RigidBody;
 
 	class ParticleContext
 	{
@@ -20,7 +21,7 @@ namespace pmk
 
 		void CleanUp();
 
-		void PhysicsUpdate(float delta_time);
+		void PhysicsUpdate(float delta_time, const std::vector<RigidBody*>& rigid_bodies);
 
 		void EnablePhysicsUpdate();
 

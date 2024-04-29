@@ -68,10 +68,11 @@ namespace renderer
 
 			// Instance attributes.
 			MPM_NODE_ATTRIBUTE(1, mass),
-			MPM_NODE_ATTRIBUTE(2, position),
-			MPM_NODE_ATTRIBUTE(3, velocity),
-			MPM_NODE_ATTRIBUTE(4, momentum),
-			MPM_NODE_ATTRIBUTE(5, force),
+			MPM_NODE_ATTRIBUTE(2, rigid_body_distance),
+			MPM_NODE_ATTRIBUTE(3, position),
+			MPM_NODE_ATTRIBUTE(4, velocity),
+			MPM_NODE_ATTRIBUTE(5, momentum),
+			MPM_NODE_ATTRIBUTE(6, force),
 		};
 	}
 

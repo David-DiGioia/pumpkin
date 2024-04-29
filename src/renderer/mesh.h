@@ -51,6 +51,7 @@ namespace renderer
 	struct MPMDebugNodeInstance
 	{
 		float mass;
+		float rigid_body_distance;
 		glm::vec3 position;
 		glm::vec3 velocity;
 		glm::vec3 momentum;

@@ -10,6 +10,90 @@
 
 namespace pmk
 {
+	static glm::vec3 BoundaryProject(const glm::vec3& velocity, const glm::vec3& normal, BoundaryCondition boundary_condition, float dynamic_friction)
+	{
+		switch (boundary_condition)
+		{
+		case BoundaryCondition::STICKY:
+			return {};
+		case BoundaryCondition::SLIP:
+			return {}; // TODO.
+		case BoundaryCondition::SEPARATE:
+			return {}; // TODO.
+		}
+
+		logger::Error("Invalid boundary condition.\n");
+		return {};
+	}
+
+	glm::uvec3 RigidBody::GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const
+	{
+		glm::vec3 coord_space{ glm::vec3{inv_world_transform * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
+		coord_space += center_of_mass;
+
+		uint32_t potential_collision_count{};
+		std::array<glm::uvec3, 8> potential_collisions{ voxel_chunk.GetPotentialCollisions(coord_space, &potential_collision_count) };
+
+		float closest_sqr{ std::numeric_limits<float>::infinity() };
+		float closest_idx{};
+		for (uint32_t i{ 0 }; i < potential_collision_count; ++i)
+		{
+			float distance_sqr{ glm::distance2(coord_space, glm::vec3{ potential_collisions[i] }) };
+			if (distance_sqr < closest_sqr)
+			{
+				closest_sqr = distance_sqr;
+				closest_idx = i;
+			}
+		}
+
+		// Check if it's less than one since we are coord space, where 1 voxel width is 1 unit.
+		if (closest_sqr < 1.0f) {
+			return potential_collisions[closest_idx];
+		}
+
+		return glm::uvec3{ UINT_MAX };
+	}
+
+	glm::vec3 RigidBody::CoordinateToGlobal(const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const
+	{
+		glm::vec3 local_space{ PARTICLE_WIDTH * glm::vec3{voxel_coord} };
+		local_space -= center_of_mass * PARTICLE_WIDTH;
+		glm::vec4 world_space{ world_transform * glm::vec4{ local_space, 1.0f} };
+
+		return glm::vec3{ world_space };
+	}
+
+	glm::vec3 RigidBody::VelocityProject(const glm::vec3& particle_velocity, const glm::vec3& particle_normal, const glm::vec3& node_position) const
+	{
+		glm::vec3 world_velocity{ WorldVelocity(node_position) };
+		return world_velocity + BoundaryProject(particle_velocity - world_velocity, particle_normal, boundary_condition, dynamic_friction);
+	}
+
+	glm::vec3 RigidBody::WorldVelocity(const glm::vec3& world_position) const
+	{
+		return velocity + glm::cross(angular_velocity, world_position - node->position);
+	}
+
+	void RigidBody::ApplyImpulse(const glm::vec3& impulse, const glm::vec3& point_of_application)
+	{
+		// Calculate the change in linear velocity due to the impulse.
+		glm::vec3 linear_velocity_change{ impulse / mass };
+
+		// Update the linear velocity.
+		velocity += linear_velocity_change;
+
+		// Calculate the change in angular velocity due to the impulse.
+		glm::vec3 r{ point_of_application - node->position };
+		glm::vec3 angular_velocity_change{ glm::inverse(inertia_tensor) * glm::cross(r, impulse) };
+
+		// Update the angular velocity.
+		angular_velocity += angular_velocity_change;
+
+		if (std::isnan(velocity.x) || std::isnan(angular_velocity.x)) {
+			logger::Error("Nans resulting from impulse.\n");
+		}
+	}
+
 	RigidBodyModel::RigidBodyModel()
 	{
 		density_ = 50.0f;
@@ -120,6 +204,11 @@ namespace pmk
 		rigid_bodies_.clear();
 	}
 
+	std::vector<RigidBody*> RigidBodyContext::GetRigidBodies()
+	{
+		return rigid_bodies_;
+	}
+
 	std::vector<uint32_t> RigidBodyContext::CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk, bool* out_is_empty)
 	{
 		// Create a mask to quickly test if a static particle has a rigid body material.
@@ -196,8 +285,8 @@ namespace pmk
 		for (const renderer::OuterVoxel& ov : small->voxel_chunk.GetOuterVoxels())
 		{
 			glm::uvec3 small_coord{ ov.coord };
-			glm::vec3 global_pos{ CoordinateToGlobal(small->center_of_mass, small_world, small_coord) };
-			glm::uvec3 big_coord{ GetCollisionCoordinate(*big, inv_big_world, global_pos) };
+			glm::vec3 global_pos{ small->CoordinateToGlobal(small_world, small_coord) };
+			glm::uvec3 big_coord{ big->GetCollisionCoordinate(inv_big_world, global_pos) };
 
 			bool in_bounds{ big_coord.x != UINT_MAX };
 
@@ -446,43 +535,6 @@ namespace pmk
 		return density * PARTICLE_VOLUME;
 	}
 
-	glm::vec3 RigidBodyContext::CoordinateToGlobal(const glm::vec3& center_of_mass, const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const
-	{
-		glm::vec3 local_space{ PARTICLE_WIDTH * glm::vec3{voxel_coord} };
-		local_space -= center_of_mass * PARTICLE_WIDTH;
-		glm::vec4 world_space{ world_transform * glm::vec4{ local_space, 1.0f} };
-
-		return glm::vec3{ world_space };
-	}
-
-	glm::uvec3 RigidBodyContext::GetCollisionCoordinate(const RigidBody& rb, const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const
-	{
-		glm::vec3 coord_space{ glm::vec3{inv_world_transform * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
-		coord_space += rb.center_of_mass;
-
-		uint32_t potential_collision_count{};
-		std::array<glm::uvec3, 8> potential_collisions{ rb.voxel_chunk.GetPotentialCollisions(coord_space, &potential_collision_count) };
-
-		float closest_sqr{ std::numeric_limits<float>::infinity() };
-		float closest_idx{};
-		for (uint32_t i{ 0 }; i < potential_collision_count; ++i)
-		{
-			float distance_sqr{ glm::distance2(coord_space, glm::vec3{ potential_collisions[i] }) };
-			if (distance_sqr < closest_sqr)
-			{
-				closest_sqr = distance_sqr;
-				closest_idx = i;
-			}
-		}
-
-		// Check if it's less than one since we are coord space, where 1 voxel width is 1 unit.
-		if (closest_sqr < 1.0f) {
-			return potential_collisions[closest_idx];
-		}
-
-		return glm::uvec3{ UINT_MAX };
-	}
-
 	glm::mat3 RigidBodyContext::ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass)
 	{
 		float xx{};
@@ -583,7 +635,7 @@ namespace pmk
 			for (const renderer::OuterVoxel& ov : rb->voxel_chunk.GetOuterVoxels())
 			{
 				renderer::RigidBodyDebugVoxelInstance debug_instance{
-					.position = CoordinateToGlobal(rb->center_of_mass, world_transform, ov.coord),
+					.position = rb->CoordinateToGlobal(world_transform, ov.coord),
 					.normal = rotation * ov.normal,
 				};
 

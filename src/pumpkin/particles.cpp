@@ -17,7 +17,7 @@ namespace pmk
 	{
 	}
 
-	void ParticleContext::PhysicsUpdate(float delta_time)
+	void ParticleContext::PhysicsUpdate(float delta_time, const std::vector<RigidBody*>& rigid_bodies)
 	{
 		if (!update_physics_) {
 			return;
@@ -25,7 +25,7 @@ namespace pmk
 
 		constexpr uint32_t sub_steps{ 2 };
 		for (uint32_t i{ 0 }; i < sub_steps; ++i) {
-			mpm_context_.SimulateStep(delta_time / sub_steps);
+			mpm_context_.SimulateStep(delta_time / sub_steps, rigid_bodies);
 		}
 		GenerateDynamicParticleMesh(particle_node_->render_object, mpm_context_.GetParticles());
 	}
@@ -110,7 +110,7 @@ namespace pmk
 		// particle info set that needs to be set.
 		update_physics_ = true;
 		has_played_ = true;
-		PhysicsUpdate(1.0f / 60.0f);
+		PhysicsUpdate(1.0f / 60.0f, {});
 		update_physics_ = false;
 
 		GenerateDynamicParticleMesh(node->render_object, mpm_context_.GetParticles());
@@ -307,10 +307,16 @@ namespace pmk
 		for (uint32_t n{ 0 }; n < (uint32_t)nodes.size(); ++n)
 		{
 			mpm_node_instances[n].mass = nodes[n].mass;
+			mpm_node_instances[n].rigid_body_distance = nodes[n].rb_distance;
 			mpm_node_instances[n].position = nodes[n].position;
 			mpm_node_instances[n].velocity = nodes[n].velocity;
 			mpm_node_instances[n].momentum = nodes[n].momentum;
 			mpm_node_instances[n].force = nodes[n].force;
+
+			// Make positive and negative tag visually distinct in debug render.
+			if (GetTag(nodes[n], nodes[n].closest_rb_index) < 0.0f) {
+				mpm_node_instances[n].rigid_body_distance *= 0.01f;
+			}
 		}
 
 		renderer_->SetMPMDebugNodeInstances(mpm_node_instances);

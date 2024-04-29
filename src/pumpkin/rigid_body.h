@@ -24,21 +24,46 @@ namespace pmk
 		virtual void OnParametersMutated() override;
 	};
 
+	// Boundary condition for particles colliding with rigid bodies.
+	enum class BoundaryCondition
+	{
+		STICKY,
+		SLIP,
+		SEPARATE,
+	};
+
 	struct Node;
 
 	struct RigidBody
 	{
 		Node* node;                 // Rigid body transform is stored in node.
 		float mass;                 // In kilograms.
+		float dynamic_friction;     // Dimensionless.
 		glm::vec3 center_of_mass;   // Relative to voxel coordinates.
 		glm::mat3 inertia_tensor;   // In kilogram meter squared.
 		glm::vec3 velocity;         // In meters per second.
 		glm::vec3 angular_velocity; // In radians per second.
 		bool immovable;
+		BoundaryCondition boundary_condition;
 
 		glm::vec3 previous_position;
 		glm::quat previous_rotation;
 		renderer::VoxelChunk voxel_chunk;
+
+		// Given voxel world space position, get the voxel coordinate from rb that collides with it.
+		// Returns UINT_MAX if no solution.
+		glm::uvec3 GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const;
+
+		// Convert voxel coordinate to world space position.
+		glm::vec3 CoordinateToGlobal(const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const;
+
+		// Projects incompatible particle velocity to rigid body.
+		glm::vec3 VelocityProject(const glm::vec3& particle_velocity, const glm::vec3& particle_normal, const glm::vec3& node_position) const;
+
+		// Get the velocity of a rigid body at a given world space position.
+		glm::vec3 WorldVelocity(const glm::vec3& world_position) const;
+
+		void ApplyImpulse(const glm::vec3& impulse, const glm::vec3& point_of_application);
 	};
 
 	struct CollisionPair
@@ -66,6 +91,8 @@ namespace pmk
 
 		void ResetRigidBodies();
 
+		std::vector<RigidBody*> GetRigidBodies();
+
 		// Populate rigid_bodies_ with rigid bodies made from connected voxels sharing
 		// the same rigid body physics material.
 		// Removes the rigid body voxels from input voxels.
@@ -84,13 +111,6 @@ namespace pmk
 		void RigidBodyFloodFill(const glm::uvec3& coordinate, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask);
 
 		float GetVoxelMass(uint32_t physics_material_index) const;
-
-		// Convert voxel coordinate to world space position.
-		glm::vec3 CoordinateToGlobal(const glm::vec3& center_of_mass, const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const;
-
-		// Given voxel world space position, get the voxel coordinate from rb that collides with it.
-		// Returns UINT_MAX if no solution.
-		glm::uvec3 GetCollisionCoordinate(const RigidBody& rb, const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const;
 
 		glm::mat3 ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass);
 

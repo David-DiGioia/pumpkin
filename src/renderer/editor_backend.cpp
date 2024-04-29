@@ -1024,6 +1024,11 @@ namespace renderer
 
 	void EditorBackend::RenderSelectedChunkOverlay(VkCommandBuffer cmd)
 	{
+		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[physics_debug_.render_object_index] };
+		if (!render_object) {
+			return;
+		}
+
 		if (raster_particles_enabled_) {
 			ParticleRasterRenderPass(cmd);
 		}
