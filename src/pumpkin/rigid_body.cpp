@@ -374,11 +374,8 @@ namespace pmk
 					float w1{ (1.0f / m1) + glm::dot(r1_cross_n, inertia_tensor_inv_a * r1_cross_n) };
 					float w2{ (1.0f / m2) + glm::dot(r2_cross_n, inertia_tensor_inv_b * r2_cross_n) };
 
-					float lambda{ 0.0f };
-					float delta_lambda{ (-c - alpha_tilde * lambda) / (w1 + w2 + alpha_tilde) };
-					lambda += delta_lambda;
-
-					glm::vec3 p{ delta_lambda * n };
+					float lambda{ -c / (w1 + w2 + alpha_tilde) };
+					glm::vec3 p{ lambda * n };
 
 					if (!rb_a->immovable)
 					{

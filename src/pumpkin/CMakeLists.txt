@@ -5,14 +5,13 @@
     "${CMAKE_CURRENT_SOURCE_DIR}/scene.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/particles.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/particles.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/mpm.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/mpm.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/xpbd.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/xpbd.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/rigid_body.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/rigid_body.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/physics.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/physics.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/constitutive_model.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/constitutive_model.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/constraint.h"
 )
 
 add_library(Pumpkin "${SOURCES}")

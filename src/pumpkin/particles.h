@@ -6,7 +6,7 @@
 #include "memory_allocator.h"
 #include "mesh.h"
 #include "pipeline.h"
-#include "mpm.h"
+#include "xpbd.h"
 #include "vulkan_renderer.h"
 
 namespace pmk
@@ -35,11 +35,9 @@ namespace pmk
 
 		uint32_t GenerateVoxelsOnNode(Node* node);
 
-		uint32_t GenerateTestParticleOnNode(Node* node);
-
 		void TransferStaticParticlesToMPM();
 
-		MPMContext* GetMPMContext();
+		XPBDContext* GetXPBDContext();
 
 		renderer::VoxelChunk& GetVoxelChunk();
 
@@ -54,9 +52,9 @@ namespace pmk
 #endif
 
 	private:
-		std::vector<MaterialPoint> VoxelsToMaterialPoints(const renderer::VoxelChunk& voxel_chunk) const;
+		std::vector<XPBDParticle> VoxelsToMaterialPoints(const renderer::VoxelChunk& voxel_chunk) const;
 
-		void GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<MaterialPoint>& particles) const;
+		void GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<XPBDParticle>& particles) const;
 
 		void GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target);
 
@@ -72,7 +70,7 @@ namespace pmk
 		bool generate_mpm_node_instances_{};
 #endif
 		uint32_t generated_voxel_count_{}; // The current number of non-empty voxels generated.
-		MPMContext mpm_context_{};
+		XPBDContext xpbd_context_{};
 		renderer::VulkanRenderer* renderer_{};
 		Node* particle_node_{};
 		const std::vector<PhysicsMaterial*>* physics_materials_;

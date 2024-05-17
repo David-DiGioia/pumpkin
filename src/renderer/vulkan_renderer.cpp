@@ -230,14 +230,9 @@ namespace renderer
 		editor_backend_.SetRenderCubeNodesEnabled(enabled);
 	}
 
-	void VulkanRenderer::SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& mpm_particle_instances)
+	void VulkanRenderer::SetXPBDDebugParticleInstances(const std::vector<XPBDDebugParticleInstance>& xpbd_particle_instances)
 	{
-		editor_backend_.SetMPMDebugParticleInstances(mpm_particle_instances);
-	}
-
-	void VulkanRenderer::SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& mpm_node_instances)
-	{
-		editor_backend_.SetMPMDebugNodeInstances(mpm_node_instances);
+		editor_backend_.SetXPBDDebugParticleInstances(xpbd_particle_instances);
 	}
 
 	void VulkanRenderer::SetDebugRbVoxelInstances(const std::vector<RigidBodyDebugVoxelInstance>& rb_voxel_instances)

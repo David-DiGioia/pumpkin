@@ -2,9 +2,16 @@
 
 #include "particles.h"
 #include "rigid_body.h"
+#include "constraint.h"
 
 namespace pmk
 {
+	struct PhysicsMaterial
+	{
+		uint32_t render_material;
+		uint32_t jacobi_constraints_mask; // Each bit corresponds to an index of PhysicsContext::jacobi_constraints_.
+	};
+
 	class PhysicsContext
 	{
 	public:
@@ -87,6 +94,7 @@ namespace pmk
 		ParticleContext particle_context_{};
 		RigidBodyContext rigid_body_context_{};
 
+		std::vector<XPBDConstraint*> jacobi_constraints_{};
 		std::vector<PhysicsMaterial*> physics_materials_{};
 	};
 }

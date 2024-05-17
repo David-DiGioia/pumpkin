@@ -6,16 +6,16 @@
 #include "glm/gtc/quaternion.hpp"
 
 #include "vulkan_renderer.h"
-#include "constitutive_model.h"
+#include "constraint.h"
 
 namespace pmk
 {
 	constexpr uint32_t MAX_COLLISION_PAIRS{ 8 }; // Maximum collision pairs between two voxel objects.
 
-	class RigidBodyModel : public ConstitutiveModel
+	class RigidBodyConstraint : public XPBDConstraint
 	{
 	public:
-		RigidBodyModel();
+		RigidBodyConstraint();
 
 		// For updating the parameters from the UI for making physics materials in the editor.
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;

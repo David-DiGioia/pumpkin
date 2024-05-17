@@ -38,41 +38,17 @@ namespace renderer
 	}
 
 #ifdef EDITOR_ENABLED
-	std::vector<VkVertexInputAttributeDescription> MPMDebugParticleInstance::GetVertexAttributes()
+	std::vector<VkVertexInputAttributeDescription> XPBDDebugParticleInstance::GetVertexAttributes()
 	{
 		return {
 			// Vertex attributes.
 			VERTEX_ATTRIBUTE(0, position),
 
 			// Instance attributes.
-			MPM_PARTICLE_ATTRIBUTE(1, mass),
-			MPM_PARTICLE_ATTRIBUTE(2, mu),
-			MPM_PARTICLE_ATTRIBUTE(3, lambda),
-			MPM_PARTICLE_ATTRIBUTE(4, position),
-			MPM_PARTICLE_ATTRIBUTE(5, velocity),
-			MPM_PARTICLE_ATTRIBUTE(6, gradient),
-			MPM_PARTICLE_ATTRIBUTE(7, elastic_col_0),
-			MPM_PARTICLE_ATTRIBUTE(8, elastic_col_1),
-			MPM_PARTICLE_ATTRIBUTE(9, elastic_col_2),
-			MPM_PARTICLE_ATTRIBUTE(10, plastic_col_0),
-			MPM_PARTICLE_ATTRIBUTE(11, plastic_col_1),
-			MPM_PARTICLE_ATTRIBUTE(12, plastic_col_2),
-		};
-	}
-
-	std::vector<VkVertexInputAttributeDescription> MPMDebugNodeInstance::GetVertexAttributes()
-	{
-		return {
-			// Vertex attributes.
-			VERTEX_ATTRIBUTE(0, position),
-
-			// Instance attributes.
-			MPM_NODE_ATTRIBUTE(1, mass),
-			MPM_NODE_ATTRIBUTE(2, rigid_body_distance),
-			MPM_NODE_ATTRIBUTE(3, position),
-			MPM_NODE_ATTRIBUTE(4, velocity),
-			MPM_NODE_ATTRIBUTE(5, momentum),
-			MPM_NODE_ATTRIBUTE(6, force),
+			XPBD_PARTICLE_ATTRIBUTE(0, position),
+			XPBD_PARTICLE_ATTRIBUTE(1, predicted_position),
+			XPBD_PARTICLE_ATTRIBUTE(2, velocity),
+			XPBD_PARTICLE_ATTRIBUTE(3, inverse_mass),
 		};
 	}
 

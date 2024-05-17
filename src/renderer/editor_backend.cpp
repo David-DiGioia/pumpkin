@@ -25,6 +25,8 @@ namespace renderer
 	constexpr uint32_t LINE_VERTEX_COUNT{ 2 };
 	constexpr VkIndexType CUBE_INDEX_TYPE{ VK_INDEX_TYPE_UINT32 };
 
+	constexpr uint32_t DEBUG_GRID_ROW_COUNT{ 32 };
+
 	// ImGui backend ------------------------------------------------------------------------------------------------
 
 	void ImGuiBackend::Initialize(VulkanRenderer* renderer)
@@ -540,7 +542,7 @@ namespace renderer
 		InitializeFrameResources();
 
 		// Initialize grid buffer (but don't generate vertices yet).
-		uint32_t line_count{ 3 * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
+		uint32_t line_count{ 3 * DEBUG_GRID_ROW_COUNT * DEBUG_GRID_ROW_COUNT };
 		physics_debug_.grid_vertex_count = line_count * 2;
 		physics_debug_.grid_vertices = renderer_->allocator_.CreateBufferResource(
 			physics_debug_.grid_vertex_count * sizeof(Vertex),
@@ -650,15 +652,15 @@ namespace renderer
 		physics_debug_.render_object_index = render_object_index;
 
 		// Construct vertex buffer for grid lines.
-		uint32_t line_count{ 3 * GRID_NODE_ROW_COUNT * GRID_NODE_ROW_COUNT };
+		uint32_t line_count{ 3 * DEBUG_GRID_ROW_COUNT * DEBUG_GRID_ROW_COUNT };
 		std::vector<Vertex> grid_vertices{};
 		grid_vertices.reserve((size_t)line_count * 2);
-		float grid_spacing = chunk_width / (float)(GRID_NODE_ROW_COUNT - 1);
+		float grid_spacing = chunk_width / (float)(DEBUG_GRID_ROW_COUNT - 1);
 		Vertex v{};
 
-		for (uint32_t x{ 0 }; x < GRID_NODE_ROW_COUNT; ++x)
+		for (uint32_t x{ 0 }; x < DEBUG_GRID_ROW_COUNT; ++x)
 		{
-			for (uint32_t y{ 0 }; y < GRID_NODE_ROW_COUNT; ++y)
+			for (uint32_t y{ 0 }; y < DEBUG_GRID_ROW_COUNT; ++y)
 			{
 				v.position = { x * grid_spacing, y * grid_spacing, 0.0f, 0.0f };
 				grid_vertices.push_back(v);
@@ -667,9 +669,9 @@ namespace renderer
 			}
 		}
 
-		for (uint32_t x{ 0 }; x < GRID_NODE_ROW_COUNT; ++x)
+		for (uint32_t x{ 0 }; x < DEBUG_GRID_ROW_COUNT; ++x)
 		{
-			for (uint32_t z{ 0 }; z < GRID_NODE_ROW_COUNT; ++z)
+			for (uint32_t z{ 0 }; z < DEBUG_GRID_ROW_COUNT; ++z)
 			{
 				v.position = { x * grid_spacing, 0.0f, z * grid_spacing, 0.0f };
 				grid_vertices.push_back(v);
@@ -678,9 +680,9 @@ namespace renderer
 			}
 		}
 
-		for (uint32_t y{ 0 }; y < GRID_NODE_ROW_COUNT; ++y)
+		for (uint32_t y{ 0 }; y < DEBUG_GRID_ROW_COUNT; ++y)
 		{
-			for (uint32_t z{ 0 }; z < GRID_NODE_ROW_COUNT; ++z)
+			for (uint32_t z{ 0 }; z < DEBUG_GRID_ROW_COUNT; ++z)
 			{
 				v.position = { 0.0f, y * grid_spacing, z * grid_spacing, 0.0f };
 				grid_vertices.push_back(v);
@@ -724,7 +726,7 @@ namespace renderer
 		rigid_bodies_enabled_ = enabled;
 	}
 
-	void EditorBackend::SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances)
+	void EditorBackend::SetXPBDDebugParticleInstances(const std::vector<XPBDDebugParticleInstance>& particle_instances)
 	{
 		// Increment so we work on the next buffer in the array and don't interfere with one being used for rendering.
 		physics_debug_.particle_idx = (physics_debug_.particle_idx + 1) % FRAMES_IN_FLIGHT;
@@ -732,7 +734,7 @@ namespace renderer
 		physics_debug_.particle_instance_count = (uint32_t)particle_instances.size();
 
 		renderer_->allocator_.ExpandOrReuseBuffer(
-			physics_debug_.particle_instance_count * sizeof(MPMDebugParticleInstance),
+			physics_debug_.particle_instance_count * sizeof(XPBDDebugParticleInstance),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			physics_debug_.particle_instances[physics_debug_.particle_idx]);
@@ -741,25 +743,6 @@ namespace renderer
 		// TODO: Could make this part of the same command buffer being submitted for rasterizing particles.
 		renderer_->vulkan_util_.Begin();
 		renderer_->vulkan_util_.TransferBufferToDevice(particle_instances, physics_debug_.particle_instances[physics_debug_.particle_idx]);
-		renderer_->vulkan_util_.Submit();
-	}
-
-	void EditorBackend::SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& node_instances)
-	{
-		// Increment so we work on the next buffer in the array and don't interfere with one being used for rendering.
-		physics_debug_.node_idx = (physics_debug_.node_idx + 1) % FRAMES_IN_FLIGHT;
-
-		physics_debug_.node_instance_count = (uint32_t)node_instances.size();
-
-		renderer_->allocator_.ExpandOrReuseBuffer(
-			physics_debug_.node_instance_count * sizeof(MPMDebugNodeInstance),
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			physics_debug_.node_instances[physics_debug_.node_idx]);
-		NameObject(context_->device, physics_debug_.node_instances[physics_debug_.node_idx].buffer, "Debug_Node_Instances");
-
-		renderer_->vulkan_util_.Begin();
-		renderer_->vulkan_util_.TransferBufferToDevice(node_instances, physics_debug_.node_instances[physics_debug_.node_idx]);
 		renderer_->vulkan_util_.Submit();
 	}
 

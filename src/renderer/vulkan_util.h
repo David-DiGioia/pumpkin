@@ -25,20 +25,12 @@
 	}
 
 #ifdef EDITOR_ENABLED
-#define MPM_PARTICLE_ATTRIBUTE(loc, attr)										\
+#define XPBD_PARTICLE_ATTRIBUTE(loc, attr)										\
 	VkVertexInputAttributeDescription{											\
 		.location = loc,														\
 		.binding = INSTANCE_BINDING,											\
-		.format = GetVulkanFormat<decltype(MPMDebugParticleInstance::attr)>(),	\
-		.offset = offsetof(MPMDebugParticleInstance, attr),						\
-	}
-
-#define MPM_NODE_ATTRIBUTE(loc, attr)										\
-	VkVertexInputAttributeDescription{										\
-		.location = loc,													\
-		.binding = INSTANCE_BINDING,										\
-		.format = GetVulkanFormat<decltype(MPMDebugNodeInstance::attr)>(),	\
-		.offset = offsetof(MPMDebugNodeInstance, attr),						\
+		.format = GetVulkanFormat<decltype(XPBDDebugParticleInstance::attr)>(),	\
+		.offset = offsetof(XPBDDebugParticleInstance, attr),					\
 	}
 
 #define RIGID_BODY_VOXEL_ATTRIBUTE(loc, attr)										\

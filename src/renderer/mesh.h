@@ -29,33 +29,12 @@ namespace renderer
 	};
 
 #ifdef EDITOR_ENABLED
-	struct MPMDebugParticleInstance
+	struct XPBDDebugParticleInstance
 	{
-		float mass;
-		float mu;
-		float lambda;
 		glm::vec3 position;
+		glm::vec3 predicted_position;
 		glm::vec3 velocity;
-		glm::vec3 gradient;
-		// Deformation is a 3x3 matrix, but we need to use 3 separate vertex attribute bindings.
-		glm::vec3 elastic_col_0;
-		glm::vec3 elastic_col_1;
-		glm::vec3 elastic_col_2;
-		glm::vec3 plastic_col_0;
-		glm::vec3 plastic_col_1;
-		glm::vec3 plastic_col_2;
-
-		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
-	};
-
-	struct MPMDebugNodeInstance
-	{
-		float mass;
-		float rigid_body_distance;
-		glm::vec3 position;
-		glm::vec3 velocity;
-		glm::vec3 momentum;
-		glm::vec3 force;
+		float inverse_mass;
 
 		static std::vector<VkVertexInputAttributeDescription> GetVertexAttributes();
 	};

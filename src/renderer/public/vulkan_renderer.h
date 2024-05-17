@@ -192,9 +192,7 @@ namespace renderer
 
 		void SetRenderCubeNodesEnabled(bool enabled);
 
-		void SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& mpm_particle_instances);
-
-		void SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& mpm_node_instances);
+		void SetXPBDDebugParticleInstances(const std::vector<XPBDDebugParticleInstance>& xpbd_particle_instances);
 
 		void SetDebugRbVoxelInstances(const std::vector<RigidBodyDebugVoxelInstance>& rb_voxel_instances);
 #endif

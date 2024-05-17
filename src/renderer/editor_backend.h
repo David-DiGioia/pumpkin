@@ -133,9 +133,7 @@ namespace renderer
 
 		void SetRigidBodyOverlayEnabled(bool enabled);
 
-		void SetMPMDebugParticleInstances(const std::vector<MPMDebugParticleInstance>& particle_instances);
-
-		void SetMPMDebugNodeInstances(const std::vector<MPMDebugNodeInstance>& node_instances);
+		void SetXPBDDebugParticleInstances(const std::vector<XPBDDebugParticleInstance>& particle_instances);
 
 		void SetDebugRbVoxelInstances(const std::vector<RigidBodyDebugVoxelInstance>& rb_voxel_instances);
 
