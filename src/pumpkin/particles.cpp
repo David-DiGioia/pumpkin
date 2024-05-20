@@ -7,10 +7,14 @@
 
 namespace pmk
 {
-	void ParticleContext::Initialize(renderer::VulkanRenderer* renderer, const std::vector<PhysicsMaterial*>* physics_materials)
+	void ParticleContext::Initialize(
+		renderer::VulkanRenderer* renderer,
+		const std::vector<XPBDConstraint*>* jacobi_constraints,
+		const std::vector<PhysicsMaterial*>* physics_materials)
 	{
 		renderer_ = renderer;
 		physics_materials_ = physics_materials;
+		jacobi_constraints_ = jacobi_constraints;
 	}
 
 	void ParticleContext::CleanUp()
@@ -35,7 +39,7 @@ namespace pmk
 		if (!has_played_)
 		{
 			has_played_ = true;
-			TransferStaticParticlesToMPM();
+			TransferStaticParticlesToXPBD();
 		}
 		update_physics_ = true;
 	}
@@ -83,7 +87,7 @@ namespace pmk
 		return generated_voxel_count_;
 	}
 
-	void ParticleContext::TransferStaticParticlesToMPM()
+	void ParticleContext::TransferStaticParticlesToXPBD()
 	{
 		std::vector<XPBDParticle> xpbd_particles{};
 
@@ -106,7 +110,7 @@ namespace pmk
 			xpbd_particles.push_back(xpbd_particle);
 		}
 
-		xpbd_context_.Initialize(std::move(xpbd_particles), CHUNK_WIDTH, physics_materials_);
+		xpbd_context_.Initialize(std::move(xpbd_particles), CHUNK_WIDTH, jacobi_constraints_, physics_materials_);
 	}
 
 	XPBDContext* ParticleContext::GetXPBDContext()
@@ -145,15 +149,6 @@ namespace pmk
 			GenerateDynamicDebugMPMParticleInstances();
 		}
 	}
-
-	void ParticleContext::SetMPMDebugNodeGenEnabled(bool enabled)
-	{
-		generate_mpm_node_instances_ = enabled;
-
-		if (enabled) {
-			GenerateDynamicDebugMPMNodeInstances();
-		}
-	}
 #endif
 
 	void ParticleContext::GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<XPBDParticle>& particles) const
@@ -184,10 +179,6 @@ namespace pmk
 		if (generate_mpm_particle_instances_) {
 			GenerateDynamicDebugMPMParticleInstances();
 		}
-
-		if (generate_mpm_node_instances_) {
-			GenerateDynamicDebugMPMNodeInstances();
-		}
 #endif
 	}
 
@@ -198,10 +189,6 @@ namespace pmk
 #ifdef EDITOR_ENABLED
 		if (generate_mpm_particle_instances_) {
 			GenerateDynamicDebugMPMParticleInstances();
-		}
-
-		if (generate_mpm_node_instances_) {
-			GenerateDynamicDebugMPMNodeInstances();
 		}
 #endif
 	}
@@ -245,32 +232,6 @@ namespace pmk
 			xpbd_particle_instances[p].inverse_mass = particles[p].inverse_mass;
 		}
 
-		renderer_->SetMPMDebugParticleInstances(xpbd_particle_instances);
-	}
-
-	void ParticleContext::GenerateDynamicDebugMPMNodeInstances() const
-	{
-		const std::vector<GridNode>& nodes{ has_played_ ? xpbd_context_.GetNodes() : std::vector<GridNode>(GRID_NODE_COUNT) };
-		if (nodes.empty()) {
-			return;
-		}
-
-		std::vector<renderer::MPMDebugNodeInstance> mpm_node_instances(nodes.size());
-		for (uint32_t n{ 0 }; n < (uint32_t)nodes.size(); ++n)
-		{
-			mpm_node_instances[n].mass = nodes[n].mass;
-			mpm_node_instances[n].rigid_body_distance = nodes[n].rb_distance;
-			mpm_node_instances[n].position = nodes[n].position;
-			mpm_node_instances[n].velocity = nodes[n].velocity;
-			mpm_node_instances[n].momentum = nodes[n].momentum;
-			mpm_node_instances[n].force = nodes[n].force;
-
-			// Make positive and negative tag visually distinct in debug render.
-			if (GetTag(nodes[n], nodes[n].closest_rb_index) < 0.0f) {
-				mpm_node_instances[n].rigid_body_distance *= 0.01f;
-			}
-		}
-
-		renderer_->SetMPMDebugNodeInstances(mpm_node_instances);
+		renderer_->SetXPBDDebugParticleInstances(xpbd_particle_instances);
 	}
 }

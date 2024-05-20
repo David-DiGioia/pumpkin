@@ -274,9 +274,6 @@ public:
 	// Returns number of voxels generated.
 	uint32_t GenerateVoxels();
 
-	// Generate single particle for verifying P2G and G2P.
-	uint32_t GenerateTestParticle();
-
 	void PlayPhysicsSimulation();
 
 	void PausePhysicsSimulation();
@@ -329,11 +326,7 @@ public:
 
 	void SetParticleColorMode(ParticleColorMode color_mode);
 
-	void SetNodeColorMode(NodeColorMode color_mode);
-
 	void UpdateParticleColorModeMaxValue();
-
-	void UpdateNodeColorModeMaxValue();
 
 	void SetParticleGenShader(uint32_t shader_idx);
 
@@ -380,9 +373,9 @@ private:
 	// Get the physics material's index into render materials.
 	uint32_t GetPhysicsMaterialRender(uint8_t physics_mat_index);
 
-	void SetPhysicsMaterialModelType(uint8_t physics_mat_index, ConstitutiveModelType model);
+	void SetPhysicsMaterialConstraintMask(uint8_t physics_mat_index, uint32_t mask);
 
-	ConstitutiveModelType GetPhysicsMaterialModelType(uint8_t physics_mat_index);
+	uint32_t GetPhysicsMaterialConstraintsMask(uint8_t physics_mat_index);
 
 	// Load settings from AppData.
 	void LoadEditorSettings();
@@ -440,7 +433,6 @@ private:
 	bool show_rigid_body_normals_{};
 	ParticleColorMode particle_color_mode_{};
 	float particle_color_max_value_{ 1.0f };
-	NodeColorMode node_color_mode_{};
 	float node_color_max_value_{ 0.05f };
 
 	EditorSettings editor_settings_{}; // Settings loaded from AppData.

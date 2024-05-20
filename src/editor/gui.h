@@ -40,48 +40,18 @@ const std::array<std::string, (uint32_t)ParticleColorMode::COLOR_MODE_COUNT> par
 	"Final shading",
 	"Hidden",
 	"Mass",
-	"Mu",
-	"Lambda",
 	"Velocity",
-	"Gradient",
-	"Elastic compression",
-	"Elastic tension",
-	"Plastic compression",
-	"Plastic tension",
 };
 
-enum class NodeColorMode
+enum class ConstraintType
 {
-	NONE,
-	MASS,
-	VELOCITY,
-	MOMENTUM,
-	FORCE,
-	RIGID_BODY_DISTANCE,
-
-	COLOR_MODE_COUNT,
-};
-
-const std::array<std::string, (uint32_t)NodeColorMode::COLOR_MODE_COUNT> node_color_mode_names{
-	"None",
-	"Mass",
-	"Velocity",
-	"Momentum",
-	"Force",
-	"Rigid body distance"
-};
-
-enum class ConstitutiveModelType
-{
-	HYPER_ELASTIC,
 	FLUID,
 	RIGID_BODY,
 
-	CONSTITUTIVE_MODEL_COUNT,
+	CONSTRAINT_COUNT,
 };
 
-const std::array<std::string, (uint32_t)ConstitutiveModelType::CONSTITUTIVE_MODEL_COUNT> constitutive_model_names{
-	"Hyperelastic",
+const std::array<std::string, (uint32_t)ConstraintType::CONSTRAINT_COUNT> constraint_names{
 	"Fluid",
 	"Rigid body",
 };

@@ -35,7 +35,7 @@ namespace pmk
 		std::array<glm::uvec3, 8> potential_collisions{ voxel_chunk.GetPotentialCollisions(coord_space, &potential_collision_count) };
 
 		float closest_sqr{ std::numeric_limits<float>::infinity() };
-		float closest_idx{};
+		uint32_t closest_idx{};
 		for (uint32_t i{ 0 }; i < potential_collision_count; ++i)
 		{
 			float distance_sqr{ glm::distance2(coord_space, glm::vec3{ potential_collisions[i] }) };
@@ -94,17 +94,16 @@ namespace pmk
 		}
 	}
 
-	RigidBodyModel::RigidBodyModel()
+	RigidBodyConstraint::RigidBodyConstraint()
 	{
-		density_ = 50.0f;
 	}
 
-	std::vector<std::pair<float*, std::string>> RigidBodyModel::GetParameters()
+	std::vector<std::pair<float*, std::string>> RigidBodyConstraint::GetParameters()
 	{
-		return { {&density_, "Density"} };
+		return {};
 	}
 
-	void RigidBodyModel::OnParametersMutated()
+	void RigidBodyConstraint::OnParametersMutated()
 	{
 		// No-op.
 	}
@@ -214,7 +213,7 @@ namespace pmk
 		// Create a mask to quickly test if a static particle has a rigid body material.
 		std::vector<uint8_t> rigid_body_mask(physics_materials_->size());
 		std::transform(physics_materials_->begin(), physics_materials_->end(), rigid_body_mask.begin(),
-			[](const pmk::PhysicsMaterial* m) { return dynamic_cast<const RigidBodyModel*>(m->constitutive_model) != nullptr; });
+			[](const pmk::PhysicsMaterial* m) { return m->rigid_body; });
 
 		for (uint32_t i{ 0 }; i < CHUNK_ROW_VOXEL_COUNT; ++i)
 		{
@@ -528,7 +527,7 @@ namespace pmk
 		// For editor convenience we just use available physics material if enough haven't been created yet.
 		physics_material_index = std::min(physics_material_index, (uint32_t)physics_materials_->size() - 1);
 #endif
-		const float density{ (*physics_materials_)[physics_material_index]->constitutive_model->GetDensity() };
+		const float density{ (*physics_materials_)[physics_material_index]->density };
 		return density * PARTICLE_VOLUME;
 	}
 

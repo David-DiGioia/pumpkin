@@ -29,7 +29,6 @@ namespace renderer
 		POSITION_NORMAL,
 		POSITION,
 		MPM_PARTICLE,
-		MPM_NODE,
 		RIGID_BODY_VOXEL,
 		NONE,
 	};

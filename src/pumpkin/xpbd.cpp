@@ -16,9 +16,9 @@ namespace pmk
 
 	static uint32_t HashCoords(const glm::vec3& pos)
 	{
-		int32_t xi{ std::floorf(pos.x / GRID_SPACING) };
-		int32_t yi{ std::floorf(pos.y / GRID_SPACING) };
-		int32_t zi{ std::floorf(pos.z / GRID_SPACING) };
+		int32_t xi{ (int32_t)std::floorf(pos.x / GRID_SPACING) };
+		int32_t yi{ (int32_t)std::floorf(pos.y / GRID_SPACING) };
+		int32_t zi{ (int32_t)std::floorf(pos.z / GRID_SPACING) };
 		int32_t h{ (xi * 92837111) ^ (yi * 689287499) ^ (zi * 283923481) };
 		return (uint32_t)(std::abs(h) % HASH_TABLE_SIZE);
 	}
@@ -42,7 +42,8 @@ namespace pmk
 
 	static glm::vec3 SPHKernelGradient(float q)
 	{
-
+		// TODO
+		return {};
 	}
 
 	bool XPBDParticleIndex::operator<(const XPBDParticleIndex& other)
@@ -128,7 +129,7 @@ namespace pmk
 			for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 			{
 				if (mat->jacobi_constraints_mask & (1 << j)) {
-					(*jacobi_constraints_)[j]->Solve(this, i, delta_time);
+					jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, i, delta_time);
 				}
 			}
 		}
@@ -168,36 +169,25 @@ namespace pmk
 		return density;
 	}
 
-	ProximityContainer XPBDContext::GetParticlesByProximity(const glm::vec3& position)
+	XPBDContext::ProximityContainer XPBDContext::GetParticlesByProximity(const glm::vec3& position)
 	{
 		return ProximityContainer(this, position);
 	}
 
-	ConstProximityContainer XPBDContext::GetParticlesByProximity(const glm::vec3& position) const
+	XPBDContext::ConstProximityContainer XPBDContext::GetParticlesByProximity(const glm::vec3& position) const
 	{
 		return ConstProximityContainer(this, position);
 	}
 
-	IndexProximityContainer XPBDContext::GetParticleIndicesByProximity(const glm::vec3& position)
+	XPBDContext::IndexProximityContainer XPBDContext::GetParticleIndicesByProximity(const glm::vec3& position)
 	{
 		return IndexProximityContainer(this, position);
 	}
 
-	ConstIndexProximityContainer XPBDContext::GetParticleIndicesByProximity(const glm::vec3& position) const
+	XPBDContext::ConstIndexProximityContainer XPBDContext::GetParticleIndicesByProximity(const glm::vec3& position) const
 	{
 		return ConstIndexProximityContainer(this, position);
 	}
-
-	//	const std::vector<XPBDConstraint*>& XPBDContext::GetConstraints(const XPBDParticle& p)
-	//	{
-	//#ifdef EDITOR_ENABLED
-	//		// For editor convenience we just use available physics material if enough haven't been created yet.
-	//		uint32_t idx{ std::min((uint32_t)p.physics_material_index, (uint32_t)(physics_materials_->size() - 1)) };
-	//#else
-	//		uint32_t idx{ (uint32_t)p.physics_material_index };
-	//#endif
-	//		return (*physics_materials_)[idx]->constraints;
-	//	}
 
 	std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> XPBDContext::GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const
 	{
@@ -279,7 +269,7 @@ namespace pmk
 		}
 	}
 
-	void FluidDensityConstraint::Solve(const XPBDContext* context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 FluidDensityConstraint::Solve(const XPBDContext* context, uint32_t particle_idx, float delta_time) const
 	{
 		const XPBDParticle& particle{ context->GetParticles()[particle_idx] };
 
@@ -291,7 +281,7 @@ namespace pmk
 		}
 		delta_x /= rest_density_;
 
-		// Add delta_x to particle position.. But be careful about multithreading.
+		return delta_x;
 	}
 
 	std::vector<std::pair<float*, std::string>> FluidDensityConstraint::GetParameters()

@@ -98,9 +98,6 @@ namespace pmk
 		// Returns number of particles generated.
 		uint32_t GenerateVoxelsOnNode(Node* node);
 
-		// Returns number of particles generated.
-		uint32_t GenerateTestParticleOnNode(Node* node);
-
 		// Returns list of indices/IDs of nodes created (eg from rigid bodies).
 		std::vector<uint32_t> PlayPhysicsSimulation();
 
@@ -112,7 +109,7 @@ namespace pmk
 
 		bool GetParticleSimulationEmpty() const;
 
-		void SetParticleOverlayEnabled(bool rasterize_particles, bool render_nodes);
+		void SetParticleOverlayEnabled(bool rasterize_particles);
 
 		void SetRigidBodyOverlayEnabled(bool enabled);
 
@@ -150,19 +147,15 @@ namespace pmk
 		// Get the physics material's index into render materials.
 		uint32_t GetPhysicsMaterialRender(uint8_t physics_mat_index);
 
-		template<typename T>
-		void SetPhysicsMaterialModel(uint8_t physics_mat_index)
-		{
-			physics_context_.SetPhysicsMaterialModel<T>(physics_mat_index);
-		}
+		void SetPhysicsMaterialConstraintMask(uint8_t physics_mat_index, uint32_t mask);
 
-		ConstitutiveModel* GetPhysicsMaterialModel(uint8_t physics_mat_index);
+		uint32_t GetPhysicsMaterialConstraintMask(uint8_t physics_mat_index);
 
 		PhysicsMaterial* GetPhysicsMaterial(uint8_t physics_mat_index);
 
-		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint8_t physics_mat_index);
+		std::vector<std::pair<float*, std::string>> GetConstraintParameters(uint8_t constraint_index);
 
-		void PhysicsParametersMutated(uint8_t physics_mat_index);
+		void ConstraintParametersMutated(uint8_t constraint_index);
 
 		// Write physics data to json.
 		void DumpPhysicsMaterials(nlohmann::json& j);

@@ -481,45 +481,6 @@ namespace renderer
 		NameObject(context_->device, particle_raster_pipeline_.pipeline, "Particle_Raster_Pipeline");
 		NameObject(context_->device, particle_raster_pipeline_.layout, "Particle_Raster_Pipeline_Layout");
 
-		std::vector<DescriptorSetLayoutResource> node_set_layouts{
-			renderer_->camera_layout_resource_,
-			renderer_->render_object_layout_resource_,
-		};
-
-		VkPushConstantRange node_constant_range{
-			.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-			.offset = 0,
-			.size = sizeof(ColorModePushConstant),
-		};
-
-		std::vector<VkPushConstantRange> node_constant_ranges{ node_constant_range };
-
-		node_line_pipeline_.Initialize(
-			context,
-			node_set_layouts,
-			node_constant_ranges,
-			FINAL_IMAGE_FORMAT,
-			renderer_->GetDepthImageFormat(),
-			VertexAttributes::MPM_NODE,
-			VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-			SPIRV_PREFIX / "node_render_object_transform.vert.spv",
-			SPIRV_PREFIX / "mpm_nodes.frag.spv");
-		NameObject(context_->device, node_line_pipeline_.pipeline, "Node_Line_Pipeline");
-		NameObject(context_->device, node_line_pipeline_.layout, "Node_Line_Pipeline_Layout");
-
-		node_cube_pipeline_.Initialize(
-			context,
-			node_set_layouts,
-			node_constant_ranges,
-			FINAL_IMAGE_FORMAT,
-			renderer_->GetDepthImageFormat(),
-			VertexAttributes::MPM_NODE,
-			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-			SPIRV_PREFIX / "node_render_object_transform.vert.spv",
-			SPIRV_PREFIX / "mpm_nodes.frag.spv");
-		NameObject(context_->device, node_cube_pipeline_.pipeline, "Node_Cube_Pipeline");
-		NameObject(context_->device, node_cube_pipeline_.layout, "Node_Cube_Pipeline_Layout");
-
 		std::vector<DescriptorSetLayoutResource> rigid_body_set_layouts{
 			renderer_->camera_layout_resource_,
 		};
@@ -558,7 +519,6 @@ namespace renderer
 		for (uint32_t i{ 0 }; i < FRAMES_IN_FLIGHT; ++i)
 		{
 			renderer_->allocator_.DestroyBufferResource(&physics_debug_.particle_instances[i]);
-			renderer_->allocator_.DestroyBufferResource(&physics_debug_.node_instances[i]);
 			renderer_->allocator_.DestroyBufferResource(&physics_debug_.rb_voxel_instances[i]);
 		}
 
@@ -573,8 +533,6 @@ namespace renderer
 		outline_pipeline_.CleanUp();
 		grid_pipeline_.CleanUp();
 		particle_raster_pipeline_.CleanUp();
-		node_line_pipeline_.CleanUp();
-		node_cube_pipeline_.CleanUp();
 		rigid_body_line_pipeline_.CleanUp();
 
 		for (FrameResources& resource : frame_resources_)
@@ -701,19 +659,9 @@ namespace renderer
 		grid_enabled_ = enabled;
 	}
 
-	void EditorBackend::SetNodesEnabled(bool enabled)
-	{
-		nodes_enabled_ = enabled;
-	}
-
 	void EditorBackend::SetRasterParticlesEnabled(bool enabled)
 	{
 		raster_particles_enabled_ = enabled;
-	}
-
-	void EditorBackend::SetRenderCubeNodesEnabled(bool enabled)
-	{
-		render_nodes_as_cubes_ = enabled;
 	}
 
 	void EditorBackend::SetParticleDepthEnabled(bool enabled)
@@ -777,16 +725,6 @@ namespace renderer
 	void EditorBackend::SetParticleColorModeMaxValue(float max_value)
 	{
 		physics_debug_.particle_push_constant.max_value = max_value;
-	}
-
-	void EditorBackend::SetNodeColorMode(uint32_t color_mode)
-	{
-		physics_debug_.node_push_constant.particle_color_mode = color_mode;
-	}
-
-	void EditorBackend::SetNodeColorModeMaxValue(float max_value)
-	{
-		physics_debug_.node_push_constant.max_value = max_value;
 	}
 
 	EditorBackend::FrameResources& EditorBackend::GetCurrentFrame()
@@ -1016,7 +954,7 @@ namespace renderer
 			ParticleRasterRenderPass(cmd);
 		}
 
-		if (raster_particles_enabled_ && (grid_enabled_ || nodes_enabled_))
+		if (raster_particles_enabled_ && grid_enabled_)
 		{
 			// No transitions needed here, just barrier for writing and reading depth.
 			PipelineBarrier(cmd, GetCurrentFrame().particle_depth.image,
@@ -1028,10 +966,6 @@ namespace renderer
 
 		if (grid_enabled_) {
 			GridRenderPass(cmd);
-		}
-
-		if (nodes_enabled_) {
-			NodeRenderPass(cmd);
 		}
 	}
 
@@ -1196,104 +1130,6 @@ namespace renderer
 
 		vkCmdBindVertexBuffers(cmd, 0, 1, &physics_debug_.grid_vertices.buffer, &zero_offset);
 		vkCmdDraw(cmd, physics_debug_.grid_vertex_count, 1, 0, 0);
-		vkCmdEndRendering(cmd);
-	}
-
-	void EditorBackend::NodeRenderPass(VkCommandBuffer cmd)
-	{
-		Extent viewport_extents{ renderer_->GetViewportExtent() };
-		VkClearColorValue clear_color{ 1.0f, 1.0f, 1.0f, 1.0f };
-
-		VkRenderingAttachmentInfo color_attachment_info{
-			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.imageView = imgui_backend_.GetViewportImage().image_view,
-			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-			.resolveMode = VK_RESOLVE_MODE_NONE,
-			.resolveImageView = VK_NULL_HANDLE,
-			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-			.clearValue = clear_color,
-		};
-
-		VkRenderingAttachmentInfo depth_attachment_info{
-			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.imageView = GetCurrentFrame().particle_depth.image_view,
-			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-			.resolveMode = VK_RESOLVE_MODE_NONE,
-			.resolveImageView = VK_NULL_HANDLE,
-			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.loadOp = (use_particle_depth_ && raster_particles_enabled_) ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
-			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-			.clearValue = clear_color,
-		};
-
-		VkRenderingInfo rendering_info{
-			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-			.flags = 0,
-			.renderArea = {
-				.offset = { 0, 0 },
-				.extent = { viewport_extents.width, viewport_extents.height },
-			},
-			.layerCount = 1,
-			.viewMask = 0,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &color_attachment_info,
-			.pDepthAttachment = &depth_attachment_info,
-			.pStencilAttachment = nullptr,
-		};
-
-		GraphicsPipeline& pipeline{ render_nodes_as_cubes_ ? node_cube_pipeline_ : node_line_pipeline_ };
-		BufferResource& vertex_buffer{ render_nodes_as_cubes_ ? physics_debug_.cube_vertices : physics_debug_.line_vertices };
-
-		vkCmdBeginRendering(cmd, &rendering_info);
-
-		vkCmdBindDescriptorSets(
-			cmd,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipeline.layout,
-			EDITOR_CAMERA_UBO_SET,
-			1,
-			&renderer_->GetCurrentFrame().camera_descriptor_set_resource.descriptor_set,
-			0,
-			nullptr);
-
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-
-		vkCmdPushConstants(
-			cmd,
-			pipeline.layout,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0,
-			sizeof(ColorModePushConstant),
-			&physics_debug_.node_push_constant);
-
-		RenderObject* render_object{ renderer_->GetCurrentFrame().render_objects[physics_debug_.render_object_index] };
-
-		vkCmdBindDescriptorSets(
-			cmd,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipeline.layout,
-			EDITOR_RENDER_OBJECT_UBO_SET,
-			1,
-			&render_object->ubo_descriptor_set_resource.descriptor_set,
-			0,
-			nullptr);
-
-		VkBuffer vertex_buffers[2]{ vertex_buffer.buffer, physics_debug_.node_instances[physics_debug_.node_idx].buffer };
-		VkDeviceSize zero_offsets[2]{ 0, 0 };
-
-		vkCmdBindVertexBuffers(cmd, 0, 2, vertex_buffers, zero_offsets);
-
-		if (render_nodes_as_cubes_)
-		{
-			vkCmdBindIndexBuffer(cmd, physics_debug_.cube_indices.buffer, 0, CUBE_INDEX_TYPE);
-			vkCmdDrawIndexed(cmd, physics_debug_.cube_index_count, physics_debug_.node_instance_count, 0, 0, 0);
-		}
-		else {
-			vkCmdDraw(cmd, LINE_VERTEX_COUNT, physics_debug_.node_instance_count, 0, 0);
-		}
-
 		vkCmdEndRendering(cmd);
 	}
 

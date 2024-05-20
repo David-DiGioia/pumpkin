@@ -10,6 +10,8 @@ namespace pmk
 	{
 		uint32_t render_material;
 		uint32_t jacobi_constraints_mask; // Each bit corresponds to an index of PhysicsContext::jacobi_constraints_.
+		float density;
+		bool rigid_body; // True if it includes the rigid body constraint.
 	};
 
 	class PhysicsContext
@@ -34,8 +36,6 @@ namespace pmk
 
 		uint32_t GenerateVoxelsOnNode(Node* node);
 
-		uint32_t GenerateTestParticleOnNode(Node* node);
-
 		void TransferStaticParticlesToMPM();
 
 		PhysicsMaterial* NewPhysicsMaterial();
@@ -50,27 +50,15 @@ namespace pmk
 		// Get the physics material's index into render materials.
 		uint32_t GetPhysicsMaterialRender(uint8_t physics_mat_index);
 
-		template<typename T>
-		void SetPhysicsMaterialModel(uint8_t physics_mat_index)
-		{
-			PhysicsMaterial* mat{ physics_materials_[physics_mat_index] };
-			delete mat->constitutive_model;
-			mat->constitutive_model = new T{};
+		void SetPhysicsMaterialConstraintMask(uint8_t physics_mat_index, uint32_t mask);
 
-			// Model only needs MPM context if it's an MPM model.
-			MPMConstitutiveModel* mpm_model{ dynamic_cast<MPMConstitutiveModel*>(mat->constitutive_model) };
-			if (mpm_model) {
-				mpm_model->Initialize(particle_context_.GetMPMContext());
-			}
-		}
-
-		ConstitutiveModel* GetPhysicsMaterialModel(uint8_t physics_mat_index);
+		uint32_t GetPhysicsMaterialConstraintMask(uint8_t physics_mat_index);
 
 		PhysicsMaterial* GetPhysicsMaterial(uint8_t physics_mat_index);
 
-		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint8_t physics_mat_index);
+		std::vector<std::pair<float*, std::string>> GetConstraintParameters(uint8_t constraint_index);
 
-		void PhysicsParametersMutated(uint8_t physics_mat_index);
+		void ConstraintParametersMutated(uint8_t constraint_index);
 
 		// Write physics data to json.
 		void DumpPhysicsMaterials(nlohmann::json& j);
@@ -79,8 +67,6 @@ namespace pmk
 
 #ifdef EDITOR_ENABLED
 		void SetMPMDebugParticleGenEnabled(bool enabled);
-
-		void SetMPMDebugNodeGenEnabled(bool enabled);
 
 		void SetRigidBodyOverlayEnabled(bool enabled);
 #endif

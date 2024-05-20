@@ -100,7 +100,6 @@ void Editor::Initialize(pmk::Pumpkin* pumpkin)
 	gui_.Initialize(this);
 
 	UpdateParticleColorModeMaxValue();
-	UpdateNodeColorModeMaxValue();
 }
 
 void Editor::CleanUp()
@@ -635,13 +634,6 @@ uint32_t Editor::GenerateVoxels()
 		});
 }
 
-uint32_t Editor::GenerateTestParticle()
-{
-	return GenerateVoxels([&]() {
-		return pumpkin_->GetScene().GenerateTestParticleOnNode(particle_node_->node);
-		});
-}
-
 void Editor::PlayPhysicsSimulation()
 {
 	std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
@@ -1008,22 +1000,9 @@ void Editor::SetParticleColorMode(ParticleColorMode color_mode)
 	UpdateParticleOverlayEnabled();
 }
 
-void Editor::SetNodeColorMode(NodeColorMode color_mode)
-{
-	node_color_mode_ = color_mode;
-	pumpkin_->SetNodeColorMode((uint32_t)color_mode);
-	pumpkin_->SetRenderCubeNodesEnabled(color_mode == NodeColorMode::MASS || color_mode == NodeColorMode::RIGID_BODY_DISTANCE);
-	UpdateParticleOverlayEnabled();
-}
-
 void Editor::UpdateParticleColorModeMaxValue()
 {
 	pumpkin_->SetParticleColorModeMaxValue(particle_color_max_value_);
-}
-
-void Editor::UpdateNodeColorModeMaxValue()
-{
-	pumpkin_->SetNodeColorModeMaxValue(node_color_max_value_);
 }
 
 void Editor::SetParticleGenShader(uint32_t shader_idx)
@@ -1111,38 +1090,14 @@ uint32_t Editor::GetPhysicsMaterialRender(uint8_t physics_mat_index)
 	return pumpkin_->GetPhysicsMaterialRender(physics_mat_index);
 }
 
-void Editor::SetPhysicsMaterialModelType(uint8_t physics_mat_index, ConstitutiveModelType model)
+void Editor::SetPhysicsMaterialConstraintMask(uint8_t physics_mat_index, uint32_t mask)
 {
-	switch (model)
-	{
-	case ConstitutiveModelType::HYPER_ELASTIC:
-		pumpkin_->SetPhysicsMaterialModel<pmk::HyperElasticModel>(physics_mat_index);
-		break;
-	case ConstitutiveModelType::FLUID:
-		pumpkin_->SetPhysicsMaterialModel<pmk::FluidModel>(physics_mat_index);
-		break;
-	case ConstitutiveModelType::RIGID_BODY:
-		pumpkin_->SetPhysicsMaterialModel<pmk::RigidBodyModel>(physics_mat_index);
-		break;
-	}
+	return pumpkin_->SetPhysicsMaterialConstraintsMask(physics_mat_index, mask);
 }
 
-ConstitutiveModelType Editor::GetPhysicsMaterialModelType(uint8_t physics_mat_index)
+uint32_t Editor::GetPhysicsMaterialConstraintsMask(uint8_t physics_mat_index)
 {
-	pmk::ConstitutiveModel* model{ pumpkin_->GetPhysicsMaterialModel(physics_mat_index) };
-
-	if (dynamic_cast<pmk::HyperElasticModel*>(model)) {
-		return ConstitutiveModelType::HYPER_ELASTIC;
-	}
-	if (dynamic_cast<pmk::FluidModel*>(model)) {
-		return ConstitutiveModelType::FLUID;
-	}
-	if (dynamic_cast<pmk::RigidBodyModel*>(model)) {
-		return ConstitutiveModelType::RIGID_BODY;
-	}
-
-	logger::Error("Unrecognized constitutive model type.\n");
-	return {};
+	return pumpkin_->GetPhysicsMaterialConstraintsMask(physics_mat_index);
 }
 
 std::filesystem::path GetAppDataDirectory()
@@ -1254,13 +1209,12 @@ void Editor::UpdateParticleOverlayEnabled()
 	{
 		bool show_particle_colors{ particle_color_mode_ != ParticleColorMode::FINAL_SHADING };
 		bool particles_hidden{ particle_color_mode_ == ParticleColorMode::HIDDEN };
-		bool show_node_colors{ node_color_mode_ != NodeColorMode::NONE };
-		bool need_particle_depth{ (show_particle_grid_ || show_particle_colors || show_node_colors) && use_particle_depth_ };
-		pumpkin_->SetParticleOverlayEnabled(show_particle_grid_, show_node_colors, (need_particle_depth || show_particle_colors) && !particles_hidden, use_particle_depth_);
+		bool need_particle_depth{ (show_particle_grid_ || show_particle_colors) && use_particle_depth_ };
+		pumpkin_->SetParticleOverlayEnabled(show_particle_grid_, (need_particle_depth || show_particle_colors) && !particles_hidden, use_particle_depth_);
 		pumpkin_->SetRenderObjectVisible(particle_node_->node->render_object, particle_color_mode_ != ParticleColorMode::HIDDEN);
 	}
 	else {
-		pumpkin_->SetParticleOverlayEnabled(false, false, false, false);
+		pumpkin_->SetParticleOverlayEnabled(false, false, false);
 		if (particle_node_) {
 			pumpkin_->SetRenderObjectVisible(particle_node_->node->render_object, true);
 		}

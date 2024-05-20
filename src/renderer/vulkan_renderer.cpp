@@ -182,10 +182,9 @@ namespace renderer
 		editor_backend_.AddOutlineSet(std::move(transformed_selection_set), color);
 	}
 
-	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth)
+	void VulkanRenderer::SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles, bool use_particle_depth)
 	{
 		editor_backend_.SetRasterParticlesEnabled(rasterize_particles);
-		editor_backend_.SetNodesEnabled(render_nodes);
 		editor_backend_.SetGridEnabled(render_grid);
 		editor_backend_.SetParticleDepthEnabled(use_particle_depth);
 	}
@@ -213,21 +212,6 @@ namespace renderer
 	void VulkanRenderer::SetParticleColorModeMaxValue(float max_value)
 	{
 		editor_backend_.SetParticleColorModeMaxValue(max_value);
-	}
-
-	void VulkanRenderer::SetNodeColorMode(uint32_t color_mode)
-	{
-		editor_backend_.SetNodeColorMode(color_mode);
-	}
-
-	void VulkanRenderer::SetNodeColorModeMaxValue(float max_value)
-	{
-		editor_backend_.SetNodeColorModeMaxValue(max_value);
-	}
-
-	void VulkanRenderer::SetRenderCubeNodesEnabled(bool enabled)
-	{
-		editor_backend_.SetRenderCubeNodesEnabled(enabled);
 	}
 
 	void VulkanRenderer::SetXPBDDebugParticleInstances(const std::vector<XPBDDebugParticleInstance>& xpbd_particle_instances)

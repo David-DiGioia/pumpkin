@@ -31,7 +31,7 @@ namespace pmk
 	{
 		scene_ = scene;
 		renderer_ = renderer;
-		particle_context_.Initialize(renderer, &physics_materials_);
+		particle_context_.Initialize(renderer, &jacobi_constraints_, &physics_materials_);
 		rigid_body_context_.Initialize(renderer, scene, &physics_materials_);
 	}
 
@@ -90,22 +90,17 @@ namespace pmk
 		return particle_context_.GenerateVoxelsOnNode(node);
 	}
 
-	uint32_t PhysicsContext::GenerateTestParticleOnNode(Node* node)
-	{
-		return particle_context_.GenerateTestParticleOnNode(node);
-	}
-
 	void PhysicsContext::TransferStaticParticlesToMPM()
 	{
-		particle_context_.TransferStaticParticlesToMPM();
+		particle_context_.TransferStaticParticlesToXPBD();
 	}
 
 	PhysicsMaterial* PhysicsContext::NewPhysicsMaterial()
 	{
+		FluidDensityConstraint* fluid_constraint{ new FluidDensityConstraint{} };
 		PhysicsMaterial* new_material{ new PhysicsMaterial{} };
-		FluidModel* fluid_model = new FluidModel{};
-		fluid_model->Initialize(particle_context_.GetMPMContext());
-		new_material->constitutive_model = fluid_model;
+		new_material->jacobi_constraints_mask = 0x1;
+		jacobi_constraints_.push_back(fluid_constraint);
 		physics_materials_.push_back(new_material);
 		UpdatePhysicsRenderMaterials();
 		return new_material;
@@ -139,9 +134,14 @@ namespace pmk
 		return physics_materials_[physics_mat_index]->render_material;
 	}
 
-	ConstitutiveModel* PhysicsContext::GetPhysicsMaterialModel(uint8_t physics_mat_index)
+	void PhysicsContext::SetPhysicsMaterialConstraintMask(uint8_t physics_mat_index, uint32_t mask)
 	{
-		return physics_materials_[physics_mat_index]->constitutive_model;
+		physics_materials_[physics_mat_index]->jacobi_constraints_mask = mask;
+	}
+
+	uint32_t PhysicsContext::GetPhysicsMaterialConstraintMask(uint8_t physics_mat_index)
+	{
+		return physics_materials_[physics_mat_index]->jacobi_constraints_mask;
 	}
 
 	PhysicsMaterial* PhysicsContext::GetPhysicsMaterial(uint8_t physics_mat_index)
@@ -149,18 +149,19 @@ namespace pmk
 		return physics_materials_[physics_mat_index];
 	}
 
-	std::vector<std::pair<float*, std::string>> PhysicsContext::GetPhysicsParameters(uint8_t physics_mat_index)
+	std::vector<std::pair<float*, std::string>> PhysicsContext::GetConstraintParameters(uint8_t constraint_index)
 	{
-		return physics_materials_[physics_mat_index]->constitutive_model->GetParameters();
+		return jacobi_constraints_[constraint_index]->GetParameters();
 	}
 
-	void PhysicsContext::PhysicsParametersMutated(uint8_t physics_mat_index)
+	void PhysicsContext::ConstraintParametersMutated(uint8_t constraint_index)
 	{
-		physics_materials_[physics_mat_index]->constitutive_model->OnParametersMutated();
+		jacobi_constraints_[constraint_index]->OnParametersMutated();
 	}
 
 	void PhysicsContext::DumpPhysicsMaterials(nlohmann::json& j)
 	{
+		/*
 		// Save physics materials.
 		for (const PhysicsMaterial* material : physics_materials_)
 		{
@@ -189,7 +190,7 @@ namespace pmk
 				json_physics_mat[jsonkey::FLUID_DYNAMIC_VISCOSITY] = fluid_model->dynamic_viscosity_;
 			}
 
-			RigidBodyModel* rigid_body_model{ dynamic_cast<RigidBodyModel*>(model) };
+			RigidBodyConstraint* rigid_body_model{ dynamic_cast<RigidBodyConstraint*>(model) };
 			if (rigid_body_model)
 			{
 				json_physics_mat[jsonkey::CONSTITUTIVE_MODEL_TYPE] = jsonkey::RIGID_BODY_MODEL;
@@ -197,10 +198,12 @@ namespace pmk
 
 			j[jsonkey::PHYSICS_MATERIALS] += json_physics_mat;
 		}
+		*/
 	}
 
 	void PhysicsContext::LoadPhysicsMaterials(nlohmann::json& j)
 	{
+		/*
 		uint8_t physics_mat_idx{ 0 };
 		for (auto& json_physics_mat : j[jsonkey::PHYSICS_MATERIALS])
 		{
@@ -228,22 +231,18 @@ namespace pmk
 			}
 			else if (model_type == jsonkey::RIGID_BODY_MODEL)
 			{
-				SetPhysicsMaterialModel<RigidBodyModel>(physics_mat_idx);
+				SetPhysicsMaterialModel<RigidBodyConstraint>(physics_mat_idx);
 			}
 			++physics_mat_idx;
 		}
 		UpdatePhysicsRenderMaterials();
+		*/
 	}
 
 #ifdef EDITOR_ENABLED
 	void PhysicsContext::SetMPMDebugParticleGenEnabled(bool enabled)
 	{
 		particle_context_.SetMPMDebugParticleGenEnabled(enabled);
-	}
-
-	void PhysicsContext::SetMPMDebugNodeGenEnabled(bool enabled)
-	{
-		particle_context_.SetMPMDebugNodeGenEnabled(enabled);
 	}
 
 	void PhysicsContext::SetRigidBodyOverlayEnabled(bool enabled)

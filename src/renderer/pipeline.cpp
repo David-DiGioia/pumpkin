@@ -91,30 +91,12 @@ namespace renderer
 
 			VkVertexInputBindingDescription instance_input_binding{
 				.binding = INSTANCE_BINDING,
-				.stride = sizeof(MPMDebugParticleInstance),
+				.stride = sizeof(XPBDDebugParticleInstance),
 				.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE,
 			};
 
 			vertex_input_bindings = { vertex_input_binding, instance_input_binding };
-			vertex_attributes = MPMDebugParticleInstance::GetVertexAttributes();
-			break;
-		}
-		case VertexAttributes::MPM_NODE:
-		{
-			VkVertexInputBindingDescription vertex_input_binding{
-				.binding = VERTEX_BINDING,
-				.stride = sizeof(Vertex),
-				.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-			};
-
-			VkVertexInputBindingDescription instance_input_binding{
-				.binding = INSTANCE_BINDING,
-				.stride = sizeof(MPMDebugNodeInstance),
-				.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE,
-			};
-
-			vertex_input_bindings = { vertex_input_binding, instance_input_binding };
-			vertex_attributes = MPMDebugNodeInstance::GetVertexAttributes();
+			vertex_attributes = XPBDDebugParticleInstance::GetVertexAttributes();
 			break;
 		}
 		case VertexAttributes::RIGID_BODY_VOXEL:

@@ -60,19 +60,15 @@ namespace pmk
 		// Get the physics material's index into render materials.
 		uint32_t GetPhysicsMaterialRender(uint8_t physics_mat_index);
 
-		template<typename T>
-		void SetPhysicsMaterialModel(uint8_t physics_mat_index)
-		{
-			scene_.SetPhysicsMaterialModel<T>(physics_mat_index);
-		}
+		void SetPhysicsMaterialConstraintsMask(uint8_t physics_mat_index, uint32_t mask);
 
-		ConstitutiveModel* GetPhysicsMaterialModel(uint8_t physics_mat_index);
+		uint32_t GetPhysicsMaterialConstraintsMask(uint8_t physics_mat_index);
 
 		PhysicsMaterial* GetPhysicsMaterial(uint8_t physics_mat_index);
 
-		std::vector<std::pair<float*, std::string>> GetPhysicsParameters(uint8_t physics_mat_index);
+		std::vector<std::pair<float*, std::string>> GetConstraintParameters(uint8_t constraint_index);
 
-		void PhysicsParametersMutated(uint8_t physics_mat_index);
+		void ConstraintParametersMutated(uint8_t constraint_index);
 
 		void SetMaterialIndex(renderer::RenderObjectHandle render_object, uint32_t geometry_index, int material_index);
 
@@ -105,7 +101,7 @@ namespace pmk
 
 		void AddOutlineSet(const std::vector<renderer::RenderObjectHandle>& selection_set, const glm::vec4& color);
 
-		void SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth);
+		void SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles, bool use_particle_depth);
 
 		void SetRigidBodyOverlayEnabled(bool enabled);
 
@@ -113,13 +109,7 @@ namespace pmk
 
 		void SetParticleColorMode(uint32_t color_mode);
 
-		void SetNodeColorMode(uint32_t color_mode);
-
 		void SetParticleColorModeMaxValue(float max_value);
-
-		void SetNodeColorModeMaxValue(float max_value);
-
-		void SetRenderCubeNodesEnabled(bool enabled);
 
 		void SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size);
 

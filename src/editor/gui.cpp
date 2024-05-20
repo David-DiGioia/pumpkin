@@ -696,17 +696,20 @@ void EditorGui::PhysicsMaterials()
 			ImGui::EndCombo();
 		}
 
-		ConstitutiveModelType selected_model_type{ editor_->GetPhysicsMaterialModelType(physics_material_selected_index_) };
-		const char* selected_model_name{ constitutive_model_names[(uint32_t)selected_model_type].c_str() };
-		ImGui::Text("Model");
+		/*
+		uint32_t constraint_mask{ editor_->GetPhysicsMaterialConstraintsMask(physics_material_selected_index_) };
+
+		ConstraintType selected_constraint_type{ editor_->GetPhysicsMaterialConstraintType(physics_material_selected_index_) };
+		const char* selected_constraint_name{ constraint_names[(uint32_t)selected_constraint_type].c_str() };
+		ImGui::Text("constraint");
 		ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
-		if (ImGui::BeginCombo("##ConstitutiveModelCombo", selected_model_name, 0))
+		if (ImGui::BeginCombo("##ConstraintCombo", selected_constraint_name, 0))
 		{
-			for (uint32_t model_idx = 0; model_idx < (uint32_t)ConstitutiveModelType::CONSTITUTIVE_MODEL_COUNT; ++model_idx)
+			for (uint32_t constraint_idx = 0; constraint_idx < (uint32_t)ConstraintType::CONSTRAINT_COUNT; ++constraint_idx)
 			{
-				const bool is_selected{ model_idx == (uint32_t)selected_model_type };
-				if (ImGui::Selectable(constitutive_model_names[model_idx].c_str(), is_selected)) {
-					editor_->SetPhysicsMaterialModelType(physics_material_selected_index_, (ConstitutiveModelType)model_idx);
+				const bool is_selected{ constraint_idx == (uint32_t)selected_constraint_type };
+				if (ImGui::Selectable(constraint_names[constraint_idx].c_str(), is_selected)) {
+					editor_->GetPhysicsMaterialConstraintType(physics_material_selected_index_, (ConstraintType)constraint_idx);
 				}
 
 				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
@@ -722,7 +725,6 @@ void EditorGui::PhysicsMaterials()
 		bool mat_changed{ false };
 		int selected_idx{ physics_material_selected_index_ };
 		std::vector<std::pair<float*, std::string>> physics_parameters{ editor_->pumpkin_->GetPhysicsParameters(selected_idx) };
-
 		for (std::pair<float*, std::string>& parameter : physics_parameters)
 		{
 			ImGui::Text(parameter.second.c_str());
@@ -734,6 +736,7 @@ void EditorGui::PhysicsMaterials()
 		if (mat_changed) {
 			editor_->pumpkin_->PhysicsParametersMutated(selected_idx);
 		}
+		*/
 	}
 	ImGui::PopID();
 }
@@ -1072,34 +1075,6 @@ void EditorGui::VoxelEditor()
 		ImGui::PushItemWidth(max_val_width);
 		if (ImGui::DragFloat("##ParticleColorModeMaxValue", &editor_->particle_color_max_value_, 0.01f, 0.01f, 99.99f, "%.2f")) {
 			editor_->UpdateParticleColorModeMaxValue();
-		}
-		ImGui::PopItemWidth();
-	}
-
-	const char* selected_node_color_named{ node_color_mode_names[(uint32_t)editor_->node_color_mode_].c_str() };
-	ImGui::Text("Nodes");
-	ImGui::SameLine(SHADER_PROPERTY_ALIGNMENT);
-	if (ImGui::BeginCombo("##NodeColorMode", selected_node_color_named))
-	{
-		for (uint32_t color_mode{ 0 }; color_mode < (uint32_t)NodeColorMode::COLOR_MODE_COUNT; ++color_mode)
-		{
-			bool selected{ color_mode == (uint32_t)editor_->node_color_mode_ };
-
-			if (ImGui::Selectable(node_color_mode_names[color_mode].c_str(), selected)) {
-				editor_->SetNodeColorMode((NodeColorMode)color_mode);
-			}
-		}
-		ImGui::EndCombo();
-	}
-
-	if (editor_->node_color_mode_ != NodeColorMode::NONE)
-	{
-		ImGui::SameLine();
-		ImGui::Text("Max");
-		ImGui::SameLine();
-		ImGui::PushItemWidth(max_val_width);
-		if (ImGui::DragFloat("##NodeColorModeMaxValue", &editor_->node_color_max_value_, 0.001f, 0.001f, 99.99f, "%.2f")) {
-			editor_->UpdateNodeColorModeMaxValue();
 		}
 		ImGui::PopItemWidth();
 	}

@@ -174,7 +174,7 @@ namespace renderer
 
 		void AddOutlineSet(const std::vector<RenderObjectHandle>& selection_set, const glm::vec4& color);
 
-		void SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth);
+		void SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles, bool use_particle_depth);
 
 		void SetParticleOverlay(RenderObjectHandle render_object);
 
@@ -185,12 +185,6 @@ namespace renderer
 		void SetParticleColorMode(uint32_t color_mode);
 
 		void SetParticleColorModeMaxValue(float max_value);
-
-		void SetNodeColorMode(uint32_t color_mode);
-
-		void SetNodeColorModeMaxValue(float max_value);
-
-		void SetRenderCubeNodesEnabled(bool enabled);
 
 		void SetXPBDDebugParticleInstances(const std::vector<XPBDDebugParticleInstance>& xpbd_particle_instances);
 

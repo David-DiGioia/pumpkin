@@ -121,12 +121,7 @@ namespace renderer
 
 		void SetGridEnabled(bool enabled);
 
-		void SetNodesEnabled(bool enabled);
-
 		void SetRasterParticlesEnabled(bool enabled);
-
-		// If true, nodes will be visualized as cubes instead of lines. Good for scalar values.
-		void SetRenderCubeNodesEnabled(bool enabled);
 
 		// Whether to use raster particle's depth buffer to occlude the particle overlay.
 		void SetParticleDepthEnabled(bool enabled);
@@ -140,10 +135,6 @@ namespace renderer
 		void SetParticleColorMode(uint32_t color_mode);
 
 		void SetParticleColorModeMaxValue(float max_value);
-
-		void SetNodeColorMode(uint32_t color_mode);
-
-		void SetNodeColorModeMaxValue(float max_value);
 
 	private:
 		struct OutlineObjects
@@ -170,7 +161,7 @@ namespace renderer
 
 		struct PhysicsDebugInfo
 		{
-			// Vertices of particle sized cube used for both raster particles and node mass visualization.
+			// Vertices of particle sized cube used for raster particles.
 			BufferResource cube_vertices; // Of type Vertex.
 			BufferResource cube_indices;
 
@@ -183,9 +174,6 @@ namespace renderer
 			BufferResource particle_instances[FRAMES_IN_FLIGHT]; // Of type MPMDebugParticleInstance.
 			uint32_t particle_idx;                               // Current index into particle_instances.
 
-			BufferResource node_instances[FRAMES_IN_FLIGHT]; // Of type MPMDebugNodeInstance.
-			uint32_t node_idx;                               // Current index into particle_instances.
-
 			BufferResource rb_voxel_instances[FRAMES_IN_FLIGHT]; // Of type RigidBodyDebugVoxelInstance.
 			uint32_t rigid_body_idx;                                     // Current index into particle_instances.
 
@@ -193,14 +181,12 @@ namespace renderer
 			uint32_t particle_instance_count;
 			uint32_t cube_vertex_count;
 			uint32_t cube_index_count;
-			uint32_t node_instance_count;
 			uint32_t rb_voxel_instance_count;
 
 			uint32_t grid_vertex_count;
 			BufferResource grid_vertices; // Of type Vertex.
 
 			ColorModePushConstant particle_push_constant;
-			ColorModePushConstant node_push_constant;
 		};
 
 		FrameResources& GetCurrentFrame();
@@ -224,8 +210,6 @@ namespace renderer
 
 		void GridRenderPass(VkCommandBuffer cmd);
 
-		void NodeRenderPass(VkCommandBuffer cmd);
-
 		void RigidBodyRenderPass(VkCommandBuffer cmd);
 
 		std::array<FrameResources, FRAMES_IN_FLIGHT> frame_resources_{};
@@ -237,8 +221,6 @@ namespace renderer
 		GraphicsPipeline outline_pipeline_{};
 		GraphicsPipeline particle_raster_pipeline_{};
 		GraphicsPipeline grid_pipeline_{};
-		GraphicsPipeline node_line_pipeline_{};
-		GraphicsPipeline node_cube_pipeline_{};
 		GraphicsPipeline rigid_body_line_pipeline_{};
 		std::vector<OutlineObjects> outline_objects_{}; // Editor render pass will draw outlines around these sets of render objects.
 		DescriptorSetLayoutResource outline_layout_resource_{};
@@ -246,8 +228,6 @@ namespace renderer
 		bool grid_enabled_{};
 		bool raster_particles_enabled_{};
 		bool use_particle_depth_{};
-		bool nodes_enabled_{};
-		bool render_nodes_as_cubes_{};
 		bool rigid_bodies_enabled_{};
 	};
 }

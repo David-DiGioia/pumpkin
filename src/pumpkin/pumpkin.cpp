@@ -148,9 +148,14 @@ namespace pmk
 		return scene_.GetPhysicsMaterialRender(physics_mat_index);
 	}
 
-	ConstitutiveModel* Pumpkin::GetPhysicsMaterialModel(uint8_t physics_mat_index)
+	void Pumpkin::SetPhysicsMaterialConstraintsMask(uint8_t physics_mat_index, uint32_t mask)
 	{
-		return scene_.GetPhysicsMaterialModel(physics_mat_index);
+		scene_.SetPhysicsMaterialConstraintMask(physics_mat_index, mask);
+	}
+
+	uint32_t Pumpkin::GetPhysicsMaterialConstraintsMask(uint8_t physics_mat_index)
+	{
+		return scene_.GetPhysicsMaterialConstraintMask(physics_mat_index);
 	}
 
 	PhysicsMaterial* Pumpkin::GetPhysicsMaterial(uint8_t physics_mat_index)
@@ -158,14 +163,14 @@ namespace pmk
 		return scene_.GetPhysicsMaterial(physics_mat_index);
 	}
 
-	std::vector<std::pair<float*, std::string>> Pumpkin::GetPhysicsParameters(uint8_t physics_mat_index)
+	std::vector<std::pair<float*, std::string>> Pumpkin::GetConstraintParameters(uint8_t constraint_index)
 	{
-		return scene_.GetPhysicsParameters(physics_mat_index);
+		return scene_.GetConstraintParameters(constraint_index);
 	}
 
-	void Pumpkin::PhysicsParametersMutated(uint8_t physics_mat_index)
+	void Pumpkin::ConstraintParametersMutated(uint8_t constraint_index)
 	{
-		scene_.PhysicsParametersMutated(physics_mat_index);
+		scene_.ConstraintParametersMutated(constraint_index);
 	}
 
 	void Pumpkin::SetMaterialIndex(renderer::RenderObjectHandle render_object, uint32_t geometry_index, int material_index)
@@ -223,10 +228,10 @@ namespace pmk
 		renderer_.AddOutlineSet(selection_set, color);
 	}
 
-	void Pumpkin::SetParticleOverlayEnabled(bool render_grid, bool render_nodes, bool rasterize_particles, bool use_particle_depth)
+	void Pumpkin::SetParticleOverlayEnabled(bool render_grid, bool rasterize_particles, bool use_particle_depth)
 	{
-		scene_.SetParticleOverlayEnabled(rasterize_particles, render_nodes);
-		renderer_.SetParticleOverlayEnabled(render_grid, render_nodes, rasterize_particles, use_particle_depth);
+		scene_.SetParticleOverlayEnabled(rasterize_particles);
+		renderer_.SetParticleOverlayEnabled(render_grid, rasterize_particles, use_particle_depth);
 	}
 
 	void Pumpkin::SetRigidBodyOverlayEnabled(bool enabled)
@@ -245,24 +250,9 @@ namespace pmk
 		renderer_.SetParticleColorMode(color_mode);
 	}
 
-	void Pumpkin::SetNodeColorMode(uint32_t color_mode)
-	{
-		renderer_.SetNodeColorMode(color_mode);
-	}
-
 	void Pumpkin::SetParticleColorModeMaxValue(float max_value)
 	{
 		renderer_.SetParticleColorModeMaxValue(max_value);
-	}
-
-	void Pumpkin::SetNodeColorModeMaxValue(float max_value)
-	{
-		renderer_.SetNodeColorModeMaxValue(max_value);
-	}
-
-	void Pumpkin::SetRenderCubeNodesEnabled(bool enabled)
-	{
-		renderer_.SetRenderCubeNodesEnabled(enabled);
 	}
 
 	void Pumpkin::SetParticleGenShader(uint32_t shader_idx, uint32_t custom_ubo_size)

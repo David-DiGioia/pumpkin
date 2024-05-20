@@ -251,15 +251,6 @@ namespace pmk
 		return physics_context_.GenerateVoxelsOnNode(node);
 	}
 
-	uint32_t Scene::GenerateTestParticleOnNode(Node* node)
-	{
-		if (node->render_object == renderer::NULL_HANDLE) {
-			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
-		}
-
-		return physics_context_.GenerateTestParticleOnNode(node);
-	}
-
 	std::vector<uint32_t> Scene::PlayPhysicsSimulation()
 	{
 		return physics_context_.EnablePhysicsUpdate();
@@ -285,10 +276,9 @@ namespace pmk
 		return physics_context_.GetParticlesEmpty();
 	}
 
-	void Scene::SetParticleOverlayEnabled(bool rasterize_particles, bool render_nodes)
+	void Scene::SetParticleOverlayEnabled(bool rasterize_particles)
 	{
 		physics_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
-		physics_context_.SetMPMDebugNodeGenEnabled(render_nodes);
 	}
 
 	void Scene::SetRigidBodyOverlayEnabled(bool enabled)
@@ -428,9 +418,14 @@ namespace pmk
 		return physics_context_.GetPhysicsMaterialRender(physics_mat_index);;
 	}
 
-	ConstitutiveModel* Scene::GetPhysicsMaterialModel(uint8_t physics_mat_index)
+	void Scene::SetPhysicsMaterialConstraintMask(uint8_t physics_mat_index, uint32_t mask)
 	{
-		return physics_context_.GetPhysicsMaterialModel(physics_mat_index);
+		physics_context_.SetPhysicsMaterialConstraintMask(physics_mat_index, mask);
+	}
+
+	uint32_t Scene::GetPhysicsMaterialConstraintMask(uint8_t physics_mat_index)
+	{
+		return physics_context_.GetPhysicsMaterialConstraintMask(physics_mat_index);
 	}
 
 	PhysicsMaterial* Scene::GetPhysicsMaterial(uint8_t physics_mat_index)
@@ -438,14 +433,14 @@ namespace pmk
 		return physics_context_.GetPhysicsMaterial(physics_mat_index);
 	}
 
-	std::vector<std::pair<float*, std::string>> Scene::GetPhysicsParameters(uint8_t physics_mat_index)
+	std::vector<std::pair<float*, std::string>> Scene::GetConstraintParameters(uint8_t constraint_index)
 	{
-		return physics_context_.GetPhysicsParameters(physics_mat_index);
+		return physics_context_.GetConstraintParameters(constraint_index);
 	}
 
-	void Scene::PhysicsParametersMutated(uint8_t physics_mat_index)
+	void Scene::ConstraintParametersMutated(uint8_t constraint_index)
 	{
-		physics_context_.PhysicsParametersMutated(physics_mat_index);
+		physics_context_.ConstraintParametersMutated(constraint_index);
 	}
 
 	void Scene::DumpPhysicsMaterials(nlohmann::json& j)

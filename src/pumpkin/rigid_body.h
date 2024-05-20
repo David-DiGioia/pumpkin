@@ -73,6 +73,7 @@ namespace pmk
 	};
 
 	class Scene;
+	struct PhysicsMaterial;
 
 	class RigidBodyContext
 	{
