@@ -45,10 +45,10 @@ namespace renderer
 			VERTEX_ATTRIBUTE(0, position),
 
 			// Instance attributes.
-			XPBD_PARTICLE_ATTRIBUTE(0, position),
-			XPBD_PARTICLE_ATTRIBUTE(1, predicted_position),
-			XPBD_PARTICLE_ATTRIBUTE(2, velocity),
-			XPBD_PARTICLE_ATTRIBUTE(3, inverse_mass),
+			XPBD_PARTICLE_ATTRIBUTE(1, position),
+			XPBD_PARTICLE_ATTRIBUTE(2, predicted_position),
+			XPBD_PARTICLE_ATTRIBUTE(3, velocity),
+			XPBD_PARTICLE_ATTRIBUTE(4, inverse_mass),
 		};
 	}
 

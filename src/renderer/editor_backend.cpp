@@ -474,10 +474,10 @@ namespace renderer
 			particle_raster_constant_ranges,
 			FINAL_IMAGE_FORMAT,
 			renderer_->GetDepthImageFormat(),
-			VertexAttributes::MPM_PARTICLE,
+			VertexAttributes::XPBD_PARTICLE,
 			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-			SPIRV_PREFIX / "particle_render_object_transform.vert.spv",
-			SPIRV_PREFIX / "mpm_particles.frag.spv");
+			SPIRV_PREFIX / "particles.vert.spv",
+			SPIRV_PREFIX / "particles.frag.spv");
 		NameObject(context_->device, particle_raster_pipeline_.pipeline, "Particle_Raster_Pipeline");
 		NameObject(context_->device, particle_raster_pipeline_.layout, "Particle_Raster_Pipeline_Layout");
 
@@ -493,7 +493,7 @@ namespace renderer
 			renderer_->GetDepthImageFormat(),
 			VertexAttributes::RIGID_BODY_VOXEL,
 			VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-			SPIRV_PREFIX / "rigid_body_render_object_transform.vert.spv",
+			SPIRV_PREFIX / "rigid_body.vert.spv",
 			SPIRV_PREFIX / "rigid_body.frag.spv");
 		NameObject(context_->device, rigid_body_line_pipeline_.pipeline, "Rigid_Body_Pipeline");
 		NameObject(context_->device, rigid_body_line_pipeline_.layout, "Rigid_Body_Pipeline_Layout");

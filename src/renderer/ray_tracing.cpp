@@ -721,9 +721,9 @@ namespace renderer
 	{
 		ShaderBindingTableBuilder sbt_builder{};
 		sbt_builder.Initialize(context_, allocator_, vulkan_util_, &rt_pipeline_properties_);
-		sbt_builder.SetRaygenShader(SPIRV_PREFIX / "default.rgen.spv");
-		sbt_builder.AddMissShader(SPIRV_PREFIX / "default.rmiss.spv");
-		sbt_builder.AddHitGroup(SPIRV_PREFIX / "default.rchit.spv", SHADER_UNUSED_PATH, SHADER_UNUSED_PATH);
+		sbt_builder.SetRaygenShader(SPIRV_PREFIX / "pbr.rgen.spv");
+		sbt_builder.AddMissShader(SPIRV_PREFIX / "pbr.rmiss.spv");
+		sbt_builder.AddHitGroup(SPIRV_PREFIX / "pbr.rchit.spv", SHADER_UNUSED_PATH, SHADER_UNUSED_PATH);
 
 		CreateRtPipelineLayout();
 

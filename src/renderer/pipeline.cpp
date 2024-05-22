@@ -81,7 +81,7 @@ namespace renderer
 
 		switch (attributes)
 		{
-		case VertexAttributes::MPM_PARTICLE:
+		case VertexAttributes::XPBD_PARTICLE:
 		{
 			VkVertexInputBindingDescription vertex_input_binding{
 				.binding = VERTEX_BINDING,
