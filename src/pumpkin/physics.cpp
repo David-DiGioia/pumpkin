@@ -100,6 +100,7 @@ namespace pmk
 		FluidDensityConstraint* fluid_constraint{ new FluidDensityConstraint{} };
 		PhysicsMaterial* new_material{ new PhysicsMaterial{} };
 		new_material->jacobi_constraints_mask = 0x1;
+		new_material->density = 1000.0f; // Density of water by default.
 		jacobi_constraints_.push_back(fluid_constraint);
 		physics_materials_.push_back(new_material);
 		UpdatePhysicsRenderMaterials();

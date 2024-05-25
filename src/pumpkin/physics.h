@@ -10,8 +10,8 @@ namespace pmk
 	{
 		uint32_t render_material;
 		uint32_t jacobi_constraints_mask; // Each bit corresponds to an index of PhysicsContext::jacobi_constraints_.
-		float density;
-		bool rigid_body; // True if it includes the rigid body constraint.
+		float density;                    // Kilograms per cubic meter.
+		bool rigid_body;                  // True if it includes the rigid body constraint.
 	};
 
 	class PhysicsContext

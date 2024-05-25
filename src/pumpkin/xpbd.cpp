@@ -14,16 +14,22 @@ namespace pmk
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
 	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
 
-	static uint32_t HashCoords(const glm::vec3& pos)
+	static uint32_t HashCoords(const glm::ivec3& coord)
+	{
+		int32_t h{ (coord.x * 92837111) ^ (coord.y * 689287499) ^ (coord.z * 283923481) };
+		return (uint32_t)(std::abs(h) % HASH_TABLE_SIZE);
+	}
+
+	static uint32_t HashPosition(const glm::vec3& pos)
 	{
 		int32_t xi{ (int32_t)std::floorf(pos.x / GRID_SPACING) };
 		int32_t yi{ (int32_t)std::floorf(pos.y / GRID_SPACING) };
 		int32_t zi{ (int32_t)std::floorf(pos.z / GRID_SPACING) };
-		int32_t h{ (xi * 92837111) ^ (yi * 689287499) ^ (zi * 283923481) };
-		return (uint32_t)(std::abs(h) % HASH_TABLE_SIZE);
+		return HashCoords({ xi, yi, zi });
 	}
 
 	// TODO: Maybe replace kernel and gradient with lookup table.
+	// From https://pysph.readthedocs.io/en/latest/reference/kernels.html.
 	static float SPHKernel(float q)
 	{
 		constexpr float sigma_3{ 1.0f / (PI * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS) };
@@ -40,10 +46,28 @@ namespace pmk
 		return 0.0f;
 	}
 
-	static glm::vec3 SPHKernelGradient(float q)
+	// Calculated using Wolfram Alpha.
+	static glm::vec3 SPHKernelGradient(const glm::vec3& q)
 	{
-		// TODO
-		return {};
+		constexpr float sigma_3{ 1.0f / (PI * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS) };
+
+		float q_length{ glm::length(q) };
+
+		if (q_length != 0.0f)
+		{
+			glm::vec3 n{ q / q_length };
+
+			if (q_length <= 1.0f) {
+				return n * (sigma_3 * (0.75f * q_length * (3.0f * q_length - 4.0f)));
+			}
+			else if (q_length <= 2.0f)
+			{
+				float a{ (2.0f - q_length) };
+				return n * (0.75f * sigma_3 * a * a);
+			}
+		}
+
+		return glm::vec3{ 0.0f, 0.0f, 0.0f };
 	}
 
 	bool XPBDParticleIndex::operator<(const XPBDParticleIndex& other)
@@ -64,18 +88,19 @@ namespace pmk
 		particle_indices_.resize(particles_.size());
 		hash_table_.clear();
 		hash_table_.resize(HASH_TABLE_SIZE, NULL_INDEX);
-
 		jacobi_positions_.resize(particles_.size());
 
 		float particle_width = chunk_width / CHUNK_ROW_VOXEL_COUNT;
 		particle_radius_ = 0.5f * particle_width;
 		particle_initial_volume_ = particle_width * particle_width * particle_width;
 
-		// Initialize particle index buffer.
+		// Initialize particle mass and index buffer.
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
 		{
+			particles_[i].inverse_mass = 1.0f / (GetPhysicsMaterial(particles_[i])->density * particle_initial_volume_);
+
 			particle_indices_[i] = XPBDParticleIndex{
-				.key = HashCoords(particles_[i].position),
+				.key = HashPosition(particles_[i].position),
 				.index = i,
 			};
 		}
@@ -87,7 +112,7 @@ namespace pmk
 	{
 		ApplyForces(delta_time);
 		SolveConstraints(delta_time);
-		UpdateVelocityAndInternalForces();
+		UpdateVelocityAndInternalForces(delta_time);
 
 		UpdateIndexBuffers();
 	}
@@ -124,10 +149,14 @@ namespace pmk
 		// Jacobi iterations.
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
 		{
-			PhysicsMaterial* mat{ (*physics_materials_)[particles_[i].physics_material_index] };
+			PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
 
 			for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 			{
+				if (j == 0) {
+					jacobi_positions_[i] = particles_[i].predicted_position;
+				}
+
 				if (mat->jacobi_constraints_mask & (1 << j)) {
 					jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, i, delta_time);
 				}
@@ -136,16 +165,16 @@ namespace pmk
 
 		// Update position from Jacobi iterations.
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
-			particles_[i].position = jacobi_positions_[i];
+			particles_[i].predicted_position = jacobi_positions_[i];
 		}
 	}
 
-	void XPBDContext::UpdateVelocityAndInternalForces()
+	void XPBDContext::UpdateVelocityAndInternalForces(float delta_time)
 	{
 		for (XPBDParticle& p : particles_)
 		{
 			// Update velocity.
-			p.velocity = 0.5f * (p.predicted_position - p.position);
+			p.velocity = (p.predicted_position - p.position) / delta_time;
 
 			// In the future, internal forces like drag and vorticity will be applied here.
 
@@ -154,15 +183,15 @@ namespace pmk
 		}
 	}
 
-	float XPBDContext::ComputeDensity(const glm::vec3& pos, const ConstProximityContainer& proximity_particles) const
+	float XPBDContext::ComputeDensity(const glm::vec3& pos, const ConstIndexProximityContainer& proximity_particles) const
 	{
 		float density{ 0.0f };
 
-		for (const XPBDParticle& p : proximity_particles)
+		for (uint32_t j : proximity_particles)
 		{
-			float delta_pos{ glm::length(pos - p.position) };
+			float delta_pos{ glm::length(pos - particles_[j].position)};
 			if (delta_pos < SPH_KERNEL_RADIUS) {
-				density += (1.0f / p.inverse_mass) * SPHKernel(delta_pos);
+				density += (1.0f / particles_[j].inverse_mass) * SPHKernel(delta_pos);
 			}
 		}
 
@@ -192,16 +221,20 @@ namespace pmk
 	std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> XPBDContext::GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const
 	{
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> result{};
-		glm::uvec3 coord{ glm::uvec3{position} };
+		glm::ivec3 coord{ glm::ivec3{
+			(int32_t)std::floorf(position.x / GRID_SPACING),
+			(int32_t)std::floorf(position.y / GRID_SPACING),
+			(int32_t)std::floorf(position.z / GRID_SPACING),
+		} };
 
 		uint32_t result_idx{ 0 };
-		for (uint32_t i{ coord.x - 1 }; i <= coord.x + 1; ++i)
+		for (int32_t i{ coord.x - 1 }; i <= coord.x + 1; ++i)
 		{
-			for (uint32_t j{ coord.y - 1 }; j <= coord.y + 1; ++j)
+			for (int32_t j{ coord.y - 1 }; j <= coord.y + 1; ++j)
 			{
-				for (uint32_t k{ coord.z - 1 }; k <= coord.z + 1; ++k)
+				for (int32_t k{ coord.z - 1 }; k <= coord.z + 1; ++k)
 				{
-					glm::uvec3 neighbor_coord{ i, j, k };
+					glm::ivec3 neighbor_coord{ i, j, k };
 					uint32_t particle_idx_idx{ hash_table_[HashCoords(neighbor_coord)] };
 					if (particle_idx_idx != NULL_INDEX) {
 						result[result_idx++] = particle_idx_idx;
@@ -235,11 +268,21 @@ namespace pmk
 				if ((particle_indices_[i].key != current_key) && (particle_indices_[i].key != NULL_INDEX))
 				{
 					XPBDParticle& p{ particles_[particle_indices_[i].index] };
-					hash_table_[HashCoords(p.position)] = i;
+					hash_table_[HashPosition(p.position)] = i;
 					current_key = particle_indices_[i].key;
 				}
 			}
 		}
+	}
+
+	const PhysicsMaterial* XPBDContext::GetPhysicsMaterial(const XPBDParticle& p) const
+	{
+		return (*physics_materials_)[p.physics_material_index];
+	}
+
+	PhysicsMaterial* XPBDContext::GetPhysicsMaterial(const XPBDParticle& p)
+	{
+		return (*physics_materials_)[p.physics_material_index];
 	}
 
 	void FluidDensityConstraint::Preprocess(const XPBDContext* context, float delta_time)
@@ -254,18 +297,21 @@ namespace pmk
 			constexpr float alpha{ compliance };
 			float alpha_tilde{ alpha / (delta_time * delta_time) };
 
-			auto proximity_particles{ context->GetParticlesByProximity(particles[i].position) };
+			auto proximity_particles{ context->GetParticleIndicesByProximity(particles[i].position) };
 			float density{ context->ComputeDensity(particles[i].position, proximity_particles) };
 			float c{ (density / rest_density_) - 1.0f };
 
 			float denominator{ 0.0f };
-			for (const XPBDParticle& p : proximity_particles)
+			for (uint32_t j : proximity_particles)
 			{
-				float q{ glm::distance(particles[i].position, p.position) };
-				denominator += p.inverse_mass * glm::length2(SPHKernelGradient(q));
+				if (i == j) {
+					continue;
+				}
+				glm::vec3 q{ particles[i].position - particles[j].position };
+				denominator += particles[j].inverse_mass * glm::length2(SPHKernelGradient(q));
 			}
 
-			lambda_cache_[i] = -c / (denominator + alpha_tilde);
+			lambda_cache_[i] = (denominator == 0.0f) ? 0.0f : -c / (denominator + alpha_tilde);
 		}
 	}
 
@@ -276,7 +322,11 @@ namespace pmk
 		glm::vec3 delta_x{};
 		for (uint32_t j : context->GetParticleIndicesByProximity(particle.position))
 		{
-			float q{ glm::distance(particle.position, context->GetParticles()[j].position) };
+			if (particle_idx == j) {
+				continue;
+			}
+
+			glm::vec3 q{ particle.position - context->GetParticles()[j].position };
 			delta_x += (lambda_cache_[particle_idx] + lambda_cache_[j]) * SPHKernelGradient(q); // From Survey of PBD 2017 fluid section.
 		}
 		delta_x /= rest_density_;

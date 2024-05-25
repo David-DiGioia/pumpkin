@@ -14,10 +14,10 @@ namespace pmk
 
 	struct XPBDParticle
 	{
-		glm::vec3 position;
-		glm::vec3 predicted_position;
-		glm::vec3 velocity;
-		float inverse_mass;
+		glm::vec3 position;           // Meters.
+		glm::vec3 predicted_position; // Meters.
+		glm::vec3 velocity;           // Meters per second.
+		float inverse_mass;           // Reciprocal kilograms.
 		uint8_t physics_material_index;
 	};
 
@@ -64,16 +64,15 @@ namespace pmk
 				, particle_range_count_{}
 				, start_of_ranges_{ context->GetParticleRangesWithinKernel(position, &particle_range_count_) }
 				, i_{}
-				, range_start_{}
 				, current_key_{}
 				, j_{}
 			{
 				if (i_ < particle_range_count_)
 				{
-					range_start_ = start_of_ranges_[i_];
-					current_key_ = context_->particle_indices_[range_start_].key;
+					uint32_t range_start = start_of_ranges_[i_];
+					current_key_ = context_->particle_indices_[range_start].key;
 
-					j_ = range_start_;
+					j_ = range_start;
 					if (!ParticleInSameBlock()) {
 						j_ = NULL_INDEX;
 					}
@@ -89,7 +88,6 @@ namespace pmk
 				, particle_range_count_{}
 				, start_of_ranges_{}
 				, i_{}
-				, range_start_{}
 				, current_key_{}
 				, j_{ NULL_INDEX }
 			{
@@ -118,8 +116,9 @@ namespace pmk
 					}
 					else
 					{
-						range_start_ = start_of_ranges_[i_];
-						current_key_ = context_->particle_indices_[range_start_].key;
+						uint32_t range_start = start_of_ranges_[i_];
+						current_key_ = context_->particle_indices_[range_start].key;
+						j_ = range_start;
 					}
 				}
 				return *this;
@@ -148,7 +147,6 @@ namespace pmk
 			uint32_t particle_range_count_{};
 			std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> start_of_ranges_{};
 			uint32_t i_{};
-			uint32_t range_start_{};
 			uint32_t current_key_{};
 			uint32_t j_{};
 		};
@@ -209,7 +207,7 @@ namespace pmk
 		std::vector<XPBDParticle>& GetParticles();
 
 		// Compute density using SPH kernel, taking into account both particles and rigid body voxels.
-		float ComputeDensity(const glm::vec3& pos, const ConstProximityContainer& proximity_particles) const;
+		float ComputeDensity(const glm::vec3& pos, const ConstIndexProximityContainer& proximity_particles) const;
 
 		ProximityContainer GetParticlesByProximity(const glm::vec3& position);
 
@@ -229,11 +227,15 @@ namespace pmk
 
 		void SolveConstraints(float delta_time);
 
-		void UpdateVelocityAndInternalForces();
+		void UpdateVelocityAndInternalForces(float delta_time);
 
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const;
 
 		void UpdateIndexBuffers();
+
+		const PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p) const;
+
+		PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p);
 
 		std::vector<XPBDParticle> particles_{};
 		std::vector<XPBDParticleIndex> particle_indices_{}; // Contains indices into particles_, along with a key encoding the block coordinate.
