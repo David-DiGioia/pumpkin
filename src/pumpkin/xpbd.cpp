@@ -12,7 +12,6 @@ namespace pmk
 	constexpr uint32_t HASH_TABLE_SIZE{ 64000 };
 	constexpr float GRID_SPACING{ PARTICLE_WIDTH * 3.0f };
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
-	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
 
 	static uint32_t HashCoords(const glm::ivec3& coord)
 	{
@@ -32,7 +31,9 @@ namespace pmk
 	// From https://pysph.readthedocs.io/en/latest/reference/kernels.html.
 	static float SPHKernel(float q)
 	{
-		constexpr float sigma_3{ 1.0f / (PI * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS) };
+		constexpr float h{ SPH_KERNEL_RADIUS / 2.0f };
+		constexpr float sigma_3{ 1.0f / (PI * h * h * h) };
+		q /= h;
 
 		if (q <= 1.0f) {
 			return sigma_3 * (1.0f - 1.5f * q * q * (1.0f - 0.5f * q));
@@ -47,9 +48,11 @@ namespace pmk
 	}
 
 	// Calculated using Wolfram Alpha.
-	static glm::vec3 SPHKernelGradient(const glm::vec3& q)
+	static glm::vec3 SPHKernelGradient(glm::vec3 q)
 	{
 		constexpr float sigma_3{ 1.0f / (PI * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS) };
+		constexpr float h{ SPH_KERNEL_RADIUS / 2.0f };
+		q /= h;
 
 		float q_length{ glm::length(q) };
 
@@ -187,13 +190,18 @@ namespace pmk
 	{
 		float density{ 0.0f };
 
+		uint32_t i{ 0 };
+		//for (uint32_t j{ 0 }; j < (uint32_t)particles_.size(); ++j)
 		for (uint32_t j : proximity_particles)
 		{
-			float delta_pos{ glm::length(pos - particles_[j].position)};
+			++i;
+			float delta_pos{ glm::length(pos - particles_[j].position) };
 			if (delta_pos < SPH_KERNEL_RADIUS) {
 				density += (1.0f / particles_[j].inverse_mass) * SPHKernel(delta_pos);
 			}
 		}
+
+		logger::Print("Particles iterated over: %d / %d\n", i, (uint32_t)particles_.size());
 
 		return density;
 	}
@@ -291,6 +299,8 @@ namespace pmk
 		const std::vector<XPBDParticle>& particles{ context->GetParticles() };
 
 		// Compute lambda corresponding to each particle. It will be used in Solve().
+		float tmp{ 0.0f };
+
 		for (uint32_t i{ 0 }; i < (uint32_t)particles.size(); ++i)
 		{
 			constexpr float compliance{ 0.0f };
@@ -301,6 +311,10 @@ namespace pmk
 			float density{ context->ComputeDensity(particles[i].position, proximity_particles) };
 			float c{ (density / rest_density_) - 1.0f };
 
+			if (tmp < density) {
+				tmp = density;
+			}
+
 			float denominator{ 0.0f };
 			for (uint32_t j : proximity_particles)
 			{
@@ -308,12 +322,16 @@ namespace pmk
 					continue;
 				}
 				glm::vec3 q{ particles[i].position - particles[j].position };
+				// TODO: Fix this. Should be constraint gradient, not kernal gradient.
 				denominator += particles[j].inverse_mass * glm::length2(SPHKernelGradient(q));
 			}
 
 			lambda_cache_[i] = (denominator == 0.0f) ? 0.0f : -c / (denominator + alpha_tilde);
 		}
+
+		logger::Print("density: %.2f\n", tmp);
 	}
+
 
 	glm::vec3 FluidDensityConstraint::Solve(const XPBDContext* context, uint32_t particle_idx, float delta_time) const
 	{

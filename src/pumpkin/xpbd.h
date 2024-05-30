@@ -262,6 +262,6 @@ namespace pmk
 
 	private:
 		std::vector<float> lambda_cache_{};
-		float rest_density_{ 50.0f }; // kilogram per meter cubed.
+		float rest_density_{ 1000.0f }; // kilogram per meter cubed.
 	};
 }

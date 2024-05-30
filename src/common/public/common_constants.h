@@ -7,7 +7,7 @@ constexpr float PI{ 3.1415926535f };
 constexpr uint32_t NULL_INDEX{ std::numeric_limits<uint32_t>().max() };  // Index specifying null or invalid.
 
 constexpr float GRID_SIZE{ 0.05f };             // Grid cell width.
-constexpr float CHUNK_WIDTH{ 1.0f };            // Width of whole chunk.
+constexpr float CHUNK_WIDTH{ 8.0f };            // Width of whole chunk.
 constexpr uint32_t CHUNK_ROW_VOXEL_COUNT{ 64 }; // Total size of particle chunk dimension.
 constexpr uint32_t PARTICLE_GROUP_COUNT{ 16 };  // Number of workgroups in each dimension.
 
