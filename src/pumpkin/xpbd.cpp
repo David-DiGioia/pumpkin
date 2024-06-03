@@ -12,6 +12,7 @@ namespace pmk
 	constexpr uint32_t HASH_TABLE_SIZE{ 64000 };
 	constexpr float GRID_SPACING{ PARTICLE_WIDTH * 3.0f };
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
+	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
 
 	static uint32_t HashCoords(const glm::ivec3& coord)
 	{
@@ -50,8 +51,8 @@ namespace pmk
 	// Calculated using Wolfram Alpha.
 	static glm::vec3 SPHKernelGradient(glm::vec3 q)
 	{
-		constexpr float sigma_3{ 1.0f / (PI * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS) };
 		constexpr float h{ SPH_KERNEL_RADIUS / 2.0f };
+		constexpr float sigma_3{ 1.0f / (PI * h * h * h) };
 		q /= h;
 
 		float q_length{ glm::length(q) };
@@ -61,12 +62,12 @@ namespace pmk
 			glm::vec3 n{ q / q_length };
 
 			if (q_length <= 1.0f) {
-				return n * (sigma_3 * (0.75f * q_length * (3.0f * q_length - 4.0f)));
+				return n * ((sigma_3 * q_length * (2.25f * q_length - 3.0f)) / h);
 			}
 			else if (q_length <= 2.0f)
 			{
-				float a{ (2.0f - q_length) };
-				return n * (0.75f * sigma_3 * a * a);
+				float a{ q_length - 2.0f };
+				return n * ((-0.75f * sigma_3 * a * a) / h);
 			}
 		}
 
@@ -153,13 +154,10 @@ namespace pmk
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
 		{
 			PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
+			jacobi_positions_[i] = particles_[i].predicted_position;
 
 			for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 			{
-				if (j == 0) {
-					jacobi_positions_[i] = particles_[i].predicted_position;
-				}
-
 				if (mat->jacobi_constraints_mask & (1 << j)) {
 					jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, i, delta_time);
 				}
@@ -200,8 +198,6 @@ namespace pmk
 				density += (1.0f / particles_[j].inverse_mass) * SPHKernel(delta_pos);
 			}
 		}
-
-		logger::Print("Particles iterated over: %d / %d\n", i, (uint32_t)particles_.size());
 
 		return density;
 	}
@@ -299,8 +295,6 @@ namespace pmk
 		const std::vector<XPBDParticle>& particles{ context->GetParticles() };
 
 		// Compute lambda corresponding to each particle. It will be used in Solve().
-		float tmp{ 0.0f };
-
 		for (uint32_t i{ 0 }; i < (uint32_t)particles.size(); ++i)
 		{
 			constexpr float compliance{ 0.0f };
@@ -311,25 +305,37 @@ namespace pmk
 			float density{ context->ComputeDensity(particles[i].position, proximity_particles) };
 			float c{ (density / rest_density_) - 1.0f };
 
-			if (tmp < density) {
-				tmp = density;
+			// Clamp pressure constraint to be nonnegative.
+			if (c <= 0.0f)
+			{
+				lambda_cache_[i] = 0.0f;
+				return;
 			}
 
 			float denominator{ 0.0f };
-			for (uint32_t j : proximity_particles)
+			glm::vec3 k_equal_i_grad{};
+			for (uint32_t k : proximity_particles)
 			{
-				if (i == j) {
+				if (k == i)
+				{
+					// From equation (8) of PBF, it's a sum over all neighbors. But we accumulate it separately with k_equal_i_grad.
 					continue;
 				}
-				glm::vec3 q{ particles[i].position - particles[j].position };
-				// TODO: Fix this. Should be constraint gradient, not kernal gradient.
-				denominator += particles[j].inverse_mass * glm::length2(SPHKernelGradient(q));
+
+				glm::vec3 q{ particles[i].position - particles[k].position };
+				if (glm::length2(q) >= SPH_KERNEL_RADIUS_SQUARED) {
+					continue;
+				}
+
+				glm::vec3 grad_pk_w{ SPHKernelGradient(q) };
+				denominator += glm::length2((-1.0f / rest_density_) * grad_pk_w); // Equation (8) case k=j from PBF.
+
+				k_equal_i_grad += grad_pk_w;
 			}
+			denominator += glm::length2((1.0f / rest_density_) * k_equal_i_grad); // Equation (8) case k=i from PBF.
 
-			lambda_cache_[i] = (denominator == 0.0f) ? 0.0f : -c / (denominator + alpha_tilde);
+			lambda_cache_[i] = -c / (denominator + alpha_tilde); // Equation (9) from PBF.
 		}
-
-		logger::Print("density: %.2f\n", tmp);
 	}
 
 
@@ -345,7 +351,7 @@ namespace pmk
 			}
 
 			glm::vec3 q{ particle.position - context->GetParticles()[j].position };
-			delta_x += (lambda_cache_[particle_idx] + lambda_cache_[j]) * SPHKernelGradient(q); // From Survey of PBD 2017 fluid section.
+			delta_x += (lambda_cache_[particle_idx] + lambda_cache_[j]) * SPHKernelGradient(q); // Equation (12) from PBF.
 		}
 		delta_x /= rest_density_;
 
