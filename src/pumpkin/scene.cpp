@@ -433,6 +433,16 @@ namespace pmk
 		return physics_context_.GetPhysicsMaterial(physics_mat_index);
 	}
 
+	XPBDConstraint* Scene::NewConstraint()
+	{
+		return physics_context_.NewConstraint();
+	}
+
+	void Scene::DeleteConstraint(uint32_t constraint_index)
+	{
+		physics_context_.DeleteConstraint(constraint_index);
+	}
+
 	std::vector<std::pair<float*, std::string>> Scene::GetConstraintParameters(uint8_t constraint_index)
 	{
 		return physics_context_.GetConstraintParameters(constraint_index);

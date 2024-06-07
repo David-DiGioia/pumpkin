@@ -153,6 +153,16 @@ namespace pmk
 
 		PhysicsMaterial* GetPhysicsMaterial(uint8_t physics_mat_index);
 
+		XPBDConstraint* NewConstraint();
+
+		void DeleteConstraint(uint32_t constraint_index);
+
+		template<typename T>
+		void SetConstraintType(uint8_t constraint_index)
+		{
+			physics_context_.SetConstraintType<T>(constraint_index);
+		}
+
 		std::vector<std::pair<float*, std::string>> GetConstraintParameters(uint8_t constraint_index);
 
 		void ConstraintParametersMutated(uint8_t constraint_index);

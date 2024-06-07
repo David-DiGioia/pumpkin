@@ -5,6 +5,7 @@
 #include <climits>
 #include <chrono>
 #include <set>
+#include <bit>
 #include "imgui.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "tinyfiledialogs.h"
@@ -630,22 +631,22 @@ void EditorGui::PhysicsMaterials()
 	ImGui::PushID("Physics");
 
 	// Generate the strings with indices prepended.
-	std::vector<std::string> node_materials_strings{};
-	node_materials_strings.resize(editor_->physics_materials_.size());
+	std::vector<std::string> materials_strings{};
+	materials_strings.resize(editor_->physics_materials_.size());
 	for (uint32_t i{ 0 }; i < (uint32_t)editor_->physics_materials_.size(); ++i) {
-		node_materials_strings[i] = std::to_string(i) + ": " + editor_->physics_materials_[i]->GetName();
+		materials_strings[i] = std::to_string(i) + ": " + editor_->physics_materials_[i]->GetName();
 	}
 
 	// Convert to C strings.
-	std::vector<const char*> node_materials_c_strings(editor_->physics_materials_.size());
-	std::transform(node_materials_strings.begin(), node_materials_strings.end(), node_materials_c_strings.begin(),
+	std::vector<const char*> materials_c_strings(editor_->physics_materials_.size());
+	std::transform(materials_strings.begin(), materials_strings.end(), materials_c_strings.begin(),
 		[=](const std::string& s) { return s.c_str(); });
 
 	if (physics_material_selected_index_ >= editor_->physics_materials_.size()) {
 		physics_material_selected_index_ = 0;
 	}
 
-	ImGui::ListBox("##PhysicsMaterialList", &physics_material_selected_index_, node_materials_c_strings.data(), (int)node_materials_c_strings.size(), 4);
+	ImGui::ListBox("##PhysicsMaterialList", &physics_material_selected_index_, materials_c_strings.data(), (int)materials_c_strings.size(), 4);
 
 	ImGui::SameLine();
 	ImGui::BeginGroup();
@@ -656,18 +657,17 @@ void EditorGui::PhysicsMaterials()
 	}
 
 	// Delete selected material.
-	bool selected_idx_in_range{ physics_material_selected_index_ >= 0 && physics_material_selected_index_ < (int)node_materials_strings.size() };
+	bool selected_idx_in_range{ physics_material_selected_index_ >= 0 && physics_material_selected_index_ < (int)materials_strings.size() };
 	ImGui::BeginDisabled(editor_->physics_materials_.size() <= 1 || !selected_idx_in_range);
 	if (ImGui::Button("-"))
 	{
-		int selected_idx{ physics_material_selected_index_ };
-		editor_->DeletePhysicsMaterial((uint32_t)selected_idx);
+		editor_->DeletePhysicsMaterial((uint32_t)physics_material_selected_index_);
 		physics_material_selected_index_ = -1;
 	}
 	ImGui::EndDisabled();
 	ImGui::EndGroup();
 
-	if (physics_material_selected_index_ >= 0 && physics_material_selected_index_ < (int)node_materials_strings.size())
+	if (physics_material_selected_index_ >= 0 && physics_material_selected_index_ < (int)materials_strings.size())
 	{
 		EditorPhysicsMaterial* mat{ editor_->physics_materials_[physics_material_selected_index_] };
 
@@ -696,20 +696,20 @@ void EditorGui::PhysicsMaterials()
 			ImGui::EndCombo();
 		}
 
-		/*
+		// Multiselect list of constraints.
 		uint32_t constraint_mask{ editor_->GetPhysicsMaterialConstraintsMask(physics_material_selected_index_) };
+		uint32_t constraint_count{ (uint32_t)std::popcount(constraint_mask) };
+		std::string multiselect_box_name{ std::to_string(constraint_count) + " constraints selected" };
 
-		ConstraintType selected_constraint_type{ editor_->GetPhysicsMaterialConstraintType(physics_material_selected_index_) };
-		const char* selected_constraint_name{ constraint_names[(uint32_t)selected_constraint_type].c_str() };
-		ImGui::Text("constraint");
+		ImGui::Text("Active constraints");
 		ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
-		if (ImGui::BeginCombo("##ConstraintCombo", selected_constraint_name, 0))
+		if (ImGui::BeginCombo("##ActiveConstraintsCombo", multiselect_box_name.c_str(), 0))
 		{
-			for (uint32_t constraint_idx = 0; constraint_idx < (uint32_t)ConstraintType::CONSTRAINT_COUNT; ++constraint_idx)
+			for (uint32_t c_idx = 0; c_idx < (uint32_t)editor_->constraints_.size(); ++c_idx)
 			{
-				const bool is_selected{ constraint_idx == (uint32_t)selected_constraint_type };
-				if (ImGui::Selectable(constraint_names[constraint_idx].c_str(), is_selected)) {
-					editor_->GetPhysicsMaterialConstraintType(physics_material_selected_index_, (ConstraintType)constraint_idx);
+				const bool is_selected{ (bool)(constraint_mask & (1 << c_idx)) };
+				if (ImGui::Selectable(editor_->constraints_[c_idx]->GetNameBuffer(), is_selected)) {
+					editor_->SetPhysicsMaterialConstraintMask(physics_material_selected_index_, constraint_mask);
 				}
 
 				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
@@ -719,24 +719,6 @@ void EditorGui::PhysicsMaterials()
 			}
 			ImGui::EndCombo();
 		}
-
-		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
-
-		bool mat_changed{ false };
-		int selected_idx{ physics_material_selected_index_ };
-		std::vector<std::pair<float*, std::string>> physics_parameters{ editor_->pumpkin_->GetPhysicsParameters(selected_idx) };
-		for (std::pair<float*, std::string>& parameter : physics_parameters)
-		{
-			ImGui::Text(parameter.second.c_str());
-			ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
-			std::string imgui_id{ "##" + parameter.second };
-			mat_changed |= ImGui::DragFloat(imgui_id.c_str(), parameter.first, 0.01f, 0.0f, 0.0f);
-		}
-
-		if (mat_changed) {
-			editor_->pumpkin_->PhysicsParametersMutated(selected_idx);
-		}
-		*/
 	}
 	ImGui::PopID();
 }
@@ -756,6 +738,100 @@ void EditorGui::Materials()
 	PhysicsMaterials();
 
 	ImGui::End();
+}
+
+void EditorGui::Constraints()
+{
+	if (!ImGui::Begin("Constraints"))
+	{
+		ImGui::End();
+		return;
+	}
+
+	ImGui::PushID("Constraints");
+
+	// Generate the strings with indices prepended.
+	std::vector<std::string> constraints_strings{};
+	constraints_strings.resize(editor_->constraints_.size());
+	for (uint32_t i{ 0 }; i < (uint32_t)editor_->constraints_.size(); ++i) {
+		constraints_strings[i] = std::to_string(i) + ": " + editor_->constraints_[i]->GetName();
+	}
+
+	// Convert to C strings.
+	std::vector<const char*> constraints_c_strings(editor_->constraints_.size());
+	std::transform(constraints_strings.begin(), constraints_strings.end(), constraints_c_strings.begin(),
+		[=](const std::string& s) { return s.c_str(); });
+
+	if (constraint_selected_index_ >= editor_->constraints_.size()) {
+		constraint_selected_index_ = 0;
+	}
+
+	ImGui::ListBox("##ConstraintList", &constraint_selected_index_, constraints_c_strings.data(), (int)constraints_c_strings.size(), 4);
+
+	ImGui::SameLine();
+	ImGui::BeginGroup();
+
+	// Add new material.
+	if (ImGui::Button("+")) {
+		constraint_selected_index_ = (int)editor_->NewConstraint();
+	}
+
+	// Delete selected material.
+	bool selected_idx_in_range{ constraint_selected_index_ >= 0 && constraint_selected_index_ < (int)constraints_strings.size() };
+	ImGui::BeginDisabled(editor_->constraints_.size() <= 1 || !selected_idx_in_range);
+	if (ImGui::Button("-"))
+	{
+		editor_->DeletePhysicsMaterial((uint32_t)constraint_selected_index_);
+		constraint_selected_index_ = -1;
+	}
+	ImGui::EndDisabled();
+	ImGui::EndGroup();
+
+	if (constraint_selected_index_ >= 0 && constraint_selected_index_ < (int)constraints_strings.size())
+	{
+		EditorConstraint* constraint{ editor_->constraints_[constraint_selected_index_] };
+
+		ImGui::InputText("##ConstraintName", constraint->GetNameBuffer(), NAME_BUFFER_SIZE);
+		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+
+		ConstraintType selected_constraint_type{ editor_->GetConstraintType(constraint_selected_index_) };
+		const char* selected_constraint_name{ constraint_names[(uint32_t)selected_constraint_type].c_str() };
+		ImGui::Text("Constraint");
+		ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
+		if (ImGui::BeginCombo("##ConstraintCombo", selected_constraint_name, 0))
+		{
+			for (uint32_t constraint_idx = 0; constraint_idx < (uint32_t)ConstraintType::CONSTRAINT_COUNT; ++constraint_idx)
+			{
+				const bool is_selected{ constraint_idx == (uint32_t)selected_constraint_type };
+				if (ImGui::Selectable(constraint_names[constraint_idx].c_str(), is_selected)) {
+					editor_->SetConstraintType(constraint_selected_index_, (ConstraintType)constraint_idx);
+				}
+
+				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus).
+				if (is_selected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		ImGui::Dummy(ImVec2{ 0.0f, 20.0f }); // Spacing.
+
+		bool constraint_changed{ false };
+		std::vector<std::pair<float*, std::string>> physics_parameters{ editor_->pumpkin_->GetConstraintParameters(constraint_selected_index_) };
+		for (std::pair<float*, std::string>& parameter : physics_parameters)
+		{
+			ImGui::Text(parameter.second.c_str());
+			ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
+			std::string imgui_id{ "##" + parameter.second };
+			constraint_changed |= ImGui::DragFloat(imgui_id.c_str(), parameter.first, 0.01f, 0.0f, 0.0f);
+		}
+
+		if (constraint_changed) {
+			editor_->pumpkin_->ConstraintParametersMutated(constraint_selected_index_);
+		}
+	}
+	ImGui::PopID();
 }
 
 // The 3D scene rendered from Renderer.

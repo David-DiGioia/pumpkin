@@ -56,6 +56,17 @@ namespace pmk
 
 		PhysicsMaterial* GetPhysicsMaterial(uint8_t physics_mat_index);
 
+		XPBDConstraint* NewConstraint();
+
+		void DeleteConstraint(uint32_t selected_idx);
+
+		template<typename T>
+		void SetConstraintType(uint8_t constraint_index)
+		{
+			delete jacobi_constraints_[constraint_index];
+			jacobi_constraints_[constraint_index] = new T{};
+		}
+
 		std::vector<std::pair<float*, std::string>> GetConstraintParameters(uint8_t constraint_index);
 
 		void ConstraintParametersMutated(uint8_t constraint_index);

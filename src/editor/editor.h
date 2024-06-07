@@ -122,6 +122,25 @@ private:
 	char* name_buffer_{};
 };
 
+class EditorConstraint
+{
+public:
+	EditorConstraint(pmk::XPBDConstraint* pmk_constraint, const std::string& name);
+
+	EditorConstraint(pmk::XPBDConstraint* pmk_constraint);
+
+	~EditorConstraint();
+
+	std::string GetName() const;
+
+	char* GetNameBuffer() const;
+
+	pmk::XPBDConstraint* constraint{};
+
+private:
+	char* name_buffer_{};
+};
+
 class EditorShader
 {
 public:
@@ -377,6 +396,15 @@ private:
 
 	uint32_t GetPhysicsMaterialConstraintsMask(uint8_t physics_mat_index);
 
+	// Makes a new constraint. Returns index to newly created constraint.
+	uint32_t NewConstraint();
+
+	void DeleteConstraint(uint32_t selected_idx);
+
+	ConstraintType GetConstraintType(uint32_t constraint_index);
+
+	void SetConstraintType(uint32_t constraint_index, ConstraintType type);
+
 	// Load settings from AppData.
 	void LoadEditorSettings();
 
@@ -415,6 +443,7 @@ private:
 	std::unordered_map<uint32_t, EditorNode*> node_map_{};    // The key of this map is pmk::Node::node_id. This allows finding an EditorNode from a pmk::Node.
 	std::vector<EditorMaterial*> materials_{};                // List of EditorMaterials in same order as the renderer's material list, so material index is valid here too.
 	std::vector<EditorPhysicsMaterial*> physics_materials_{}; // List of EditorPhysicsMaterials in same order as the Pumpkin's physics material list, so material index is valid here too.
+	std::vector<EditorConstraint*> constraints_{};            // List of XPBD constraints in same order as Pumpkin's XPBD constraints list, so constraint index is valid here too.
 	std::vector<EditorTexture*> textures_{};                  // List of EditorTextures in same order as the renderer's texture list, so texture index is valid here too.
 	std::vector<EditorShader*> shaders_{};                    // List of EditorShaders, containing path to SPIRV files to be passed to renderer.
 

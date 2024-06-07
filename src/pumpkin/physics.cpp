@@ -97,11 +97,9 @@ namespace pmk
 
 	PhysicsMaterial* PhysicsContext::NewPhysicsMaterial()
 	{
-		FluidDensityConstraint* fluid_constraint{ new FluidDensityConstraint{} };
 		PhysicsMaterial* new_material{ new PhysicsMaterial{} };
-		new_material->jacobi_constraints_mask = 0x1;
+		new_material->jacobi_constraints_mask = 0x0;
 		new_material->density = 1000.0f; // Density of water by default.
-		jacobi_constraints_.push_back(fluid_constraint);
 		physics_materials_.push_back(new_material);
 		UpdatePhysicsRenderMaterials();
 		return new_material;
@@ -148,6 +146,18 @@ namespace pmk
 	PhysicsMaterial* PhysicsContext::GetPhysicsMaterial(uint8_t physics_mat_index)
 	{
 		return physics_materials_[physics_mat_index];
+	}
+
+	XPBDConstraint* PhysicsContext::NewConstraint()
+	{
+		FluidDensityConstraint* constraint{ new FluidDensityConstraint{} };
+		jacobi_constraints_.push_back(constraint);
+		return constraint;
+	}
+
+	void PhysicsContext::DeleteConstraint(uint32_t selected_idx)
+	{
+		jacobi_constraints_.erase(jacobi_constraints_.begin() + selected_idx);
 	}
 
 	std::vector<std::pair<float*, std::string>> PhysicsContext::GetConstraintParameters(uint8_t constraint_index)

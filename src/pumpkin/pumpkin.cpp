@@ -163,6 +163,16 @@ namespace pmk
 		return scene_.GetPhysicsMaterial(physics_mat_index);
 	}
 
+	XPBDConstraint* Pumpkin::NewConstraint()
+	{
+		return scene_.NewConstraint();
+	}
+
+	void Pumpkin::DeleteConstraint(uint32_t constraint_index)
+	{
+		scene_.DeleteConstraint(constraint_index);
+	}
+
 	std::vector<std::pair<float*, std::string>> Pumpkin::GetConstraintParameters(uint8_t constraint_index)
 	{
 		return scene_.GetConstraintParameters(constraint_index);

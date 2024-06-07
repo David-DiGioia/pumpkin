@@ -1100,6 +1100,47 @@ uint32_t Editor::GetPhysicsMaterialConstraintsMask(uint8_t physics_mat_index)
 	return pumpkin_->GetPhysicsMaterialConstraintsMask(physics_mat_index);
 }
 
+uint32_t Editor::NewConstraint()
+{
+	pmk::XPBDConstraint* constraint{ pumpkin_->NewConstraint() };
+	constraints_.push_back(new EditorConstraint{ constraint, "NewConstraint" });
+	return (uint32_t)(constraints_.size() - 1);
+}
+
+void Editor::DeleteConstraint(uint32_t selected_idx)
+{
+	pumpkin_->DeleteConstraint(selected_idx);
+	constraints_.erase(constraints_.begin() + selected_idx);
+}
+
+ConstraintType Editor::GetConstraintType(uint32_t constraint_index)
+{
+	pmk::XPBDConstraint* constraint{ constraints_[constraint_index]->constraint };
+
+	if (dynamic_cast<pmk::FluidDensityConstraint*>(constraint)) {
+		return ConstraintType::FLUID_DENSITY;
+	}
+	if (dynamic_cast<pmk::RigidBodyConstraint*>(constraint)) {
+		return ConstraintType::RIGID_BODY;
+	}
+
+	logger::Error("Unrecognized constraint type.\n");
+	return {};
+}
+
+void Editor::SetConstraintType(uint32_t constraint_index, ConstraintType type)
+{
+	switch (type)
+	{
+	case ConstraintType::FLUID_DENSITY:
+		pumpkin_->SetConstraintType<pmk::FluidDensityConstraint>(constraint_index);
+		break;
+	case ConstraintType::RIGID_BODY:
+		pumpkin_->SetConstraintType<pmk::RigidBodyConstraint>(constraint_index);
+		break;
+	}
+}
+
 std::filesystem::path GetAppDataDirectory()
 {
 	auto path{ std::filesystem::temp_directory_path().parent_path().parent_path().parent_path() };
@@ -1316,6 +1357,33 @@ std::string EditorPhysicsMaterial::GetName() const
 }
 
 char* EditorPhysicsMaterial::GetNameBuffer() const
+{
+	return name_buffer_;
+}
+
+EditorConstraint::EditorConstraint(pmk::XPBDConstraint* pmk_constraint, const std::string& name)
+	: constraint{ pmk_constraint }
+	, name_buffer_{ new char[NAME_BUFFER_SIZE] {} }
+{
+	strcpy_s(name_buffer_, std::min(NAME_BUFFER_SIZE, (uint32_t)(name.size() + 1)), name.c_str());
+}
+
+EditorConstraint::EditorConstraint(pmk::XPBDConstraint* pmk_constraint)
+	: EditorConstraint(pmk_constraint, std::string{ "Constraint" })
+{
+}
+
+EditorConstraint::~EditorConstraint()
+{
+	delete[] name_buffer_;
+}
+
+std::string EditorConstraint::GetName() const
+{
+	return std::string(name_buffer_);
+}
+
+char* EditorConstraint::GetNameBuffer() const
 {
 	return name_buffer_;
 }

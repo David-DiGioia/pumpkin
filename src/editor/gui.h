@@ -38,7 +38,7 @@ const std::array<std::string, (uint32_t)ParticleColorMode::COLOR_MODE_COUNT> par
 
 enum class ConstraintType
 {
-	FLUID,
+	FLUID_DENSITY,
 	RIGID_BODY,
 
 	CONSTRAINT_COUNT,
@@ -100,6 +100,8 @@ private:
 
 	void Materials();
 
+	void Constraints();
+
 	void EngineViewport(ImTextureID* rendered_image_id);
 
 	void FileBrowser();
@@ -132,6 +134,7 @@ private:
 
 	int material_selected_geometry_index_{};
 	int physics_material_selected_index_{};
+	int constraint_selected_index_{};
 
 	std::chrono::steady_clock::time_point frame_start_time_{};  // For timing frame duration.
 	std::chrono::steady_clock::time_point second_start_time_{}; // For calculating FPS.

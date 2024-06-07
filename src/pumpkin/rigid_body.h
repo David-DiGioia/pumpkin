@@ -12,6 +12,7 @@ namespace pmk
 {
 	constexpr uint32_t MAX_COLLISION_PAIRS{ 8 }; // Maximum collision pairs between two voxel objects.
 
+	// TODO: Implement Solve and Preprocess and make it work with the rest of the XPBD pipeline.
 	class RigidBodyConstraint : public XPBDConstraint
 	{
 	public:
