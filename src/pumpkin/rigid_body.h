@@ -18,6 +18,12 @@ namespace pmk
 	public:
 		RigidBodyConstraint();
 
+		// Called once before any invocations to Solve() for that frame.
+		virtual void Preprocess(const XPBDParticleContext* context, float delta_time) override;
+
+		// Solve a single iteration of the constraint and return delta_x.
+		virtual glm::vec3 Solve(const XPBDParticleContext* context, uint32_t particle_idx, float delta_time) const override;
+
 		// For updating the parameters from the UI for making physics materials in the editor.
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 
@@ -76,7 +82,7 @@ namespace pmk
 	class Scene;
 	struct PhysicsMaterial;
 
-	class RigidBodyContext
+	class XPBDRigidBodyContext
 	{
 	public:
 		void Initialize(renderer::VulkanRenderer* renderer, Scene* scene, const std::vector<PhysicsMaterial*>* physics_materials);

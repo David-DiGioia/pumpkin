@@ -32,7 +32,7 @@ namespace pmk
 	struct RigidBody;
 	struct PhysicsMaterial;
 
-	class XPBDContext
+	class XPBDParticleContext
 	{
 	public:
 		/*
@@ -59,7 +59,7 @@ namespace pmk
 			using value_type = DataType;
 
 			// Construct begin iterator.
-			ParticleProximityIterator(const XPBDContext* context, const glm::vec3& position)
+			ParticleProximityIterator(const XPBDParticleContext* context, const glm::vec3& position)
 				: context_{ context }
 				, particle_range_count_{}
 				, start_of_ranges_{ context->GetParticleRangesWithinKernel(position, &particle_range_count_) }
@@ -142,7 +142,7 @@ namespace pmk
 			}
 
 		protected:
-			const XPBDContext* context_{};
+			const XPBDParticleContext* context_{};
 
 			uint32_t particle_range_count_{};
 			std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> start_of_ranges_{};
@@ -189,10 +189,10 @@ namespace pmk
 			glm::vec3 position_{};
 		};
 
-		typedef ParticleProximityContainer<XPBDContext, XPBDParticle> ProximityContainer;
-		typedef ParticleProximityContainer<const XPBDContext, const XPBDParticle> ConstProximityContainer;
-		typedef ParticleProximityContainer<XPBDContext, uint32_t> IndexProximityContainer;
-		typedef ParticleProximityContainer<const XPBDContext, uint32_t> ConstIndexProximityContainer;
+		typedef ParticleProximityContainer<XPBDParticleContext, XPBDParticle> ProximityContainer;
+		typedef ParticleProximityContainer<const XPBDParticleContext, const XPBDParticle> ConstProximityContainer;
+		typedef ParticleProximityContainer<XPBDParticleContext, uint32_t> IndexProximityContainer;
+		typedef ParticleProximityContainer<const XPBDParticleContext, uint32_t> ConstIndexProximityContainer;
 
 		void Initialize(
 			std::vector<XPBDParticle>&& particles,
@@ -252,9 +252,9 @@ namespace pmk
 	class FluidDensityConstraint : public XPBDConstraint
 	{
 	public:
-		virtual void Preprocess(const XPBDContext* context, float delta_time) override;
+		virtual void Preprocess(const XPBDParticleContext* context, float delta_time) override;
 
-		virtual glm::vec3 Solve(const XPBDContext* context, uint32_t particle_idx, float delta_time) const override;
+		virtual glm::vec3 Solve(const XPBDParticleContext* context, uint32_t particle_idx, float delta_time) const override;
 
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 

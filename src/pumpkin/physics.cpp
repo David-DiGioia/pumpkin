@@ -31,33 +31,33 @@ namespace pmk
 	{
 		scene_ = scene;
 		renderer_ = renderer;
-		particle_context_.Initialize(renderer, &jacobi_constraints_, &physics_materials_);
+		voxel_context_.Initialize(renderer, &jacobi_constraints_, &physics_materials_);
 		rigid_body_context_.Initialize(renderer, scene, &physics_materials_);
 	}
 
 	void PhysicsContext::CleanUp()
 	{
-		particle_context_.CleanUp();
+		voxel_context_.CleanUp();
 		rigid_body_context_.CleanUp();
 	}
 
 	void PhysicsContext::PhysicsUpdate(float delta_time)
 	{
 		rigid_body_context_.PhysicsUpdate(delta_time);
-		particle_context_.PhysicsUpdate(delta_time, rigid_body_context_.GetRigidBodies());
+		voxel_context_.PhysicsUpdate(delta_time, rigid_body_context_.GetRigidBodies());
 	}
 
 	std::vector<uint32_t> PhysicsContext::EnablePhysicsUpdate()
 	{
 		bool voxel_chunk_empty{};
-		std::vector<uint32_t> node_ids{ rigid_body_context_.CreateRigidBodiesByConnectedness(particle_context_.GetVoxelChunk(), &voxel_chunk_empty) };
+		std::vector<uint32_t> node_ids{ rigid_body_context_.CreateRigidBodiesByConnectedness(voxel_context_.GetVoxelChunk(), &voxel_chunk_empty) };
 		rigid_body_context_.EnablePhysicsUpdate();
 
 		if (voxel_chunk_empty) {
-			particle_context_.DestroyVoxelRenderObject();
+			voxel_context_.DestroyVoxelRenderObject();
 		}
 		else {
-			particle_context_.EnablePhysicsUpdate();
+			voxel_context_.EnablePhysicsUpdate();
 		}
 		UpdatePhysicsRenderMaterials();
 		return node_ids;
@@ -66,33 +66,33 @@ namespace pmk
 	void PhysicsContext::DisablePhysicsUpdate()
 	{
 		rigid_body_context_.DisablePhysicsUpdate();
-		particle_context_.DisablePhysicsUpdate();
+		voxel_context_.DisablePhysicsUpdate();
 	}
 
 	void PhysicsContext::Reset()
 	{
 		rigid_body_context_.ResetRigidBodies();
-		particle_context_.ResetParticles();
+		voxel_context_.ResetParticles();
 	}
 
 	bool PhysicsContext::GetPhysicsUpdateEnabled() const
 	{
-		return particle_context_.GetPhysicsUpdateEnabled() || rigid_body_context_.GetPhysicsUpdateEnabled();
+		return voxel_context_.GetPhysicsUpdateEnabled() || rigid_body_context_.GetPhysicsUpdateEnabled();
 	}
 
 	bool PhysicsContext::GetParticlesEmpty() const
 	{
-		return particle_context_.GetParticlesEmpty();
+		return voxel_context_.GetParticlesEmpty();
 	}
 
 	uint32_t PhysicsContext::GenerateVoxelsOnNode(Node* node)
 	{
-		return particle_context_.GenerateVoxelsOnNode(node);
+		return voxel_context_.GenerateVoxelsOnNode(node);
 	}
 
 	void PhysicsContext::TransferStaticParticlesToMPM()
 	{
-		particle_context_.TransferStaticParticlesToXPBD();
+		voxel_context_.TransferStaticParticlesToXPBD();
 	}
 
 	PhysicsMaterial* PhysicsContext::NewPhysicsMaterial()
@@ -253,7 +253,7 @@ namespace pmk
 #ifdef EDITOR_ENABLED
 	void PhysicsContext::SetMPMDebugParticleGenEnabled(bool enabled)
 	{
-		particle_context_.SetMPMDebugParticleGenEnabled(enabled);
+		voxel_context_.SetMPMDebugParticleGenEnabled(enabled);
 	}
 
 	void PhysicsContext::SetRigidBodyOverlayEnabled(bool enabled)
@@ -264,6 +264,6 @@ namespace pmk
 
 	void PhysicsContext::UpdatePhysicsRenderMaterials()
 	{
-		particle_context_.UpdatePhysicsRenderMaterials(GetAllPhysicsMaterialRender());
+		voxel_context_.UpdatePhysicsRenderMaterials(GetAllPhysicsMaterialRender());
 	}
 }

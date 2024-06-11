@@ -1,4 +1,4 @@
-#include "particles.h"
+#include "voxels.h"
 
 #include "tracy/Tracy.hpp"
 #include "vulkan_renderer.h"
@@ -7,7 +7,7 @@
 
 namespace pmk
 {
-	void ParticleContext::Initialize(
+	void VoxelContext::Initialize(
 		renderer::VulkanRenderer* renderer,
 		const std::vector<XPBDConstraint*>* jacobi_constraints,
 		const std::vector<PhysicsMaterial*>* physics_materials)
@@ -17,11 +17,11 @@ namespace pmk
 		jacobi_constraints_ = jacobi_constraints;
 	}
 
-	void ParticleContext::CleanUp()
+	void VoxelContext::CleanUp()
 	{
 	}
 
-	void ParticleContext::PhysicsUpdate(float delta_time, const std::vector<RigidBody*>& rigid_bodies)
+	void VoxelContext::PhysicsUpdate(float delta_time, const std::vector<RigidBody*>& rigid_bodies)
 	{
 		if (!update_physics_) {
 			return;
@@ -34,7 +34,7 @@ namespace pmk
 		GenerateDynamicParticleMesh(particle_node_->render_object, xpbd_context_.GetParticles());
 	}
 
-	void ParticleContext::EnablePhysicsUpdate()
+	void VoxelContext::EnablePhysicsUpdate()
 	{
 		if (!has_played_)
 		{
@@ -44,29 +44,29 @@ namespace pmk
 		update_physics_ = true;
 	}
 
-	void ParticleContext::DisablePhysicsUpdate()
+	void VoxelContext::DisablePhysicsUpdate()
 	{
 		update_physics_ = false;
 	}
 
-	void ParticleContext::ResetParticles()
+	void VoxelContext::ResetParticles()
 	{
 		has_played_ = false;
 		DisablePhysicsUpdate();
 		GenerateStaticParticleMesh(particle_node_->render_object);
 	}
 
-	bool ParticleContext::GetPhysicsUpdateEnabled() const
+	bool VoxelContext::GetPhysicsUpdateEnabled() const
 	{
 		return update_physics_;
 	}
 
-	bool ParticleContext::GetParticlesEmpty() const
+	bool VoxelContext::GetParticlesEmpty() const
 	{
 		return (generated_voxel_count_ == 0) && xpbd_context_.GetParticles().empty();
 	}
 
-	uint32_t ParticleContext::GenerateVoxelsOnNode(Node* node)
+	uint32_t VoxelContext::GenerateVoxelsOnNode(Node* node)
 	{
 		if (renderer_->GetMaterials().empty()) {
 			renderer_->CreateDefaultMaterial();
@@ -87,7 +87,7 @@ namespace pmk
 		return generated_voxel_count_;
 	}
 
-	void ParticleContext::TransferStaticParticlesToXPBD()
+	void VoxelContext::TransferStaticParticlesToXPBD()
 	{
 		std::vector<XPBDParticle> xpbd_particles{};
 
@@ -113,17 +113,17 @@ namespace pmk
 		xpbd_context_.Initialize(std::move(xpbd_particles), CHUNK_WIDTH, jacobi_constraints_, physics_materials_);
 	}
 
-	XPBDContext* ParticleContext::GetXPBDContext()
+	XPBDParticleContext* VoxelContext::GetXPBDContext()
 	{
 		return &xpbd_context_;
 	}
 
-	renderer::VoxelChunk& ParticleContext::GetVoxelChunk()
+	renderer::VoxelChunk& VoxelContext::GetVoxelChunk()
 	{
 		return voxel_chunk_;
 	}
 
-	void ParticleContext::UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials)
+	void VoxelContext::UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials)
 	{
 		renderer_->SetPhysicsToRenderMaterialMap(std::move(all_physics_render_materials));
 		if (particle_node_ && particle_node_->render_object != renderer::NULL_HANDLE) {
@@ -131,7 +131,7 @@ namespace pmk
 		}
 	}
 
-	void ParticleContext::DestroyVoxelRenderObject()
+	void VoxelContext::DestroyVoxelRenderObject()
 	{
 		if (particle_node_)
 		{
@@ -141,7 +141,7 @@ namespace pmk
 	}
 
 #ifdef EDITOR_ENABLED
-	void ParticleContext::SetMPMDebugParticleGenEnabled(bool enabled)
+	void VoxelContext::SetMPMDebugParticleGenEnabled(bool enabled)
 	{
 		generate_mpm_particle_instances_ = enabled;
 
@@ -151,7 +151,7 @@ namespace pmk
 	}
 #endif
 
-	void ParticleContext::GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<XPBDParticle>& particles) const
+	void VoxelContext::GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<XPBDParticle>& particles) const
 	{
 		if (particles.empty()) {
 			return;
@@ -182,7 +182,7 @@ namespace pmk
 #endif
 	}
 
-	void ParticleContext::GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target)
+	void VoxelContext::GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target)
 	{
 		renderer_->GenerateStaticParticleMesh(ro_target, voxel_chunk_);
 
@@ -193,7 +193,7 @@ namespace pmk
 #endif
 	}
 
-	std::vector<XPBDParticle> ParticleContext::VoxelsToMaterialPoints(const renderer::VoxelChunk& voxel_chunk) const
+	std::vector<XPBDParticle> VoxelContext::VoxelsToMaterialPoints(const renderer::VoxelChunk& voxel_chunk) const
 	{
 		if (voxel_chunk.VoxelCount() == 0) {
 			return {};
@@ -215,7 +215,7 @@ namespace pmk
 		return dynamic_particles;
 	}
 
-	void ParticleContext::GenerateDynamicDebugMPMParticleInstances() const
+	void VoxelContext::GenerateDynamicDebugMPMParticleInstances() const
 	{
 		const std::vector<XPBDParticle>& particles{ has_played_ ? xpbd_context_.GetParticles() : VoxelsToMaterialPoints(voxel_chunk_) };
 		if (particles.empty()) {

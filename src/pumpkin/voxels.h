@@ -14,7 +14,7 @@ namespace pmk
 	struct Node;
 	struct RigidBody;
 
-	class ParticleContext
+	class VoxelContext
 	{
 	public:
 		void Initialize(
@@ -40,7 +40,7 @@ namespace pmk
 
 		void TransferStaticParticlesToXPBD();
 
-		XPBDContext* GetXPBDContext();
+		XPBDParticleContext* GetXPBDContext();
 
 		renderer::VoxelChunk& GetVoxelChunk();
 
@@ -68,7 +68,7 @@ namespace pmk
 		bool generate_mpm_particle_instances_{};
 #endif
 		uint32_t generated_voxel_count_{}; // The current number of non-empty voxels generated.
-		XPBDContext xpbd_context_{};
+		XPBDParticleContext xpbd_context_{};
 		renderer::VulkanRenderer* renderer_{};
 		Node* particle_node_{};
 		const std::vector<PhysicsMaterial*>* physics_materials_;

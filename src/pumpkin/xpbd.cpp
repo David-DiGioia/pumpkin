@@ -79,7 +79,7 @@ namespace pmk
 		return key < other.key;
 	}
 
-	void XPBDContext::Initialize(
+	void XPBDParticleContext::Initialize(
 		std::vector<XPBDParticle>&& particles,
 		float chunk_width,
 		const std::vector<XPBDConstraint*>* jacobi_constraints,
@@ -112,7 +112,7 @@ namespace pmk
 		UpdateIndexBuffers();
 	}
 
-	void XPBDContext::SimulateStep(float delta_time, const std::vector<RigidBody*>& rigid_bodies)
+	void XPBDParticleContext::SimulateStep(float delta_time, const std::vector<RigidBody*>& rigid_bodies)
 	{
 		ApplyForces(delta_time);
 		SolveConstraints(delta_time);
@@ -121,17 +121,17 @@ namespace pmk
 		UpdateIndexBuffers();
 	}
 
-	const std::vector<XPBDParticle>& XPBDContext::GetParticles() const
+	const std::vector<XPBDParticle>& XPBDParticleContext::GetParticles() const
 	{
 		return particles_;
 	}
 
-	std::vector<XPBDParticle>& XPBDContext::GetParticles()
+	std::vector<XPBDParticle>& XPBDParticleContext::GetParticles()
 	{
 		return particles_;
 	}
 
-	void XPBDContext::ApplyForces(float delta_time)
+	void XPBDParticleContext::ApplyForces(float delta_time)
 	{
 		for (XPBDParticle& p : particles_)
 		{
@@ -143,7 +143,7 @@ namespace pmk
 		}
 	}
 
-	void XPBDContext::SolveConstraints(float delta_time)
+	void XPBDParticleContext::SolveConstraints(float delta_time)
 	{
 		// Preprocess each constraint.
 		for (XPBDConstraint* constraint : *jacobi_constraints_) {
@@ -170,7 +170,7 @@ namespace pmk
 		}
 	}
 
-	void XPBDContext::UpdateVelocityAndInternalForces(float delta_time)
+	void XPBDParticleContext::UpdateVelocityAndInternalForces(float delta_time)
 	{
 		for (XPBDParticle& p : particles_)
 		{
@@ -184,7 +184,7 @@ namespace pmk
 		}
 	}
 
-	float XPBDContext::ComputeDensity(const glm::vec3& pos, const ConstIndexProximityContainer& proximity_particles) const
+	float XPBDParticleContext::ComputeDensity(const glm::vec3& pos, const ConstIndexProximityContainer& proximity_particles) const
 	{
 		float density{ 0.0f };
 
@@ -202,27 +202,27 @@ namespace pmk
 		return density;
 	}
 
-	XPBDContext::ProximityContainer XPBDContext::GetParticlesByProximity(const glm::vec3& position)
+	XPBDParticleContext::ProximityContainer XPBDParticleContext::GetParticlesByProximity(const glm::vec3& position)
 	{
 		return ProximityContainer(this, position);
 	}
 
-	XPBDContext::ConstProximityContainer XPBDContext::GetParticlesByProximity(const glm::vec3& position) const
+	XPBDParticleContext::ConstProximityContainer XPBDParticleContext::GetParticlesByProximity(const glm::vec3& position) const
 	{
 		return ConstProximityContainer(this, position);
 	}
 
-	XPBDContext::IndexProximityContainer XPBDContext::GetParticleIndicesByProximity(const glm::vec3& position)
+	XPBDParticleContext::IndexProximityContainer XPBDParticleContext::GetParticleIndicesByProximity(const glm::vec3& position)
 	{
 		return IndexProximityContainer(this, position);
 	}
 
-	XPBDContext::ConstIndexProximityContainer XPBDContext::GetParticleIndicesByProximity(const glm::vec3& position) const
+	XPBDParticleContext::ConstIndexProximityContainer XPBDParticleContext::GetParticleIndicesByProximity(const glm::vec3& position) const
 	{
 		return ConstIndexProximityContainer(this, position);
 	}
 
-	std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> XPBDContext::GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const
+	std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> XPBDParticleContext::GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const
 	{
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> result{};
 		glm::ivec3 coord{ glm::ivec3{
@@ -252,7 +252,7 @@ namespace pmk
 	}
 
 
-	void XPBDContext::UpdateIndexBuffers()
+	void XPBDParticleContext::UpdateIndexBuffers()
 	{
 		ZoneScoped;
 		{
@@ -279,17 +279,17 @@ namespace pmk
 		}
 	}
 
-	const PhysicsMaterial* XPBDContext::GetPhysicsMaterial(const XPBDParticle& p) const
+	const PhysicsMaterial* XPBDParticleContext::GetPhysicsMaterial(const XPBDParticle& p) const
 	{
 		return (*physics_materials_)[p.physics_material_index];
 	}
 
-	PhysicsMaterial* XPBDContext::GetPhysicsMaterial(const XPBDParticle& p)
+	PhysicsMaterial* XPBDParticleContext::GetPhysicsMaterial(const XPBDParticle& p)
 	{
 		return (*physics_materials_)[p.physics_material_index];
 	}
 
-	void FluidDensityConstraint::Preprocess(const XPBDContext* context, float delta_time)
+	void FluidDensityConstraint::Preprocess(const XPBDParticleContext* context, float delta_time)
 	{
 		lambda_cache_.resize(context->GetParticles().size());
 		const std::vector<XPBDParticle>& particles{ context->GetParticles() };
@@ -339,7 +339,7 @@ namespace pmk
 	}
 
 
-	glm::vec3 FluidDensityConstraint::Solve(const XPBDContext* context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 FluidDensityConstraint::Solve(const XPBDParticleContext* context, uint32_t particle_idx, float delta_time) const
 	{
 		const XPBDParticle& particle{ context->GetParticles()[particle_idx] };
 

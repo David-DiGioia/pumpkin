@@ -98,6 +98,15 @@ namespace pmk
 	{
 	}
 
+	void RigidBodyConstraint::Preprocess(const XPBDParticleContext* context, float delta_time)
+	{
+	}
+
+	glm::vec3 RigidBodyConstraint::Solve(const XPBDParticleContext* context, uint32_t particle_idx, float delta_time) const
+	{
+		return glm::vec3();
+	}
+
 	std::vector<std::pair<float*, std::string>> RigidBodyConstraint::GetParameters()
 	{
 		return {};
@@ -108,21 +117,21 @@ namespace pmk
 		// No-op.
 	}
 
-	void RigidBodyContext::Initialize(renderer::VulkanRenderer* renderer, Scene* scene, const std::vector<PhysicsMaterial*>* physics_materials)
+	void XPBDRigidBodyContext::Initialize(renderer::VulkanRenderer* renderer, Scene* scene, const std::vector<PhysicsMaterial*>* physics_materials)
 	{
 		renderer_ = renderer;
 		scene_ = scene;
 		physics_materials_ = physics_materials;
 	}
 
-	void RigidBodyContext::CleanUp()
+	void XPBDRigidBodyContext::CleanUp()
 	{
 		for (RigidBody* rb : rigid_bodies_) {
 			delete rb;
 		}
 	}
 
-	void RigidBodyContext::PhysicsUpdate(float delta_time)
+	void XPBDRigidBodyContext::PhysicsUpdate(float delta_time)
 	{
 		if (!update_physics_) {
 			return;
@@ -178,22 +187,22 @@ namespace pmk
 #endif
 	}
 
-	void RigidBodyContext::EnablePhysicsUpdate()
+	void XPBDRigidBodyContext::EnablePhysicsUpdate()
 	{
 		update_physics_ = true;
 	}
 
-	void RigidBodyContext::DisablePhysicsUpdate()
+	void XPBDRigidBodyContext::DisablePhysicsUpdate()
 	{
 		update_physics_ = false;
 	}
 
-	bool RigidBodyContext::GetPhysicsUpdateEnabled() const
+	bool XPBDRigidBodyContext::GetPhysicsUpdateEnabled() const
 	{
 		return update_physics_;
 	}
 
-	void RigidBodyContext::ResetRigidBodies()
+	void XPBDRigidBodyContext::ResetRigidBodies()
 	{
 		DisablePhysicsUpdate();
 		for (RigidBody* rb : rigid_bodies_) {
@@ -203,12 +212,12 @@ namespace pmk
 		rigid_bodies_.clear();
 	}
 
-	std::vector<RigidBody*> RigidBodyContext::GetRigidBodies()
+	std::vector<RigidBody*> XPBDRigidBodyContext::GetRigidBodies()
 	{
 		return rigid_bodies_;
 	}
 
-	std::vector<uint32_t> RigidBodyContext::CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk, bool* out_is_empty)
+	std::vector<uint32_t> XPBDRigidBodyContext::CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk, bool* out_is_empty)
 	{
 		// Create a mask to quickly test if a static particle has a rigid body material.
 		std::vector<uint8_t> rigid_body_mask(physics_materials_->size());
@@ -264,7 +273,7 @@ namespace pmk
 		return node_ids;
 	}
 
-	std::array<CollisionPair, MAX_COLLISION_PAIRS> RigidBodyContext::ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const
+	std::array<CollisionPair, MAX_COLLISION_PAIRS> XPBDRigidBodyContext::ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const
 	{
 		std::array<CollisionPair, MAX_COLLISION_PAIRS> collision_pairs{};
 		const RigidBody* small{ a }; // Rigid body with fewer outer voxels.
@@ -303,7 +312,7 @@ namespace pmk
 		return collision_pairs;
 	}
 
-	void RigidBodyContext::SetRigidBodyOverlayEnabled(bool enabled)
+	void XPBDRigidBodyContext::SetRigidBodyOverlayEnabled(bool enabled)
 	{
 		generate_rb_voxel_instances_ = enabled;
 
@@ -312,7 +321,7 @@ namespace pmk
 		}
 	}
 
-	void RigidBodyContext::SolvePositions(float h)
+	void XPBDRigidBodyContext::SolvePositions(float h)
 	{
 		if (rigid_bodies_.empty()) {
 			return;
@@ -458,7 +467,7 @@ namespace pmk
 	}
 
 	// Creates rigid body based on connected voxels, and adds to rigid_bodies_.
-	void RigidBodyContext::RigidBodyFloodFill(const glm::uvec3& coordinate, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask)
+	void XPBDRigidBodyContext::RigidBodyFloodFill(const glm::uvec3& coordinate, renderer::VoxelChunk& voxel_chunk, const std::vector<uint8_t>& material_mask)
 	{
 		std::vector<std::pair<renderer::Voxel, glm::uvec3>> voxel_pairs{};
 		glm::uvec3 min_extents{ UINT_MAX, UINT_MAX, UINT_MAX };
@@ -521,7 +530,7 @@ namespace pmk
 		CreateRigidBody(min_extents, max_extents, std::move(voxel_pairs), std::move(center_of_mass), rigid_body_mass);
 	}
 
-	float RigidBodyContext::GetVoxelMass(uint32_t physics_material_index) const
+	float XPBDRigidBodyContext::GetVoxelMass(uint32_t physics_material_index) const
 	{
 #ifdef EDITOR_ENABLED
 		// For editor convenience we just use available physics material if enough haven't been created yet.
@@ -531,7 +540,7 @@ namespace pmk
 		return density * PARTICLE_VOLUME;
 	}
 
-	glm::mat3 RigidBodyContext::ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass)
+	glm::mat3 XPBDRigidBodyContext::ComputeInertiaTensor(const renderer::VoxelChunk& voxel_chunk, const glm::vec3& center_of_mass)
 	{
 		float xx{};
 		float yy{};
@@ -580,7 +589,7 @@ namespace pmk
 		};
 	}
 
-	void RigidBodyContext::CreateRigidBody(
+	void XPBDRigidBodyContext::CreateRigidBody(
 		const glm::uvec3& min_extents,
 		const glm::uvec3& max_extents,
 		std::vector<std::pair<renderer::Voxel, glm::uvec3>>&& voxel_pairs,
@@ -615,7 +624,7 @@ namespace pmk
 		rigid_bodies_.push_back(rigid_body);
 	}
 
-	void RigidBodyContext::GenerateDynamicDebugRbVoxelInstances() const
+	void XPBDRigidBodyContext::GenerateDynamicDebugRbVoxelInstances() const
 	{
 		size_t outer_voxel_count{};
 		for (const RigidBody* rb : rigid_bodies_) {

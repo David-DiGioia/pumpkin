@@ -1,6 +1,6 @@
 #pragma once
 
-#include "particles.h"
+#include "voxels.h"
 #include "rigid_body.h"
 #include "constraint.h"
 
@@ -88,8 +88,8 @@ namespace pmk
 		Scene* scene_{};
 		renderer::VulkanRenderer* renderer_{};
 
-		ParticleContext particle_context_{};
-		RigidBodyContext rigid_body_context_{};
+		VoxelContext voxel_context_{};
+		XPBDRigidBodyContext rigid_body_context_{};
 
 		std::vector<XPBDConstraint*> jacobi_constraints_{};
 		std::vector<PhysicsMaterial*> physics_materials_{};
