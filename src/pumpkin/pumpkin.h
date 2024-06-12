@@ -70,10 +70,11 @@ namespace pmk
 
 		void DeleteConstraint(uint32_t constraint_index);
 
+		// Returns pointer to newly created constraint.
 		template<typename T>
-		void SetConstraintType(uint8_t constraint_index)
+		pmk::XPBDConstraint* SetConstraintType(uint8_t constraint_index)
 		{
-			scene_.SetConstraintType<T>(constraint_index);
+			return scene_.SetConstraintType<T>(constraint_index);
  		}
 
 		std::vector<std::pair<float*, std::string>> GetConstraintParameters(uint8_t constraint_index);

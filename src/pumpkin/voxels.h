@@ -24,7 +24,7 @@ namespace pmk
 
 		void CleanUp();
 
-		void PhysicsUpdate(float delta_time, const std::vector<RigidBody*>& rigid_bodies);
+		void PhysicsUpdate(float delta_time, const XPBDRigidBodyContext* rb_context);
 
 		void EnablePhysicsUpdate();
 

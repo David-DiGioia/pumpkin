@@ -98,12 +98,14 @@ namespace pmk
 	{
 	}
 
-	void RigidBodyConstraint::Preprocess(const XPBDParticleContext* context, float delta_time)
+	void RigidBodyConstraint::Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time)
 	{
+		// TODO:
 	}
 
-	glm::vec3 RigidBodyConstraint::Solve(const XPBDParticleContext* context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 RigidBodyConstraint::Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
+		// TODO:
 		return glm::vec3();
 	}
 

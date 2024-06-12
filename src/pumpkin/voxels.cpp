@@ -21,7 +21,7 @@ namespace pmk
 	{
 	}
 
-	void VoxelContext::PhysicsUpdate(float delta_time, const std::vector<RigidBody*>& rigid_bodies)
+	void VoxelContext::PhysicsUpdate(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
 		if (!update_physics_) {
 			return;
@@ -29,7 +29,7 @@ namespace pmk
 
 		constexpr uint32_t sub_steps{ 1 };
 		for (uint32_t i{ 0 }; i < sub_steps; ++i) {
-			xpbd_context_.SimulateStep(delta_time / sub_steps, rigid_bodies);
+			xpbd_context_.SimulateStep(delta_time / sub_steps, rb_context);
 		}
 		GenerateDynamicParticleMesh(particle_node_->render_object, xpbd_context_.GetParticles());
 	}

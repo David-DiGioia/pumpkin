@@ -112,10 +112,10 @@ namespace pmk
 		UpdateIndexBuffers();
 	}
 
-	void XPBDParticleContext::SimulateStep(float delta_time, const std::vector<RigidBody*>& rigid_bodies)
+	void XPBDParticleContext::SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
 		ApplyForces(delta_time);
-		SolveConstraints(delta_time);
+		SolveConstraints(delta_time, rb_context);
 		UpdateVelocityAndInternalForces(delta_time);
 
 		UpdateIndexBuffers();
@@ -143,11 +143,11 @@ namespace pmk
 		}
 	}
 
-	void XPBDParticleContext::SolveConstraints(float delta_time)
+	void XPBDParticleContext::SolveConstraints(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
 		// Preprocess each constraint.
 		for (XPBDConstraint* constraint : *jacobi_constraints_) {
-			constraint->Preprocess(this, delta_time);
+			constraint->Preprocess(this, rb_context, delta_time);
 		}
 
 		// Jacobi iterations.
@@ -159,7 +159,7 @@ namespace pmk
 			for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 			{
 				if (mat->jacobi_constraints_mask & (1 << j)) {
-					jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, i, delta_time);
+					jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
 				}
 			}
 		}
@@ -289,10 +289,10 @@ namespace pmk
 		return (*physics_materials_)[p.physics_material_index];
 	}
 
-	void FluidDensityConstraint::Preprocess(const XPBDParticleContext* context, float delta_time)
+	void FluidDensityConstraint::Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time)
 	{
-		lambda_cache_.resize(context->GetParticles().size());
-		const std::vector<XPBDParticle>& particles{ context->GetParticles() };
+		lambda_cache_.resize(p_context->GetParticles().size());
+		const std::vector<XPBDParticle>& particles{ p_context->GetParticles() };
 
 		// Compute lambda corresponding to each particle. It will be used in Solve().
 		for (uint32_t i{ 0 }; i < (uint32_t)particles.size(); ++i)
@@ -301,8 +301,9 @@ namespace pmk
 			constexpr float alpha{ compliance };
 			float alpha_tilde{ alpha / (delta_time * delta_time) };
 
-			auto proximity_particles{ context->GetParticleIndicesByProximity(particles[i].position) };
-			float density{ context->ComputeDensity(particles[i].position, proximity_particles) };
+			auto proximity_particles{ p_context->GetParticleIndicesByProximity(particles[i].position) };
+			// TODO: Add rigid body density.
+			float density{ p_context->ComputeDensity(particles[i].position, proximity_particles) };
 			float c{ (density / rest_density_) - 1.0f };
 
 			// Clamp pressure constraint to be nonnegative.
@@ -339,18 +340,18 @@ namespace pmk
 	}
 
 
-	glm::vec3 FluidDensityConstraint::Solve(const XPBDParticleContext* context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 FluidDensityConstraint::Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
-		const XPBDParticle& particle{ context->GetParticles()[particle_idx] };
+		const XPBDParticle& particle{ p_context->GetParticles()[particle_idx] };
 
 		glm::vec3 delta_x{};
-		for (uint32_t j : context->GetParticleIndicesByProximity(particle.position))
+		for (uint32_t j : p_context->GetParticleIndicesByProximity(particle.position))
 		{
 			if (particle_idx == j) {
 				continue;
 			}
 
-			glm::vec3 q{ particle.position - context->GetParticles()[j].position };
+			glm::vec3 q{ particle.position - p_context->GetParticles()[j].position };
 			delta_x += (lambda_cache_[particle_idx] + lambda_cache_[j]) * SPHKernelGradient(q); // Equation (12) from PBF.
 		}
 		delta_x /= rest_density_;

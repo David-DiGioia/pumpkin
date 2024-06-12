@@ -12,17 +12,18 @@ namespace pmk
 {
 	constexpr uint32_t MAX_COLLISION_PAIRS{ 8 }; // Maximum collision pairs between two voxel objects.
 
-	// TODO: Implement Solve and Preprocess and make it work with the rest of the XPBD pipeline.
+	class XPBDRigidBodyContext;
+
 	class RigidBodyConstraint : public XPBDConstraint
 	{
 	public:
 		RigidBodyConstraint();
 
 		// Called once before any invocations to Solve() for that frame.
-		virtual void Preprocess(const XPBDParticleContext* context, float delta_time) override;
+		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) override;
 
 		// Solve a single iteration of the constraint and return delta_x.
-		virtual glm::vec3 Solve(const XPBDParticleContext* context, uint32_t particle_idx, float delta_time) const override;
+		virtual glm::vec3 Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
 
 		// For updating the parameters from the UI for making physics materials in the editor.
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;

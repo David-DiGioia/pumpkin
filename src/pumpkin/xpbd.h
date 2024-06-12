@@ -29,7 +29,7 @@ namespace pmk
 		bool operator<(const XPBDParticleIndex& other);
 	};
 
-	struct RigidBody;
+	class XPBDRigidBodyContext;
 	struct PhysicsMaterial;
 
 	class XPBDParticleContext
@@ -200,7 +200,7 @@ namespace pmk
 			const std::vector<XPBDConstraint*>* jacobi_constraints,
 			const std::vector<PhysicsMaterial*>* physics_materials);
 
-		void SimulateStep(float delta_time, const std::vector<RigidBody*>& rigid_bodies);
+		void SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context);
 
 		const std::vector<XPBDParticle>& GetParticles() const;
 
@@ -225,7 +225,7 @@ namespace pmk
 
 		void ApplyForces(float delta_time);
 
-		void SolveConstraints(float delta_time);
+		void SolveConstraints(float delta_time, const XPBDRigidBodyContext* rb_context);
 
 		void UpdateVelocityAndInternalForces(float delta_time);
 
@@ -252,9 +252,9 @@ namespace pmk
 	class FluidDensityConstraint : public XPBDConstraint
 	{
 	public:
-		virtual void Preprocess(const XPBDParticleContext* context, float delta_time) override;
+		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) override;
 
-		virtual glm::vec3 Solve(const XPBDParticleContext* context, uint32_t particle_idx, float delta_time) const override;
+		virtual glm::vec3 Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
 
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 

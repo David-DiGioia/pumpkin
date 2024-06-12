@@ -61,10 +61,12 @@ namespace pmk
 		void DeleteConstraint(uint32_t selected_idx);
 
 		template<typename T>
-		void SetConstraintType(uint8_t constraint_index)
+		pmk::XPBDConstraint* SetConstraintType(uint8_t constraint_index)
 		{
 			delete jacobi_constraints_[constraint_index];
-			jacobi_constraints_[constraint_index] = new T{};
+			pmk::XPBDConstraint* new_constraint{ new T{} };
+			jacobi_constraints_[constraint_index] = new_constraint;
+			return new_constraint;
 		}
 
 		std::vector<std::pair<float*, std::string>> GetConstraintParameters(uint8_t constraint_index);

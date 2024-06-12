@@ -45,7 +45,7 @@ enum class ConstraintType
 };
 
 const std::array<std::string, (uint32_t)ConstraintType::CONSTRAINT_COUNT> constraint_names{
-	"Fluid",
+	"Fluid density",
 	"Rigid body",
 };
 

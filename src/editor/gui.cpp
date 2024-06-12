@@ -148,6 +148,7 @@ void EditorGui::DrawGui(ImTextureID* rendered_image_id)
 	//ImGui::ShowDemoWindow();
 	NodeProperties();
 	Materials();
+	Constraints();
 	EngineViewport(rendered_image_id);
 	FileBrowser();
 	CameraControls();
@@ -708,7 +709,9 @@ void EditorGui::PhysicsMaterials()
 			for (uint32_t c_idx = 0; c_idx < (uint32_t)editor_->constraints_.size(); ++c_idx)
 			{
 				const bool is_selected{ (bool)(constraint_mask & (1 << c_idx)) };
-				if (ImGui::Selectable(editor_->constraints_[c_idx]->GetNameBuffer(), is_selected)) {
+				if (ImGui::Selectable(editor_->constraints_[c_idx]->GetNameBuffer(), is_selected, ImGuiSelectableFlags_DontClosePopups))
+				{
+					constraint_mask ^= (1 << c_idx);
 					editor_->SetPhysicsMaterialConstraintMask(physics_material_selected_index_, constraint_mask);
 				}
 
@@ -749,6 +752,7 @@ void EditorGui::Constraints()
 	}
 
 	ImGui::PushID("Constraints");
+	ImGui::Text("Physics constraints");
 
 	// Generate the strings with indices prepended.
 	std::vector<std::string> constraints_strings{};
@@ -832,6 +836,7 @@ void EditorGui::Constraints()
 		}
 	}
 	ImGui::PopID();
+	ImGui::End();
 }
 
 // The 3D scene rendered from Renderer.

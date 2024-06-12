@@ -1130,15 +1130,17 @@ ConstraintType Editor::GetConstraintType(uint32_t constraint_index)
 
 void Editor::SetConstraintType(uint32_t constraint_index, ConstraintType type)
 {
+	pmk::XPBDConstraint* new_constraint{};
 	switch (type)
 	{
 	case ConstraintType::FLUID_DENSITY:
-		pumpkin_->SetConstraintType<pmk::FluidDensityConstraint>(constraint_index);
+		new_constraint = pumpkin_->SetConstraintType<pmk::FluidDensityConstraint>(constraint_index);
 		break;
 	case ConstraintType::RIGID_BODY:
-		pumpkin_->SetConstraintType<pmk::RigidBodyConstraint>(constraint_index);
+		new_constraint = pumpkin_->SetConstraintType<pmk::RigidBodyConstraint>(constraint_index);
 		break;
 	}
+	constraints_[constraint_index]->constraint = new_constraint;
 }
 
 std::filesystem::path GetAppDataDirectory()

@@ -158,9 +158,9 @@ namespace pmk
 		void DeleteConstraint(uint32_t constraint_index);
 
 		template<typename T>
-		void SetConstraintType(uint8_t constraint_index)
+		pmk::XPBDConstraint* SetConstraintType(uint8_t constraint_index)
 		{
-			physics_context_.SetConstraintType<T>(constraint_index);
+			return physics_context_.SetConstraintType<T>(constraint_index);
 		}
 
 		std::vector<std::pair<float*, std::string>> GetConstraintParameters(uint8_t constraint_index);
