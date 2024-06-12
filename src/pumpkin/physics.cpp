@@ -135,7 +135,19 @@ namespace pmk
 
 	void PhysicsContext::SetPhysicsMaterialConstraintMask(uint8_t physics_mat_index, uint32_t mask)
 	{
-		physics_materials_[physics_mat_index]->jacobi_constraints_mask = mask;
+		PhysicsMaterial* mat{ physics_materials_[physics_mat_index] };
+		mat->jacobi_constraints_mask = mask;
+
+		// If any of the constrains in the mask are rigid body constraints, mark the physics material to indicate that.
+		mat->rigid_body = false;
+		uint32_t i{ 0 };
+		while (mask)
+		{
+			if ((mask & 1) && dynamic_cast<RigidBodyConstraint*>(jacobi_constraints_[i])) {
+				mat->rigid_body = true;
+			}
+			mask >>= 1;
+		}
 	}
 
 	uint32_t PhysicsContext::GetPhysicsMaterialConstraintMask(uint8_t physics_mat_index)
