@@ -39,6 +39,7 @@ const std::array<std::string, (uint32_t)ParticleColorMode::COLOR_MODE_COUNT> par
 enum class ConstraintType
 {
 	FLUID_DENSITY,
+	COLLISION,
 	RIGID_BODY,
 
 	CONSTRAINT_COUNT,
@@ -46,6 +47,7 @@ enum class ConstraintType
 
 const std::array<std::string, (uint32_t)ConstraintType::CONSTRAINT_COUNT> constraint_names{
 	"Fluid density",
+	"Collision",
 	"Rigid body",
 };
 

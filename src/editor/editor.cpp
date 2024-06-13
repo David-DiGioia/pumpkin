@@ -1120,6 +1120,9 @@ ConstraintType Editor::GetConstraintType(uint32_t constraint_index)
 	if (dynamic_cast<pmk::FluidDensityConstraint*>(constraint)) {
 		return ConstraintType::FLUID_DENSITY;
 	}
+	if (dynamic_cast<pmk::CollisionConstraint*>(constraint)) {
+		return ConstraintType::COLLISION;
+	}
 	if (dynamic_cast<pmk::RigidBodyConstraint*>(constraint)) {
 		return ConstraintType::RIGID_BODY;
 	}
@@ -1135,6 +1138,9 @@ void Editor::SetConstraintType(uint32_t constraint_index, ConstraintType type)
 	{
 	case ConstraintType::FLUID_DENSITY:
 		new_constraint = pumpkin_->SetConstraintType<pmk::FluidDensityConstraint>(constraint_index);
+		break;
+	case ConstraintType::COLLISION:
+		new_constraint = pumpkin_->SetConstraintType<pmk::CollisionConstraint>(constraint_index);
 		break;
 	case ConstraintType::RIGID_BODY:
 		new_constraint = pumpkin_->SetConstraintType<pmk::RigidBodyConstraint>(constraint_index);

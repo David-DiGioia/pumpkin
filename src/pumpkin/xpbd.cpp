@@ -370,4 +370,49 @@ namespace pmk
 	{
 		// No-op.
 	}
+
+	void CollisionConstraint::Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time)
+	{
+		// No-op.
+	}
+
+	glm::vec3 CollisionConstraint::Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
+	{
+		constexpr float compliance{ 0.0f };
+
+		const XPBDParticle& p1{ p_context->GetParticles()[particle_idx] };
+		glm::vec3 delta_x{};
+
+		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.position))
+		{
+			if (p2_idx == particle_idx) {
+				continue;
+			}
+
+			const XPBDParticle& p2{ p_context->GetParticles()[p2_idx] };
+			float distance{ glm::distance(p1.position, p2.position) };
+
+			if (distance >= PARTICLE_WIDTH) {
+				continue;
+			}
+
+			float c{ distance - PARTICLE_WIDTH };
+			glm::vec3 delta_c1{ (p1.position - p2.position) / distance };
+
+			float lambda{ -c / (p1.inverse_mass + p2.inverse_mass) }; // Magnitude of gradients are 1.0, so they're not written here.
+			delta_x += lambda * p1.inverse_mass * delta_c1;
+		}
+
+		return delta_x;
+	}
+
+	std::vector<std::pair<float*, std::string>> CollisionConstraint::GetParameters()
+	{
+		return {};
+	}
+
+	void CollisionConstraint::OnParametersMutated()
+	{
+		// No-op.
+	}
 }

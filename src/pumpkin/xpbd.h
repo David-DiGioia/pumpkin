@@ -264,4 +264,16 @@ namespace pmk
 		std::vector<float> lambda_cache_{};
 		float rest_density_{ 1000.0f }; // kilogram per meter cubed.
 	};
+
+	class CollisionConstraint : public XPBDConstraint
+	{
+	public:
+		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) override;
+
+		virtual glm::vec3 Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
+
+		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
+
+		virtual void OnParametersMutated() override;
+	};
 }
