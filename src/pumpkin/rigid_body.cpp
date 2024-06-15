@@ -26,7 +26,7 @@ namespace pmk
 		return {};
 	}
 
-	glm::uvec3 RigidBody::GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const
+	std::optional<glm::uvec3> RigidBody::GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const
 	{
 		glm::vec3 coord_space{ glm::vec3{inv_world_transform * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
 		coord_space += center_of_mass;
@@ -48,10 +48,10 @@ namespace pmk
 
 		// Check if it's less than one since we are coord space, where 1 voxel width is 1 unit.
 		if (closest_sqr < 1.0f) {
-			return potential_collisions[closest_idx];
+			return std::make_optional(potential_collisions[closest_idx]);
 		}
 
-		return glm::uvec3{ UINT_MAX };
+		return std::nullopt;
 	}
 
 	glm::vec3 RigidBody::CoordinateToGlobal(const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const
@@ -214,7 +214,12 @@ namespace pmk
 		rigid_bodies_.clear();
 	}
 
-	std::vector<RigidBody*> XPBDRigidBodyContext::GetRigidBodies()
+	const std::vector<RigidBody*>& XPBDRigidBodyContext::GetRigidBodies() const
+	{
+		return rigid_bodies_;
+	}
+
+	std::vector<RigidBody*>& XPBDRigidBodyContext::GetRigidBodies()
 	{
 		return rigid_bodies_;
 	}
@@ -296,13 +301,13 @@ namespace pmk
 		{
 			glm::uvec3 small_coord{ ov.coord };
 			glm::vec3 global_pos{ small->CoordinateToGlobal(small_world, small_coord) };
-			glm::uvec3 big_coord{ big->GetCollisionCoordinate(inv_big_world, global_pos) };
+			std::optional<glm::uvec3> big_coord{ big->GetCollisionCoordinate(inv_big_world, global_pos) };
 
-			bool in_bounds{ big_coord.x != UINT_MAX };
+			bool in_bounds{ big_coord.has_value() };
 
-			if (in_bounds && !big->voxel_chunk.IsEmpty(big_coord))
+			if (in_bounds && !big->voxel_chunk.IsEmpty(big_coord.value()))
 			{
-				collision_pairs[collision_pair_idx++] = ab_swap ? CollisionPair{ big_coord, small_coord } : CollisionPair{ small_coord, big_coord };
+				collision_pairs[collision_pair_idx++] = ab_swap ? CollisionPair{ big_coord.value(), small_coord } : CollisionPair{ small_coord, big_coord.value() };
 
 				if (collision_pair_idx == MAX_COLLISION_PAIRS) {
 					break;
@@ -312,6 +317,24 @@ namespace pmk
 
 		*out_count = collision_pair_idx;
 		return collision_pairs;
+	}
+
+	std::optional<glm::vec3> XPBDRigidBodyContext::ComputeParticleCollision(const RigidBody* rb, const glm::vec3& particle_position) const
+	{
+		// TODO: Store world and inverse world transform as part of rigid body and calculate it only once per time step.
+		glm::mat4 inv_world{ glm::inverse(rb->node->GetWorldTransform()) };
+		std::optional<glm::uvec3> rb_voxel_coord{ rb->GetCollisionCoordinate(inv_world, particle_position) };
+
+		if (rb_voxel_coord.has_value())
+		{
+			// Local position of voxel center.
+			glm::vec3 r_local{ ((glm::vec3)rb_voxel_coord.value() - rb->center_of_mass) * PARTICLE_WIDTH };
+			// World position of voxel center.
+			glm::vec3 world_pos{ glm::vec3{rb->node->GetWorldTransform() * glm::vec4{r_local, 1.0f}} };
+			return std::make_optional(world_pos);
+		}
+
+		return std::nullopt;
 	}
 
 	void XPBDRigidBodyContext::SetRigidBodyOverlayEnabled(bool enabled)

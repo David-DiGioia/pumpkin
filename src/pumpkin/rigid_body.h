@@ -2,6 +2,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
 
@@ -59,8 +60,8 @@ namespace pmk
 		renderer::VoxelChunk voxel_chunk;
 
 		// Given voxel world space position, get the voxel coordinate from rb that collides with it.
-		// Returns UINT_MAX if no solution.
-		glm::uvec3 GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const;
+		// Returns empty optional if no solution.
+		std::optional<glm::uvec3> GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const;
 
 		// Convert voxel coordinate to world space position.
 		glm::vec3 CoordinateToGlobal(const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const;
@@ -100,7 +101,9 @@ namespace pmk
 
 		void ResetRigidBodies();
 
-		std::vector<RigidBody*> GetRigidBodies();
+		const std::vector<RigidBody*>& GetRigidBodies() const;
+
+		std::vector<RigidBody*>& GetRigidBodies();
 
 		// Populate rigid_bodies_ with rigid bodies made from connected voxels sharing
 		// the same rigid body physics material.
@@ -109,6 +112,9 @@ namespace pmk
 		std::vector<uint32_t> CreateRigidBodiesByConnectedness(renderer::VoxelChunk& voxel_chunk, bool* out_is_empty);
 
 		std::array<CollisionPair, MAX_COLLISION_PAIRS> ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const;
+
+		// If collision occurs then return world position of rigid body voxel that p collides with. Empty optional means no collision occurred.
+		std::optional<glm::vec3> ComputeParticleCollision(const RigidBody* rb, const glm::vec3& particle_position) const;
 
 #ifdef EDITOR_ENABLED
 		void SetRigidBodyOverlayEnabled(bool enabled);

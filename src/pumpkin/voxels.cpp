@@ -27,7 +27,7 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t sub_steps{ 1 };
+		constexpr uint32_t sub_steps{ 10 };
 		for (uint32_t i{ 0 }; i < sub_steps; ++i) {
 			xpbd_context_.SimulateStep(delta_time / sub_steps, rb_context);
 		}

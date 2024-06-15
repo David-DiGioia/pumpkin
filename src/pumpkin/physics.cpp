@@ -147,6 +147,7 @@ namespace pmk
 				mat->rigid_body = true;
 			}
 			mask >>= 1;
+			++i;
 		}
 	}
 

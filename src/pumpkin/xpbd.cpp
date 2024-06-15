@@ -383,6 +383,7 @@ namespace pmk
 		const XPBDParticle& p1{ p_context->GetParticles()[particle_idx] };
 		glm::vec3 delta_x{};
 
+		// Detect particle collisions.
 		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.position))
 		{
 			if (p2_idx == particle_idx) {
@@ -390,17 +391,37 @@ namespace pmk
 			}
 
 			const XPBDParticle& p2{ p_context->GetParticles()[p2_idx] };
-			float distance{ glm::distance(p1.position, p2.position) };
+			glm::vec3 diff{ p1.position - p2.position };
+			float distance{ glm::length(diff) };
 
 			if (distance >= PARTICLE_WIDTH) {
 				continue;
 			}
 
 			float c{ distance - PARTICLE_WIDTH };
-			glm::vec3 delta_c1{ (p1.position - p2.position) / distance };
+			glm::vec3 delta_c1{ diff / distance };
 
 			float lambda{ -c / (p1.inverse_mass + p2.inverse_mass) }; // Magnitude of gradients are 1.0, so they're not written here.
 			delta_x += lambda * p1.inverse_mass * delta_c1;
+		}
+
+		// TODO: Don't iterate over all rigid bodies.
+		// Detect rigid body collisions.
+		for (const RigidBody* rb : rb_context->GetRigidBodies())
+		{
+			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1.position) };
+
+			if (rb_voxel_pos.has_value())
+			{
+				glm::vec3 diff{ p1.position - rb_voxel_pos.value() };
+				float distance{ glm::length(diff) };
+				float c{ distance - PARTICLE_WIDTH };
+				glm::vec3 delta_c1{ diff / distance };
+
+				float rb_inv_mass{ rb->immovable ? 0.0f : (1.0f / rb->mass) };
+				float lambda{ -c / (p1.inverse_mass + rb_inv_mass) }; // Magnitude of gradients are 1.0, so they're not written here.
+				delta_x += lambda * p1.inverse_mass * delta_c1;
+			}
 		}
 
 		return delta_x;
