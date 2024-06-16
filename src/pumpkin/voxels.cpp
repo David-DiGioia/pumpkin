@@ -229,6 +229,7 @@ namespace pmk
 			xpbd_particle_instances[p].position = particles[p].position;
 			xpbd_particle_instances[p].predicted_position = particles[p].predicted_position;
 			xpbd_particle_instances[p].velocity = particles[p].velocity;
+			xpbd_particle_instances[p].debug_color = particles[p].debug_color;
 			xpbd_particle_instances[p].inverse_mass = particles[p].inverse_mass;
 		}
 

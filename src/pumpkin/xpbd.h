@@ -19,6 +19,10 @@ namespace pmk
 		glm::vec3 velocity;           // Meters per second.
 		float inverse_mass;           // Reciprocal kilograms.
 		uint8_t physics_material_index;
+
+#ifdef EDITOR_ENABLED
+		glm::vec3 debug_color; // Color to show arbitrary debug information when debugging.
+#endif
 	};
 
 	struct XPBDParticleIndex

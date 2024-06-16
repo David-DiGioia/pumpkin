@@ -48,7 +48,8 @@ namespace renderer
 			XPBD_PARTICLE_ATTRIBUTE(1, position),
 			XPBD_PARTICLE_ATTRIBUTE(2, predicted_position),
 			XPBD_PARTICLE_ATTRIBUTE(3, velocity),
-			XPBD_PARTICLE_ATTRIBUTE(4, inverse_mass),
+			XPBD_PARTICLE_ATTRIBUTE(4, debug_color),
+			XPBD_PARTICLE_ATTRIBUTE(5, inverse_mass),
 		};
 	}
 

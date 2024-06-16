@@ -25,6 +25,7 @@ enum class ParticleColorMode
 	HIDDEN,
 	MASS,
 	VELOCITY,
+	DEBUG_COLOR,
 
 	COLOR_MODE_COUNT,
 };
@@ -34,6 +35,7 @@ const std::array<std::string, (uint32_t)ParticleColorMode::COLOR_MODE_COUNT> par
 	"Hidden",
 	"Mass",
 	"Velocity",
+	"Debug color",
 };
 
 enum class ConstraintType

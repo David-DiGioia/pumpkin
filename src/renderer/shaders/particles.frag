@@ -2,7 +2,8 @@
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_velocity;
-layout (location = 2) in float in_mass;
+layout (location = 2) in vec3 in_debug_color;
+layout (location = 3) in float in_mass;
 
 layout (location = 0) out vec4 out_color;
 
@@ -14,10 +15,11 @@ layout (push_constant) uniform PushConstant {
 // This makes the depth test happen earlier before we discard fragments for COLOR_MODE_NONE.
 layout(early_fragment_tests) in;
 
-const uint COLOR_MODE_FINAL_SHADING       = 0;
-const uint COLOR_MODE_HIDDEN              = 1;
-const uint COLOR_MODE_MASS                = 2;
-const uint COLOR_MODE_VELOCITY            = 3;
+const uint COLOR_MODE_FINAL_SHADING = 0;
+const uint COLOR_MODE_HIDDEN        = 1;
+const uint COLOR_MODE_MASS          = 2;
+const uint COLOR_MODE_VELOCITY      = 3;
+const uint COLOR_MODE_DEBUG_COLOR   = 4;
 
 const float PI = 3.14159265359;
 
@@ -45,6 +47,9 @@ void main()
         break;
     case COLOR_MODE_VELOCITY:
         out_color = vec4(abs(in_velocity / constants.max_value), 1.0);
+        break;
+    case COLOR_MODE_DEBUG_COLOR:
+        out_color = vec4(in_debug_color, 1.0);
         break;
     }
 }

@@ -168,6 +168,17 @@ namespace pmk
 			}
 		}
 
+		// Temporary debug color.
+		for (uint32_t p2_idx{ 0 }; p2_idx < (uint32_t)particles_.size(); ++p2_idx)
+		{
+			particles_[p2_idx].debug_color = glm::vec3{ 0.2f, 0.2f, 0.2f };
+		}
+		for (uint32_t p2_idx : GetParticleIndicesByProximity(particles_[0].position))
+		{
+			particles_[p2_idx].debug_color = glm::vec3{ 1.0f, 0.0f, 0.0f };
+		}
+		particles_[0].debug_color = glm::vec3{ 0.0f, 1.0f, 0.0f };
+
 		// Update position from Jacobi iterations.
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
 			particles_[i].predicted_position = jacobi_positions_[i];
