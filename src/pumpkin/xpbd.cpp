@@ -114,7 +114,7 @@ namespace pmk
 
 	void XPBDParticleContext::SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
-		constexpr uint32_t iterations{ 2 };
+		constexpr uint32_t iterations{ 1 };
 
 		ApplyForces(delta_time);
 		for (uint32_t i{ 0 }; i < iterations; ++i) {
@@ -388,14 +388,14 @@ namespace pmk
 		glm::vec3 delta_x{};
 
 		// Detect particle collisions.
-		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.position))
+		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.predicted_position))
 		{
-			if (p2_idx == particle_idx) {
+ 			if (p2_idx == particle_idx) {
 				continue;
 			}
 
 			const XPBDParticle& p2{ p_context->GetParticles()[p2_idx] };
-			glm::vec3 diff{ p1.position - p2.position };
+			glm::vec3 diff{ p1.predicted_position - p2.predicted_position };
 			float distance{ glm::length(diff) };
 
 			if (distance >= PARTICLE_WIDTH) {
@@ -413,11 +413,11 @@ namespace pmk
 		// Detect rigid body collisions.
 		for (const RigidBody* rb : rb_context->GetRigidBodies())
 		{
-			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1.position) };
+			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1.predicted_position) };
 
 			if (rb_voxel_pos.has_value())
 			{
-				glm::vec3 diff{ p1.position - rb_voxel_pos.value() };
+				glm::vec3 diff{ p1.predicted_position - rb_voxel_pos.value() };
 				float distance{ glm::length(diff) };
 				float c{ distance - PARTICLE_WIDTH };
 				glm::vec3 delta_c1{ diff / distance };

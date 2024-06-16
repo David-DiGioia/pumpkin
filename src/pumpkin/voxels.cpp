@@ -27,9 +27,9 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t sub_steps{ 10 };
-		for (uint32_t i{ 0 }; i < sub_steps; ++i) {
-			xpbd_context_.SimulateStep(delta_time / sub_steps, rb_context);
+		constexpr uint32_t substeps{ 8 };
+		for (uint32_t i{ 0 }; i < substeps; ++i) {
+			xpbd_context_.SimulateStep(delta_time / substeps, rb_context);
 		}
 		GenerateDynamicParticleMesh(particle_node_->render_object, xpbd_context_.GetParticles());
 	}
