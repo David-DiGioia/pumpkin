@@ -173,6 +173,11 @@ namespace pmk
 		scene_.DeleteConstraint(constraint_index);
 	}
 
+	pmk::XPBDConstraint* Pumpkin::GetConstraint(uint32_t constraint_index)
+	{
+		return scene_.GetConstraint(constraint_index);
+	}
+
 	std::vector<std::pair<float*, std::string>> Pumpkin::GetConstraintParameters(uint8_t constraint_index)
 	{
 		return scene_.GetConstraintParameters(constraint_index);

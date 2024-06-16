@@ -70,6 +70,8 @@ namespace pmk
 
 		void DeleteConstraint(uint32_t constraint_index);
 
+		pmk::XPBDConstraint* GetConstraint(uint32_t constraint_index);
+
 		// Returns pointer to newly created constraint.
 		template<typename T>
 		pmk::XPBDConstraint* SetConstraintType(uint8_t constraint_index)

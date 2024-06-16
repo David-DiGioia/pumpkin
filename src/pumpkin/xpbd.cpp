@@ -114,8 +114,12 @@ namespace pmk
 
 	void XPBDParticleContext::SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
+		constexpr uint32_t iterations{ 2 };
+
 		ApplyForces(delta_time);
-		SolveConstraints(delta_time, rb_context);
+		for (uint32_t i{ 0 }; i < iterations; ++i) {
+			SolveConstraints(delta_time, rb_context);
+		}
 		UpdateVelocityAndInternalForces(delta_time);
 
 		UpdateIndexBuffers();
@@ -378,7 +382,7 @@ namespace pmk
 
 	glm::vec3 CollisionConstraint::Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
-		constexpr float compliance{ 0.0f };
+		float compliance_term{ compliance_ / (delta_time * delta_time) };
 
 		const XPBDParticle& p1{ p_context->GetParticles()[particle_idx] };
 		glm::vec3 delta_x{};
@@ -401,7 +405,7 @@ namespace pmk
 			float c{ distance - PARTICLE_WIDTH };
 			glm::vec3 delta_c1{ diff / distance };
 
-			float lambda{ -c / (p1.inverse_mass + p2.inverse_mass) }; // Magnitude of gradients are 1.0, so they're not written here.
+			float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
 			delta_x += lambda * p1.inverse_mass * delta_c1;
 		}
 
@@ -419,7 +423,7 @@ namespace pmk
 				glm::vec3 delta_c1{ diff / distance };
 
 				float rb_inv_mass{ rb->immovable ? 0.0f : (1.0f / rb->mass) };
-				float lambda{ -c / (p1.inverse_mass + rb_inv_mass) }; // Magnitude of gradients are 1.0, so they're not written here.
+				float lambda{ -c / (p1.inverse_mass + rb_inv_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
 				delta_x += lambda * p1.inverse_mass * delta_c1;
 			}
 		}

@@ -260,7 +260,9 @@ namespace pmk
 
 		virtual void OnParametersMutated() override;
 
-	private:
+	protected:
+		friend class PhysicsContext;
+
 		std::vector<float> lambda_cache_{};
 		float rest_density_{ 1000.0f }; // kilogram per meter cubed.
 	};
@@ -275,5 +277,10 @@ namespace pmk
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 
 		virtual void OnParametersMutated() override;
+
+	protected:
+		friend class PhysicsContext;
+
+		float compliance_{ 0.0f };
 	};
 }

@@ -60,6 +60,8 @@ namespace pmk
 
 		void DeleteConstraint(uint32_t selected_idx);
 
+		pmk::XPBDConstraint* GetConstraint(uint32_t constraint_index);
+
 		template<typename T>
 		pmk::XPBDConstraint* SetConstraintType(uint8_t constraint_index)
 		{

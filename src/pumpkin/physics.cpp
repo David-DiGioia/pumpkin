@@ -5,24 +5,26 @@ namespace jsonkey
 	const std::string PHYSICS_MATERIALS{ "physics_materials" };
 	// Material members.
 	const std::string RENDER_MATERIAL_INDEX{ "render_material_index" };
-	const std::string CONSTITUTIVE_MODEL_TYPE{ "constitutive_model_type" };
-	const std::string CONSTITUTIVE_MODEL_DENSITY{ "density" };
-	// Begin hyper elastic model.
-	const std::string HYPER_ELASTIC_MODEL{ "hyper_elastic" };
-	const std::string HYPER_ELASTIC_YOUNGS_MODULUS{ "youngs_modulus" };
-	const std::string HYPER_ELASTIC_POISSONS_RATIO{ "poissons_ratio" };
-	const std::string HYPER_ELASTIC_MU{ "mu" };
-	const std::string HYPER_ELASTIC_LAMBDA{ "lambda" };
-	// End hyper elastic model.
-	// Begin fluid model.
-	const std::string FLUID_MODEL{ "fluid" };
-	const std::string FLUID_REST_DENSITY{ "rest_density" };
-	const std::string FLUID_DYNAMIC_VISCOSITY{ "dynamic_viscosity" };
-	// End fluid model.
-	// Begin rigid body model.
-	const std::string RIGID_BODY_MODEL{ "rigid_body" };
-	// End rigid body model.
+	const std::string JACOBI_CONSTRAINTS_MASK{ "jacobi_constraints_mask" };
+	const std::string DENSITY{ "density" };
+	const std::string RIGID_BODY{ "rigid_body" };
 	// End material members.
+
+	const std::string CONSTRAINTS{ "constraints" };
+	const std::string CONSTRAINT_TYPE{ "constraint_type" };
+	// Constraint members.
+	const std::string COMPLIANCE{ "compliance" };
+	// Begin fluid density constraint.
+	const std::string FLUID_DENSITY_CONSTRAINT{ "fluid_density" };
+	const std::string FLUID_DENSITY_REST_DENSITY{ "rest_density" };
+	// End fluid density constraint.
+	// Begin collision constraint.
+	const std::string COLLISION_CONSTRAINT{ "collision" };
+	// End collision constraint.
+	// Begin rigid body constraint.
+	const std::string RIGID_BODY_CONSTRAINT{ "rigid_body" };
+	// End rigid body constraint.
+	// End constraint members.
 }
 
 namespace pmk
@@ -173,6 +175,11 @@ namespace pmk
 		jacobi_constraints_.erase(jacobi_constraints_.begin() + selected_idx);
 	}
 
+	pmk::XPBDConstraint* PhysicsContext::GetConstraint(uint32_t constraint_index)
+	{
+		return jacobi_constraints_[constraint_index];
+	}
+
 	std::vector<std::pair<float*, std::string>> PhysicsContext::GetConstraintParameters(uint8_t constraint_index)
 	{
 		return jacobi_constraints_[constraint_index]->GetParameters();
@@ -183,84 +190,101 @@ namespace pmk
 		jacobi_constraints_[constraint_index]->OnParametersMutated();
 	}
 
+	// TODO: Figure out why rigid body constraint doesn't save properly!
+
 	void PhysicsContext::DumpPhysicsMaterials(nlohmann::json& j)
 	{
-		/*
 		// Save physics materials.
 		for (const PhysicsMaterial* material : physics_materials_)
 		{
-			ConstitutiveModel* model{ material->constitutive_model };
-
 			nlohmann::json json_physics_mat{
 				{ jsonkey::RENDER_MATERIAL_INDEX, material->render_material },
-				{ jsonkey::CONSTITUTIVE_MODEL_DENSITY, model->GetDensity() },
+				{ jsonkey::JACOBI_CONSTRAINTS_MASK, material->jacobi_constraints_mask },
+				{ jsonkey::DENSITY, material->density },
+				{ jsonkey::RIGID_BODY, material->rigid_body },
 			};
-
-			HyperElasticModel* hyper_elastic_model{ dynamic_cast<HyperElasticModel*>(model) };
-			if (hyper_elastic_model)
-			{
-				json_physics_mat[jsonkey::CONSTITUTIVE_MODEL_TYPE] = jsonkey::HYPER_ELASTIC_MODEL;
-				json_physics_mat[jsonkey::HYPER_ELASTIC_YOUNGS_MODULUS] = hyper_elastic_model->youngs_modulus_;
-				json_physics_mat[jsonkey::HYPER_ELASTIC_POISSONS_RATIO] = hyper_elastic_model->poissons_ratio_;
-				json_physics_mat[jsonkey::HYPER_ELASTIC_MU] = hyper_elastic_model->mu_;
-				json_physics_mat[jsonkey::HYPER_ELASTIC_LAMBDA] = hyper_elastic_model->lambda_;
-			}
-
-			FluidModel* fluid_model{ dynamic_cast<FluidModel*>(model) };
-			if (fluid_model)
-			{
-				json_physics_mat[jsonkey::CONSTITUTIVE_MODEL_TYPE] = jsonkey::FLUID_MODEL;
-				json_physics_mat[jsonkey::FLUID_REST_DENSITY] = fluid_model->rest_density_;
-				json_physics_mat[jsonkey::FLUID_DYNAMIC_VISCOSITY] = fluid_model->dynamic_viscosity_;
-			}
-
-			RigidBodyConstraint* rigid_body_model{ dynamic_cast<RigidBodyConstraint*>(model) };
-			if (rigid_body_model)
-			{
-				json_physics_mat[jsonkey::CONSTITUTIVE_MODEL_TYPE] = jsonkey::RIGID_BODY_MODEL;
-			}
 
 			j[jsonkey::PHYSICS_MATERIALS] += json_physics_mat;
 		}
-		*/
+
+		// Save constraints.
+		for (const XPBDConstraint* constraint : jacobi_constraints_)
+		{
+			const FluidDensityConstraint* fluid_density_constraint{ dynamic_cast<const FluidDensityConstraint*>(constraint) };
+			if (fluid_density_constraint)
+			{
+				nlohmann::json json_constraint{
+					{ jsonkey::CONSTRAINT_TYPE, jsonkey::FLUID_DENSITY_CONSTRAINT },
+					{ jsonkey::FLUID_DENSITY_REST_DENSITY, fluid_density_constraint->rest_density_ },
+				};
+
+				j[jsonkey::CONSTRAINTS] += json_constraint;
+				continue;
+			}
+
+			const CollisionConstraint* collision_constraint{ dynamic_cast<const CollisionConstraint*>(constraint) };
+			if (collision_constraint)
+			{
+				nlohmann::json json_constraint{
+					{ jsonkey::CONSTRAINT_TYPE, jsonkey::COLLISION_CONSTRAINT },
+					{ jsonkey::COMPLIANCE, collision_constraint->compliance_ },
+				};
+
+				j[jsonkey::CONSTRAINTS] += json_constraint;
+				continue;
+			}
+
+			const RigidBodyConstraint* rb_constraint{ dynamic_cast<const RigidBodyConstraint*>(constraint) };
+			if (rb_constraint)
+			{
+				nlohmann::json json_constraint{
+					{ jsonkey::CONSTRAINT_TYPE, jsonkey::RIGID_BODY_CONSTRAINT },
+				};
+
+				j[jsonkey::CONSTRAINTS] += json_constraint;
+				continue;
+			}
+		}
 	}
 
 	void PhysicsContext::LoadPhysicsMaterials(nlohmann::json& j)
 	{
-		/*
 		uint8_t physics_mat_idx{ 0 };
 		for (auto& json_physics_mat : j[jsonkey::PHYSICS_MATERIALS])
 		{
 			PhysicsMaterial* physics_mat{ NewPhysicsMaterial() };
 			physics_mat->render_material = json_physics_mat[jsonkey::RENDER_MATERIAL_INDEX];
-			physics_mat->constitutive_model->density_ = json_physics_mat[jsonkey::CONSTITUTIVE_MODEL_DENSITY];
-
-			std::string model_type{ json_physics_mat[jsonkey::CONSTITUTIVE_MODEL_TYPE] };
-
-			if (model_type == jsonkey::HYPER_ELASTIC_MODEL)
-			{
-				SetPhysicsMaterialModel<HyperElasticModel>(physics_mat_idx);
-				HyperElasticModel* model{ (HyperElasticModel*)physics_mat->constitutive_model };
-				model->youngs_modulus_ = json_physics_mat[jsonkey::HYPER_ELASTIC_YOUNGS_MODULUS];
-				model->poissons_ratio_ = json_physics_mat[jsonkey::HYPER_ELASTIC_POISSONS_RATIO];
-				model->mu_ = json_physics_mat[jsonkey::HYPER_ELASTIC_MU];
-				model->lambda_ = json_physics_mat[jsonkey::HYPER_ELASTIC_LAMBDA];
-			}
-			else if (model_type == jsonkey::FLUID_MODEL)
-			{
-				SetPhysicsMaterialModel<FluidModel>(physics_mat_idx);
-				FluidModel* model{ (FluidModel*)physics_mat->constitutive_model };
-				model->rest_density_ = json_physics_mat[jsonkey::FLUID_REST_DENSITY];
-				model->dynamic_viscosity_ = json_physics_mat[jsonkey::FLUID_DYNAMIC_VISCOSITY];
-			}
-			else if (model_type == jsonkey::RIGID_BODY_MODEL)
-			{
-				SetPhysicsMaterialModel<RigidBodyConstraint>(physics_mat_idx);
-			}
+			physics_mat->jacobi_constraints_mask = json_physics_mat[jsonkey::JACOBI_CONSTRAINTS_MASK];
+			physics_mat->density = json_physics_mat[jsonkey::DENSITY];
+			physics_mat->rigid_body = json_physics_mat[jsonkey::RIGID_BODY];
 			++physics_mat_idx;
 		}
+
+		uint32_t constraint_idx{ 0 };
+		for (auto& json_constraint : j[jsonkey::CONSTRAINTS])
+		{
+			XPBDConstraint* constraint{ NewConstraint() };
+
+			std::string constraint_type{ json_constraint[jsonkey::CONSTRAINT_TYPE] };
+			if (constraint_type == jsonkey::FLUID_DENSITY_CONSTRAINT)
+			{
+				SetConstraintType<FluidDensityConstraint>(constraint_idx);
+				FluidDensityConstraint* fluid_density_constraint{ (FluidDensityConstraint*)constraint };
+				fluid_density_constraint->rest_density_ = json_constraint[jsonkey::FLUID_DENSITY_REST_DENSITY];
+			}
+			else if (constraint_type == jsonkey::COLLISION_CONSTRAINT)
+			{
+				SetConstraintType<CollisionConstraint>(constraint_idx);
+				CollisionConstraint* collision_constraint{ (CollisionConstraint*)constraint };
+				collision_constraint->compliance_ = json_constraint[jsonkey::COMPLIANCE];
+			}
+			else if (constraint_type == jsonkey::RIGID_BODY_CONSTRAINT) {
+				SetConstraintType<RigidBodyConstraint>(constraint_idx);
+			}
+			++constraint_idx;
+		}
+
 		UpdatePhysicsRenderMaterials();
-		*/
 	}
 
 #ifdef EDITOR_ENABLED

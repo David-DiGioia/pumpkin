@@ -60,6 +60,11 @@ namespace jsonkey
 	const std::string PHYSICS_MATERIAL_NAME{ "name" };
 	// End editor physics material members.
 
+	const std::string CONSTRAINTS{ "constraints" };
+	// Begin editor physics material members.
+	const std::string CONSTRAINT_NAME{ "name" };
+	// End editor physics material members.
+
 	const std::string TEXTURES{ "textures" };
 	// Begin editor texture members.
 	const std::string TEXTURE_NAME{ "name" };
@@ -393,6 +398,12 @@ void Editor::SaveProject() const
 		json_material[jsonkey::PHYSICS_MATERIAL_NAME] = physics_materials_[phys_mat_idx++]->GetName();
 	}
 
+	// The other constraints properties are saved in DumpPhysicsMaterials() but the name is specific to the editor so it's saved here.
+	uint32_t constraint_idx{ 0 };
+	for (auto& json_constraint : j[jsonkey::CONSTRAINTS]) {
+		json_constraint[jsonkey::CONSTRAINT_NAME] = constraints_[constraint_idx++]->GetName();
+	}
+
 	// Dump shader path and parameters.
 	j[jsonkey::PARTICLE_GEN_SHADER_INDEX] = particle_gen_shader_idx_;
 	j[jsonkey::PARTICLE_NODE_ID] = particle_node_ ? particle_node_->node->node_id : NULL_INDEX;
@@ -468,11 +479,19 @@ ProjectLoadGuiInfo Editor::LoadProject(const std::filesystem::path& proj_dir)
 	}
 
 	// Create new editor physics materials.
-	uint32_t i{ 0 };
+	uint32_t phys_mat_idx{ 0 };
 	for (auto& json_mat : j[jsonkey::PHYSICS_MATERIALS])
 	{
 		std::string material_name{ json_mat[jsonkey::PHYSICS_MATERIAL_NAME] };
-		physics_materials_.push_back(new EditorPhysicsMaterial{ pumpkin_->GetPhysicsMaterial(i++), material_name });
+		physics_materials_.push_back(new EditorPhysicsMaterial{ pumpkin_->GetPhysicsMaterial(phys_mat_idx++), material_name });
+	}
+
+	// Create new editor constraints.
+	uint32_t constraint_idx{ 0 };
+	for (auto& json_constraint : j[jsonkey::CONSTRAINTS])
+	{
+		std::string constraint_name{ json_constraint[jsonkey::CONSTRAINT_NAME] };
+		constraints_.push_back(new EditorConstraint{ pumpkin_->GetConstraint(constraint_idx++), constraint_name });
 	}
 
 	// Load user shaders (eg particle gen shader).
