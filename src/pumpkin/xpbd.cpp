@@ -433,7 +433,9 @@ namespace pmk
 
 	std::vector<std::pair<float*, std::string>> CollisionConstraint::GetParameters()
 	{
-		return {};
+		return {
+			{&compliance_, "Compliance"},
+		};
 	}
 
 	void CollisionConstraint::OnParametersMutated()
