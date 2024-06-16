@@ -828,7 +828,7 @@ void EditorGui::Constraints()
 			ImGui::Text(parameter.second.c_str());
 			ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
 			std::string imgui_id{ "##" + parameter.second };
-			constraint_changed |= ImGui::DragFloat(imgui_id.c_str(), parameter.first, 0.01f, 0.0f, 0.0f);
+			constraint_changed |= ImGui::DragFloat(imgui_id.c_str(), parameter.first, 0.01f, 0.0f, 0.0f, "%.5f");
 		}
 
 		if (constraint_changed) {
