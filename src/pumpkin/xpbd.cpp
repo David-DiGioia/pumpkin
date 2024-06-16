@@ -114,7 +114,7 @@ namespace pmk
 
 	void XPBDParticleContext::SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
-		constexpr uint32_t iterations{ 2 };
+		constexpr uint32_t iterations{ 1 };
 
 		ApplyForces(delta_time);
 		for (uint32_t i{ 0 }; i < iterations; ++i) {
@@ -389,6 +389,7 @@ namespace pmk
 
 		// Detect particle collisions.
 		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.predicted_position))
+		//for (uint32_t p2_idx{ 0 }; p2_idx < (uint32_t)p_context->GetParticles().size(); ++p2_idx)
 		{
  			if (p2_idx == particle_idx) {
 				continue;

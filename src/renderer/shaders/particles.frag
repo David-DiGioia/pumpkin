@@ -17,7 +17,7 @@ layout(early_fragment_tests) in;
 const uint COLOR_MODE_FINAL_SHADING       = 0;
 const uint COLOR_MODE_HIDDEN              = 1;
 const uint COLOR_MODE_MASS                = 2;
-const uint COLOR_MODE_VELOCITY            = 5;
+const uint COLOR_MODE_VELOCITY            = 3;
 
 const float PI = 3.14159265359;
 
