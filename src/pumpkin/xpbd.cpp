@@ -115,7 +115,7 @@ namespace pmk
 
 	void XPBDParticleContext::SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
-		constexpr uint32_t iterations{ 1 };
+		constexpr uint32_t iterations{ 2 };
 
 		ApplyForces(delta_time);
 		for (uint32_t i{ 0 }; i < iterations; ++i) {

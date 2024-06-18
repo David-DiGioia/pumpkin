@@ -59,6 +59,9 @@ namespace pmk
 		glm::quat previous_rotation;
 		renderer::VoxelChunk voxel_chunk;
 
+		glm::mat4 cached_world_transform{};
+		glm::mat4 cached_inv_world_transform{};
+
 		// Given voxel world space position, get the voxel coordinate from rb that collides with it.
 		// Returns empty optional if no solution.
 		std::optional<glm::uvec3> GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const;
@@ -118,6 +121,8 @@ namespace pmk
 
 #ifdef EDITOR_ENABLED
 		void SetRigidBodyOverlayEnabled(bool enabled);
+
+		void GenerateDynamicDebugRbVoxelInstances() const;
 #endif
 
 	private:
@@ -135,8 +140,6 @@ namespace pmk
 			std::vector<std::pair<renderer::Voxel, glm::uvec3>>&& voxel_pairs,
 			glm::vec3&& center_of_mass,
 			float mass);
-
-		void GenerateDynamicDebugRbVoxelInstances() const;
 
 		renderer::VulkanRenderer* renderer_{};
 		Scene* scene_{};

@@ -27,11 +27,7 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t substeps{ 10 };
-		for (uint32_t i{ 0 }; i < substeps; ++i) {
-			xpbd_context_.SimulateStep(delta_time / substeps, rb_context);
-		}
-		GenerateDynamicParticleMesh(particle_node_->render_object, xpbd_context_.GetParticles());
+		xpbd_context_.SimulateStep(delta_time, rb_context);
 	}
 
 	void VoxelContext::EnablePhysicsUpdate()
@@ -138,6 +134,11 @@ namespace pmk
 			renderer_->QueueDestroyRenderObject(particle_node_->render_object);
 			particle_node_->render_object = renderer::NULL_HANDLE;
 		}
+	}
+
+	void VoxelContext::GenerateDynamicMesh()
+	{
+		GenerateDynamicParticleMesh(particle_node_->render_object, xpbd_context_.GetParticles());
 	}
 
 #ifdef EDITOR_ENABLED

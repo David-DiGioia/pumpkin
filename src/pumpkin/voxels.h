@@ -48,6 +48,8 @@ namespace pmk
 
 		void DestroyVoxelRenderObject();
 
+		void GenerateDynamicMesh();
+
 #ifdef EDITOR_ENABLED
 		void SetMPMDebugParticleGenEnabled(bool enabled);
 #endif

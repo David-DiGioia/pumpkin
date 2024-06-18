@@ -139,54 +139,42 @@ namespace pmk
 			return;
 		}
 
-		constexpr uint32_t substeps{ 8 };
 		constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
-		//constexpr glm::vec3 gravity{ 0.0f, 0.0f, 0.0f };
 
 		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
 
-		float h{ delta_time / substeps };
-		for (uint32_t i{ 0 }; i < substeps; ++i)
+		for (RigidBody* rb : rigid_bodies_)
 		{
-			for (RigidBody* rb : rigid_bodies_)
+			rb->previous_position = rb->node->position;
+			rb->velocity = rb->immovable ? glm::vec3{} : rb->velocity + delta_time * gravity;
+			rb->node->position += delta_time * rb->velocity;
+
+			rb->previous_rotation = rb->node->rotation;
+			rb->angular_velocity = rb->immovable ? glm::vec3{} : rb->angular_velocity + delta_time * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_velocity, rb->inertia_tensor * rb->angular_velocity));
+
+			if (!rb->voxel_chunk.IsPointMass())
 			{
-				rb->previous_position = rb->node->position;
-				rb->velocity = rb->immovable ? glm::vec3{} : rb->velocity + h * gravity;
-				rb->node->position += h * rb->velocity;
-
-				rb->previous_rotation = rb->node->rotation;
-				rb->angular_velocity = rb->immovable ? glm::vec3{} : rb->angular_velocity + h * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_velocity, rb->inertia_tensor * rb->angular_velocity));
-
-				if (!rb->voxel_chunk.IsPointMass())
-				{
-					rb->node->rotation += h * 0.5f * glm::quat{ 0.0f, rb->angular_velocity.x, rb->angular_velocity.y, rb->angular_velocity.z } *rb->node->rotation;
-					rb->node->rotation = glm::normalize(rb->node->rotation);
-				}
+				rb->node->rotation += delta_time * 0.5f * glm::quat{ 0.0f, rb->angular_velocity.x, rb->angular_velocity.y, rb->angular_velocity.z } *rb->node->rotation;
+				rb->node->rotation = glm::normalize(rb->node->rotation);
 			}
-
-			SolvePositions(h);
-
-			for (RigidBody* rb : rigid_bodies_)
-			{
-				rb->velocity = (rb->node->position - rb->previous_position) / h;
-				if (!rb->voxel_chunk.IsPointMass())
-				{
-					glm::quat delta_q{ rb->node->rotation * glm::inverse(rb->previous_rotation) };
-					rb->angular_velocity = 2.0f * glm::vec3{ delta_q.x, delta_q.y, delta_q.z } / h;
-					if (delta_q.w < 0) {
-						rb->angular_velocity = -rb->angular_velocity;
-					}
-				}
-			}
-
-			//SolveVelocities();
 		}
 
-#ifdef EDITOR_ENABLED
-		if (generate_rb_voxel_instances_) {
-			GenerateDynamicDebugRbVoxelInstances();
+		SolvePositions(delta_time);
+
+		for (RigidBody* rb : rigid_bodies_)
+		{
+			rb->velocity = (rb->node->position - rb->previous_position) / delta_time;
+			if (!rb->voxel_chunk.IsPointMass())
+			{
+				glm::quat delta_q{ rb->node->rotation * glm::inverse(rb->previous_rotation) };
+				rb->angular_velocity = 2.0f * glm::vec3{ delta_q.x, delta_q.y, delta_q.z } / delta_time;
+				if (delta_q.w < 0) {
+					rb->angular_velocity = -rb->angular_velocity;
+				}
+			}
 		}
-#endif
+
+		//SolveVelocities();
 	}
 
 	void XPBDRigidBodyContext::EnablePhysicsUpdate()
@@ -337,6 +325,7 @@ namespace pmk
 		return std::nullopt;
 	}
 
+#ifdef EDITOR_ENABLED
 	void XPBDRigidBodyContext::SetRigidBodyOverlayEnabled(bool enabled)
 	{
 		generate_rb_voxel_instances_ = enabled;
@@ -345,6 +334,38 @@ namespace pmk
 			GenerateDynamicDebugRbVoxelInstances();
 		}
 	}
+
+	void XPBDRigidBodyContext::GenerateDynamicDebugRbVoxelInstances() const
+	{
+		if (!generate_rb_voxel_instances_) {
+			return;
+		}
+
+		size_t outer_voxel_count{};
+		for (const RigidBody* rb : rigid_bodies_) {
+			outer_voxel_count += rb->voxel_chunk.GetOuterVoxels().size();
+		}
+
+		std::vector<renderer::RigidBodyDebugVoxelInstance> debug_instances{};
+		debug_instances.reserve(outer_voxel_count);
+		for (const RigidBody* rb : rigid_bodies_)
+		{
+			glm::mat4 world_transform{ rb->node->GetWorldTransform() };
+			glm::mat3 rotation{ glm::toMat3(rb->node->rotation) };
+			for (const renderer::OuterVoxel& ov : rb->voxel_chunk.GetOuterVoxels())
+			{
+				renderer::RigidBodyDebugVoxelInstance debug_instance{
+					.position = rb->CoordinateToGlobal(world_transform, ov.coord),
+					.normal = rotation * ov.normal,
+				};
+
+				debug_instances.push_back(std::move(debug_instance));
+			}
+		}
+
+		renderer_->SetDebugRbVoxelInstances(debug_instances);
+	}
+#endif
 
 	void XPBDRigidBodyContext::SolvePositions(float h)
 	{
@@ -647,32 +668,5 @@ namespace pmk
 		scene_->AddRenderObjectToNode(rigid_body->node, renderer_->CreateBlankRenderObject());
 		renderer_->GenerateStaticParticleMesh(rigid_body->node->render_object, rigid_body->voxel_chunk, PARTICLE_WIDTH * rigid_body->center_of_mass);
 		rigid_bodies_.push_back(rigid_body);
-	}
-
-	void XPBDRigidBodyContext::GenerateDynamicDebugRbVoxelInstances() const
-	{
-		size_t outer_voxel_count{};
-		for (const RigidBody* rb : rigid_bodies_) {
-			outer_voxel_count += rb->voxel_chunk.GetOuterVoxels().size();
-		}
-
-		std::vector<renderer::RigidBodyDebugVoxelInstance> debug_instances{};
-		debug_instances.reserve(outer_voxel_count);
-		for (const RigidBody* rb : rigid_bodies_)
-		{
-			glm::mat4 world_transform{ rb->node->GetWorldTransform() };
-			glm::mat3 rotation{ glm::toMat3(rb->node->rotation) };
-			for (const renderer::OuterVoxel& ov : rb->voxel_chunk.GetOuterVoxels())
-			{
-				renderer::RigidBodyDebugVoxelInstance debug_instance{
-					.position = rb->CoordinateToGlobal(world_transform, ov.coord),
-					.normal = rotation * ov.normal,
-				};
-
-				debug_instances.push_back(std::move(debug_instance));
-			}
-		}
-
-		renderer_->SetDebugRbVoxelInstances(debug_instances);
 	}
 }

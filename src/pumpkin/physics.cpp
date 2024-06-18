@@ -45,8 +45,23 @@ namespace pmk
 
 	void PhysicsContext::PhysicsUpdate(float delta_time)
 	{
-		rigid_body_context_.PhysicsUpdate(delta_time);
-		voxel_context_.PhysicsUpdate(delta_time, &rigid_body_context_);
+		constexpr uint32_t substeps{ 8 };
+		float h{ delta_time / substeps };
+
+		for (uint32_t i{ 0 }; i < substeps; ++i)
+		{
+			rigid_body_context_.PhysicsUpdate(h);
+			voxel_context_.PhysicsUpdate(h, &rigid_body_context_);
+		}
+
+#ifdef EDITOR_ENABLED
+		if (rigid_body_context_.GetPhysicsUpdateEnabled()) {
+			rigid_body_context_.GenerateDynamicDebugRbVoxelInstances();
+		}
+#endif
+		if (voxel_context_.GetPhysicsUpdateEnabled()) {
+			voxel_context_.GenerateDynamicMesh();
+		}
 	}
 
 	std::vector<uint32_t> PhysicsContext::EnablePhysicsUpdate()
