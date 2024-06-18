@@ -1,6 +1,7 @@
 #include "xpbd.h"
 
 #include <cmath>
+#include <bit>
 #include "tracy/Tracy.hpp"
 #include "glm/gtx/norm.hpp"
 
@@ -16,8 +17,8 @@ namespace pmk
 
 	static uint32_t HashCoords(const glm::ivec3& coord)
 	{
-		int32_t h{ (coord.x * 92837111) ^ (coord.y * 689287499) ^ (coord.z * 283923481) };
-		return (uint32_t)(std::abs(h) % HASH_TABLE_SIZE);
+		uint32_t h{ (std::bit_cast<uint32_t>(coord.x) * 92837111) ^ (std::bit_cast<uint32_t>(coord.y) * 689287499) ^ (std::bit_cast<uint32_t>(coord.z) * 283923481) };
+		return h % HASH_TABLE_SIZE;
 	}
 
 	static uint32_t HashPosition(const glm::vec3& pos)
@@ -168,17 +169,6 @@ namespace pmk
 			}
 		}
 
-		// Temporary debug color.
-		for (uint32_t p2_idx{ 0 }; p2_idx < (uint32_t)particles_.size(); ++p2_idx)
-		{
-			particles_[p2_idx].debug_color = glm::vec3{ 0.2f, 0.2f, 0.2f };
-		}
-		for (uint32_t p2_idx : GetParticleIndicesByProximity(particles_[0].position))
-		{
-			particles_[p2_idx].debug_color = glm::vec3{ 1.0f, 0.0f, 0.0f };
-		}
-		particles_[0].debug_color = glm::vec3{ 0.0f, 1.0f, 0.0f };
-
 		// Update position from Jacobi iterations.
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
 			particles_[i].predicted_position = jacobi_positions_[i];
@@ -271,6 +261,16 @@ namespace pmk
 	{
 		ZoneScoped;
 		{
+			ZoneScopedN("Update keys");
+			// TODO: Multithread.
+			for (uint32_t i{ 0 }; i < (uint32_t)particle_indices_.size(); ++i)
+			{
+				XPBDParticleIndex& pi{ particle_indices_[i] };
+				pi.key = HashPosition(particles_[pi.index].position);
+			}
+		}
+
+		{
 			ZoneScopedN("Group");
 			// Grouping is significantly faster than sorting here.
 			GroupByKey<XPBDParticleIndex, HASH_TABLE_SIZE>(particle_indices_);
@@ -280,15 +280,15 @@ namespace pmk
 		hash_table_.resize(HASH_TABLE_SIZE, NULL_INDEX);
 
 		{
-			ZoneScopedN("Update keys");
+			ZoneScopedN("Update hash table");
 			uint32_t current_key{ NULL_INDEX };
 			for (uint32_t i{ 0 }; i < (uint32_t)particle_indices_.size(); ++i)
 			{
-				if ((particle_indices_[i].key != current_key) && (particle_indices_[i].key != NULL_INDEX))
+				XPBDParticleIndex& pi{ particle_indices_[i] };
+				if ((pi.key != current_key) && (pi.key != NULL_INDEX))
 				{
-					XPBDParticle& p{ particles_[particle_indices_[i].index] };
-					hash_table_[HashPosition(p.position)] = i;
-					current_key = particle_indices_[i].key;
+					hash_table_[pi.key] = i;
+					current_key = pi.key;
 				}
 			}
 		}
@@ -400,9 +400,8 @@ namespace pmk
 
 		// Detect particle collisions.
 		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.predicted_position))
-		//for (uint32_t p2_idx{ 0 }; p2_idx < (uint32_t)p_context->GetParticles().size(); ++p2_idx)
 		{
- 			if (p2_idx == particle_idx) {
+			if (p2_idx == particle_idx) {
 				continue;
 			}
 
