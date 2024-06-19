@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <bit>
+#include <execution>
+#include <ranges>
 #include "tracy/Tracy.hpp"
 #include "glm/gtx/norm.hpp"
 
@@ -156,23 +158,25 @@ namespace pmk
 		}
 
 		// Jacobi iterations.
-		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
-		{
-			PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
-			jacobi_positions_[i] = particles_[i].predicted_position;
+		auto indices{ std::views::iota(0u, (uint32_t)particles_.size()) };
+		std::for_each(std::execution::par, indices.begin(), indices.end(),
+			[&](uint32_t i) {
+				PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
+				jacobi_positions_[i] = particles_[i].predicted_position;
 
-			for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
-			{
-				if (mat->jacobi_constraints_mask & (1 << j)) {
-					jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
+				for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
+				{
+					if (mat->jacobi_constraints_mask & (1 << j)) {
+						jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
+					}
 				}
-			}
-		}
+			});
 
 		// Update position from Jacobi iterations.
-		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
-			particles_[i].predicted_position = jacobi_positions_[i];
-		}
+		std::for_each(std::execution::par, indices.begin(), indices.end(),
+			[&](uint32_t i) {
+				particles_[i].predicted_position = jacobi_positions_[i];
+			});
 	}
 
 	void XPBDParticleContext::UpdateVelocityAndInternalForces(float delta_time)
@@ -407,12 +411,13 @@ namespace pmk
 
 			const XPBDParticle& p2{ p_context->GetParticles()[p2_idx] };
 			glm::vec3 diff{ p1.predicted_position - p2.predicted_position };
-			float distance{ glm::length(diff) };
+			float distance2{ glm::length2(diff) };
 
-			if (distance >= PARTICLE_WIDTH) {
+			if (distance2 >= PARTICLE_WIDTH_SQUARED) {
 				continue;
 			}
 
+			float distance{ std::sqrtf(distance2) };
 			float c{ distance - PARTICLE_WIDTH };
 			glm::vec3 delta_c1{ diff / distance };
 

@@ -70,6 +70,7 @@ namespace pmk
 				, i_{}
 				, current_key_{}
 				, j_{}
+				, cached_particle_indices_count_{ (uint32_t)context_->particle_indices_.size() }
 			{
 				if (i_ < particle_range_count_)
 				{
@@ -94,6 +95,7 @@ namespace pmk
 				, i_{}
 				, current_key_{}
 				, j_{ NULL_INDEX }
+				, cached_particle_indices_count_{}
 			{
 			}
 
@@ -142,7 +144,7 @@ namespace pmk
 
 			inline bool ParticleInSameBlock()
 			{
-				return j_ < (uint32_t)context_->particle_indices_.size() && context_->particle_indices_[j_].key == current_key_;
+				return j_ < cached_particle_indices_count_ && context_->particle_indices_[j_].key == current_key_;
 			}
 
 		protected:
@@ -153,6 +155,8 @@ namespace pmk
 			uint32_t i_{};
 			uint32_t current_key_{};
 			uint32_t j_{};
+
+			uint32_t cached_particle_indices_count_{};
 		};
 
 		template <typename Context, typename DereferenceType>
