@@ -145,41 +145,42 @@ namespace pmk
 
 		for (RigidBody* rb : rigid_bodies_)
 		{
-			rb->previous_position = rb->node->position;
-			rb->velocity = rb->immovable ? glm::vec3{} : rb->velocity + delta_time * gravity;
-			rb->node->position += delta_time * rb->velocity;
-
-			rb->previous_rotation = rb->node->rotation;
-			rb->angular_velocity = rb->immovable ? glm::vec3{} : rb->angular_velocity + delta_time * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_velocity, rb->inertia_tensor * rb->angular_velocity));
-
-			if (!rb->voxel_chunk.IsPointMass())
-			{
-				rb->node->rotation += delta_time * 0.5f * glm::quat{ 0.0f, rb->angular_velocity.x, rb->angular_velocity.y, rb->angular_velocity.z } *rb->node->rotation;
-				rb->node->rotation = glm::normalize(rb->node->rotation);
-			}
 		}
 
-		// Precalculate rigid body transforms.
 		std::for_each(std::execution::par, rigid_bodies_.begin(), rigid_bodies_.end(),
 			[&](RigidBody* rb) {
+				rb->previous_position = rb->node->position;
+				rb->velocity = rb->immovable ? glm::vec3{} : rb->velocity + delta_time * gravity;
+				rb->node->position += delta_time * rb->velocity;
+
+				rb->previous_rotation = rb->node->rotation;
+				rb->angular_velocity = rb->immovable ? glm::vec3{} : rb->angular_velocity + delta_time * glm::inverse(rb->inertia_tensor) * (-glm::cross(rb->angular_velocity, rb->inertia_tensor * rb->angular_velocity));
+
+				if (!rb->voxel_chunk.IsPointMass())
+				{
+					rb->node->rotation += delta_time * 0.5f * glm::quat{ 0.0f, rb->angular_velocity.x, rb->angular_velocity.y, rb->angular_velocity.z } *rb->node->rotation;
+					rb->node->rotation = glm::normalize(rb->node->rotation);
+				}
+
+				// Precalculate rigid body transforms.
 				rb->cached_world_transform = rb->node->GetWorldTransform();
 				rb->cached_inv_world_transform = glm::inverse(rb->cached_world_transform);
 			});
 
 		SolvePositions(delta_time);
 
-		for (RigidBody* rb : rigid_bodies_)
-		{
-			rb->velocity = (rb->node->position - rb->previous_position) / delta_time;
-			if (!rb->voxel_chunk.IsPointMass())
-			{
-				glm::quat delta_q{ rb->node->rotation * glm::inverse(rb->previous_rotation) };
-				rb->angular_velocity = 2.0f * glm::vec3{ delta_q.x, delta_q.y, delta_q.z } / delta_time;
-				if (delta_q.w < 0) {
-					rb->angular_velocity = -rb->angular_velocity;
+		std::for_each(std::execution::par, rigid_bodies_.begin(), rigid_bodies_.end(),
+			[&](RigidBody* rb) {
+				rb->velocity = (rb->node->position - rb->previous_position) / delta_time;
+				if (!rb->voxel_chunk.IsPointMass())
+				{
+					glm::quat delta_q{ rb->node->rotation * glm::inverse(rb->previous_rotation) };
+					rb->angular_velocity = 2.0f * glm::vec3{ delta_q.x, delta_q.y, delta_q.z } / delta_time;
+					if (delta_q.w < 0) {
+						rb->angular_velocity = -rb->angular_velocity;
+					}
 				}
-			}
-		}
+			});
 
 		//SolveVelocities();
 	}
@@ -250,9 +251,9 @@ namespace pmk
 						glm::vec3 center_of_mass{};
 						RigidBodyFloodFill({ i, j, k }, voxel_chunk, rigid_body_mask);
 					}
+				}
 			}
 		}
-	}
 
 		// Check for existence of non-rigid body voxels remaining.
 		std::atomic_bool voxel_chunk_empty{ true };
@@ -273,7 +274,7 @@ namespace pmk
 		std::transform(rigid_bodies_.begin(), rigid_bodies_.end(), node_ids.begin(),
 			[](RigidBody* rb) { return rb->node->node_id; });
 		return node_ids;
-}
+	}
 
 	std::array<CollisionPair, MAX_COLLISION_PAIRS> XPBDRigidBodyContext::ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const
 	{
