@@ -64,10 +64,10 @@ namespace pmk
 
 		// Given voxel world space position, get the voxel coordinate from rb that collides with it.
 		// Returns empty optional if no solution.
-		std::optional<glm::uvec3> GetCollisionCoordinate(const glm::vec3& global_pos) const;
+		std::optional<glm::uvec3> GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const;
 
 		// Convert voxel coordinate to world space position.
-		glm::vec3 CoordinateToGlobal(const glm::uvec3& voxel_coord) const;
+		glm::vec3 CoordinateToGlobal(const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const;
 
 		// Projects incompatible particle velocity to rigid body.
 		glm::vec3 VelocityProject(const glm::vec3& particle_velocity, const glm::vec3& particle_normal, const glm::vec3& node_position) const;

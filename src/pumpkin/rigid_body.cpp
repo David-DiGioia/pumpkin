@@ -26,9 +26,9 @@ namespace pmk
 		return {};
 	}
 
-	std::optional<glm::uvec3> RigidBody::GetCollisionCoordinate(const glm::vec3& global_pos) const
+	std::optional<glm::uvec3> RigidBody::GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const
 	{
-		glm::vec3 coord_space{ glm::vec3{cached_inv_world_transform * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
+		glm::vec3 coord_space{ glm::vec3{inv_world_transform * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
 		coord_space += center_of_mass;
 
 		uint32_t potential_collision_count{};
@@ -54,11 +54,11 @@ namespace pmk
 		return std::nullopt;
 	}
 
-	glm::vec3 RigidBody::CoordinateToGlobal(const glm::uvec3& voxel_coord) const
+	glm::vec3 RigidBody::CoordinateToGlobal(const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const
 	{
 		glm::vec3 local_space{ PARTICLE_WIDTH * glm::vec3{voxel_coord} };
 		local_space -= center_of_mass * PARTICLE_WIDTH;
-		glm::vec4 world_space{ cached_world_transform * glm::vec4{ local_space, 1.0f} };
+		glm::vec4 world_space{ world_transform * glm::vec4{ local_space, 1.0f} };
 
 		return glm::vec3{ world_space };
 	}
@@ -139,13 +139,6 @@ namespace pmk
 			return;
 		}
 
-		// Precalculate rigid body transforms.
-		std::for_each(std::execution::par, rigid_bodies_.begin(), rigid_bodies_.end(),
-			[&](RigidBody* rb) {
-				rb->cached_world_transform = rb->node->GetWorldTransform();
-				rb->cached_inv_world_transform = glm::inverse(rb->cached_world_transform);
-			});
-
 		constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
 
 		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
@@ -165,6 +158,13 @@ namespace pmk
 				rb->node->rotation = glm::normalize(rb->node->rotation);
 			}
 		}
+
+		// Precalculate rigid body transforms.
+		std::for_each(std::execution::par, rigid_bodies_.begin(), rigid_bodies_.end(),
+			[&](RigidBody* rb) {
+				rb->cached_world_transform = rb->node->GetWorldTransform();
+				rb->cached_inv_world_transform = glm::inverse(rb->cached_world_transform);
+			});
 
 		SolvePositions(delta_time);
 
@@ -293,8 +293,8 @@ namespace pmk
 		for (const renderer::OuterVoxel& ov : small->voxel_chunk.GetOuterVoxels())
 		{
 			glm::uvec3 small_coord{ ov.coord };
-			glm::vec3 global_pos{ small->CoordinateToGlobal(small_coord) };
-			std::optional<glm::uvec3> big_coord{ big->GetCollisionCoordinate(global_pos) };
+			glm::vec3 global_pos{ small->CoordinateToGlobal(small->cached_world_transform, small_coord) };
+			std::optional<glm::uvec3> big_coord{ big->GetCollisionCoordinate(big->cached_inv_world_transform, global_pos) };
 
 			bool in_bounds{ big_coord.has_value() };
 
@@ -314,7 +314,7 @@ namespace pmk
 
 	std::optional<glm::vec3> XPBDRigidBodyContext::ComputeParticleCollision(const RigidBody* rb, const glm::vec3& particle_position) const
 	{
-		std::optional<glm::uvec3> rb_voxel_coord{ rb->GetCollisionCoordinate(particle_position) };
+		std::optional<glm::uvec3> rb_voxel_coord{ rb->GetCollisionCoordinate(rb->cached_inv_world_transform, particle_position) };
 
 		if (rb_voxel_coord.has_value())
 		{
@@ -357,7 +357,7 @@ namespace pmk
 			for (const renderer::OuterVoxel& ov : rb->voxel_chunk.GetOuterVoxels())
 			{
 				renderer::RigidBodyDebugVoxelInstance debug_instance{
-					.position = rb->CoordinateToGlobal(ov.coord),
+					.position = rb->CoordinateToGlobal(rb->cached_world_transform, ov.coord),
 					.normal = rotation * ov.normal,
 				};
 
@@ -375,7 +375,7 @@ namespace pmk
 			return;
 		}
 
-		constexpr float compliance{ 0.000001f };
+		constexpr float compliance{ 0.0f };
 
 		constexpr float alpha{ compliance };
 		float alpha_tilde{ alpha / (h * h) };
