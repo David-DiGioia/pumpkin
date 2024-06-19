@@ -26,9 +26,9 @@ namespace pmk
 		return {};
 	}
 
-	std::optional<glm::uvec3> RigidBody::GetCollisionCoordinate(const glm::mat4& inv_world_transform, const glm::vec3& global_pos) const
+	std::optional<glm::uvec3> RigidBody::GetCollisionCoordinate(const glm::vec3& global_pos) const
 	{
-		glm::vec3 coord_space{ glm::vec3{inv_world_transform * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
+		glm::vec3 coord_space{ glm::vec3{cached_inv_world_transform * glm::vec4{global_pos, 1.0f}} / PARTICLE_WIDTH };
 		coord_space += center_of_mass;
 
 		uint32_t potential_collision_count{};
@@ -54,11 +54,11 @@ namespace pmk
 		return std::nullopt;
 	}
 
-	glm::vec3 RigidBody::CoordinateToGlobal(const glm::mat4& world_transform, const glm::uvec3& voxel_coord) const
+	glm::vec3 RigidBody::CoordinateToGlobal(const glm::uvec3& voxel_coord) const
 	{
 		glm::vec3 local_space{ PARTICLE_WIDTH * glm::vec3{voxel_coord} };
 		local_space -= center_of_mass * PARTICLE_WIDTH;
-		glm::vec4 world_space{ world_transform * glm::vec4{ local_space, 1.0f} };
+		glm::vec4 world_space{ cached_world_transform * glm::vec4{ local_space, 1.0f} };
 
 		return glm::vec3{ world_space };
 	}
@@ -138,6 +138,13 @@ namespace pmk
 		if (!update_physics_) {
 			return;
 		}
+
+		// Precalculate rigid body transforms.
+		std::for_each(std::execution::par, rigid_bodies_.begin(), rigid_bodies_.end(),
+			[&](RigidBody* rb) {
+				rb->cached_world_transform = rb->node->GetWorldTransform();
+				rb->cached_inv_world_transform = glm::inverse(rb->cached_world_transform);
+			});
 
 		constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
 
@@ -243,9 +250,9 @@ namespace pmk
 						glm::vec3 center_of_mass{};
 						RigidBodyFloodFill({ i, j, k }, voxel_chunk, rigid_body_mask);
 					}
-				}
 			}
 		}
+	}
 
 		// Check for existence of non-rigid body voxels remaining.
 		std::atomic_bool voxel_chunk_empty{ true };
@@ -266,7 +273,7 @@ namespace pmk
 		std::transform(rigid_bodies_.begin(), rigid_bodies_.end(), node_ids.begin(),
 			[](RigidBody* rb) { return rb->node->node_id; });
 		return node_ids;
-	}
+}
 
 	std::array<CollisionPair, MAX_COLLISION_PAIRS> XPBDRigidBodyContext::ComputeCollisionPairs(const RigidBody* a, const RigidBody* b, uint32_t* out_count) const
 	{
@@ -282,14 +289,12 @@ namespace pmk
 		}
 
 		// TODO: Make this multithreaded.
-		glm::mat4 small_world{ small->node->GetWorldTransform() };
-		glm::mat4 inv_big_world{ glm::inverse(big->node->GetWorldTransform()) };
 		uint32_t collision_pair_idx{ 0 };
 		for (const renderer::OuterVoxel& ov : small->voxel_chunk.GetOuterVoxels())
 		{
 			glm::uvec3 small_coord{ ov.coord };
-			glm::vec3 global_pos{ small->CoordinateToGlobal(small_world, small_coord) };
-			std::optional<glm::uvec3> big_coord{ big->GetCollisionCoordinate(inv_big_world, global_pos) };
+			glm::vec3 global_pos{ small->CoordinateToGlobal(small_coord) };
+			std::optional<glm::uvec3> big_coord{ big->GetCollisionCoordinate(global_pos) };
 
 			bool in_bounds{ big_coord.has_value() };
 
@@ -309,16 +314,14 @@ namespace pmk
 
 	std::optional<glm::vec3> XPBDRigidBodyContext::ComputeParticleCollision(const RigidBody* rb, const glm::vec3& particle_position) const
 	{
-		// TODO: Store world and inverse world transform as part of rigid body and calculate it only once per time step.
-		glm::mat4 inv_world{ glm::inverse(rb->node->GetWorldTransform()) };
-		std::optional<glm::uvec3> rb_voxel_coord{ rb->GetCollisionCoordinate(inv_world, particle_position) };
+		std::optional<glm::uvec3> rb_voxel_coord{ rb->GetCollisionCoordinate(particle_position) };
 
 		if (rb_voxel_coord.has_value())
 		{
 			// Local position of voxel center.
 			glm::vec3 r_local{ ((glm::vec3)rb_voxel_coord.value() - rb->center_of_mass) * PARTICLE_WIDTH };
 			// World position of voxel center.
-			glm::vec3 world_pos{ glm::vec3{rb->node->GetWorldTransform() * glm::vec4{r_local, 1.0f}} };
+			glm::vec3 world_pos{ glm::vec3{rb->cached_world_transform * glm::vec4{r_local, 1.0f}} };
 			return std::make_optional(world_pos);
 		}
 
@@ -350,12 +353,11 @@ namespace pmk
 		debug_instances.reserve(outer_voxel_count);
 		for (const RigidBody* rb : rigid_bodies_)
 		{
-			glm::mat4 world_transform{ rb->node->GetWorldTransform() };
 			glm::mat3 rotation{ glm::toMat3(rb->node->rotation) };
 			for (const renderer::OuterVoxel& ov : rb->voxel_chunk.GetOuterVoxels())
 			{
 				renderer::RigidBodyDebugVoxelInstance debug_instance{
-					.position = rb->CoordinateToGlobal(world_transform, ov.coord),
+					.position = rb->CoordinateToGlobal(ov.coord),
 					.normal = rotation * ov.normal,
 				};
 
