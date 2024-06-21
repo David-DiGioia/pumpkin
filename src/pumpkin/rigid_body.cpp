@@ -103,7 +103,7 @@ namespace pmk
 		// TODO:
 	}
 
-	glm::vec3 RigidBodyConstraint::Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 RigidBodyConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
 		// TODO:
 		return glm::vec3();
@@ -143,10 +143,6 @@ namespace pmk
 
 		// TODO: detect collision between all pairs of rigid bodies after doing large scale sweep.
 
-		for (RigidBody* rb : rigid_bodies_)
-		{
-		}
-
 		std::for_each(std::execution::par, rigid_bodies_.begin(), rigid_bodies_.end(),
 			[&](RigidBody* rb) {
 				rb->previous_position = rb->node->position;
@@ -169,6 +165,27 @@ namespace pmk
 
 		SolvePositions(delta_time);
 
+		//SolveVelocities();
+	}
+
+	void XPBDRigidBodyContext::UpdateFromParticles(float delta_time, XPBDParticleContext* p_context)
+	{
+		if (!update_physics_) {
+			return;
+		}
+
+		for (uint32_t particle_idx{ 0 }; particle_idx < (uint32_t)p_context->GetParticles().size(); ++particle_idx)
+		{
+			RigidBodyParticleCollisionInfo& collision{ p_context->GetRigidBodyCollision(particle_idx) };
+			if (collision.rb_index == NULL_INDEX) {
+				continue;
+			}
+			RigidBody* rb{ rigid_bodies_[collision.rb_index] };
+
+			rb->node->position += collision.rb_delta_position;
+			rb->node->rotation += collision.rb_delta_rotation;
+		}
+
 		std::for_each(std::execution::par, rigid_bodies_.begin(), rigid_bodies_.end(),
 			[&](RigidBody* rb) {
 				rb->velocity = (rb->node->position - rb->previous_position) / delta_time;
@@ -181,8 +198,6 @@ namespace pmk
 					}
 				}
 			});
-
-		//SolveVelocities();
 	}
 
 	void XPBDRigidBodyContext::EnablePhysicsUpdate()

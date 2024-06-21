@@ -24,7 +24,7 @@ namespace pmk
 		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) override;
 
 		// Solve a single iteration of the constraint and return delta_x.
-		virtual glm::vec3 Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
+		virtual glm::vec3 Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
 
 		// For updating the parameters from the UI for making physics materials in the editor.
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
@@ -95,6 +95,8 @@ namespace pmk
 		void CleanUp();
 
 		void PhysicsUpdate(float delta_time);
+
+		void UpdateFromParticles(float delta_time, XPBDParticleContext* p_context);
 
 		void EnablePhysicsUpdate();
 

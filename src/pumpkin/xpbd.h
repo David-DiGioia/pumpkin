@@ -3,6 +3,7 @@
 #include <vector>
 #include <type_traits>
 #include "glm/glm.hpp"
+#include "glm/gtx/quaternion.hpp"
 
 #include "constraint.h"
 #include "logger.h"
@@ -31,6 +32,13 @@ namespace pmk
 		uint32_t index; // Index into particles_.
 
 		bool operator<(const XPBDParticleIndex& other);
+	};
+
+	struct RigidBodyParticleCollisionInfo
+	{
+		uint32_t rb_index;
+		glm::vec3 rb_delta_position;
+		glm::quat rb_delta_rotation;
 	};
 
 	class XPBDRigidBodyContext;
@@ -214,6 +222,8 @@ namespace pmk
 
 		std::vector<XPBDParticle>& GetParticles();
 
+		RigidBodyParticleCollisionInfo& GetRigidBodyCollision(uint32_t particle_idx);
+
 		// Compute density using SPH kernel, taking into account both particles and rigid body voxels.
 		float ComputeDensity(const glm::vec3& pos, const ConstIndexProximityContainer& proximity_particles) const;
 
@@ -246,8 +256,9 @@ namespace pmk
 		PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p);
 
 		std::vector<XPBDParticle> particles_{};
-		std::vector<XPBDParticleIndex> particle_indices_{}; // Contains indices into particles_, along with a key encoding the block coordinate.
-		std::vector<uint32_t> hash_table_{};                // Indices into particle_indices_, showing start of contiguous region containing particles with this hash value.
+		std::vector<XPBDParticleIndex> particle_indices_{};           // Contains indices into particles_, along with a key encoding the block coordinate.
+		std::vector<uint32_t> hash_table_{};                          // Indices into particle_indices_, showing start of contiguous region containing particles with this hash value.
+		std::vector<RigidBodyParticleCollisionInfo> rb_collisions_{}; // The ith index cooresponds to particles_[i] collision with a rigid body.
 
 		std::vector<glm::vec3> jacobi_positions_{}; // For Jacobi solver, the temporary positions corresponding to each particle in particles_.
 		const std::vector<XPBDConstraint*>* jacobi_constraints_{};
@@ -262,7 +273,7 @@ namespace pmk
 	public:
 		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) override;
 
-		virtual glm::vec3 Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
+		virtual glm::vec3 Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
 
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 
@@ -280,7 +291,7 @@ namespace pmk
 	public:
 		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) override;
 
-		virtual glm::vec3 Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
+		virtual glm::vec3 Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
 
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 

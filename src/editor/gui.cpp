@@ -722,6 +722,10 @@ void EditorGui::PhysicsMaterials()
 			}
 			ImGui::EndCombo();
 		}
+
+		ImGui::Text("Density");
+		ImGui::SameLine(PHYSICS_PROPERTY_ALIGNMENT);
+		ImGui::DragFloat("##Density", &mat->material->density, 0.01f);
 	}
 	ImGui::PopID();
 }

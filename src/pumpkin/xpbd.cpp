@@ -9,6 +9,8 @@
 
 #include "common_constants.h"
 #include "physics.h"
+#include "rigid_body.h"
+#include "scene.h"
 
 namespace pmk
 {
@@ -93,6 +95,7 @@ namespace pmk
 		physics_materials_ = physics_materials;
 		particle_indices_.clear();
 		particle_indices_.resize(particles_.size());
+		rb_collisions_.resize(particles_.size());
 		hash_table_.clear();
 		hash_table_.resize(HASH_TABLE_SIZE, NULL_INDEX);
 		jacobi_positions_.resize(particles_.size());
@@ -119,6 +122,9 @@ namespace pmk
 	{
 		constexpr uint32_t iterations{ 2 };
 
+		// Zero out rigid body-particle collisions.
+		std::memset(rb_collisions_.data(), 0, rb_collisions_.size() * sizeof(RigidBodyParticleCollisionInfo));
+
 		ApplyForces(delta_time);
 		for (uint32_t i{ 0 }; i < iterations; ++i) {
 			SolveConstraints(delta_time, rb_context);
@@ -136,6 +142,11 @@ namespace pmk
 	std::vector<XPBDParticle>& XPBDParticleContext::GetParticles()
 	{
 		return particles_;
+	}
+
+	RigidBodyParticleCollisionInfo& XPBDParticleContext::GetRigidBodyCollision(uint32_t particle_idx)
+	{
+		return rb_collisions_[particle_idx];
 	}
 
 	void XPBDParticleContext::ApplyForces(float delta_time)
@@ -359,7 +370,7 @@ namespace pmk
 	}
 
 
-	glm::vec3 FluidDensityConstraint::Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 FluidDensityConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
 		const XPBDParticle& particle{ p_context->GetParticles()[particle_idx] };
 
@@ -395,12 +406,12 @@ namespace pmk
 		// No-op.
 	}
 
-	glm::vec3 CollisionConstraint::Solve(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 CollisionConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
 		float compliance_term{ compliance_ / (delta_time * delta_time) };
 
 		const XPBDParticle& p1{ p_context->GetParticles()[particle_idx] };
-		glm::vec3 delta_x{};
+		glm::vec3 particle_delta_x{};
 
 		// Detect particle collisions.
 		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.predicted_position))
@@ -422,11 +433,14 @@ namespace pmk
 			glm::vec3 delta_c1{ diff / distance };
 
 			float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
-			delta_x += lambda * p1.inverse_mass * delta_c1;
+			particle_delta_x += lambda * p1.inverse_mass * delta_c1;
 		}
 
 		// TODO: Don't iterate over all rigid bodies.
 		// Detect rigid body collisions.
+		RigidBodyParticleCollisionInfo& rb_collision{ p_context->GetRigidBodyCollision(particle_idx) };
+		rb_collision.rb_index = NULL_INDEX;
+		uint32_t rb_idx{ 0 };
 		for (const RigidBody* rb : rb_context->GetRigidBodies())
 		{
 			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1.predicted_position) };
@@ -436,15 +450,43 @@ namespace pmk
 				glm::vec3 diff{ p1.predicted_position - rb_voxel_pos.value() };
 				float distance{ glm::length(diff) };
 				float c{ distance - PARTICLE_WIDTH };
-				glm::vec3 delta_c1{ diff / distance };
+				glm::vec3 grad_c{ diff / distance };
 
+
+				// Rigid body update that will be applied during rigid body physics update.
+				glm::vec3& n{ grad_c };
+				glm::vec3 world_pos_b = rb_voxel_pos.value() - n * PARTICLE_RADIUS;
+				glm::vec3 r{ rb_voxel_pos.value() - rb->node->position };
 				float rb_inv_mass{ rb->immovable ? 0.0f : (1.0f / rb->mass) };
-				float lambda{ -c / (p1.inverse_mass + rb_inv_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
-				delta_x += lambda * p1.inverse_mass * delta_c1;
+				glm::vec3 r_cross_n{ glm::cross(r, n) };
+				glm::mat3 inertia_tensor_inv_b{ rb->immovable || rb->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb->inertia_tensor) };
+				float rb_weight{ rb_inv_mass + glm::dot(r_cross_n, inertia_tensor_inv_b * r_cross_n) };
+				float lambda{ -c / (p1.inverse_mass + rb_weight + compliance_term) };
+				glm::vec3 p{ lambda * n };
+
+				// Record particle's change in position.
+				particle_delta_x += p * p1.inverse_mass;
+
+				// Record rigid body's change in position and rotation.
+				// For now just overwrite previous rigid body collisions this particle had. So particle will currently only influence one rigid body per time step.
+				if (!rb->immovable)
+				{
+					rb_collision.rb_index = rb_idx;
+					rb_collision.rb_delta_position = -p * rb_inv_mass;
+					if (rb->voxel_chunk.IsPointMass()) {
+						rb_collision.rb_delta_rotation = {};
+					}
+					else
+					{
+						glm::vec3 tmp2{ inertia_tensor_inv_b * glm::cross(r, p) };
+						rb_collision.rb_delta_rotation = -0.5f * glm::quat{ 0.0f, tmp2.x, tmp2.y, tmp2.z } *rb->node->rotation;
+					}
+				}
 			}
+			++rb_idx;
 		}
 
-		return delta_x;
+		return particle_delta_x;
 	}
 
 	std::vector<std::pair<float*, std::string>> CollisionConstraint::GetParameters()

@@ -52,6 +52,7 @@ namespace pmk
 		{
 			rigid_body_context_.PhysicsUpdate(h);
 			voxel_context_.PhysicsUpdate(h, &rigid_body_context_);
+			rigid_body_context_.UpdateFromParticles(h, voxel_context_.GetXPBDContext());
 		}
 
 #ifdef EDITOR_ENABLED
