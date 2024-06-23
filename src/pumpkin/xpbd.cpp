@@ -4,6 +4,7 @@
 #include <bit>
 #include <execution>
 #include <ranges>
+#include <thread>
 #include "tracy/Tracy.hpp"
 #include "glm/gtx/norm.hpp"
 
@@ -202,19 +203,26 @@ namespace pmk
 			}
 		}
 
-		auto indices{ std::views::iota(0u, (uint32_t)particles_.size()) };
 		{
 			ZoneScopedN("Parallel solve collisions");
 			// Jacobi iterations.
-			std::for_each(std::execution::par, indices.begin(), indices.end(),
-				[&](uint32_t i) {
-					PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
-					jacobi_positions_[i] = predicted_positions_[i];
-
-					for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
+			constexpr uint32_t chunk_size{ 64 };
+			const uint32_t chunk_count{ ((uint32_t)particles_.size() + chunk_size - 1) / chunk_size }; // Round up.
+			auto processor_indices{ std::views::iota(0u, chunk_count) };
+			std::for_each(std::execution::par, processor_indices.begin(), processor_indices.end(),
+				[&](uint32_t processor_idx) {
+					uint32_t begin{ processor_idx * chunk_size };
+					uint32_t end{ std::min(begin + chunk_size, (uint32_t)particles_.size()) };
+					for (uint32_t i{ begin }; i < end; ++i)
 					{
-						if (mat->jacobi_constraints_mask & (1 << j)) {
-							jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
+						PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
+						jacobi_positions_[i] = predicted_positions_[i];
+
+						for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
+						{
+							if (mat->jacobi_constraints_mask & (1 << j)) {
+								jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
+							}
 						}
 					}
 				});
@@ -256,7 +264,7 @@ namespace pmk
 		for (uint32_t j : proximity_particles)
 		{
 			++i;
-			float delta_pos{ glm::length(pos - positions_[j])};
+			float delta_pos{ glm::length(pos - positions_[j]) };
 			if (delta_pos < SPH_KERNEL_RADIUS) {
 				density += (1.0f / particles_[j].inverse_mass) * SPHKernel(delta_pos);
 			}
@@ -364,9 +372,9 @@ namespace pmk
 			constexpr float alpha{ compliance };
 			float alpha_tilde{ alpha / (delta_time * delta_time) };
 
-			auto proximity_particles{ p_context->GetParticleIndicesByProximity(positions[i])};
+			auto proximity_particles{ p_context->GetParticleIndicesByProximity(positions[i]) };
 			// TODO: Add rigid body density.
-			float density{ p_context->ComputeDensity(positions[i], proximity_particles)};
+			float density{ p_context->ComputeDensity(positions[i], proximity_particles) };
 			float c{ (density / rest_density_) - 1.0f };
 
 			// Clamp pressure constraint to be nonnegative.
@@ -416,7 +424,7 @@ namespace pmk
 				continue;
 			}
 
-			glm::vec3 q{ position - positions[j]};
+			glm::vec3 q{ position - positions[j] };
 			delta_x += (lambda_cache_[particle_idx] + lambda_cache_[j]) * SPHKernelGradient(q); // Equation (12) from PBF.
 		}
 		delta_x /= rest_density_;
@@ -443,7 +451,6 @@ namespace pmk
 
 	glm::vec3 CollisionConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
-		ZoneScoped;
 		const glm::vec3* predicted_positions{ p_context->GetPredictedPositions() };
 		const glm::vec3& p1_predicted_position{ predicted_positions[particle_idx] };
 

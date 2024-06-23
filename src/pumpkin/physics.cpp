@@ -281,19 +281,19 @@ namespace pmk
 		uint32_t constraint_idx{ 0 };
 		for (auto& json_constraint : j[jsonkey::CONSTRAINTS])
 		{
-			XPBDConstraint* constraint{ NewConstraint() };
+			NewConstraint();
 
 			std::string constraint_type{ json_constraint[jsonkey::CONSTRAINT_TYPE] };
 			if (constraint_type == jsonkey::FLUID_DENSITY_CONSTRAINT)
 			{
 				SetConstraintType<FluidDensityConstraint>(constraint_idx);
-				FluidDensityConstraint* fluid_density_constraint{ (FluidDensityConstraint*)constraint };
+				FluidDensityConstraint* fluid_density_constraint{ (FluidDensityConstraint*)jacobi_constraints_.back() };
 				fluid_density_constraint->rest_density_ = json_constraint[jsonkey::FLUID_DENSITY_REST_DENSITY];
 			}
 			else if (constraint_type == jsonkey::COLLISION_CONSTRAINT)
 			{
 				SetConstraintType<CollisionConstraint>(constraint_idx);
-				CollisionConstraint* collision_constraint{ (CollisionConstraint*)constraint };
+				CollisionConstraint* collision_constraint{ (CollisionConstraint*)jacobi_constraints_.back() };
 				collision_constraint->compliance_ = json_constraint[jsonkey::COMPLIANCE];
 			}
 			else if (constraint_type == jsonkey::RIGID_BODY_CONSTRAINT) {

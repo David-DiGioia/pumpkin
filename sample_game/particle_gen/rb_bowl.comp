@@ -55,7 +55,7 @@ void main()
     if (f < ubo.radius) {
         particles_out[index].type = (d0 < d1) ? PARTICLE_TYPE_LIQUID : PARTICLE_TYPE_BOUNCY;
     }
-    else if (floor) {
+    else if (floor || wall) {
         particles_out[index].type = PARTICLE_TYPE_BOUNCY;
     }
     else {
