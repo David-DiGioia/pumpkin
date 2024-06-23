@@ -15,7 +15,7 @@
 namespace pmk
 {
 	constexpr uint32_t HASH_TABLE_SIZE{ 64000 };
-	constexpr float GRID_SPACING{ PARTICLE_WIDTH * 3.0f };
+	constexpr float GRID_SPACING{ PARTICLE_WIDTH };
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
 	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
 
@@ -86,6 +86,7 @@ namespace pmk
 
 	void XPBDParticleContext::Initialize(
 		std::vector<XPBDParticle>&& particles,
+		glm::vec3* positions,
 		float chunk_width,
 		const std::vector<XPBDConstraint*>* jacobi_constraints,
 		const std::vector<PhysicsMaterial*>* physics_materials)
@@ -98,7 +99,13 @@ namespace pmk
 		rb_collisions_.resize(particles_.size());
 		hash_table_.clear();
 		hash_table_.resize(HASH_TABLE_SIZE, NULL_INDEX);
-		jacobi_positions_.resize(particles_.size());
+
+		delete[] positions_;
+		delete[] predicted_positions_;
+		delete[] jacobi_positions_;
+		positions_ = positions;
+		predicted_positions_ = new glm::vec3[particles_.size() * sizeof(glm::vec3)];
+		jacobi_positions_ = new glm::vec3[particles_.size() * sizeof(glm::vec3)];
 
 		float particle_width = chunk_width / CHUNK_ROW_VOXEL_COUNT;
 		particle_radius_ = 0.5f * particle_width;
@@ -110,7 +117,7 @@ namespace pmk
 			particles_[i].inverse_mass = 1.0f / (GetPhysicsMaterial(particles_[i])->density * particle_initial_volume_);
 
 			particle_indices_[i] = XPBDParticleIndex{
-				.key = HashPosition(particles_[i].position),
+				.key = HashPosition(positions_[i]),
 				.index = i,
 			};
 		}
@@ -120,14 +127,19 @@ namespace pmk
 
 	void XPBDParticleContext::SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
+		ZoneScoped;
+
 		constexpr uint32_t iterations{ 2 };
 
 		// Zero out rigid body-particle collisions.
 		std::memset(rb_collisions_.data(), 0, rb_collisions_.size() * sizeof(RigidBodyParticleCollisionInfo));
 
 		ApplyForces(delta_time);
-		for (uint32_t i{ 0 }; i < iterations; ++i) {
-			SolveConstraints(delta_time, rb_context);
+		{
+			ZoneScopedN("Solve all constraints");
+			for (uint32_t i{ 0 }; i < iterations; ++i) {
+				SolveConstraints(delta_time, rb_context);
+			}
 		}
 		UpdateVelocityAndInternalForces(delta_time);
 
@@ -144,6 +156,19 @@ namespace pmk
 		return particles_;
 	}
 
+	const glm::vec3* XPBDParticleContext::GetPredictedPositions() const
+	{
+		return predicted_positions_;
+	}
+
+	void XPBDParticleContext::CopyPositionsToParticles()
+	{
+		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
+		{
+			particles_[i].render_position = positions_[i];
+		}
+	}
+
 	RigidBodyParticleCollisionInfo& XPBDParticleContext::GetRigidBodyCollision(uint32_t particle_idx)
 	{
 		return rb_collisions_[particle_idx];
@@ -151,57 +176,75 @@ namespace pmk
 
 	void XPBDParticleContext::ApplyForces(float delta_time)
 	{
-		for (XPBDParticle& p : particles_)
+		ZoneScoped;
+
+		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
 		{
+			XPBDParticle& p{ particles_[i] };
+
 			// Apply forces.
 			p.velocity += delta_time * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity.
 
 			// Predict position.
-			p.predicted_position = p.position + delta_time * p.velocity;
+			predicted_positions_[i] = positions_[i] + delta_time * p.velocity;
 		}
 	}
 
 	void XPBDParticleContext::SolveConstraints(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
-		// Preprocess each constraint.
-		for (XPBDConstraint* constraint : *jacobi_constraints_) {
-			constraint->Preprocess(this, rb_context, delta_time);
+		ZoneScoped;
+
+		{
+			ZoneScopedN("Preprocess");
+			// Preprocess each constraint.
+			for (XPBDConstraint* constraint : *jacobi_constraints_) {
+				constraint->Preprocess(this, rb_context, delta_time);
+			}
 		}
 
-		// Jacobi iterations.
 		auto indices{ std::views::iota(0u, (uint32_t)particles_.size()) };
-		std::for_each(std::execution::par, indices.begin(), indices.end(),
-			[&](uint32_t i) {
-				PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
-				jacobi_positions_[i] = particles_[i].predicted_position;
+		{
+			ZoneScopedN("Parallel solve collisions");
+			// Jacobi iterations.
+			std::for_each(std::execution::par, indices.begin(), indices.end(),
+				[&](uint32_t i) {
+					PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
+					jacobi_positions_[i] = predicted_positions_[i];
 
-				for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
-				{
-					if (mat->jacobi_constraints_mask & (1 << j)) {
-						jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
+					for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
+					{
+						if (mat->jacobi_constraints_mask & (1 << j)) {
+							jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
+						}
 					}
-				}
-			});
+				});
+		}
 
-		// Update position from Jacobi iterations.
-		std::for_each(std::execution::par, indices.begin(), indices.end(),
-			[&](uint32_t i) {
-				particles_[i].predicted_position = jacobi_positions_[i];
-			});
+		{
+			ZoneScopedN("Update positions");
+			std::swap(predicted_positions_, jacobi_positions_);
+		}
 	}
 
 	void XPBDParticleContext::UpdateVelocityAndInternalForces(float delta_time)
 	{
-		for (XPBDParticle& p : particles_)
-		{
-			// Update velocity.
-			p.velocity = (p.predicted_position - p.position) / delta_time;
+		ZoneScoped;
 
-			// In the future, internal forces like drag and vorticity will be applied here.
+		auto indices{ std::views::iota(0u, (uint32_t)particles_.size()) };
+		std::for_each(std::execution::par, indices.begin(), indices.end(),
+			[&](uint32_t i) {
+				XPBDParticle& p{ particles_[i] };
+				XPBDParticleIndex& pi{ particle_indices_[i] };
 
-			// Update position.
-			p.position = p.predicted_position;
-		}
+				// Update velocity.
+				p.velocity = (predicted_positions_[i] - positions_[i]) / delta_time;
+
+				// In the future, internal forces like drag and vorticity will be applied here.
+
+				pi.key = HashPosition(predicted_positions_[pi.index]);
+			});
+
+		std::swap(positions_, predicted_positions_);
 	}
 
 	float XPBDParticleContext::ComputeDensity(const glm::vec3& pos, const ConstIndexProximityContainer& proximity_particles) const
@@ -213,7 +256,7 @@ namespace pmk
 		for (uint32_t j : proximity_particles)
 		{
 			++i;
-			float delta_pos{ glm::length(pos - particles_[j].position) };
+			float delta_pos{ glm::length(pos - positions_[j])};
 			if (delta_pos < SPH_KERNEL_RADIUS) {
 				density += (1.0f / particles_[j].inverse_mass) * SPHKernel(delta_pos);
 			}
@@ -276,23 +319,12 @@ namespace pmk
 	{
 		ZoneScoped;
 		{
-			ZoneScopedN("Update keys");
-			// TODO: Multithread.
-			for (uint32_t i{ 0 }; i < (uint32_t)particle_indices_.size(); ++i)
-			{
-				XPBDParticleIndex& pi{ particle_indices_[i] };
-				pi.key = HashPosition(particles_[pi.index].position);
-			}
-		}
-
-		{
 			ZoneScopedN("Group");
 			// Grouping is significantly faster than sorting here.
 			GroupByKey<XPBDParticleIndex, HASH_TABLE_SIZE>(particle_indices_);
 		}
 
-		hash_table_.clear();
-		hash_table_.resize(HASH_TABLE_SIZE, NULL_INDEX);
+		std::memset(hash_table_.data(), NULL_INDEX, HASH_TABLE_SIZE * sizeof(uint32_t));
 
 		{
 			ZoneScopedN("Update hash table");
@@ -323,6 +355,7 @@ namespace pmk
 	{
 		lambda_cache_.resize(p_context->GetParticles().size());
 		const std::vector<XPBDParticle>& particles{ p_context->GetParticles() };
+		const glm::vec3* positions{ p_context->GetPredictedPositions() };
 
 		// Compute lambda corresponding to each particle. It will be used in Solve().
 		for (uint32_t i{ 0 }; i < (uint32_t)particles.size(); ++i)
@@ -331,9 +364,9 @@ namespace pmk
 			constexpr float alpha{ compliance };
 			float alpha_tilde{ alpha / (delta_time * delta_time) };
 
-			auto proximity_particles{ p_context->GetParticleIndicesByProximity(particles[i].position) };
+			auto proximity_particles{ p_context->GetParticleIndicesByProximity(positions[i])};
 			// TODO: Add rigid body density.
-			float density{ p_context->ComputeDensity(particles[i].position, proximity_particles) };
+			float density{ p_context->ComputeDensity(positions[i], proximity_particles)};
 			float c{ (density / rest_density_) - 1.0f };
 
 			// Clamp pressure constraint to be nonnegative.
@@ -353,7 +386,7 @@ namespace pmk
 					continue;
 				}
 
-				glm::vec3 q{ particles[i].position - particles[k].position };
+				glm::vec3 q{ positions[i] - positions[k] };
 				if (glm::length2(q) >= SPH_KERNEL_RADIUS_SQUARED) {
 					continue;
 				}
@@ -373,15 +406,17 @@ namespace pmk
 	glm::vec3 FluidDensityConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
 		const XPBDParticle& particle{ p_context->GetParticles()[particle_idx] };
+		const glm::vec3* positions{ p_context->GetPredictedPositions() };
+		const glm::vec3& position{ positions[particle_idx] };
 
 		glm::vec3 delta_x{};
-		for (uint32_t j : p_context->GetParticleIndicesByProximity(particle.position))
+		for (uint32_t j : p_context->GetParticleIndicesByProximity(position))
 		{
 			if (particle_idx == j) {
 				continue;
 			}
 
-			glm::vec3 q{ particle.position - p_context->GetParticles()[j].position };
+			glm::vec3 q{ position - positions[j]};
 			delta_x += (lambda_cache_[particle_idx] + lambda_cache_[j]) * SPHKernelGradient(q); // Equation (12) from PBF.
 		}
 		delta_x /= rest_density_;
@@ -408,20 +443,26 @@ namespace pmk
 
 	glm::vec3 CollisionConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
+		ZoneScoped;
+		const glm::vec3* predicted_positions{ p_context->GetPredictedPositions() };
+		const glm::vec3& p1_predicted_position{ predicted_positions[particle_idx] };
+
 		float compliance_term{ compliance_ / (delta_time * delta_time) };
 
 		const XPBDParticle& p1{ p_context->GetParticles()[particle_idx] };
 		glm::vec3 particle_delta_x{};
 
 		// Detect particle collisions.
-		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.predicted_position))
+		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1_predicted_position))
 		{
 			if (p2_idx == particle_idx) {
 				continue;
 			}
 
+			const glm::vec3& p2_predicted_position{ predicted_positions[p2_idx] };
+
 			const XPBDParticle& p2{ p_context->GetParticles()[p2_idx] };
-			glm::vec3 diff{ p1.predicted_position - p2.predicted_position };
+			glm::vec3 diff{ p1_predicted_position - p2_predicted_position };
 			float distance2{ glm::length2(diff) };
 
 			if (distance2 >= PARTICLE_WIDTH_SQUARED) {
@@ -443,11 +484,11 @@ namespace pmk
 		uint32_t rb_idx{ 0 };
 		for (const RigidBody* rb : rb_context->GetRigidBodies())
 		{
-			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1.predicted_position) };
+			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1_predicted_position) };
 
 			if (rb_voxel_pos.has_value())
 			{
-				glm::vec3 diff{ p1.predicted_position - rb_voxel_pos.value() };
+				glm::vec3 diff{ p1_predicted_position - rb_voxel_pos.value() };
 				float distance{ glm::length(diff) };
 				float c{ distance - PARTICLE_WIDTH };
 				glm::vec3 grad_c{ diff / distance };

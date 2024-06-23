@@ -15,8 +15,9 @@ namespace pmk
 
 	struct XPBDParticle
 	{
-		glm::vec3 position;           // Meters.
-		glm::vec3 predicted_position; // Meters.
+		glm::vec3 render_position;      // Meters.
+		//glm::vec3 position;           // Meters.
+		//glm::vec3 predicted_position; // Meters.
 		glm::vec3 velocity;           // Meters per second.
 		float inverse_mass;           // Reciprocal kilograms.
 		uint8_t physics_material_index;
@@ -212,6 +213,7 @@ namespace pmk
 
 		void Initialize(
 			std::vector<XPBDParticle>&& particles,
+			glm::vec3* positions,
 			float chunk_width,
 			const std::vector<XPBDConstraint*>* jacobi_constraints,
 			const std::vector<PhysicsMaterial*>* physics_materials);
@@ -221,6 +223,11 @@ namespace pmk
 		const std::vector<XPBDParticle>& GetParticles() const;
 
 		std::vector<XPBDParticle>& GetParticles();
+
+		const glm::vec3* GetPredictedPositions() const;
+
+		// Since particles get sorted by material, position must be a member too to stay associated with the particle.
+		void CopyPositionsToParticles();
 
 		RigidBodyParticleCollisionInfo& GetRigidBodyCollision(uint32_t particle_idx);
 
@@ -256,11 +263,13 @@ namespace pmk
 		PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p);
 
 		std::vector<XPBDParticle> particles_{};
+		glm::vec3* positions_{};                                      // Particle positions of particles in separate buffer to avoid copies.
+		glm::vec3* predicted_positions_{};                            // Predicted particle positions in separate buffer to avoid copies.
+		glm::vec3* jacobi_positions_{};                               // For Jacobi solver, the temporary positions corresponding to each particle in particles_.
 		std::vector<XPBDParticleIndex> particle_indices_{};           // Contains indices into particles_, along with a key encoding the block coordinate.
 		std::vector<uint32_t> hash_table_{};                          // Indices into particle_indices_, showing start of contiguous region containing particles with this hash value.
 		std::vector<RigidBodyParticleCollisionInfo> rb_collisions_{}; // The ith index cooresponds to particles_[i] collision with a rigid body.
 
-		std::vector<glm::vec3> jacobi_positions_{}; // For Jacobi solver, the temporary positions corresponding to each particle in particles_.
 		const std::vector<XPBDConstraint*>* jacobi_constraints_{};
 		const std::vector<PhysicsMaterial*>* physics_materials_{};
 

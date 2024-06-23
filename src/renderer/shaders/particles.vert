@@ -5,10 +5,9 @@ layout (location = 0) in vec3 vertex_position;
 
 // Instance attributes.
 layout (location = 1) in vec3 position;
-layout (location = 2) in vec3 predicted_position;
-layout (location = 3) in vec3 velocity;
-layout (location = 4) in vec3 debug_color;
-layout (location = 5) in float inverse_mass;
+layout (location = 2) in vec3 velocity;
+layout (location = 3) in vec3 debug_color;
+layout (location = 4) in float inverse_mass;
 
 layout (location = 0) out vec3 out_position;
 layout (location = 1) out vec3 out_velocity;

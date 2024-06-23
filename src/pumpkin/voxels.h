@@ -40,6 +40,8 @@ namespace pmk
 
 		void TransferStaticParticlesToXPBD();
 
+		void CopyPositionsToParticles();
+
 		XPBDParticleContext* GetXPBDContext();
 
 		renderer::VoxelChunk& GetVoxelChunk();
@@ -55,7 +57,7 @@ namespace pmk
 #endif
 
 	private:
-		std::vector<XPBDParticle> VoxelsToMaterialPoints(const renderer::VoxelChunk& voxel_chunk) const;
+		std::vector<XPBDParticle> VoxelsToParticles(const renderer::VoxelChunk& voxel_chunk) const;
 
 		void GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<XPBDParticle>& particles) const;
 

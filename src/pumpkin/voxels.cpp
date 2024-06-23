@@ -85,8 +85,21 @@ namespace pmk
 
 	void VoxelContext::TransferStaticParticlesToXPBD()
 	{
-		std::vector<XPBDParticle> xpbd_particles{};
+		uint32_t particle_count{ 0 };
+		for (uint32_t i{ 0 }; i < voxel_chunk_.VoxelCount(); ++i)
+		{
+			if (voxel_chunk_.IsEmpty(i)) {
+				continue;
+			}
 
+			++particle_count;
+		}
+
+		glm::vec3* positions = new glm::vec3[particle_count * sizeof(glm::vec3)]{};
+		std::vector<XPBDParticle> xpbd_particles{};
+		xpbd_particles.reserve(particle_count);
+
+		uint32_t position_idx{ 0 };
 		for (uint32_t i{ 0 }; i < voxel_chunk_.VoxelCount(); ++i)
 		{
 			if (voxel_chunk_.IsEmpty(i)) {
@@ -95,9 +108,9 @@ namespace pmk
 
 			glm::uvec3 coord{ voxel_chunk_.IndexToCoordinate(i) };
 
+			positions[position_idx++] = PARTICLE_WIDTH * glm::vec3{ coord };
+
 			XPBDParticle xpbd_particle{
-				.position = PARTICLE_WIDTH * glm::vec3{coord},
-				.predicted_position = {},
 				.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
 				.inverse_mass = {},   // Set later.
 				.physics_material_index = voxel_chunk_.Index(i).physics_material_index,
@@ -106,7 +119,12 @@ namespace pmk
 			xpbd_particles.push_back(xpbd_particle);
 		}
 
-		xpbd_context_.Initialize(std::move(xpbd_particles), CHUNK_WIDTH, jacobi_constraints_, physics_materials_);
+		xpbd_context_.Initialize(std::move(xpbd_particles), positions, CHUNK_WIDTH, jacobi_constraints_, physics_materials_);
+	}
+
+	void VoxelContext::CopyPositionsToParticles()
+	{
+		xpbd_context_.CopyPositionsToParticles();
 	}
 
 	XPBDParticleContext* VoxelContext::GetXPBDContext()
@@ -173,7 +191,7 @@ namespace pmk
 
 		{
 			ZoneScopedN("Generate mesh");
-			renderer_->CmdGenerateDynamicParticleMesh(ro_target, (const std::byte*)particles.data(), (uint32_t)particles.size(), offsetof(XPBDParticle, position), sizeof(XPBDParticle), mat_ranges);
+			renderer_->CmdGenerateDynamicParticleMesh(ro_target, (const std::byte*)particles.data(), (uint32_t)particles.size(), offsetof(XPBDParticle, render_position), sizeof(XPBDParticle), mat_ranges);
 		}
 
 #ifdef EDITOR_ENABLED
@@ -194,7 +212,7 @@ namespace pmk
 #endif
 	}
 
-	std::vector<XPBDParticle> VoxelContext::VoxelsToMaterialPoints(const renderer::VoxelChunk& voxel_chunk) const
+	std::vector<XPBDParticle> VoxelContext::VoxelsToParticles(const renderer::VoxelChunk& voxel_chunk) const
 	{
 		if (voxel_chunk.VoxelCount() == 0) {
 			return {};
@@ -209,7 +227,7 @@ namespace pmk
 			}
 
 			XPBDParticle particle{
-				.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk_.IndexToCoordinate(i)),
+				.render_position = PARTICLE_WIDTH * glm::vec3(voxel_chunk_.IndexToCoordinate(i)),
 			};
 			dynamic_particles.push_back(particle);
 		}
@@ -218,7 +236,7 @@ namespace pmk
 
 	void VoxelContext::GenerateDynamicDebugMPMParticleInstances() const
 	{
-		const std::vector<XPBDParticle>& particles{ has_played_ ? xpbd_context_.GetParticles() : VoxelsToMaterialPoints(voxel_chunk_) };
+		const std::vector<XPBDParticle>& particles{ has_played_ ? xpbd_context_.GetParticles() : VoxelsToParticles(voxel_chunk_) };
 		if (particles.empty()) {
 			return;
 		}
@@ -227,8 +245,7 @@ namespace pmk
 
 		for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
 		{
-			xpbd_particle_instances[p].position = particles[p].position;
-			xpbd_particle_instances[p].predicted_position = particles[p].predicted_position;
+			xpbd_particle_instances[p].position = particles[p].render_position;
 			xpbd_particle_instances[p].velocity = particles[p].velocity;
 			xpbd_particle_instances[p].debug_color = particles[p].debug_color;
 			xpbd_particle_instances[p].inverse_mass = particles[p].inverse_mass;

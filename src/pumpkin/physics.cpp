@@ -55,6 +55,8 @@ namespace pmk
 			rigid_body_context_.UpdateFromParticles(h, voxel_context_.GetXPBDContext());
 		}
 
+		voxel_context_.CopyPositionsToParticles();
+
 #ifdef EDITOR_ENABLED
 		if (rigid_body_context_.GetPhysicsUpdateEnabled()) {
 			rigid_body_context_.GenerateDynamicDebugRbVoxelInstances();

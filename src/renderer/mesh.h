@@ -32,7 +32,6 @@ namespace renderer
 	struct XPBDDebugParticleInstance
 	{
 		glm::vec3 position;
-		glm::vec3 predicted_position;
 		glm::vec3 velocity;
 		glm::vec3 debug_color;
 		float inverse_mass;
