@@ -130,7 +130,7 @@ namespace pmk
 	{
 		ZoneScoped;
 
-		constexpr uint32_t iterations{ 2 };
+		constexpr uint32_t iterations{ 3 };
 
 		// Zero out rigid body-particle collisions.
 		std::memset(rb_collisions_.data(), 0, rb_collisions_.size() * sizeof(RigidBodyParticleCollisionInfo));
@@ -208,10 +208,10 @@ namespace pmk
 			// Jacobi iterations.
 			constexpr uint32_t chunk_size{ 64 };
 			const uint32_t chunk_count{ ((uint32_t)particles_.size() + chunk_size - 1) / chunk_size }; // Round up.
-			auto processor_indices{ std::views::iota(0u, chunk_count) };
-			std::for_each(std::execution::par, processor_indices.begin(), processor_indices.end(),
-				[&](uint32_t processor_idx) {
-					uint32_t begin{ processor_idx * chunk_size };
+			auto chunk_indices{ std::views::iota(0u, chunk_count) };
+			std::for_each(std::execution::par, chunk_indices.begin(), chunk_indices.end(),
+				[&](uint32_t chunk_idx) {
+					uint32_t begin{ chunk_idx * chunk_size };
 					uint32_t end{ std::min(begin + chunk_size, (uint32_t)particles_.size()) };
 					for (uint32_t i{ begin }; i < end; ++i)
 					{
@@ -471,6 +471,11 @@ namespace pmk
 			const XPBDParticle& p2{ p_context->GetParticles()[p2_idx] };
 			glm::vec3 diff{ p1_predicted_position - p2_predicted_position };
 			float distance2{ glm::length2(diff) };
+
+			if (distance2 == 0.0f) {
+				diff = glm::vec3{0.0f, 0.0001f, 0.0f};
+				distance2 = glm::length2(diff);
+			}
 
 			if (distance2 >= PARTICLE_WIDTH_SQUARED) {
 				continue;
