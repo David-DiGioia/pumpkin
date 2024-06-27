@@ -1,6 +1,15 @@
 #pragma once
 
+#include <new>
 #include "math_util.h"
+
+#if defined(__cpp_lib_hardware_interference_size)
+// Default cacheline size from runtime.
+constexpr size_t CL_SIZE = std::hardware_constructive_interference_size;
+#else
+// Most common cacheline size otherwise.
+constexpr size_t CL_SIZE = 64;
+#endif
 
 constexpr float PI{ 3.1415926535f };
 
