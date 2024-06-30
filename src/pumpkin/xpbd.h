@@ -226,6 +226,12 @@ namespace pmk
 
 		std::vector<XPBDParticle>& GetParticles();
 
+		const XPBDParticleStripped* GetParticlesStripped() const;
+
+		XPBDParticleStripped* GetParticlesStripped();
+
+		const std::vector<uint32_t>& GetParticleKeys() const;
+
 		RigidBodyParticleCollisionInfo& GetRigidBodyCollision(uint32_t particle_idx);
 
 		// Compute density using SPH kernel, taking into account both particles and rigid body voxels.
@@ -239,6 +245,8 @@ namespace pmk
 
 		ConstIndexProximityContainer GetParticleIndicesByProximity(const glm::vec3& position) const;
 
+		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const;
+
 	private:
 		friend ParticleProximityIterator<XPBDParticle, XPBDParticle>;
 		friend ParticleProximityIterator<XPBDParticle, uint32_t>;
@@ -251,8 +259,6 @@ namespace pmk
 
 		void UpdateVelocityAndInternalForces(float delta_time);
 
-		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const;
-
 		void UpdateIndexBuffers();
 
 		const PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p) const;
@@ -261,6 +267,7 @@ namespace pmk
 
 		XPBDParticleStripped* particles_stripped_{};                  // Stripped down particle needed in Solve(). Not in vector so it can be allocated with custom alignment.
 		std::vector<XPBDParticle> particles_{};                       // All particle members not needed in Solve().
+		std::vector<uint32_t> particle_keys_{};                       // Keys of particles put into separate buffer to stay hot in cache during Solve().
 		std::vector<uint32_t> hash_table_{};                          // Indices into particle_indices_, showing start of contiguous region containing particles with this hash value.
 		std::vector<RigidBodyParticleCollisionInfo> rb_collisions_{}; // The ith index cooresponds to particles_[i] collision with a rigid body.
 

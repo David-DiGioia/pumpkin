@@ -15,10 +15,23 @@
 
 namespace pmk
 {
-	constexpr uint32_t HASH_TABLE_SIZE{ 64000 };
+	constexpr uint32_t HASH_TABLE_SIZE{ 300000 };
 	constexpr float GRID_SPACING{ PARTICLE_WIDTH };
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
 	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
+
+#ifdef EDITOR_ENABLED
+	static glm::vec3 Heatmap(float val, float lower, float upper)
+	{
+		val = glm::clamp(val, lower, upper);
+		// Map val from [lower, upper] to [0, 1].
+		val = (val - lower) / upper - lower;
+		// Map val from [0, 1] to [0, pi / 2].
+		val *= PI / 2.0f;
+
+		return glm::vec3(glm::sin(val), glm::sin(val * 2.0f), glm::cos(val));
+	}
+#endif
 
 	// Only the first 21 bits of each input are used.
 	static uint64_t InterleaveBits(glm::uvec3 c)
@@ -118,7 +131,10 @@ namespace pmk
 		particles_ = std::move(particles);
 		jacobi_constraints_ = jacobi_constraints;
 		physics_materials_ = physics_materials;
+		rb_collisions_.clear();
 		rb_collisions_.resize(particles_.size());
+		particle_keys_.clear();
+		particle_keys_.resize(particles_.size());
 		hash_table_.clear();
 		hash_table_.resize(HASH_TABLE_SIZE, NULL_INDEX);
 
@@ -175,6 +191,21 @@ namespace pmk
 		return particles_;
 	}
 
+	const XPBDParticleStripped* XPBDParticleContext::GetParticlesStripped() const
+	{
+		return particles_stripped_;
+	}
+
+	XPBDParticleStripped* XPBDParticleContext::GetParticlesStripped()
+	{
+		return particles_stripped_;
+	}
+
+	const std::vector<uint32_t>& XPBDParticleContext::GetParticleKeys() const
+	{
+		return particle_keys_;
+	}
+
 	RigidBodyParticleCollisionInfo& XPBDParticleContext::GetRigidBodyCollision(uint32_t particle_idx)
 	{
 		return rb_collisions_[particle_idx];
@@ -207,8 +238,10 @@ namespace pmk
 
 		{
 			ZoneScopedN("Copy to stripped particles");
-			for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
+			for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
+			{
 				std::memcpy(&particles_stripped_[i], &particles_[i].s, sizeof(XPBDParticleStripped));
+				particle_keys_[i] = particles_[i].key;
 			}
 		}
 
@@ -250,6 +283,8 @@ namespace pmk
 				p.velocity = (p.s.predicted_position - p.position) / delta_time;
 				p.key = HashPosition(p.s.predicted_position);
 				p.position = p.s.predicted_position;
+
+				p.debug_color = Heatmap(p.key, 0.0f, HASH_TABLE_SIZE);
 
 				// In the future, internal forces like drag and vorticity will be applied here.
 			});
@@ -448,40 +483,52 @@ namespace pmk
 
 	glm::vec3 CollisionConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
-		const std::vector<XPBDParticle>& particles{ p_context->GetParticles() };
+		const std::vector<uint32_t>& particle_keys{ p_context->GetParticleKeys() };
+		const XPBDParticleStripped* particles_stripped{ p_context->GetParticlesStripped() };
 
 		float compliance_term{ compliance_ / (delta_time * delta_time) };
 
-		const XPBDParticle& p1{ p_context->GetParticles()[particle_idx] };
+		const XPBDParticleStripped& p1{ particles_stripped[particle_idx] };
 		glm::vec3 particle_delta_x{};
 
-		// Detect particle collisions.
-		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.s.predicted_position))
+		uint32_t particle_range_count{};
+		auto start_of_ranges{ p_context->GetParticleRangesWithinKernel(p1.predicted_position, &particle_range_count) };
+		for (uint32_t i{ 0 }; i < particle_range_count; ++i)
 		{
-			if (p2_idx == particle_idx) {
-				continue;
+			uint32_t range_start{ start_of_ranges[i] };
+			uint64_t current_key{ particle_keys[range_start] };
+			for (uint32_t p2_idx{ range_start }; p2_idx < (uint32_t)particle_keys.size() && particle_keys[p2_idx] == current_key; ++p2_idx)
+			{
+				if (p2_idx == particle_idx) {
+					continue;
+				}
+
+				const XPBDParticleStripped& p2{ particles_stripped[p2_idx] };
+				glm::vec3 diff{ p1.predicted_position - p2.predicted_position };
+				float distance2{ glm::length2(diff) };
+
+				if (distance2 == 0.0f) {
+					diff = glm::vec3{ 0.0f, 0.0001f, 0.0f };
+					distance2 = glm::length2(diff);
+				}
+
+				if (distance2 >= PARTICLE_WIDTH_SQUARED) {
+					continue;
+				}
+
+				float distance{ std::sqrtf(distance2) };
+				float c{ distance - PARTICLE_WIDTH };
+				glm::vec3 delta_c1{ diff / distance };
+
+				float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
+				particle_delta_x += lambda * p1.inverse_mass * delta_c1;
 			}
-
-			const XPBDParticle& p2{ p_context->GetParticles()[p2_idx] };
-			glm::vec3 diff{ p1.s.predicted_position - p2.s.predicted_position };
-			float distance2{ glm::length2(diff) };
-
-			if (distance2 == 0.0f) {
-				diff = glm::vec3{ 0.0f, 0.0001f, 0.0f };
-				distance2 = glm::length2(diff);
-			}
-
-			if (distance2 >= PARTICLE_WIDTH_SQUARED) {
-				continue;
-			}
-
-			float distance{ std::sqrtf(distance2) };
-			float c{ distance - PARTICLE_WIDTH };
-			glm::vec3 delta_c1{ diff / distance };
-
-			float lambda{ -c / (p1.s.inverse_mass + p2.s.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
-			particle_delta_x += lambda * p1.s.inverse_mass * delta_c1;
 		}
+
+		// Detect particle collisions.
+		//for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.s.predicted_position))
+		//{
+		//}
 
 		// TODO: Don't iterate over all rigid bodies.
 		// Detect rigid body collisions.
@@ -490,11 +537,11 @@ namespace pmk
 		uint32_t rb_idx{ 0 };
 		for (const RigidBody* rb : rb_context->GetRigidBodies())
 		{
-			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1.s.predicted_position) };
+			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1.predicted_position) };
 
 			if (rb_voxel_pos.has_value())
 			{
-				glm::vec3 diff{ p1.s.predicted_position - rb_voxel_pos.value() };
+				glm::vec3 diff{ p1.predicted_position - rb_voxel_pos.value() };
 				float distance{ glm::length(diff) };
 				float c{ distance - PARTICLE_WIDTH };
 				glm::vec3 grad_c{ diff / distance };
@@ -508,11 +555,11 @@ namespace pmk
 				glm::vec3 r_cross_n{ glm::cross(r, n) };
 				glm::mat3 inertia_tensor_inv_b{ rb->immovable || rb->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb->inertia_tensor) };
 				float rb_weight{ rb_inv_mass + glm::dot(r_cross_n, inertia_tensor_inv_b * r_cross_n) };
-				float lambda{ -c / (p1.s.inverse_mass + rb_weight + compliance_term) };
+				float lambda{ -c / (p1.inverse_mass + rb_weight + compliance_term) };
 				glm::vec3 p{ lambda * n };
 
 				// Record particle's change in position.
-				particle_delta_x += p * p1.s.inverse_mass;
+				particle_delta_x += p * p1.inverse_mass;
 
 				// Record rigid body's change in position and rotation.
 				// For now just overwrite previous rigid body collisions this particle had. So particle will currently only influence one rigid body per time step.
