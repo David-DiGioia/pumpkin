@@ -95,7 +95,6 @@ namespace pmk
 			++particle_count;
 		}
 
-		glm::vec3* positions = new glm::vec3[particle_count * sizeof(glm::vec3)]{};
 		std::vector<XPBDParticle> xpbd_particles{};
 		xpbd_particles.reserve(particle_count);
 
@@ -108,23 +107,22 @@ namespace pmk
 
 			glm::uvec3 coord{ voxel_chunk_.IndexToCoordinate(i) };
 
-			positions[position_idx++] = PARTICLE_WIDTH * glm::vec3{ coord };
-
 			XPBDParticle xpbd_particle{
+				.key = {}, // Set later.
+				.position = PARTICLE_WIDTH * glm::vec3{ coord },
 				.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
-				.inverse_mass = {},   // Set later.
 				.physics_material_index = voxel_chunk_.Index(i).physics_material_index,
+				.s = {
+					.predicted_position = {}, // Set later.
+					.inverse_mass = {},       // Set later.
+				},
+				.debug_color = {}, // Set later.
 			};
 
 			xpbd_particles.push_back(xpbd_particle);
 		}
 
-		xpbd_context_.Initialize(std::move(xpbd_particles), positions, CHUNK_WIDTH, jacobi_constraints_, physics_materials_);
-	}
-
-	void VoxelContext::CopyPositionsToParticles()
-	{
-		xpbd_context_.CopyPositionsToParticles();
+		xpbd_context_.Initialize(std::move(xpbd_particles), CHUNK_WIDTH, jacobi_constraints_, physics_materials_);
 	}
 
 	XPBDParticleContext* VoxelContext::GetXPBDContext()
@@ -191,7 +189,7 @@ namespace pmk
 
 		{
 			ZoneScopedN("Generate mesh");
-			renderer_->CmdGenerateDynamicParticleMesh(ro_target, (const std::byte*)particles.data(), (uint32_t)particles.size(), offsetof(XPBDParticle, render_position), sizeof(XPBDParticle), mat_ranges);
+			renderer_->CmdGenerateDynamicParticleMesh(ro_target, (const std::byte*)particles.data(), (uint32_t)particles.size(), offsetof(XPBDParticle, position), sizeof(XPBDParticle), mat_ranges);
 		}
 
 #ifdef EDITOR_ENABLED
@@ -227,7 +225,7 @@ namespace pmk
 			}
 
 			XPBDParticle particle{
-				.render_position = PARTICLE_WIDTH * glm::vec3(voxel_chunk_.IndexToCoordinate(i)),
+				.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk_.IndexToCoordinate(i)),
 			};
 			dynamic_particles.push_back(particle);
 		}
@@ -245,10 +243,10 @@ namespace pmk
 
 		for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
 		{
-			xpbd_particle_instances[p].position = particles[p].render_position;
+			xpbd_particle_instances[p].position = particles[p].s.predicted_position;
 			xpbd_particle_instances[p].velocity = particles[p].velocity;
 			xpbd_particle_instances[p].debug_color = particles[p].debug_color;
-			xpbd_particle_instances[p].inverse_mass = particles[p].inverse_mass;
+			xpbd_particle_instances[p].inverse_mass = particles[p].s.inverse_mass;
 		}
 
 		renderer_->SetXPBDDebugParticleInstances(xpbd_particle_instances);

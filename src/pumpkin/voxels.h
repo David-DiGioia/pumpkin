@@ -40,8 +40,6 @@ namespace pmk
 
 		void TransferStaticParticlesToXPBD();
 
-		void CopyPositionsToParticles();
-
 		XPBDParticleContext* GetXPBDContext();
 
 		renderer::VoxelChunk& GetVoxelChunk();

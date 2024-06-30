@@ -20,18 +20,47 @@ namespace pmk
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
 	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
 
-	static uint32_t HashCoords(const glm::ivec3& coord)
+	// Only the first 21 bits of each input are used.
+	static uint64_t InterleaveBits(glm::uvec3 c)
 	{
-		uint32_t h{ (std::bit_cast<uint32_t>(coord.x) * 92837111) ^ (std::bit_cast<uint32_t>(coord.y) * 689287499) ^ (std::bit_cast<uint32_t>(coord.z) * 283923481) };
-		return h % HASH_TABLE_SIZE;
+		c.x = (c.x | (c.x << 16)) & 0xFF0000FF;
+		c.x = (c.x | (c.x << 8)) & 0x0F00F00F;
+		c.x = (c.x | (c.x << 4)) & 0xC30C30C3;
+		c.x = (c.x | (c.x << 2)) & 0x49249249;
+
+		c.y = (c.y | (c.y << 16)) & 0xFF0000FF;
+		c.y = (c.y | (c.y << 8)) & 0x0F00F00F;
+		c.y = (c.y | (c.y << 4)) & 0xC30C30C3;
+		c.y = (c.y | (c.y << 2)) & 0x49249249;
+
+		c.z = (c.z | (c.z << 16)) & 0xFF0000FF;
+		c.z = (c.z | (c.z << 8)) & 0x0F00F00F;
+		c.z = (c.z | (c.z << 4)) & 0xC30C30C3;
+		c.z = (c.z | (c.z << 2)) & 0x49249249;
+
+		return c.x | ((uint64_t)c.y << 1) | ((uint64_t)c.z << 2);
+	}
+
+	static glm::uvec3 PositionToCoordinate(const glm::vec3& position)
+	{
+		// Positive only coordinates, so we offset coordinates so that they are valid in every direction of origin.
+		constexpr int32_t coord_offset{ 1000000 };
+
+		return glm::uvec3{
+			(uint32_t)((int32_t)std::floorf(position.x / GRID_SPACING) + 1000000),
+			(uint32_t)((int32_t)std::floorf(position.y / GRID_SPACING) + 1000000),
+			(uint32_t)((int32_t)std::floorf(position.z / GRID_SPACING) + 1000000),
+		};
+	}
+
+	static uint32_t HashCoords(const glm::uvec3& coord)
+	{
+		return InterleaveBits(coord) % HASH_TABLE_SIZE;
 	}
 
 	static uint32_t HashPosition(const glm::vec3& pos)
 	{
-		int32_t xi{ (int32_t)std::floorf(pos.x / GRID_SPACING) };
-		int32_t yi{ (int32_t)std::floorf(pos.y / GRID_SPACING) };
-		int32_t zi{ (int32_t)std::floorf(pos.z / GRID_SPACING) };
-		return HashCoords({ xi, yi, zi });
+		return HashCoords(PositionToCoordinate(pos));
 	}
 
 	// TODO: Maybe replace kernel and gradient with lookup table.
@@ -80,14 +109,8 @@ namespace pmk
 		return glm::vec3{ 0.0f, 0.0f, 0.0f };
 	}
 
-	bool XPBDParticleIndex::operator<(const XPBDParticleIndex& other)
-	{
-		return key < other.key;
-	}
-
 	void XPBDParticleContext::Initialize(
 		std::vector<XPBDParticle>&& particles,
-		glm::vec3* positions,
 		float chunk_width,
 		const std::vector<XPBDConstraint*>* jacobi_constraints,
 		const std::vector<PhysicsMaterial*>* physics_materials)
@@ -95,35 +118,30 @@ namespace pmk
 		particles_ = std::move(particles);
 		jacobi_constraints_ = jacobi_constraints;
 		physics_materials_ = physics_materials;
-		particle_indices_.clear();
-		particle_indices_.resize(particles_.size());
 		rb_collisions_.resize(particles_.size());
 		hash_table_.clear();
 		hash_table_.resize(HASH_TABLE_SIZE, NULL_INDEX);
 
-		delete[] positions_;
-		delete[] predicted_positions_;
-		delete[] jacobi_positions_;
-		positions_ = positions;
-		predicted_positions_ = new glm::vec3[particles_.size() * sizeof(glm::vec3)];
-		jacobi_positions_ = new glm::vec3[particles_.size() * sizeof(glm::vec3)];
+		// Create cache optimal particles.
+		particles_stripped_ = static_cast<XPBDParticleStripped*>(::operator new[](particles_.size() * sizeof(XPBDParticleStripped), std::align_val_t{ CL_SIZE }));
 
 		float particle_width = chunk_width / CHUNK_ROW_VOXEL_COUNT;
 		particle_radius_ = 0.5f * particle_width;
 		particle_initial_volume_ = particle_width * particle_width * particle_width;
 
 		// Initialize particle mass and index buffer.
-		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
+		for (XPBDParticle& p : particles_)
 		{
-			particles_[i].inverse_mass = 1.0f / (GetPhysicsMaterial(particles_[i])->density * particle_initial_volume_);
-
-			particle_indices_[i] = XPBDParticleIndex{
-				.key = HashPosition(positions_[i]),
-				.index = i,
-			};
+			p.s.inverse_mass = 1.0f / (GetPhysicsMaterial(p)->density * particle_initial_volume_);
+			p.key = HashPosition(p.position);
 		}
 
 		UpdateIndexBuffers();
+	}
+
+	void XPBDParticleContext::CleanUp()
+	{
+		::operator delete[](particles_stripped_, std::align_val_t{ CL_SIZE });
 	}
 
 	void XPBDParticleContext::SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context)
@@ -157,19 +175,6 @@ namespace pmk
 		return particles_;
 	}
 
-	const glm::vec3* XPBDParticleContext::GetPredictedPositions() const
-	{
-		return predicted_positions_;
-	}
-
-	void XPBDParticleContext::CopyPositionsToParticles()
-	{
-		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
-		{
-			particles_[i].render_position = positions_[i];
-		}
-	}
-
 	RigidBodyParticleCollisionInfo& XPBDParticleContext::GetRigidBodyCollision(uint32_t particle_idx)
 	{
 		return rb_collisions_[particle_idx];
@@ -178,16 +183,13 @@ namespace pmk
 	void XPBDParticleContext::ApplyForces(float delta_time)
 	{
 		ZoneScoped;
-
-		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
+		for (XPBDParticle& p : particles_)
 		{
-			XPBDParticle& p{ particles_[i] };
-
 			// Apply forces.
 			p.velocity += delta_time * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity.
 
 			// Predict position.
-			predicted_positions_[i] = positions_[i] + delta_time * p.velocity;
+			p.s.predicted_position = p.position + delta_time * p.velocity;
 		}
 	}
 
@@ -204,6 +206,13 @@ namespace pmk
 		}
 
 		{
+			ZoneScopedN("Copy to stripped particles");
+			for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
+				std::memcpy(&particles_stripped_[i], &particles_[i].s, sizeof(XPBDParticleStripped));
+			}
+		}
+
+		{
 			ZoneScopedN("Parallel solve collisions");
 			// Jacobi iterations.
 			constexpr uint32_t chunk_size{ 64 };
@@ -216,21 +225,15 @@ namespace pmk
 					for (uint32_t i{ begin }; i < end; ++i)
 					{
 						PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
-						jacobi_positions_[i] = predicted_positions_[i];
 
 						for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 						{
 							if (mat->jacobi_constraints_mask & (1 << j)) {
-								jacobi_positions_[i] += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
+								particles_[i].s.predicted_position += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
 							}
 						}
 					}
 				});
-		}
-
-		{
-			ZoneScopedN("Update positions");
-			std::swap(predicted_positions_, jacobi_positions_);
 		}
 	}
 
@@ -242,17 +245,14 @@ namespace pmk
 		std::for_each(std::execution::par, indices.begin(), indices.end(),
 			[&](uint32_t i) {
 				XPBDParticle& p{ particles_[i] };
-				XPBDParticleIndex& pi{ particle_indices_[i] };
 
 				// Update velocity.
-				p.velocity = (predicted_positions_[i] - positions_[i]) / delta_time;
+				p.velocity = (p.s.predicted_position - p.position) / delta_time;
+				p.key = HashPosition(p.s.predicted_position);
+				p.position = p.s.predicted_position;
 
 				// In the future, internal forces like drag and vorticity will be applied here.
-
-				pi.key = HashPosition(predicted_positions_[pi.index]);
 			});
-
-		std::swap(positions_, predicted_positions_);
 	}
 
 	float XPBDParticleContext::ComputeDensity(const glm::vec3& pos, const ConstIndexProximityContainer& proximity_particles) const
@@ -264,9 +264,9 @@ namespace pmk
 		for (uint32_t j : proximity_particles)
 		{
 			++i;
-			float delta_pos{ glm::length(pos - positions_[j]) };
+			float delta_pos{ glm::length(pos - particles_stripped_[j].predicted_position) };
 			if (delta_pos < SPH_KERNEL_RADIUS) {
-				density += (1.0f / particles_[j].inverse_mass) * SPHKernel(delta_pos);
+				density += (1.0f / particles_stripped_[j].inverse_mass) * SPHKernel(delta_pos);
 			}
 		}
 
@@ -296,23 +296,19 @@ namespace pmk
 	std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> XPBDParticleContext::GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const
 	{
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> result{};
-		glm::ivec3 coord{ glm::ivec3{
-			(int32_t)std::floorf(position.x / GRID_SPACING),
-			(int32_t)std::floorf(position.y / GRID_SPACING),
-			(int32_t)std::floorf(position.z / GRID_SPACING),
-		} };
+		glm::uvec3 coord{ PositionToCoordinate(position) };
 
 		uint32_t result_idx{ 0 };
-		for (int32_t i{ coord.x - 1 }; i <= coord.x + 1; ++i)
+		for (uint32_t i{ coord.x - 1 }; i <= coord.x + 1; ++i)
 		{
-			for (int32_t j{ coord.y - 1 }; j <= coord.y + 1; ++j)
+			for (uint32_t j{ coord.y - 1 }; j <= coord.y + 1; ++j)
 			{
-				for (int32_t k{ coord.z - 1 }; k <= coord.z + 1; ++k)
+				for (uint32_t k{ coord.z - 1 }; k <= coord.z + 1; ++k)
 				{
-					glm::ivec3 neighbor_coord{ i, j, k };
-					uint32_t particle_idx_idx{ hash_table_[HashCoords(neighbor_coord)] };
-					if (particle_idx_idx != NULL_INDEX) {
-						result[result_idx++] = particle_idx_idx;
+					glm::uvec3 neighbor_coord{ i, j, k };
+					uint32_t particle_idx{ hash_table_[HashCoords(neighbor_coord)] };
+					if (particle_idx != NULL_INDEX) {
+						result[result_idx++] = particle_idx;
 					}
 				}
 			}
@@ -327,9 +323,9 @@ namespace pmk
 	{
 		ZoneScoped;
 		{
-			ZoneScopedN("Group");
-			// Grouping is significantly faster than sorting here.
-			GroupByKey<XPBDParticleIndex, HASH_TABLE_SIZE>(particle_indices_);
+			ZoneScopedN("Sort particles");
+			std::sort(particles_.begin(), particles_.end(),
+				[](const XPBDParticle& p0, const XPBDParticle& p1) { return p0.key < p1.key; });
 		}
 
 		std::memset(hash_table_.data(), NULL_INDEX, HASH_TABLE_SIZE * sizeof(uint32_t));
@@ -337,13 +333,13 @@ namespace pmk
 		{
 			ZoneScopedN("Update hash table");
 			uint32_t current_key{ NULL_INDEX };
-			for (uint32_t i{ 0 }; i < (uint32_t)particle_indices_.size(); ++i)
+			for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
 			{
-				XPBDParticleIndex& pi{ particle_indices_[i] };
-				if ((pi.key != current_key) && (pi.key != NULL_INDEX))
+				XPBDParticle& p{ particles_[i] };
+				if ((p.key != current_key) && (p.key != NULL_INDEX))
 				{
-					hash_table_[pi.key] = i;
-					current_key = pi.key;
+					hash_table_[p.key] = i;
+					current_key = p.key;
 				}
 			}
 		}
@@ -363,18 +359,19 @@ namespace pmk
 	{
 		lambda_cache_.resize(p_context->GetParticles().size());
 		const std::vector<XPBDParticle>& particles{ p_context->GetParticles() };
-		const glm::vec3* positions{ p_context->GetPredictedPositions() };
 
 		// Compute lambda corresponding to each particle. It will be used in Solve().
 		for (uint32_t i{ 0 }; i < (uint32_t)particles.size(); ++i)
 		{
+			const glm::vec3& position{ particles[i].s.predicted_position };
+
 			constexpr float compliance{ 0.0f };
 			constexpr float alpha{ compliance };
 			float alpha_tilde{ alpha / (delta_time * delta_time) };
 
-			auto proximity_particles{ p_context->GetParticleIndicesByProximity(positions[i]) };
+			auto proximity_particles{ p_context->GetParticleIndicesByProximity(position) };
 			// TODO: Add rigid body density.
-			float density{ p_context->ComputeDensity(positions[i], proximity_particles) };
+			float density{ p_context->ComputeDensity(position, proximity_particles) };
 			float c{ (density / rest_density_) - 1.0f };
 
 			// Clamp pressure constraint to be nonnegative.
@@ -394,7 +391,7 @@ namespace pmk
 					continue;
 				}
 
-				glm::vec3 q{ positions[i] - positions[k] };
+				glm::vec3 q{ position - particles[k].s.predicted_position };
 				if (glm::length2(q) >= SPH_KERNEL_RADIUS_SQUARED) {
 					continue;
 				}
@@ -413,9 +410,9 @@ namespace pmk
 
 	glm::vec3 FluidDensityConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
-		const XPBDParticle& particle{ p_context->GetParticles()[particle_idx] };
-		const glm::vec3* positions{ p_context->GetPredictedPositions() };
-		const glm::vec3& position{ positions[particle_idx] };
+		const std::vector<XPBDParticle>& particles{ p_context->GetParticles() };
+		const XPBDParticle& particle{ particles[particle_idx] };
+		const glm::vec3& position{ particle.s.predicted_position };
 
 		glm::vec3 delta_x{};
 		for (uint32_t j : p_context->GetParticleIndicesByProximity(position))
@@ -424,7 +421,7 @@ namespace pmk
 				continue;
 			}
 
-			glm::vec3 q{ position - positions[j] };
+			glm::vec3 q{ position - particles[j].s.predicted_position };
 			delta_x += (lambda_cache_[particle_idx] + lambda_cache_[j]) * SPHKernelGradient(q); // Equation (12) from PBF.
 		}
 		delta_x /= rest_density_;
@@ -451,8 +448,7 @@ namespace pmk
 
 	glm::vec3 CollisionConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
 	{
-		const glm::vec3* predicted_positions{ p_context->GetPredictedPositions() };
-		const glm::vec3& p1_predicted_position{ predicted_positions[particle_idx] };
+		const std::vector<XPBDParticle>& particles{ p_context->GetParticles() };
 
 		float compliance_term{ compliance_ / (delta_time * delta_time) };
 
@@ -460,20 +456,18 @@ namespace pmk
 		glm::vec3 particle_delta_x{};
 
 		// Detect particle collisions.
-		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1_predicted_position))
+		for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.s.predicted_position))
 		{
 			if (p2_idx == particle_idx) {
 				continue;
 			}
 
-			const glm::vec3& p2_predicted_position{ predicted_positions[p2_idx] };
-
 			const XPBDParticle& p2{ p_context->GetParticles()[p2_idx] };
-			glm::vec3 diff{ p1_predicted_position - p2_predicted_position };
+			glm::vec3 diff{ p1.s.predicted_position - p2.s.predicted_position };
 			float distance2{ glm::length2(diff) };
 
 			if (distance2 == 0.0f) {
-				diff = glm::vec3{0.0f, 0.0001f, 0.0f};
+				diff = glm::vec3{ 0.0f, 0.0001f, 0.0f };
 				distance2 = glm::length2(diff);
 			}
 
@@ -485,8 +479,8 @@ namespace pmk
 			float c{ distance - PARTICLE_WIDTH };
 			glm::vec3 delta_c1{ diff / distance };
 
-			float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
-			particle_delta_x += lambda * p1.inverse_mass * delta_c1;
+			float lambda{ -c / (p1.s.inverse_mass + p2.s.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
+			particle_delta_x += lambda * p1.s.inverse_mass * delta_c1;
 		}
 
 		// TODO: Don't iterate over all rigid bodies.
@@ -496,11 +490,11 @@ namespace pmk
 		uint32_t rb_idx{ 0 };
 		for (const RigidBody* rb : rb_context->GetRigidBodies())
 		{
-			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1_predicted_position) };
+			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1.s.predicted_position) };
 
 			if (rb_voxel_pos.has_value())
 			{
-				glm::vec3 diff{ p1_predicted_position - rb_voxel_pos.value() };
+				glm::vec3 diff{ p1.s.predicted_position - rb_voxel_pos.value() };
 				float distance{ glm::length(diff) };
 				float c{ distance - PARTICLE_WIDTH };
 				glm::vec3 grad_c{ diff / distance };
@@ -514,11 +508,11 @@ namespace pmk
 				glm::vec3 r_cross_n{ glm::cross(r, n) };
 				glm::mat3 inertia_tensor_inv_b{ rb->immovable || rb->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb->inertia_tensor) };
 				float rb_weight{ rb_inv_mass + glm::dot(r_cross_n, inertia_tensor_inv_b * r_cross_n) };
-				float lambda{ -c / (p1.inverse_mass + rb_weight + compliance_term) };
+				float lambda{ -c / (p1.s.inverse_mass + rb_weight + compliance_term) };
 				glm::vec3 p{ lambda * n };
 
 				// Record particle's change in position.
-				particle_delta_x += p * p1.inverse_mass;
+				particle_delta_x += p * p1.s.inverse_mass;
 
 				// Record rigid body's change in position and rotation.
 				// For now just overwrite previous rigid body collisions this particle had. So particle will currently only influence one rigid body per time step.

@@ -13,26 +13,31 @@ namespace pmk
 {
 	constexpr uint32_t MAXIMUM_BLOCKS_IN_KERNEL{ 27 }; // Since 3^3 = 27. Assuming kernel radius is less or equal to grid spacing.
 
+	// Bare essential members of particle needed for Solve() function. Stripped down to stay hot in the cache.
+	struct alignas(16) XPBDParticleStripped
+	{
+		glm::vec3 predicted_position; // Meters.
+		float inverse_mass;           // Reciprocal kilograms.
+	};
+
+	// Auxillary particle data not needed in Solve() function.
 	struct XPBDParticle
 	{
-		glm::vec3 render_position;      // Meters.
-		//glm::vec3 position;           // Meters.
-		//glm::vec3 predicted_position; // Meters.
-		glm::vec3 velocity;           // Meters per second.
-		float inverse_mass;           // Reciprocal kilograms.
+		uint64_t key;       // Sort the particles optimally for lookup and for the cache.
+		glm::vec3 position; // Meters.
+		glm::vec3 velocity; // Meters per second.
 		uint8_t physics_material_index;
+
+		// XPBDParticle members to copy to XPBDParticle after sort.
+		struct
+		{
+			glm::vec3 predicted_position; // Meters.
+			float inverse_mass;           // Reciprocal kilograms.
+		} s;
 
 #ifdef EDITOR_ENABLED
 		glm::vec3 debug_color; // Color to show arbitrary debug information when debugging.
 #endif
-	};
-
-	struct XPBDParticleIndex
-	{
-		uint32_t key;   // Unique value for every half box of grid. Used for sorting indices.
-		uint32_t index; // Index into particles_.
-
-		bool operator<(const XPBDParticleIndex& other);
 	};
 
 	struct RigidBodyParticleCollisionInfo
@@ -79,12 +84,11 @@ namespace pmk
 				, i_{}
 				, current_key_{}
 				, j_{}
-				, cached_particle_indices_count_{ (uint32_t)context_->particle_indices_.size() }
 			{
 				if (i_ < particle_range_count_)
 				{
 					uint32_t range_start = start_of_ranges_[i_];
-					current_key_ = context_->particle_indices_[range_start].key;
+					current_key_ = context_->particles_[range_start].key;
 
 					j_ = range_start;
 					if (!ParticleInSameBlock()) {
@@ -104,20 +108,19 @@ namespace pmk
 				, i_{}
 				, current_key_{}
 				, j_{ NULL_INDEX }
-				, cached_particle_indices_count_{}
 			{
 			}
 
 			template <typename T = DereferenceType>
 			typename std::enable_if<std::is_same<T, uint32_t>::value, T>::type operator*() const
 			{
-				return context_->particle_indices_[j_].index;
+				return j_;
 			}
 
 			template <typename T = DereferenceType>
 			typename std::enable_if<!std::is_same<T, uint32_t>::value, T&>::type operator*() const
 			{
-				return context_->particles_[context_->particle_indices_[j_].index];
+				return context_->particles_[j_];
 			}
 
 			ParticleProximityIterator& operator++()
@@ -132,7 +135,7 @@ namespace pmk
 					else
 					{
 						uint32_t range_start = start_of_ranges_[i_];
-						current_key_ = context_->particle_indices_[range_start].key;
+						current_key_ = context_->particles_[range_start].key;
 						j_ = range_start;
 					}
 				}
@@ -153,7 +156,7 @@ namespace pmk
 
 			inline bool ParticleInSameBlock()
 			{
-				return j_ < cached_particle_indices_count_ && context_->particle_indices_[j_].key == current_key_;
+				return j_ < context_->particles_.size() && context_->particles_[j_].key == current_key_;
 			}
 
 		protected:
@@ -164,8 +167,6 @@ namespace pmk
 			uint32_t i_{};
 			uint32_t current_key_{};
 			uint32_t j_{};
-
-			uint32_t cached_particle_indices_count_{};
 		};
 
 		template <typename Context, typename DereferenceType>
@@ -213,21 +214,17 @@ namespace pmk
 
 		void Initialize(
 			std::vector<XPBDParticle>&& particles,
-			glm::vec3* positions,
 			float chunk_width,
 			const std::vector<XPBDConstraint*>* jacobi_constraints,
 			const std::vector<PhysicsMaterial*>* physics_materials);
+
+		void CleanUp();
 
 		void SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context);
 
 		const std::vector<XPBDParticle>& GetParticles() const;
 
 		std::vector<XPBDParticle>& GetParticles();
-
-		const glm::vec3* GetPredictedPositions() const;
-
-		// Since particles get sorted by material, position must be a member too to stay associated with the particle.
-		void CopyPositionsToParticles();
 
 		RigidBodyParticleCollisionInfo& GetRigidBodyCollision(uint32_t particle_idx);
 
@@ -262,11 +259,8 @@ namespace pmk
 
 		PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p);
 
-		std::vector<XPBDParticle> particles_{};
-		glm::vec3* positions_{};                                      // Particle positions of particles in separate buffer to avoid copies.
-		glm::vec3* predicted_positions_{};                            // Predicted particle positions in separate buffer to avoid copies.
-		glm::vec3* jacobi_positions_{};                               // For Jacobi solver, the temporary positions corresponding to each particle in particles_.
-		std::vector<XPBDParticleIndex> particle_indices_{};           // Contains indices into particles_, along with a key encoding the block coordinate.
+		XPBDParticleStripped* particles_stripped_{};                  // Stripped down particle needed in Solve(). Not in vector so it can be allocated with custom alignment.
+		std::vector<XPBDParticle> particles_{};                       // All particle members not needed in Solve().
 		std::vector<uint32_t> hash_table_{};                          // Indices into particle_indices_, showing start of contiguous region containing particles with this hash value.
 		std::vector<RigidBodyParticleCollisionInfo> rb_collisions_{}; // The ith index cooresponds to particles_[i] collision with a rigid body.
 
