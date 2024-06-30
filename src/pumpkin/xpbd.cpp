@@ -324,7 +324,7 @@ namespace pmk
 		ZoneScoped;
 		{
 			ZoneScopedN("Sort particles");
-			std::sort(particles_.begin(), particles_.end(),
+			std::sort(std::execution::par, particles_.begin(), particles_.end(),
 				[](const XPBDParticle& p0, const XPBDParticle& p1) { return p0.key < p1.key; });
 		}
 
