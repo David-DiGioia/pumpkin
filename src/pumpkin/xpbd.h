@@ -245,6 +245,8 @@ namespace pmk
 
 		ConstIndexProximityContainer GetParticleIndicesByProximity(const glm::vec3& position) const;
 
+		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> GetParticleRangesWithinKernelSIMD(const glm::vec3& position) const;
+
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const;
 
 	private:

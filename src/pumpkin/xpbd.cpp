@@ -5,6 +5,7 @@
 #include <execution>
 #include <ranges>
 #include <thread>
+#include <immintrin.h>  // header file for AVX2 intrinsics.
 #include "tracy/Tracy.hpp"
 #include "glm/gtx/norm.hpp"
 
@@ -15,7 +16,7 @@
 
 namespace pmk
 {
-	constexpr uint32_t HASH_TABLE_SIZE{ 300000 };
+	constexpr uint32_t HASH_TABLE_SIZE{ 262144 }; // Power of two, 2^18, makes it fast to take modulo using bitwise and.
 	constexpr float GRID_SPACING{ PARTICLE_WIDTH };
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
 	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
@@ -33,25 +34,49 @@ namespace pmk
 	}
 #endif
 
-	// Only the first 21 bits of each input are used.
-	static uint64_t InterleaveBits(glm::uvec3 c)
+	static __m256i InterleaveBitsSIMD(__m256i& x, __m256i& y, __m256i& z)
 	{
-		c.x = (c.x | (c.x << 16)) & 0xFF0000FF;
-		c.x = (c.x | (c.x << 8)) & 0x0F00F00F;
-		c.x = (c.x | (c.x << 4)) & 0xC30C30C3;
-		c.x = (c.x | (c.x << 2)) & 0x49249249;
+		x = _mm256_and_si256(_mm256_or_si256(x, _mm256_slli_epi32(x, 16)), _mm256_set1_epi32(0xFF0000FF));
+		x = _mm256_and_si256(_mm256_or_si256(x, _mm256_slli_epi32(x, 8)), _mm256_set1_epi32(0x0F00F00F));
+		x = _mm256_and_si256(_mm256_or_si256(x, _mm256_slli_epi32(x, 4)), _mm256_set1_epi32(0xC30C30C3));
+		x = _mm256_and_si256(_mm256_or_si256(x, _mm256_slli_epi32(x, 2)), _mm256_set1_epi32(0x49249249));
 
-		c.y = (c.y | (c.y << 16)) & 0xFF0000FF;
-		c.y = (c.y | (c.y << 8)) & 0x0F00F00F;
-		c.y = (c.y | (c.y << 4)) & 0xC30C30C3;
-		c.y = (c.y | (c.y << 2)) & 0x49249249;
+		y = _mm256_and_si256(_mm256_or_si256(y, _mm256_slli_epi32(y, 16)), _mm256_set1_epi32(0xFF0000FF));
+		y = _mm256_and_si256(_mm256_or_si256(y, _mm256_slli_epi32(y, 8)), _mm256_set1_epi32(0x0F00F00F));
+		y = _mm256_and_si256(_mm256_or_si256(y, _mm256_slli_epi32(y, 4)), _mm256_set1_epi32(0xC30C30C3));
+		y = _mm256_and_si256(_mm256_or_si256(y, _mm256_slli_epi32(y, 2)), _mm256_set1_epi32(0x49249249));
 
-		c.z = (c.z | (c.z << 16)) & 0xFF0000FF;
-		c.z = (c.z | (c.z << 8)) & 0x0F00F00F;
-		c.z = (c.z | (c.z << 4)) & 0xC30C30C3;
-		c.z = (c.z | (c.z << 2)) & 0x49249249;
+		z = _mm256_and_si256(_mm256_or_si256(z, _mm256_slli_epi32(z, 16)), _mm256_set1_epi32(0xFF0000FF));
+		z = _mm256_and_si256(_mm256_or_si256(z, _mm256_slli_epi32(z, 8)), _mm256_set1_epi32(0x0F00F00F));
+		z = _mm256_and_si256(_mm256_or_si256(z, _mm256_slli_epi32(z, 4)), _mm256_set1_epi32(0xC30C30C3));
+		z = _mm256_and_si256(_mm256_or_si256(z, _mm256_slli_epi32(z, 2)), _mm256_set1_epi32(0x49249249));
 
-		return c.x | ((uint64_t)c.y << 1) | ((uint64_t)c.z << 2);
+		// Combine the results.
+		return _mm256_or_si256(_mm256_or_si256(x, _mm256_slli_epi32(y, 1)), _mm256_slli_epi32(z, 2));
+	}
+
+	// Only the first 21 bits of each input are used.
+	static uint64_t InterleaveBits(const glm::uvec3& c)
+	{
+		uint32_t x{ c.x };
+		uint32_t y{ c.y };
+		uint32_t z{ c.z };
+		x = (x | (x << 16)) & 0xFF0000FF;
+		x = (x | (x << 8)) & 0x0F00F00F;
+		x = (x | (x << 4)) & 0xC30C30C3;
+		x = (x | (x << 2)) & 0x49249249;
+
+		y = (y | (y << 16)) & 0xFF0000FF;
+		y = (y | (y << 8)) & 0x0F00F00F;
+		y = (y | (y << 4)) & 0xC30C30C3;
+		y = (y | (y << 2)) & 0x49249249;
+
+		z = (z | (z << 16)) & 0xFF0000FF;
+		z = (z | (z << 8)) & 0x0F00F00F;
+		z = (z | (z << 4)) & 0xC30C30C3;
+		z = (z | (z << 2)) & 0x49249249;
+
+		return x | ((uint64_t)y << 1) | ((uint64_t)z << 2);
 	}
 
 	static glm::uvec3 PositionToCoordinate(const glm::vec3& position)
@@ -64,6 +89,12 @@ namespace pmk
 			(uint32_t)((int32_t)std::floorf(position.y / GRID_SPACING) + 1000000),
 			(uint32_t)((int32_t)std::floorf(position.z / GRID_SPACING) + 1000000),
 		};
+	}
+
+	static __m256i HashCoordsSIMD(__m256i& x, __m256i& y, __m256i& z)
+	{
+		__m256i interleaved{ InterleaveBitsSIMD(x, y, z) };
+		return _mm256_and_si256(interleaved, _mm256_set1_epi32(HASH_TABLE_SIZE - 1)); // Modulo implemented with bitwise and.
 	}
 
 	static uint32_t HashCoords(const glm::uvec3& coord)
@@ -164,7 +195,7 @@ namespace pmk
 	{
 		ZoneScoped;
 
-		constexpr uint32_t iterations{ 3 };
+		constexpr uint32_t iterations{ 2 };
 
 		// Zero out rigid body-particle collisions.
 		std::memset(rb_collisions_.data(), 0, rb_collisions_.size() * sizeof(RigidBodyParticleCollisionInfo));
@@ -251,7 +282,7 @@ namespace pmk
 			constexpr uint32_t chunk_size{ 64 };
 			const uint32_t chunk_count{ ((uint32_t)particles_.size() + chunk_size - 1) / chunk_size }; // Round up.
 			auto chunk_indices{ std::views::iota(0u, chunk_count) };
-			std::for_each(std::execution::par, chunk_indices.begin(), chunk_indices.end(),
+			std::for_each(std::execution::par_unseq, chunk_indices.begin(), chunk_indices.end(),
 				[&](uint32_t chunk_idx) {
 					uint32_t begin{ chunk_idx * chunk_size };
 					uint32_t end{ std::min(begin + chunk_size, (uint32_t)particles_.size()) };
@@ -328,6 +359,77 @@ namespace pmk
 		return ConstIndexProximityContainer(this, position);
 	}
 
+	std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> XPBDParticleContext::GetParticleRangesWithinKernelSIMD(const glm::vec3& position) const
+	{
+		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> result{};
+		glm::uvec3 coord{ PositionToCoordinate(position) };
+
+		uint32_t x_pos0{ coord.x - 1 };
+		uint32_t& x_pos1{ coord.x };
+		uint32_t x_pos2{ coord.x + 1 };
+
+		uint32_t y_pos0{ coord.y - 1 };
+		uint32_t& y_pos1{ coord.y };
+		uint32_t y_pos2{ coord.y + 1 };
+
+		uint32_t z_pos0{ coord.z - 1 };
+		uint32_t& z_pos1{ coord.z };
+		uint32_t z_pos2{ coord.z + 1 };
+
+		__m256i x0 = _mm256_setr_epi32(x_pos0, x_pos0, x_pos0, x_pos0, x_pos0, x_pos0, x_pos0, x_pos0);
+		__m256i x1 = _mm256_setr_epi32(x_pos0, x_pos1, x_pos1, x_pos1, x_pos1, x_pos1, x_pos1, x_pos1);
+		__m256i x2 = _mm256_setr_epi32(x_pos1, x_pos1, x_pos2, x_pos2, x_pos2, x_pos2, x_pos2, x_pos2);
+		__m256i x3 = _mm256_setr_epi32(x_pos2, x_pos2, x_pos2, 0, 0, 0, 0, 0); // Only first 3 used.
+
+		__m256i y0 = _mm256_setr_epi32(y_pos0, y_pos0, y_pos0, y_pos1, y_pos1, y_pos1, y_pos2, y_pos2);
+		__m256i y1 = _mm256_setr_epi32(y_pos2, y_pos0, y_pos0, y_pos0, y_pos1, y_pos1, y_pos1, y_pos2);
+		__m256i y2 = _mm256_setr_epi32(y_pos2, y_pos2, y_pos0, y_pos0, y_pos0, y_pos1, y_pos1, y_pos1);
+		__m256i y3 = _mm256_setr_epi32(y_pos2, y_pos2, y_pos2, 0, 0, 0, 0, 0); // Only first 3 used.
+
+		__m256i z0 = _mm256_setr_epi32(z_pos0, z_pos1, z_pos2, z_pos0, z_pos1, z_pos2, z_pos0, z_pos1);
+		__m256i z1 = _mm256_setr_epi32(z_pos2, z_pos0, z_pos1, z_pos2, z_pos0, z_pos1, z_pos2, z_pos0);
+		__m256i z2 = _mm256_setr_epi32(z_pos1, z_pos2, z_pos0, z_pos1, z_pos2, z_pos0, z_pos1, z_pos2);
+		__m256i z3 = _mm256_setr_epi32(z_pos0, z_pos1, z_pos2, 0, 0, 0, 0, 0); // Only first 3 used.
+
+		__m256i hash0{ HashCoordsSIMD(x0, y0, z0) };
+		__m256i hash1{ HashCoordsSIMD(x1, y1, z1) };
+		__m256i hash2{ HashCoordsSIMD(x2, y2, z2) };
+		__m256i hash3{ HashCoordsSIMD(x3, y3, z3) };
+
+		result[0] = hash_table_[_mm256_extract_epi32(hash0, 0)];
+		result[1] = hash_table_[_mm256_extract_epi32(hash0, 1)];
+		result[2] = hash_table_[_mm256_extract_epi32(hash0, 2)];
+		result[3] = hash_table_[_mm256_extract_epi32(hash0, 3)];
+		result[4] = hash_table_[_mm256_extract_epi32(hash0, 4)];
+		result[5] = hash_table_[_mm256_extract_epi32(hash0, 5)];
+		result[6] = hash_table_[_mm256_extract_epi32(hash0, 6)];
+		result[7] = hash_table_[_mm256_extract_epi32(hash0, 7)];
+
+		result[8] = hash_table_[_mm256_extract_epi32(hash1, 0)];
+		result[9] = hash_table_[_mm256_extract_epi32(hash1, 1)];
+		result[10] = hash_table_[_mm256_extract_epi32(hash1, 2)];
+		result[11] = hash_table_[_mm256_extract_epi32(hash1, 3)];
+		result[12] = hash_table_[_mm256_extract_epi32(hash1, 4)];
+		result[13] = hash_table_[_mm256_extract_epi32(hash1, 5)];
+		result[14] = hash_table_[_mm256_extract_epi32(hash1, 6)];
+		result[15] = hash_table_[_mm256_extract_epi32(hash1, 7)];
+
+		result[16] = hash_table_[_mm256_extract_epi32(hash2, 0)];
+		result[17] = hash_table_[_mm256_extract_epi32(hash2, 1)];
+		result[18] = hash_table_[_mm256_extract_epi32(hash2, 2)];
+		result[19] = hash_table_[_mm256_extract_epi32(hash2, 3)];
+		result[20] = hash_table_[_mm256_extract_epi32(hash2, 4)];
+		result[21] = hash_table_[_mm256_extract_epi32(hash2, 5)];
+		result[22] = hash_table_[_mm256_extract_epi32(hash2, 6)];
+		result[23] = hash_table_[_mm256_extract_epi32(hash2, 7)];
+
+		result[24] = hash_table_[_mm256_extract_epi32(hash3, 0)];
+		result[25] = hash_table_[_mm256_extract_epi32(hash3, 1)];
+		result[26] = hash_table_[_mm256_extract_epi32(hash3, 2)];
+
+		return result;
+	}
+
 	std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> XPBDParticleContext::GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const
 	{
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> result{};
@@ -352,7 +454,6 @@ namespace pmk
 		*out_block_count = result_idx;
 		return result;
 	}
-
 
 	void XPBDParticleContext::UpdateIndexBuffers()
 	{
@@ -491,11 +592,14 @@ namespace pmk
 		const XPBDParticleStripped& p1{ particles_stripped[particle_idx] };
 		glm::vec3 particle_delta_x{};
 
-		uint32_t particle_range_count{};
-		auto start_of_ranges{ p_context->GetParticleRangesWithinKernel(p1.predicted_position, &particle_range_count) };
-		for (uint32_t i{ 0 }; i < particle_range_count; ++i)
+		auto start_of_ranges{ p_context->GetParticleRangesWithinKernelSIMD(p1.predicted_position) };
+		for (uint32_t i{ 0 }; i < MAXIMUM_BLOCKS_IN_KERNEL; ++i)
 		{
 			uint32_t range_start{ start_of_ranges[i] };
+			if (range_start == NULL_INDEX) {
+				continue;
+			}
+
 			uint64_t current_key{ particle_keys[range_start] };
 			for (uint32_t p2_idx{ range_start }; p2_idx < (uint32_t)particle_keys.size() && particle_keys[p2_idx] == current_key; ++p2_idx)
 			{
