@@ -106,15 +106,16 @@ namespace pmk
 			}
 
 			glm::uvec3 coord{ voxel_chunk_.IndexToCoordinate(i) };
+			glm::vec3 pos{ PARTICLE_WIDTH * glm::vec3{ coord } };;
 
 			XPBDParticle xpbd_particle{
 				.key = {}, // Set later.
-				.position = PARTICLE_WIDTH * glm::vec3{ coord },
+				.position = pos,
 				.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
 				.physics_material_index = voxel_chunk_.Index(i).physics_material_index,
 				.s = {
-					.predicted_position = {}, // Set later.
-					.inverse_mass = {},       // Set later.
+					.predicted_position = pos,
+					.inverse_mass = {}, // Set later.
 				},
 				.debug_color = {}, // Set later.
 			};

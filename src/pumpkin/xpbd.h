@@ -263,6 +263,9 @@ namespace pmk
 
 		void UpdateIndexBuffers();
 
+		// Copy particles positions to stripped particles.
+		void CopyPositions();
+
 		const PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p) const;
 
 		PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p);

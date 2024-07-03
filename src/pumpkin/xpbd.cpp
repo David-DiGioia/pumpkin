@@ -203,7 +203,13 @@ namespace pmk
 		ApplyForces(delta_time);
 		{
 			ZoneScopedN("Solve all constraints");
-			for (uint32_t i{ 0 }; i < iterations; ++i) {
+			for (uint32_t i{ 0 }; i < iterations; ++i)
+			{
+				// Note needed first iteration since it's copied in UpdateIndexBuffers().
+				if (i != 0) {
+					CopyPositions();
+				}
+
 				SolveConstraints(delta_time, rb_context);
 			}
 		}
@@ -264,15 +270,6 @@ namespace pmk
 			// Preprocess each constraint.
 			for (XPBDConstraint* constraint : *jacobi_constraints_) {
 				constraint->Preprocess(this, rb_context, delta_time);
-			}
-		}
-
-		{
-			ZoneScopedN("Copy to stripped particles");
-			for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
-			{
-				std::memcpy(&particles_stripped_[i], &particles_[i].s, sizeof(XPBDParticleStripped));
-				particle_keys_[i] = particles_[i].key;
 			}
 		}
 
@@ -478,6 +475,23 @@ namespace pmk
 					current_key = p.key;
 				}
 			}
+		}
+
+		{
+			ZoneScopedN("Copy to stripped particles");
+			for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
+			{
+				std::memcpy(&particles_stripped_[i], &particles_[i].s, sizeof(XPBDParticleStripped));
+				particle_keys_[i] = particles_[i].key;
+			}
+		}
+	}
+
+	void XPBDParticleContext::CopyPositions()
+	{
+		ZoneScoped;
+		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
+			particles_stripped_[i].predicted_position = particles_[i].s.predicted_position;
 		}
 	}
 
