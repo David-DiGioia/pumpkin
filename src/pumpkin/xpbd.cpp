@@ -32,6 +32,16 @@ namespace pmk
 
 		return glm::vec3(glm::sin(val), glm::sin(val * 2.0f), glm::cos(val));
 	}
+
+	static glm::vec3 UniqueColor(uint64_t seed)
+	{
+		seed += (seed << 10u);
+		seed ^= (seed >> 6u);
+		seed += (seed << 3u);
+		seed ^= (seed >> 11u);
+		seed += (seed << 15u);
+		return Heatmap((seed % 10000) / 10000.0f, 0.0f, 1.0f);
+	}
 #endif
 
 	static __m256i InterleaveBitsSIMD(__m256i& x, __m256i& y, __m256i& z)
@@ -171,6 +181,9 @@ namespace pmk
 
 		// Create cache optimal particles.
 		particles_stripped_ = static_cast<XPBDParticleStripped*>(::operator new[](particles_.size() * sizeof(XPBDParticleStripped), std::align_val_t{ CL_SIZE }));
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+		particles_scratch_ = static_cast<XPBDParticleStripped*>(::operator new[](particles_.size() * sizeof(XPBDParticleStripped), std::align_val_t{ CL_SIZE }));
+#endif
 
 		float particle_width = chunk_width / CHUNK_ROW_VOXEL_COUNT;
 		particle_radius_ = 0.5f * particle_width;
@@ -195,7 +208,7 @@ namespace pmk
 	{
 		ZoneScoped;
 
-		constexpr uint32_t iterations{ 2 };
+		constexpr uint32_t iterations{ 3 };
 
 		// Zero out rigid body-particle collisions.
 		std::memset(rb_collisions_.data(), 0, rb_collisions_.size() * sizeof(RigidBodyParticleCollisionInfo));
@@ -233,10 +246,12 @@ namespace pmk
 		return particles_stripped_;
 	}
 
-	XPBDParticleStripped* XPBDParticleContext::GetParticlesStripped()
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+	const XPBDParticleStripped* XPBDParticleContext::GetParticlesScratch() const
 	{
-		return particles_stripped_;
+		return particles_scratch_;
 	}
+#endif
 
 	const std::vector<uint32_t>& XPBDParticleContext::GetParticleKeys() const
 	{
@@ -276,7 +291,7 @@ namespace pmk
 		{
 			ZoneScopedN("Parallel solve collisions");
 			// Jacobi iterations.
-			constexpr uint32_t chunk_size{ 64 };
+			constexpr uint32_t chunk_size{ 512 };
 			const uint32_t chunk_count{ ((uint32_t)particles_.size() + chunk_size - 1) / chunk_size }; // Round up.
 			auto chunk_indices{ std::views::iota(0u, chunk_count) };
 			std::for_each(std::execution::par_unseq, chunk_indices.begin(), chunk_indices.end(),
@@ -287,10 +302,16 @@ namespace pmk
 					{
 						PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
 
+						particles_[i].debug_color = UniqueColor(begin);
+
 						for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 						{
 							if (mat->jacobi_constraints_mask & (1 << j)) {
-								particles_[i].s.predicted_position += (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time);
+								glm::vec3 delta_x{ (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time, begin, end) };
+								particles_[i].s.predicted_position += delta_x;
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+								particles_scratch_[i].predicted_position += delta_x;;
+#endif
 							}
 						}
 					}
@@ -312,7 +333,7 @@ namespace pmk
 				p.key = HashPosition(p.s.predicted_position);
 				p.position = p.s.predicted_position;
 
-				p.debug_color = Heatmap(p.key, 0.0f, HASH_TABLE_SIZE);
+				//p.debug_color = Heatmap(p.key, 0.0f, HASH_TABLE_SIZE);
 
 				// In the future, internal forces like drag and vorticity will be applied here.
 			});
@@ -482,6 +503,9 @@ namespace pmk
 			for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
 			{
 				std::memcpy(&particles_stripped_[i], &particles_[i].s, sizeof(XPBDParticleStripped));
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+				std::memcpy(&particles_scratch_[i], &particles_[i].s, sizeof(XPBDParticleStripped));
+#endif
 				particle_keys_[i] = particles_[i].key;
 			}
 		}
@@ -490,8 +514,12 @@ namespace pmk
 	void XPBDParticleContext::CopyPositions()
 	{
 		ZoneScoped;
-		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i) {
+		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
+		{
 			particles_stripped_[i].predicted_position = particles_[i].s.predicted_position;
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+			particles_scratch_[i].predicted_position = particles_[i].s.predicted_position;
+#endif
 		}
 	}
 
@@ -558,7 +586,13 @@ namespace pmk
 	}
 
 
-	glm::vec3 FluidDensityConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 FluidDensityConstraint::Solve(
+		XPBDParticleContext* p_context,
+		const XPBDRigidBodyContext* rb_context,
+		uint32_t particle_idx,
+		float delta_time,
+		uint32_t chunk_begin,
+		uint32_t chunk_end) const
 	{
 		const std::vector<XPBDParticle>& particles{ p_context->GetParticles() };
 		const XPBDParticle& particle{ particles[particle_idx] };
@@ -596,14 +630,27 @@ namespace pmk
 		// No-op.
 	}
 
-	glm::vec3 CollisionConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 CollisionConstraint::Solve(
+		XPBDParticleContext* p_context,
+		const XPBDRigidBodyContext* rb_context,
+		uint32_t particle_idx,
+		float delta_time,
+		uint32_t chunk_begin,
+		uint32_t chunk_end) const
 	{
 		const std::vector<uint32_t>& particle_keys{ p_context->GetParticleKeys() };
 		const XPBDParticleStripped* particles_stripped{ p_context->GetParticlesStripped() };
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+		const XPBDParticleStripped* particles_scratch{ p_context->GetParticlesScratch() };
+#endif
 
 		float compliance_term{ compliance_ / (delta_time * delta_time) };
 
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+		const XPBDParticleStripped& p1{ particles_scratch[particle_idx] };
+#else
 		const XPBDParticleStripped& p1{ particles_stripped[particle_idx] };
+#endif
 		glm::vec3 particle_delta_x{};
 
 		auto start_of_ranges{ p_context->GetParticleRangesWithinKernelSIMD(p1.predicted_position) };
@@ -621,7 +668,12 @@ namespace pmk
 					continue;
 				}
 
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+				bool p2_in_chunk{ (p2_idx >= chunk_begin && p2_idx < chunk_end) };
+				const XPBDParticleStripped& p2{ p2_in_chunk ? particles_scratch[p2_idx] : particles_stripped[p2_idx] }; // Guass-seidel if in chunk, Jacobi if not.
+#else
 				const XPBDParticleStripped& p2{ particles_stripped[p2_idx] };
+#endif
 				glm::vec3 diff{ p1.predicted_position - p2.predicted_position };
 				float distance2{ glm::length2(diff) };
 

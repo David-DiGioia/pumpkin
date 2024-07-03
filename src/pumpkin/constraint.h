@@ -19,7 +19,13 @@ namespace pmk
 
 		// Solve a single iteration of the constraint and return particle's delta_x.
 		// Particle context is not const so it can record rigid body collision data if necessary.
-		virtual glm::vec3 Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const = 0;
+		virtual glm::vec3 Solve(
+			XPBDParticleContext* p_context,
+			const XPBDRigidBodyContext* rb_context,
+			uint32_t particle_idx,
+			float delta_time,
+			uint32_t chunk_begin,
+			uint32_t chunk_end) const = 0;
 
 		// For updating the parameters from the UI for making physics materials in the editor.
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() = 0;

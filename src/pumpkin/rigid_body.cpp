@@ -103,7 +103,13 @@ namespace pmk
 		// TODO:
 	}
 
-	glm::vec3 RigidBodyConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const
+	glm::vec3 RigidBodyConstraint::Solve(
+		XPBDParticleContext* p_context,
+		const XPBDRigidBodyContext* rb_context,
+		uint32_t particle_idx,
+		float delta_time,
+		uint32_t chunk_begin,
+		uint32_t chunk_end) const
 	{
 		// TODO:
 		return glm::vec3();

@@ -45,7 +45,7 @@ namespace pmk
 
 	void PhysicsContext::PhysicsUpdate(float delta_time)
 	{
-		constexpr uint32_t substeps{ 3 };
+		constexpr uint32_t substeps{ 2 };
 		float h{ delta_time / substeps };
 
 		for (uint32_t i{ 0 }; i < substeps; ++i)

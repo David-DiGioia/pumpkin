@@ -9,6 +9,8 @@
 #include "logger.h"
 #include "common_constants.h"
 
+#define GAUSS_SEIDEL_WITHIN_CHUNK 1
+
 namespace pmk
 {
 	constexpr uint32_t MAXIMUM_BLOCKS_IN_KERNEL{ 27 }; // Since 3^3 = 27. Assuming kernel radius is less or equal to grid spacing.
@@ -228,7 +230,9 @@ namespace pmk
 
 		const XPBDParticleStripped* GetParticlesStripped() const;
 
-		XPBDParticleStripped* GetParticlesStripped();
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+		const XPBDParticleStripped* GetParticlesScratch() const;
+#endif
 
 		const std::vector<uint32_t>& GetParticleKeys() const;
 
@@ -271,6 +275,9 @@ namespace pmk
 		PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p);
 
 		XPBDParticleStripped* particles_stripped_{};                  // Stripped down particle needed in Solve(). Not in vector so it can be allocated with custom alignment.
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+		XPBDParticleStripped* particles_scratch_{};                   // Buffer for particles to use during calculations in a substep. Particularly, for gauss-seidell style solving within a chunk.
+#endif
 		std::vector<XPBDParticle> particles_{};                       // All particle members not needed in Solve().
 		std::vector<uint32_t> particle_keys_{};                       // Keys of particles put into separate buffer to stay hot in cache during Solve().
 		std::vector<uint32_t> hash_table_{};                          // Indices into particle_indices_, showing start of contiguous region containing particles with this hash value.
@@ -288,7 +295,13 @@ namespace pmk
 	public:
 		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) override;
 
-		virtual glm::vec3 Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
+		virtual glm::vec3 Solve(
+			XPBDParticleContext* p_context,
+			const XPBDRigidBodyContext* rb_context,
+			uint32_t particle_idx,
+			float delta_time,
+			uint32_t chunk_begin,
+			uint32_t chunk_end) const override;
 
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 
@@ -306,7 +319,13 @@ namespace pmk
 	public:
 		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) override;
 
-		virtual glm::vec3 Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time) const override;
+		virtual glm::vec3 Solve(
+			XPBDParticleContext* p_context,
+			const XPBDRigidBodyContext* rb_context,
+			uint32_t particle_idx,
+			float delta_time,
+			uint32_t chunk_begin,
+			uint32_t chunk_end) const override;
 
 		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
 
