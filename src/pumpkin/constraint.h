@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include "glm/glm.hpp"
+#include "common_constants.h"
 
 namespace pmk
 {
@@ -22,6 +23,7 @@ namespace pmk
 		virtual glm::vec3 Solve(
 			XPBDParticleContext* p_context,
 			const XPBDRigidBodyContext* rb_context,
+			const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges,
 			uint32_t particle_idx,
 			float delta_time,
 			uint32_t chunk_begin,

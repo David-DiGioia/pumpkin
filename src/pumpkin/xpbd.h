@@ -13,8 +13,6 @@
 
 namespace pmk
 {
-	constexpr uint32_t MAXIMUM_BLOCKS_IN_KERNEL{ 27 }; // Since 3^3 = 27. Assuming kernel radius is less or equal to grid spacing.
-
 	// Bare essential members of particle needed for Solve() function. Stripped down to stay hot in the cache.
 	struct alignas(16) XPBDParticleStripped
 	{
@@ -230,6 +228,8 @@ namespace pmk
 
 		const XPBDParticleStripped* GetParticlesStripped() const;
 
+		uint32_t GetParticleCount() const;
+
 #if GAUSS_SEIDEL_WITHIN_CHUNK
 		const XPBDParticleStripped* GetParticlesScratch() const;
 #endif
@@ -239,7 +239,7 @@ namespace pmk
 		RigidBodyParticleCollisionInfo& GetRigidBodyCollision(uint32_t particle_idx);
 
 		// Compute density using SPH kernel, taking into account both particles and rigid body voxels.
-		float ComputeDensity(const glm::vec3& pos, const ConstIndexProximityContainer& proximity_particles) const;
+		float ComputeDensity(const glm::vec3& pos, const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges) const;
 
 		ProximityContainer GetParticlesByProximity(const glm::vec3& position);
 
@@ -253,6 +253,8 @@ namespace pmk
 
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const;
 
+		const std::vector<std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>>& GetCachedParticleRanges() const;
+
 	private:
 		friend ParticleProximityIterator<XPBDParticle, XPBDParticle>;
 		friend ParticleProximityIterator<XPBDParticle, uint32_t>;
@@ -260,6 +262,8 @@ namespace pmk
 		friend ParticleProximityIterator<const XPBDParticle, uint32_t>;
 
 		void ApplyForces(float delta_time);
+
+		void PrecomputeParticleRanges();
 
 		void SolveConstraints(float delta_time, const XPBDRigidBodyContext* rb_context);
 
@@ -274,14 +278,15 @@ namespace pmk
 
 		PhysicsMaterial* GetPhysicsMaterial(const XPBDParticle& p);
 
-		XPBDParticleStripped* particles_stripped_{};                  // Stripped down particle needed in Solve(). Not in vector so it can be allocated with custom alignment.
-#if GAUSS_SEIDEL_WITHIN_CHUNK
-		XPBDParticleStripped* particles_scratch_{};                   // Buffer for particles to use during calculations in a substep. Particularly, for gauss-seidell style solving within a chunk.
-#endif
-		std::vector<XPBDParticle> particles_{};                       // All particle members not needed in Solve().
-		std::vector<uint32_t> particle_keys_{};                       // Keys of particles put into separate buffer to stay hot in cache during Solve().
-		std::vector<uint32_t> hash_table_{};                          // Indices into particle_indices_, showing start of contiguous region containing particles with this hash value.
-		std::vector<RigidBodyParticleCollisionInfo> rb_collisions_{}; // The ith index cooresponds to particles_[i] collision with a rigid body.
+		XPBDParticleStripped* particles_stripped_{};                                    // Stripped down particle needed in Solve(). Not in vector so it can be allocated with custom alignment.
+#if GAUSS_SEIDEL_WITHIN_CHUNK										                    
+		XPBDParticleStripped* particles_scratch_{};                                     // Buffer for particles to use during calculations in a substep. Particularly, for gauss-seidell style solving within a chunk.
+#endif																                    
+		std::vector<XPBDParticle> particles_{};                                         // All particle members not needed in Solve().
+		std::vector<uint32_t> particle_keys_{};                                         // Keys of particles put into separate buffer to stay hot in cache during Solve().
+		std::vector<uint32_t> hash_table_{};                                            // Indices into particle_indices_, showing start of contiguous region containing particles with this hash value.
+		std::vector<std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>> particle_ranges_{}; // The ith index contains an index into particles_ of the start of a range. We store a buffer to precompute the values.
+		std::vector<RigidBodyParticleCollisionInfo> rb_collisions_{};                   // The ith index cooresponds to particles_[i] collision with a rigid body.
 
 		const std::vector<XPBDConstraint*>* jacobi_constraints_{};
 		const std::vector<PhysicsMaterial*>* physics_materials_{};
@@ -298,6 +303,7 @@ namespace pmk
 		virtual glm::vec3 Solve(
 			XPBDParticleContext* p_context,
 			const XPBDRigidBodyContext* rb_context,
+			const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges,
 			uint32_t particle_idx,
 			float delta_time,
 			uint32_t chunk_begin,
@@ -322,6 +328,7 @@ namespace pmk
 		virtual glm::vec3 Solve(
 			XPBDParticleContext* p_context,
 			const XPBDRigidBodyContext* rb_context,
+			const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges,
 			uint32_t particle_idx,
 			float delta_time,
 			uint32_t chunk_begin,

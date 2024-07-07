@@ -17,7 +17,7 @@
 namespace pmk
 {
 	constexpr uint32_t HASH_TABLE_SIZE{ 262144 }; // Power of two, 2^18, makes it fast to take modulo using bitwise and.
-	constexpr float GRID_SPACING{ PARTICLE_WIDTH };
+	constexpr float GRID_SPACING{ PARTICLE_WIDTH * 1.5f };
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
 	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
 
@@ -176,6 +176,8 @@ namespace pmk
 		rb_collisions_.resize(particles_.size());
 		particle_keys_.clear();
 		particle_keys_.resize(particles_.size());
+		particle_ranges_.clear();
+		particle_ranges_.resize(particles_.size());
 		hash_table_.clear();
 		hash_table_.resize(HASH_TABLE_SIZE, NULL_INDEX);
 
@@ -215,10 +217,12 @@ namespace pmk
 
 		ApplyForces(delta_time);
 		{
+			PrecomputeParticleRanges();
+
 			ZoneScopedN("Solve all constraints");
 			for (uint32_t i{ 0 }; i < iterations; ++i)
 			{
-				// Note needed first iteration since it's copied in UpdateIndexBuffers().
+				// Not needed first iteration since it's copied in UpdateIndexBuffers().
 				if (i != 0) {
 					CopyPositions();
 				}
@@ -244,6 +248,11 @@ namespace pmk
 	const XPBDParticleStripped* XPBDParticleContext::GetParticlesStripped() const
 	{
 		return particles_stripped_;
+	}
+
+	uint32_t XPBDParticleContext::GetParticleCount() const
+	{
+		return (uint32_t)particles_.size();
 	}
 
 #if GAUSS_SEIDEL_WITHIN_CHUNK
@@ -276,6 +285,15 @@ namespace pmk
 		}
 	}
 
+	void XPBDParticleContext::PrecomputeParticleRanges()
+	{
+		auto indices{ std::views::iota(0u, (uint32_t)particles_.size()) };
+		std::for_each(std::execution::par_unseq, indices.begin(), indices.end(),
+			[&](uint32_t i) {
+				particle_ranges_[i] = GetParticleRangesWithinKernelSIMD(particles_stripped_[i].predicted_position);
+			});
+	}
+
 	void XPBDParticleContext::SolveConstraints(float delta_time, const XPBDRigidBodyContext* rb_context)
 	{
 		ZoneScoped;
@@ -302,12 +320,15 @@ namespace pmk
 					{
 						PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
 
-						particles_[i].debug_color = UniqueColor(begin);
+						glm::vec3 p1_pos{ particles_scratch_[i].predicted_position };
+						auto start_of_ranges{ particle_ranges_[i] };
+						float density{ ComputeDensity(p1_pos, start_of_ranges) };
+						particles_[i].debug_color = Heatmap(density, 0.0f, 1000.0f);
 
 						for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 						{
 							if (mat->jacobi_constraints_mask & (1 << j)) {
-								glm::vec3 delta_x{ (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time, begin, end) };
+								glm::vec3 delta_x{ (*jacobi_constraints_)[j]->Solve(this, rb_context, start_of_ranges, i, delta_time, begin, end) };
 								particles_[i].s.predicted_position += delta_x;
 #if GAUSS_SEIDEL_WITHIN_CHUNK
 								particles_scratch_[i].predicted_position += delta_x;;
@@ -324,7 +345,7 @@ namespace pmk
 		ZoneScoped;
 
 		auto indices{ std::views::iota(0u, (uint32_t)particles_.size()) };
-		std::for_each(std::execution::par, indices.begin(), indices.end(),
+		std::for_each(std::execution::par_unseq, indices.begin(), indices.end(),
 			[&](uint32_t i) {
 				XPBDParticle& p{ particles_[i] };
 
@@ -339,18 +360,23 @@ namespace pmk
 			});
 	}
 
-	float XPBDParticleContext::ComputeDensity(const glm::vec3& pos, const ConstIndexProximityContainer& proximity_particles) const
+	float XPBDParticleContext::ComputeDensity(const glm::vec3& pos, const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges) const
 	{
 		float density{ 0.0f };
 
-		uint32_t i{ 0 };
-		//for (uint32_t j{ 0 }; j < (uint32_t)particles_.size(); ++j)
-		for (uint32_t j : proximity_particles)
+		for (uint32_t range_start : start_of_ranges)
 		{
-			++i;
-			float delta_pos{ glm::length(pos - particles_stripped_[j].predicted_position) };
-			if (delta_pos < SPH_KERNEL_RADIUS) {
-				density += (1.0f / particles_stripped_[j].inverse_mass) * SPHKernel(delta_pos);
+			if (range_start == NULL_INDEX) {
+				continue;
+			}
+
+			uint64_t current_key{ particle_keys_[range_start] };
+			for (uint32_t p2_idx{ range_start }; p2_idx < (uint32_t)particle_keys_.size() && particle_keys_[p2_idx] == current_key; ++p2_idx)
+			{
+				float delta_pos{ glm::length(pos - particles_stripped_[p2_idx].predicted_position) };
+				if (delta_pos < SPH_KERNEL_RADIUS) {
+					density += (1.0f / particles_stripped_[p2_idx].inverse_mass) * SPHKernel(delta_pos);
+				}
 			}
 		}
 
@@ -382,6 +408,7 @@ namespace pmk
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> result{};
 		glm::uvec3 coord{ PositionToCoordinate(position) };
 
+		// Define all possible x, y, and z coordinates.
 		uint32_t x_pos0{ coord.x - 1 };
 		uint32_t& x_pos1{ coord.x };
 		uint32_t x_pos2{ coord.x + 1 };
@@ -394,6 +421,7 @@ namespace pmk
 		uint32_t& z_pos1{ coord.z };
 		uint32_t z_pos2{ coord.z + 1 };
 
+		// Set what all the indices of a triple for loop would be for i, j, k. There are 27 total since 3^3 = 27.
 		__m256i x0 = _mm256_setr_epi32(x_pos0, x_pos0, x_pos0, x_pos0, x_pos0, x_pos0, x_pos0, x_pos0);
 		__m256i x1 = _mm256_setr_epi32(x_pos0, x_pos1, x_pos1, x_pos1, x_pos1, x_pos1, x_pos1, x_pos1);
 		__m256i x2 = _mm256_setr_epi32(x_pos1, x_pos1, x_pos2, x_pos2, x_pos2, x_pos2, x_pos2, x_pos2);
@@ -409,11 +437,13 @@ namespace pmk
 		__m256i z2 = _mm256_setr_epi32(z_pos1, z_pos2, z_pos0, z_pos1, z_pos2, z_pos0, z_pos1, z_pos2);
 		__m256i z3 = _mm256_setr_epi32(z_pos0, z_pos1, z_pos2, 0, 0, 0, 0, 0); // Only first 3 used.
 
+		// Compute the hash for all pairs in the triple for loop.
 		__m256i hash0{ HashCoordsSIMD(x0, y0, z0) };
 		__m256i hash1{ HashCoordsSIMD(x1, y1, z1) };
 		__m256i hash2{ HashCoordsSIMD(x2, y2, z2) };
 		__m256i hash3{ HashCoordsSIMD(x3, y3, z3) };
 
+		// Look up the result from the hash table.
 		result[0] = hash_table_[_mm256_extract_epi32(hash0, 0)];
 		result[1] = hash_table_[_mm256_extract_epi32(hash0, 1)];
 		result[2] = hash_table_[_mm256_extract_epi32(hash0, 2)];
@@ -473,12 +503,17 @@ namespace pmk
 		return result;
 	}
 
+	const std::vector<std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>>& XPBDParticleContext::GetCachedParticleRanges() const
+	{
+		return particle_ranges_;
+	}
+
 	void XPBDParticleContext::UpdateIndexBuffers()
 	{
 		ZoneScoped;
 		{
 			ZoneScopedN("Sort particles");
-			std::sort(std::execution::par, particles_.begin(), particles_.end(),
+			std::sort(std::execution::par_unseq, particles_.begin(), particles_.end(),
 				[](const XPBDParticle& p0, const XPBDParticle& p1) { return p0.key < p1.key; });
 		}
 
@@ -536,59 +571,76 @@ namespace pmk
 	void FluidDensityConstraint::Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time)
 	{
 		lambda_cache_.resize(p_context->GetParticles().size());
-		const std::vector<XPBDParticle>& particles{ p_context->GetParticles() };
+		const XPBDParticleStripped* particles{ p_context->GetParticlesStripped() };
 
 		// Compute lambda corresponding to each particle. It will be used in Solve().
-		for (uint32_t i{ 0 }; i < (uint32_t)particles.size(); ++i)
-		{
-			const glm::vec3& position{ particles[i].s.predicted_position };
+		auto indices{ std::views::iota(0u, p_context->GetParticleCount()) };
+		std::for_each(std::execution::par_unseq, indices.begin(), indices.end(),
+			[&](uint32_t i) {
+				const glm::vec3& position{ particles[i].predicted_position };
 
-			constexpr float compliance{ 0.0f };
-			constexpr float alpha{ compliance };
-			float alpha_tilde{ alpha / (delta_time * delta_time) };
+				constexpr float compliance{ 0.0f };
+				constexpr float alpha{ compliance };
+				float alpha_tilde{ alpha / (delta_time * delta_time) };
 
-			auto proximity_particles{ p_context->GetParticleIndicesByProximity(position) };
-			// TODO: Add rigid body density.
-			float density{ p_context->ComputeDensity(position, proximity_particles) };
-			float c{ (density / rest_density_) - 1.0f };
+				const auto& start_of_ranges{ p_context->GetCachedParticleRanges()[i] };
 
-			// Clamp pressure constraint to be nonnegative.
-			if (c <= 0.0f)
-			{
-				lambda_cache_[i] = 0.0f;
-				return;
-			}
+				// TODO: Add rigid body density.
+				float density{ p_context->ComputeDensity(position, start_of_ranges) };
+				float c{ (density / rest_density_) - 1.0f };
 
-			float denominator{ 0.0f };
-			glm::vec3 k_equal_i_grad{};
-			for (uint32_t k : proximity_particles)
-			{
-				if (k == i)
+				// Clamp pressure constraint to be nonnegative.
+				if (c <= 0.0f)
 				{
-					// From equation (8) of PBF, it's a sum over all neighbors. But we accumulate it separately with k_equal_i_grad.
-					continue;
+					lambda_cache_[i] = 0.0f;
+					return;
 				}
 
-				glm::vec3 q{ position - particles[k].s.predicted_position };
-				if (glm::length2(q) >= SPH_KERNEL_RADIUS_SQUARED) {
-					continue;
+				float denominator{ 0.0f };
+				glm::vec3 k_equal_i_grad{};
+				const auto& particle_keys{ p_context->GetParticleKeys() };
+				for (uint32_t range_start : start_of_ranges)
+				{
+					if (range_start == NULL_INDEX) {
+						continue;
+					}
+					uint64_t current_key{ particle_keys[range_start] };
+					for (uint32_t p2_idx{ range_start }; p2_idx < (uint32_t)particle_keys.size() && particle_keys[p2_idx] == current_key; ++p2_idx)
+					{
+						if (p2_idx == i)
+						{
+							// From equation (8) of PBF, it's a sum over all neighbors. But we accumulate it separately with k_equal_i_grad.
+							continue;
+						}
+
+						glm::vec3 q{ position - particles[p2_idx].predicted_position };
+						if (glm::length2(q) >= SPH_KERNEL_RADIUS_SQUARED) {
+							continue;
+						}
+
+						glm::vec3 grad_pk_w{ SPHKernelGradient(q) };
+						denominator += glm::length2((-1.0f / rest_density_) * grad_pk_w); // Equation (8) case k=j from PBF.
+
+						if (denominator == 0.0f)
+						{
+							uint32_t a{ 0 };
+							++a;
+						}
+
+						k_equal_i_grad += grad_pk_w;
+					}
 				}
+				denominator += glm::length2((1.0f / rest_density_) * k_equal_i_grad); // Equation (8) case k=i from PBF.
 
-				glm::vec3 grad_pk_w{ SPHKernelGradient(q) };
-				denominator += glm::length2((-1.0f / rest_density_) * grad_pk_w); // Equation (8) case k=j from PBF.
-
-				k_equal_i_grad += grad_pk_w;
-			}
-			denominator += glm::length2((1.0f / rest_density_) * k_equal_i_grad); // Equation (8) case k=i from PBF.
-
-			lambda_cache_[i] = -c / (denominator + alpha_tilde); // Equation (9) from PBF.
-		}
+				lambda_cache_[i] = -c / (denominator + alpha_tilde); // Equation (9) from PBF.
+			});
 	}
 
 
 	glm::vec3 FluidDensityConstraint::Solve(
 		XPBDParticleContext* p_context,
 		const XPBDRigidBodyContext* rb_context,
+		const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges,
 		uint32_t particle_idx,
 		float delta_time,
 		uint32_t chunk_begin,
@@ -633,6 +685,7 @@ namespace pmk
 	glm::vec3 CollisionConstraint::Solve(
 		XPBDParticleContext* p_context,
 		const XPBDRigidBodyContext* rb_context,
+		const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges,
 		uint32_t particle_idx,
 		float delta_time,
 		uint32_t chunk_begin,
@@ -653,10 +706,8 @@ namespace pmk
 #endif
 		glm::vec3 particle_delta_x{};
 
-		auto start_of_ranges{ p_context->GetParticleRangesWithinKernelSIMD(p1.predicted_position) };
-		for (uint32_t i{ 0 }; i < MAXIMUM_BLOCKS_IN_KERNEL; ++i)
+		for (uint32_t range_start : start_of_ranges)
 		{
-			uint32_t range_start{ start_of_ranges[i] };
 			if (range_start == NULL_INDEX) {
 				continue;
 			}
@@ -694,11 +745,6 @@ namespace pmk
 				particle_delta_x += lambda * p1.inverse_mass * delta_c1;
 			}
 		}
-
-		// Detect particle collisions.
-		//for (uint32_t p2_idx : p_context->GetParticleIndicesByProximity(p1.s.predicted_position))
-		//{
-		//}
 
 		// TODO: Don't iterate over all rigid bodies.
 		// Detect rigid body collisions.

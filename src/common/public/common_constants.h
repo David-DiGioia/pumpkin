@@ -25,3 +25,5 @@ constexpr float PARTICLE_WIDTH_SQUARED{ PARTICLE_WIDTH * PARTICLE_WIDTH };
 constexpr float PARTICLE_RADIUS{ PARTICLE_WIDTH * 0.5f };
 constexpr float PARTICLE_VOLUME{ PARTICLE_WIDTH * PARTICLE_WIDTH * PARTICLE_WIDTH };
 constexpr uint32_t CHUNK_TOTAL_VOXEL_COUNT{ CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT * CHUNK_ROW_VOXEL_COUNT };
+constexpr uint32_t MAXIMUM_BLOCKS_IN_KERNEL{ 27 }; // Since 3^3 = 27. Assuming kernel radius is less or equal to grid spacing.
+

@@ -50,13 +50,13 @@ void main()
     float f = d0 * d1;
 
     bool floor = (coord.y == 0);
-    bool wall = (coord.y < 10) && (coord.x == 0 || coord.z == 0 || coord.x == 63 || coord.z == 63);
+    bool wall = (coord.y < 30) && (coord.x == 0 || coord.z == 0 || coord.x == 63 || coord.z == 63);
 
-    if (f < ubo.radius) {
-        particles_out[index].type = (d0 < d1) ? PARTICLE_TYPE_LIQUID : PARTICLE_TYPE_BOUNCY;
-    }
-    else if (floor || wall) {
+    if (floor || wall) {
         particles_out[index].type = PARTICLE_TYPE_BOUNCY;
+    }
+    else if (f < ubo.radius) {
+        particles_out[index].type = (d0 < d1) ? PARTICLE_TYPE_LIQUID : PARTICLE_TYPE_BOUNCY;
     }
     else {
         particles_out[index].type = PARTICLE_TYPE_EMPTY;
