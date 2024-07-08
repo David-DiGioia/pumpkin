@@ -17,7 +17,7 @@
 namespace pmk
 {
 	constexpr uint32_t HASH_TABLE_SIZE{ 262144 }; // Power of two, 2^18, makes it fast to take modulo using bitwise and.
-	constexpr float GRID_SPACING{ PARTICLE_WIDTH * 1.5f };
+	constexpr float GRID_SPACING{ PARTICLE_WIDTH };
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
 	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
 
@@ -298,13 +298,13 @@ namespace pmk
 	{
 		ZoneScoped;
 
-		{
-			ZoneScopedN("Preprocess");
-			// Preprocess each constraint.
-			for (XPBDConstraint* constraint : *jacobi_constraints_) {
-				constraint->Preprocess(this, rb_context, delta_time);
-			}
-		}
+		//{
+		//	ZoneScopedN("Preprocess");
+		//	// Preprocess each constraint.
+		//	for (XPBDConstraint* constraint : *jacobi_constraints_) {
+		//		constraint->Preprocess(this, rb_context, delta_time);
+		//	}
+		//}
 
 		{
 			ZoneScopedN("Parallel solve collisions");
@@ -321,9 +321,7 @@ namespace pmk
 						PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
 
 						glm::vec3 p1_pos{ particles_scratch_[i].predicted_position };
-						auto start_of_ranges{ particle_ranges_[i] };
-						float density{ ComputeDensity(p1_pos, start_of_ranges) };
-						particles_[i].debug_color = Heatmap(density, 0.0f, 1000.0f);
+						const auto& start_of_ranges{ particle_ranges_[i] };
 
 						for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 						{
@@ -697,7 +695,7 @@ namespace pmk
 		const XPBDParticleStripped* particles_scratch{ p_context->GetParticlesScratch() };
 #endif
 
-		float compliance_term{ compliance_ / (delta_time * delta_time) };
+		const float compliance_term{ compliance_ / (delta_time * delta_time) };
 
 #if GAUSS_SEIDEL_WITHIN_CHUNK
 		const XPBDParticleStripped& p1{ particles_scratch[particle_idx] };
@@ -728,20 +726,49 @@ namespace pmk
 				glm::vec3 diff{ p1.predicted_position - p2.predicted_position };
 				float distance2{ glm::length2(diff) };
 
-				if (distance2 == 0.0f) {
+				if (distance2 == 0.0f)
+				{
 					diff = glm::vec3{ 0.0f, 0.0001f, 0.0f };
 					distance2 = glm::length2(diff);
 				}
 
-				if (distance2 >= PARTICLE_WIDTH_SQUARED) {
+				constexpr float attractive_width{ PARTICLE_WIDTH * 1.8f };
+				constexpr float attractive_width_squared{ attractive_width * attractive_width };
+
+				constexpr float repulsive_width{ PARTICLE_WIDTH * 1.4f };
+				constexpr float repulsive_width_squared{ repulsive_width * repulsive_width };
+
+				if (distance2 >= attractive_width_squared) {
 					continue;
 				}
 
+				//if (distance2 >= PARTICLE_WIDTH_SQUARED) {
+					//continue;
+				//}
+				
 				float distance{ std::sqrtf(distance2) };
-				float c{ distance - PARTICLE_WIDTH };
+				float c{};
+				float compliance_term2{};
+
+				if (distance2 >= repulsive_width_squared)
+				{
+					c = -(distance - attractive_width);
+					compliance_term2 = 0.01f / (delta_time * delta_time);
+				}
+				else if (distance2 >= PARTICLE_WIDTH_SQUARED)
+				{
+					c = distance - repulsive_width;
+					compliance_term2 = 0.01f / (delta_time * delta_time);
+				}
+				else
+				{
+					c = distance - PARTICLE_WIDTH;
+					compliance_term2 = compliance_term;
+				}
+
 				glm::vec3 delta_c1{ diff / distance };
 
-				float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
+				float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term2) }; // Magnitude of gradients are 1.0, so they're not written here.
 				particle_delta_x += lambda * p1.inverse_mass * delta_c1;
 			}
 		}

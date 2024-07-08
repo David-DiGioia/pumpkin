@@ -348,6 +348,7 @@ namespace renderer
 
 	std::array<glm::uvec3, 8> VoxelChunk::GetPotentialCollisions(const glm::vec3& coord_space, uint32_t* potential_collision_count) const
 	{
+		// TODO: Can probably use precalculated neighbor particles to skip all the iteration in this function.
 		glm::vec3 fract{ glm::fract(coord_space) };
 		glm::ivec3 coord{ glm::ivec3{glm::floor(coord_space + 0.5f)} };
 		int32_t x_offset{ fract.x < 0.5 ? 1 : -1 };
