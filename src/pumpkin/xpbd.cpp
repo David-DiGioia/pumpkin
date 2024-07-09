@@ -298,14 +298,6 @@ namespace pmk
 	{
 		ZoneScoped;
 
-		//{
-		//	ZoneScopedN("Preprocess");
-		//	// Preprocess each constraint.
-		//	for (XPBDConstraint* constraint : *jacobi_constraints_) {
-		//		constraint->Preprocess(this, rb_context, delta_time);
-		//	}
-		//}
-
 		{
 			ZoneScopedN("Parallel solve collisions");
 			// Jacobi iterations.
@@ -566,121 +558,7 @@ namespace pmk
 		return (*physics_materials_)[p.physics_material_index];
 	}
 
-	void FluidDensityConstraint::Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time)
-	{
-		lambda_cache_.resize(p_context->GetParticles().size());
-		const XPBDParticleStripped* particles{ p_context->GetParticlesStripped() };
-
-		// Compute lambda corresponding to each particle. It will be used in Solve().
-		auto indices{ std::views::iota(0u, p_context->GetParticleCount()) };
-		std::for_each(std::execution::par_unseq, indices.begin(), indices.end(),
-			[&](uint32_t i) {
-				const glm::vec3& position{ particles[i].predicted_position };
-
-				constexpr float compliance{ 0.0f };
-				constexpr float alpha{ compliance };
-				float alpha_tilde{ alpha / (delta_time * delta_time) };
-
-				const auto& start_of_ranges{ p_context->GetCachedParticleRanges()[i] };
-
-				// TODO: Add rigid body density.
-				float density{ p_context->ComputeDensity(position, start_of_ranges) };
-				float c{ (density / rest_density_) - 1.0f };
-
-				// Clamp pressure constraint to be nonnegative.
-				if (c <= 0.0f)
-				{
-					lambda_cache_[i] = 0.0f;
-					return;
-				}
-
-				float denominator{ 0.0f };
-				glm::vec3 k_equal_i_grad{};
-				const auto& particle_keys{ p_context->GetParticleKeys() };
-				for (uint32_t range_start : start_of_ranges)
-				{
-					if (range_start == NULL_INDEX) {
-						continue;
-					}
-					uint64_t current_key{ particle_keys[range_start] };
-					for (uint32_t p2_idx{ range_start }; p2_idx < (uint32_t)particle_keys.size() && particle_keys[p2_idx] == current_key; ++p2_idx)
-					{
-						if (p2_idx == i)
-						{
-							// From equation (8) of PBF, it's a sum over all neighbors. But we accumulate it separately with k_equal_i_grad.
-							continue;
-						}
-
-						glm::vec3 q{ position - particles[p2_idx].predicted_position };
-						if (glm::length2(q) >= SPH_KERNEL_RADIUS_SQUARED) {
-							continue;
-						}
-
-						glm::vec3 grad_pk_w{ SPHKernelGradient(q) };
-						denominator += glm::length2((-1.0f / rest_density_) * grad_pk_w); // Equation (8) case k=j from PBF.
-
-						if (denominator == 0.0f)
-						{
-							uint32_t a{ 0 };
-							++a;
-						}
-
-						k_equal_i_grad += grad_pk_w;
-					}
-				}
-				denominator += glm::length2((1.0f / rest_density_) * k_equal_i_grad); // Equation (8) case k=i from PBF.
-
-				lambda_cache_[i] = -c / (denominator + alpha_tilde); // Equation (9) from PBF.
-			});
-	}
-
-
-	glm::vec3 FluidDensityConstraint::Solve(
-		XPBDParticleContext* p_context,
-		const XPBDRigidBodyContext* rb_context,
-		const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges,
-		uint32_t particle_idx,
-		float delta_time,
-		uint32_t chunk_begin,
-		uint32_t chunk_end) const
-	{
-		const std::vector<XPBDParticle>& particles{ p_context->GetParticles() };
-		const XPBDParticle& particle{ particles[particle_idx] };
-		const glm::vec3& position{ particle.s.predicted_position };
-
-		glm::vec3 delta_x{};
-		for (uint32_t j : p_context->GetParticleIndicesByProximity(position))
-		{
-			if (particle_idx == j) {
-				continue;
-			}
-
-			glm::vec3 q{ position - particles[j].s.predicted_position };
-			delta_x += (lambda_cache_[particle_idx] + lambda_cache_[j]) * SPHKernelGradient(q); // Equation (12) from PBF.
-		}
-		delta_x /= rest_density_;
-
-		return delta_x;
-	}
-
-	std::vector<std::pair<float*, std::string>> FluidDensityConstraint::GetParameters()
-	{
-		return {
-			{&rest_density_, "Rest density"},
-		};
-	}
-
-	void FluidDensityConstraint::OnParametersMutated()
-	{
-		// No-op.
-	}
-
-	void CollisionConstraint::Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time)
-	{
-		// No-op.
-	}
-
-	glm::vec3 CollisionConstraint::Solve(
+	glm::vec3 FluidCollisionConstraint::Solve(
 		XPBDParticleContext* p_context,
 		const XPBDRigidBodyContext* rb_context,
 		const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges,
@@ -742,10 +620,6 @@ namespace pmk
 					continue;
 				}
 
-				//if (distance2 >= PARTICLE_WIDTH_SQUARED) {
-					//continue;
-				//}
-				
 				float distance{ std::sqrtf(distance2) };
 				float c{};
 				float compliance_term2{};
@@ -826,14 +700,14 @@ namespace pmk
 		return particle_delta_x;
 	}
 
-	std::vector<std::pair<float*, std::string>> CollisionConstraint::GetParameters()
+	std::vector<std::pair<float*, std::string>> FluidCollisionConstraint::GetParameters()
 	{
 		return {
 			{&compliance_, "Compliance"},
 		};
 	}
 
-	void CollisionConstraint::OnParametersMutated()
+	void FluidCollisionConstraint::OnParametersMutated()
 	{
 		// No-op.
 	}

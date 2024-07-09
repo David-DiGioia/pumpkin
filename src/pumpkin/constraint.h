@@ -15,9 +15,6 @@ namespace pmk
 	class XPBDConstraint
 	{
 	public:
-		// Called once before any invocations to Solve() for that frame.
-		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) = 0;
-
 		// Solve a single iteration of the constraint and return particle's delta_x.
 		// Particle context is not const so it can record rigid body collision data if necessary.
 		virtual glm::vec3 Solve(

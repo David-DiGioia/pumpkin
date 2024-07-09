@@ -20,9 +20,6 @@ namespace pmk
 	public:
 		RigidBodyConstraint();
 
-		// Called once before any invocations to Solve() for that frame.
-		virtual void Preprocess(const XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, float delta_time) override;
-
 		// Solve a single iteration of the constraint and return delta_x.
 		virtual glm::vec3 Solve(
 			XPBDParticleContext* p_context,
