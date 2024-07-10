@@ -311,14 +311,12 @@ namespace pmk
 					for (uint32_t i{ begin }; i < end; ++i)
 					{
 						PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
-
 						glm::vec3 p1_pos{ particles_scratch_[i].predicted_position };
-						const auto& start_of_ranges{ particle_ranges_[i] };
 
 						for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 						{
 							if (mat->jacobi_constraints_mask & (1 << j)) {
-								glm::vec3 delta_x{ (*jacobi_constraints_)[j]->Solve(this, rb_context, start_of_ranges, i, delta_time, begin, end) };
+								glm::vec3 delta_x{ (*jacobi_constraints_)[j]->Solve(this, rb_context, i, delta_time, begin, end) };
 								particles_[i].s.predicted_position += delta_x;
 #if GAUSS_SEIDEL_WITHIN_CHUNK
 								particles_scratch_[i].predicted_position += delta_x;;
@@ -348,29 +346,6 @@ namespace pmk
 
 				// In the future, internal forces like drag and vorticity will be applied here.
 			});
-	}
-
-	float XPBDParticleContext::ComputeDensity(const glm::vec3& pos, const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges) const
-	{
-		float density{ 0.0f };
-
-		for (uint32_t range_start : start_of_ranges)
-		{
-			if (range_start == NULL_INDEX) {
-				continue;
-			}
-
-			uint64_t current_key{ particle_keys_[range_start] };
-			for (uint32_t p2_idx{ range_start }; p2_idx < (uint32_t)particle_keys_.size() && particle_keys_[p2_idx] == current_key; ++p2_idx)
-			{
-				float delta_pos{ glm::length(pos - particles_stripped_[p2_idx].predicted_position) };
-				if (delta_pos < SPH_KERNEL_RADIUS) {
-					density += (1.0f / particles_stripped_[p2_idx].inverse_mass) * SPHKernel(delta_pos);
-				}
-			}
-		}
-
-		return density;
 	}
 
 	XPBDParticleContext::ProximityContainer XPBDParticleContext::GetParticlesByProximity(const glm::vec3& position)
@@ -561,7 +536,6 @@ namespace pmk
 	glm::vec3 FluidCollisionConstraint::Solve(
 		XPBDParticleContext* p_context,
 		const XPBDRigidBodyContext* rb_context,
-		const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges,
 		uint32_t particle_idx,
 		float delta_time,
 		uint32_t chunk_begin,
@@ -582,6 +556,7 @@ namespace pmk
 #endif
 		glm::vec3 particle_delta_x{};
 
+		const auto& start_of_ranges{ p_context->GetCachedParticleRanges()[particle_idx] };
 		for (uint32_t range_start : start_of_ranges)
 		{
 			if (range_start == NULL_INDEX) {

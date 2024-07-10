@@ -101,14 +101,12 @@ namespace pmk
 	glm::vec3 RigidBodyConstraint::Solve(
 		XPBDParticleContext* p_context,
 		const XPBDRigidBodyContext* rb_context,
-		const std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>& start_of_ranges,
 		uint32_t particle_idx,
 		float delta_time,
 		uint32_t chunk_begin,
 		uint32_t chunk_end) const
 	{
-		// TODO:
-		return glm::vec3();
+		return {};
 	}
 
 	std::vector<std::pair<float*, std::string>> RigidBodyConstraint::GetParameters()
