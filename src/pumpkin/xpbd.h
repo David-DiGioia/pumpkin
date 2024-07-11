@@ -295,6 +295,8 @@ namespace pmk
 	class FluidCollisionConstraint : public XPBDConstraint
 	{
 	public:
+		FluidCollisionConstraint();
+
 		virtual glm::vec3 Solve(
 			XPBDParticleContext* p_context,
 			const XPBDRigidBodyContext* rb_context,
@@ -310,6 +312,15 @@ namespace pmk
 	protected:
 		friend class PhysicsContext;
 
-		float compliance_{ 0.0f };
+		float collision_compliance_{ 0.0f };
+		float attractive_compliance_{ 0.01f };
+		float repulsive_compliance_{ 0.01f };
+		float attractive_width_multiplier_{ 1.8f };
+		float repulsive_width_multiplier_{ 1.4f };
+
+		float attractive_width_{ PARTICLE_WIDTH * attractive_width_multiplier_ };
+		float repulsive_width_{ PARTICLE_WIDTH * repulsive_width_multiplier_ };
+		float attractive_width_squared_{ attractive_width_ * attractive_width_ };
+		float repulsive_width_squared_{ repulsive_width_ * repulsive_width_ };
 	};
 }

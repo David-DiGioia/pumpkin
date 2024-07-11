@@ -342,8 +342,6 @@ namespace pmk
 				p.key = HashPosition(p.s.predicted_position);
 				p.position = p.s.predicted_position;
 
-				//p.debug_color = Heatmap(p.key, 0.0f, HASH_TABLE_SIZE);
-
 				// In the future, internal forces like drag and vorticity will be applied here.
 			});
 	}
@@ -533,6 +531,11 @@ namespace pmk
 		return (*physics_materials_)[p.physics_material_index];
 	}
 
+	FluidCollisionConstraint::FluidCollisionConstraint()
+	{
+		OnParametersMutated();
+	}
+
 	glm::vec3 FluidCollisionConstraint::Solve(
 		XPBDParticleContext* p_context,
 		const XPBDRigidBodyContext* rb_context,
@@ -547,7 +550,7 @@ namespace pmk
 		const XPBDParticleStripped* particles_scratch{ p_context->GetParticlesScratch() };
 #endif
 
-		const float compliance_term{ compliance_ / (delta_time * delta_time) };
+		const float collision_compliance_term{ collision_compliance_ / (delta_time * delta_time) };
 
 #if GAUSS_SEIDEL_WITHIN_CHUNK
 		const XPBDParticleStripped& p1{ particles_scratch[particle_idx] };
@@ -585,39 +588,33 @@ namespace pmk
 					distance2 = glm::length2(diff);
 				}
 
-				constexpr float attractive_width{ PARTICLE_WIDTH * 1.8f };
-				constexpr float attractive_width_squared{ attractive_width * attractive_width };
-
-				constexpr float repulsive_width{ PARTICLE_WIDTH * 1.4f };
-				constexpr float repulsive_width_squared{ repulsive_width * repulsive_width };
-
-				if (distance2 >= attractive_width_squared) {
+				if (distance2 >= attractive_width_squared_) {
 					continue;
 				}
 
 				float distance{ std::sqrtf(distance2) };
 				float c{};
-				float compliance_term2{};
+				float compliance_term{};
 
-				if (distance2 >= repulsive_width_squared)
+				if (distance2 >= repulsive_width_squared_)
 				{
-					c = -(distance - attractive_width);
-					compliance_term2 = 0.01f / (delta_time * delta_time);
+					c = -(distance - attractive_width_);
+					compliance_term = attractive_compliance_ / (delta_time * delta_time);
 				}
 				else if (distance2 >= PARTICLE_WIDTH_SQUARED)
 				{
-					c = distance - repulsive_width;
-					compliance_term2 = 0.01f / (delta_time * delta_time);
+					c = distance - repulsive_width_;
+					compliance_term = repulsive_compliance_ / (delta_time * delta_time);
 				}
 				else
 				{
 					c = distance - PARTICLE_WIDTH;
-					compliance_term2 = compliance_term;
+					compliance_term = collision_compliance_term;
 				}
 
 				glm::vec3 delta_c1{ diff / distance };
 
-				float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term2) }; // Magnitude of gradients are 1.0, so they're not written here.
+				float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
 				particle_delta_x += lambda * p1.inverse_mass * delta_c1;
 			}
 		}
@@ -647,7 +644,7 @@ namespace pmk
 				glm::vec3 r_cross_n{ glm::cross(r, n) };
 				glm::mat3 inertia_tensor_inv_b{ rb->immovable || rb->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb->inertia_tensor) };
 				float rb_weight{ rb_inv_mass + glm::dot(r_cross_n, inertia_tensor_inv_b * r_cross_n) };
-				float lambda{ -c / (p1.inverse_mass + rb_weight + compliance_term) };
+				float lambda{ -c / (p1.inverse_mass + rb_weight + collision_compliance_term) };
 				glm::vec3 p{ lambda * n };
 
 				// Record particle's change in position.
@@ -678,12 +675,19 @@ namespace pmk
 	std::vector<std::pair<float*, std::string>> FluidCollisionConstraint::GetParameters()
 	{
 		return {
-			{&compliance_, "Compliance"},
+			{&collision_compliance_, "Collide compliance"},
+			{&attractive_compliance_, "Attract compliance"},
+			{&repulsive_compliance_, "Repulse compliance"},
+			{&attractive_width_multiplier_, "Attraction width"},
+			{&repulsive_width_multiplier_, "Repulsive width"},
 		};
 	}
 
 	void FluidCollisionConstraint::OnParametersMutated()
 	{
-		// No-op.
+		attractive_width_ = PARTICLE_WIDTH * attractive_width_multiplier_;
+		repulsive_width_ = PARTICLE_WIDTH * repulsive_width_multiplier_;
+		attractive_width_squared_ = attractive_width_ * attractive_width_;
+		repulsive_width_squared_ = repulsive_width_ * repulsive_width_;
 	}
 }

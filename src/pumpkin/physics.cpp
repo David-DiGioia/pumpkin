@@ -13,9 +13,13 @@ namespace jsonkey
 	const std::string CONSTRAINTS{ "constraints" };
 	const std::string CONSTRAINT_TYPE{ "constraint_type" };
 	// Constraint members.
-	const std::string COMPLIANCE{ "compliance" };
 	// Begin collision constraint.
 	const std::string FLUID_COLLISION_CONSTRAINT{ "fluid_collision" };
+	const std::string COLLISION_COMPLIANCE{ "collision_compliance" };
+	const std::string ATTRACTIVE_COMPLIANCE{ "attractive_compliance" };
+	const std::string REPULSIVE_COMPLIANCE{ "repulsive_compliance" };
+	const std::string ATTRACTIVE_WIDTH{ "attractive_width" };
+	const std::string REPULSIVE_WIDTH{ "repulsive_width" };
 	// End collision constraint.
 	// Begin rigid body constraint.
 	const std::string RIGID_BODY_CONSTRAINT{ "rigid_body" };
@@ -227,7 +231,11 @@ namespace pmk
 			{
 				nlohmann::json json_constraint{
 					{ jsonkey::CONSTRAINT_TYPE, jsonkey::FLUID_COLLISION_CONSTRAINT },
-					{ jsonkey::COMPLIANCE, collision_constraint->compliance_ },
+					{ jsonkey::COLLISION_COMPLIANCE, collision_constraint->collision_compliance_ },
+					{ jsonkey::ATTRACTIVE_COMPLIANCE, collision_constraint->attractive_compliance_ },
+					{ jsonkey::REPULSIVE_COMPLIANCE, collision_constraint->repulsive_compliance_ },
+					{ jsonkey::ATTRACTIVE_WIDTH, collision_constraint->attractive_width_multiplier_ },
+					{ jsonkey::REPULSIVE_WIDTH, collision_constraint->repulsive_width_multiplier_ },
 				};
 
 				j[jsonkey::CONSTRAINTS] += json_constraint;
@@ -270,7 +278,11 @@ namespace pmk
 			{
 				SetConstraintType<FluidCollisionConstraint>(constraint_idx);
 				FluidCollisionConstraint* collision_constraint{ (FluidCollisionConstraint*)jacobi_constraints_.back() };
-				collision_constraint->compliance_ = json_constraint[jsonkey::COMPLIANCE];
+				collision_constraint->collision_compliance_ = json_constraint[jsonkey::COLLISION_COMPLIANCE];
+				collision_constraint->attractive_compliance_ = json_constraint[jsonkey::ATTRACTIVE_COMPLIANCE];
+				collision_constraint->repulsive_compliance_ = json_constraint[jsonkey::REPULSIVE_COMPLIANCE];
+				collision_constraint->attractive_width_multiplier_ = json_constraint[jsonkey::ATTRACTIVE_WIDTH];
+				collision_constraint->repulsive_width_multiplier_ = json_constraint[jsonkey::REPULSIVE_WIDTH];
 			}
 			else if (constraint_type == jsonkey::RIGID_BODY_CONSTRAINT) {
 				SetConstraintType<RigidBodyConstraint>(constraint_idx);
