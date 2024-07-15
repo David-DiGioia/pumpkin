@@ -477,6 +477,23 @@ namespace renderer
 		Extent viewport_extents{ GetViewportExtent() };
 		VkClearColorValue clear_color{ 0.0f, 0.0f, 0.2f, 1.0f };
 
+		VkViewport viewport{
+			.x = 0.0f,
+			.y = 0.0f,
+			.width = (float)viewport_extents.width,
+			.height = (float)viewport_extents.height,
+			.minDepth = 0.0f,
+			.maxDepth = 1.0f,
+		};
+
+		VkRect2D scissor{
+			.offset = {0, 0},
+			.extent = {viewport_extents.width, viewport_extents.height},
+		};
+
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+
 		VkRenderingAttachmentInfo color_attachment_info{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
 			.imageView = editor_backend_.GetImGuiBackend().GetRasterImage().image_view,
@@ -646,41 +663,10 @@ namespace renderer
 			.pInheritanceInfo = nullptr,
 		};
 
-		Extent viewport_extent{ GetViewportExtent() };
-
-		VkViewport viewport{
-			.x = 0.0f,
-			.y = 0.0f,
-			.width = (float)viewport_extent.width,
-			.height = (float)viewport_extent.height,
-			.minDepth = 0.0f,
-			.maxDepth = 1.0f,
-		};
-
-		VkRect2D scissor{
-			.offset = {0, 0},
-			.extent = {viewport_extent.width, viewport_extent.height},
-		};
-
 		VkResult result{ vkBeginCommandBuffer(cmd, &command_buffer_begin_info) };
 		CheckResult(result, "Failed to begin command buffer.");
 
 		BuildTlasAndUpdateBlases(cmd);
-
-		// If the editor viewport is minimized we don't set viewport/scissors.
-#ifdef EDITOR_ENABLED
-		bool minimized{ !editor_backend_.GetImGuiBackend().GetViewportVisible() };
-#else
-		constexpr bool minimized{ false };
-#endif
-
-		if (!minimized)
-		{
-			// We only need to set these for the 3D viewport render because the ImGui
-			// implementation sets them again for the GUI render pass.
-			vkCmdSetViewport(cmd, 0, 1, &viewport);
-			vkCmdSetScissor(cmd, 0, 1, &scissor);
-		}
 
 		TransitionImagesForRender(cmd, image_index);
 		Draw(cmd, image_index);
