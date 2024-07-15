@@ -183,12 +183,18 @@ namespace renderer
 
 		for (const QueuedTlasBuildInfo& build_info : queued_tlas_build_infos_)
 		{
-			VkDeviceAddress instance_buffer_address{ 0 };
+			VkDeviceAddress instance_buffer_address{};
 
 			// We still build TLAS if there are no instances so we can trace rays and execute the miss shader.
 			if (!build_info.instances.empty())
 			{
 				UploadInstancesToDevice(cmd, build_info.instances);
+				instance_buffer_address = DeviceAddress(context_->device, GetCurrentFrame().instance_buffer_.buffer);
+			}
+			else
+			{
+				// We cannot pass null handle buffer address to build an empty TLAS so we must create a dummy buffer.
+				UploadInstancesToDevice(cmd, { VkAccelerationStructureInstanceKHR{} });
 				instance_buffer_address = DeviceAddress(context_->device, GetCurrentFrame().instance_buffer_.buffer);
 			}
 
