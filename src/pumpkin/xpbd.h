@@ -323,4 +323,28 @@ namespace pmk
 		float attractive_width_squared_{ attractive_width_ * attractive_width_ };
 		float repulsive_width_squared_{ repulsive_width_ * repulsive_width_ };
 	};
+
+	class GranularConstraint : public XPBDConstraint
+	{
+	public:
+		GranularConstraint();
+
+		virtual glm::vec3 Solve(
+			XPBDParticleContext* p_context,
+			const XPBDRigidBodyContext* rb_context,
+			uint32_t particle_idx,
+			float delta_time,
+			uint32_t chunk_begin,
+			uint32_t chunk_end) const override;
+
+		virtual std::vector<std::pair<float*, std::string>> GetParameters() override;
+
+		virtual void OnParametersMutated() override;
+
+	protected:
+		friend class PhysicsContext;
+
+		float compliance_{ 0.0f };
+	};
+
 }

@@ -690,4 +690,132 @@ namespace pmk
 		attractive_width_squared_ = attractive_width_ * attractive_width_;
 		repulsive_width_squared_ = repulsive_width_ * repulsive_width_;
 	}
+
+	GranularConstraint::GranularConstraint()
+	{
+		OnParametersMutated();
+	}
+
+	glm::vec3 GranularConstraint::Solve(XPBDParticleContext* p_context, const XPBDRigidBodyContext* rb_context, uint32_t particle_idx, float delta_time, uint32_t chunk_begin, uint32_t chunk_end) const
+	{
+		const std::vector<uint32_t>& particle_keys{ p_context->GetParticleKeys() };
+		const XPBDParticleStripped* particles_stripped{ p_context->GetParticlesStripped() };
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+		const XPBDParticleStripped* particles_scratch{ p_context->GetParticlesScratch() };
+#endif
+
+		const float compliance_term{ compliance_ / (delta_time * delta_time) };
+
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+		const XPBDParticleStripped& p1{ particles_scratch[particle_idx] };
+#else
+		const XPBDParticleStripped& p1{ particles_stripped[particle_idx] };
+#endif
+		glm::vec3 particle_delta_x{};
+
+		const auto& start_of_ranges{ p_context->GetCachedParticleRanges()[particle_idx] };
+		for (uint32_t range_start : start_of_ranges)
+		{
+			if (range_start == NULL_INDEX) {
+				continue;
+			}
+
+			uint64_t current_key{ particle_keys[range_start] };
+			for (uint32_t p2_idx{ range_start }; p2_idx < (uint32_t)particle_keys.size() && particle_keys[p2_idx] == current_key; ++p2_idx)
+			{
+				if (p2_idx == particle_idx) {
+					continue;
+				}
+
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+				bool p2_in_chunk{ (p2_idx >= chunk_begin && p2_idx < chunk_end) };
+				const XPBDParticleStripped& p2{ p2_in_chunk ? particles_scratch[p2_idx] : particles_stripped[p2_idx] }; // Guass-seidel if in chunk, Jacobi if not.
+#else
+				const XPBDParticleStripped& p2{ particles_stripped[p2_idx] };
+#endif
+				glm::vec3 diff{ p1.predicted_position - p2.predicted_position };
+				float distance2{ glm::length2(diff) };
+
+				if (distance2 == 0.0f)
+				{
+					diff = glm::vec3{ 0.0f, 0.0001f, 0.0f };
+					distance2 = glm::length2(diff);
+				}
+
+				if (distance2 < PARTICLE_WIDTH_SQUARED)
+				{
+					float distance{ std::sqrtf(distance2) };
+					float c{ distance - PARTICLE_WIDTH };
+
+					glm::vec3 delta_c1{ diff / distance };
+
+					float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
+					particle_delta_x += lambda * p1.inverse_mass * delta_c1;
+				}
+			}
+		}
+
+		// TODO: Don't iterate over all rigid bodies.
+		// Detect rigid body collisions.
+		RigidBodyParticleCollisionInfo& rb_collision{ p_context->GetRigidBodyCollision(particle_idx) };
+		rb_collision.rb_index = NULL_INDEX;
+		uint32_t rb_idx{ 0 };
+		for (const RigidBody* rb : rb_context->GetRigidBodies())
+		{
+			std::optional<glm::vec3> rb_voxel_pos{ rb_context->ComputeParticleCollision(rb, p1.predicted_position) };
+
+			if (rb_voxel_pos.has_value())
+			{
+				glm::vec3 diff{ p1.predicted_position - rb_voxel_pos.value() };
+				float distance{ glm::length(diff) };
+				float c{ distance - PARTICLE_WIDTH };
+				glm::vec3 grad_c{ diff / distance };
+
+
+				// Rigid body update that will be applied during rigid body physics update.
+				glm::vec3& n{ grad_c };
+				glm::vec3 world_pos_b = rb_voxel_pos.value() - n * PARTICLE_RADIUS;
+				glm::vec3 r{ rb_voxel_pos.value() - rb->node->position };
+				float rb_inv_mass{ rb->immovable ? 0.0f : (1.0f / rb->mass) };
+				glm::vec3 r_cross_n{ glm::cross(r, n) };
+				glm::mat3 inertia_tensor_inv_b{ rb->immovable || rb->voxel_chunk.IsPointMass() ? glm::mat3{} : glm::inverse(rb->inertia_tensor) };
+				float rb_weight{ rb_inv_mass + glm::dot(r_cross_n, inertia_tensor_inv_b * r_cross_n) };
+				float lambda{ -c / (p1.inverse_mass + rb_weight + compliance_term) };
+				glm::vec3 p{ lambda * n };
+
+				// Record particle's change in position.
+				particle_delta_x += p * p1.inverse_mass;
+
+				// Record rigid body's change in position and rotation.
+				// For now just overwrite previous rigid body collisions this particle had. So particle will currently only influence one rigid body per time step.
+				if (!rb->immovable)
+				{
+					rb_collision.rb_index = rb_idx;
+					rb_collision.rb_delta_position = -p * rb_inv_mass;
+					if (rb->voxel_chunk.IsPointMass()) {
+						rb_collision.rb_delta_rotation = {};
+					}
+					else
+					{
+						glm::vec3 tmp2{ inertia_tensor_inv_b * glm::cross(r, p) };
+						rb_collision.rb_delta_rotation = -0.5f * glm::quat{ 0.0f, tmp2.x, tmp2.y, tmp2.z } *rb->node->rotation;
+					}
+				}
+			}
+			++rb_idx;
+		}
+
+		return particle_delta_x;
+	}
+
+	std::vector<std::pair<float*, std::string>> GranularConstraint::GetParameters()
+	{
+		return {
+			{&compliance_, "Compliance"},
+		};
+	}
+
+	void GranularConstraint::OnParametersMutated()
+	{
+	}
 }

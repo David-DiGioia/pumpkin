@@ -1139,6 +1139,9 @@ ConstraintType Editor::GetConstraintType(uint32_t constraint_index)
 	if (dynamic_cast<pmk::FluidCollisionConstraint*>(constraint)) {
 		return ConstraintType::FLUID_COLLISION;
 	}
+	if (dynamic_cast<pmk::GranularConstraint*>(constraint)) {
+		return ConstraintType::GRANULAR;
+	}
 	if (dynamic_cast<pmk::RigidBodyConstraint*>(constraint)) {
 		return ConstraintType::RIGID_BODY;
 	}
@@ -1154,6 +1157,9 @@ void Editor::SetConstraintType(uint32_t constraint_index, ConstraintType type)
 	{
 	case ConstraintType::FLUID_COLLISION:
 		new_constraint = pumpkin_->SetConstraintType<pmk::FluidCollisionConstraint>(constraint_index);
+		break;
+	case ConstraintType::GRANULAR:
+		new_constraint = pumpkin_->SetConstraintType<pmk::GranularConstraint>(constraint_index);
 		break;
 	case ConstraintType::RIGID_BODY:
 		new_constraint = pumpkin_->SetConstraintType<pmk::RigidBodyConstraint>(constraint_index);
