@@ -311,7 +311,11 @@ namespace pmk
 					for (uint32_t i{ begin }; i < end; ++i)
 					{
 						PhysicsMaterial* mat{ GetPhysicsMaterial(particles_[i]) };
+#if GAUSS_SEIDEL_WITHIN_CHUNK
 						glm::vec3 p1_pos{ particles_scratch_[i].predicted_position };
+#else
+						glm::vec3 p1_pos{ particles_stripped_[i].predicted_position };
+#endif
 
 						for (uint32_t j{ 0 }; j < (uint32_t)jacobi_constraints_->size(); ++j)
 						{
