@@ -195,7 +195,7 @@ namespace pmk
 		for (XPBDParticle& p : particles_)
 		{
 			p.s.inverse_mass = 1.0f / (GetPhysicsMaterial(p)->density * particle_initial_volume_);
-			p.key = HashPosition(p.position);
+			p.key = HashPosition(p.s.position);
 		}
 
 		UpdateIndexBuffers();
@@ -281,7 +281,7 @@ namespace pmk
 			p.velocity += delta_time * glm::vec3{ 0.0f, -9.8f, 0.0f }; // Gravity.
 
 			// Predict position.
-			p.s.predicted_position = p.position + delta_time * p.velocity;
+			p.s.predicted_position = p.s.position + delta_time * p.velocity;
 		}
 	}
 
@@ -338,9 +338,9 @@ namespace pmk
 				XPBDParticle& p{ particles_[i] };
 
 				// Update velocity.
-				p.velocity = (p.s.predicted_position - p.position) / delta_time;
+				p.velocity = (p.s.predicted_position - p.s.position) / delta_time;
 				p.key = HashPosition(p.s.predicted_position);
-				p.position = p.s.predicted_position;
+				p.s.position = p.s.predicted_position;
 
 				// In the future, internal forces like drag and vorticity will be applied here.
 			});
@@ -514,8 +514,10 @@ namespace pmk
 		ZoneScoped;
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
 		{
+			particles_stripped_[i].position = particles_[i].s.position;
 			particles_stripped_[i].predicted_position = particles_[i].s.predicted_position;
 #if GAUSS_SEIDEL_WITHIN_CHUNK
+			particles_scratch_[i].position = particles_[i].s.position;
 			particles_scratch_[i].predicted_position = particles_[i].s.predicted_position;
 #endif
 		}
@@ -711,7 +713,7 @@ namespace pmk
 #else
 		const XPBDParticleStripped& p1{ particles_stripped[particle_idx] };
 #endif
-		glm::vec3 particle_delta_x{};
+		glm::vec3 p1_delta_x{};
 
 		const auto& start_of_ranges{ p_context->GetCachedParticleRanges()[particle_idx] };
 		for (uint32_t range_start : start_of_ranges)
@@ -750,7 +752,26 @@ namespace pmk
 					glm::vec3 delta_c1{ diff / distance };
 
 					float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
-					particle_delta_x += lambda * p1.inverse_mass * delta_c1;
+					float d{ lambda * p1.inverse_mass };
+					p1_delta_x += d * delta_c1;
+					glm::vec3 p2_delta_x{ -d * delta_c1 };
+
+					glm::vec3 p1_pred_position{ p1.predicted_position + p1_delta_x };
+					glm::vec3 p2_pred_position{ p2.predicted_position + p2_delta_x };
+					glm::vec3 delta_x_perp{ (p1_pred_position - p1.position) - (p2_pred_position - p2.position) };
+
+					//glm::vec3 perp_direction{0.0f, 1.0f, 0.0f};
+					glm::vec3 perp_direction{ delta_c1 };
+					delta_x_perp = delta_x_perp - glm::dot(delta_x_perp, perp_direction) * perp_direction; // Subtract component in delta_c1 direction to get perpendicular vector.
+
+					float delta_x_perp_len{ glm::length(delta_x_perp) };
+					glm::vec3 friction_delta_x{ delta_x_perp };
+
+					if ((delta_x_perp_len != 0.0f) && (delta_x_perp_len >= static_friction_ * d)) {
+						friction_delta_x = delta_x_perp * std::min((dynamic_friction_ * d) / delta_x_perp_len, 1.0f);
+					}
+
+					p1_delta_x -= (p1.inverse_mass / (p1.inverse_mass + p2.inverse_mass)) * friction_delta_x;
 				}
 			}
 		}
@@ -784,7 +805,7 @@ namespace pmk
 				glm::vec3 p{ lambda * n };
 
 				// Record particle's change in position.
-				particle_delta_x += p * p1.inverse_mass;
+				p1_delta_x += p * p1.inverse_mass;
 
 				// Record rigid body's change in position and rotation.
 				// For now just overwrite previous rigid body collisions this particle had. So particle will currently only influence one rigid body per time step.
@@ -805,13 +826,15 @@ namespace pmk
 			++rb_idx;
 		}
 
-		return particle_delta_x;
+		return p1_delta_x;
 	}
 
 	std::vector<std::pair<float*, std::string>> GranularConstraint::GetParameters()
 	{
 		return {
 			{&compliance_, "Compliance"},
+			{&static_friction_, "Static friction"},
+			{&dynamic_friction_, "Dynamic friction"},
 		};
 	}
 

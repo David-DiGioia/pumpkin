@@ -110,10 +110,10 @@ namespace pmk
 
 			XPBDParticle xpbd_particle{
 				.key = {}, // Set later.
-				.position = pos,
 				.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
 				.physics_material_index = voxel_chunk_.Index(i).physics_material_index,
 				.s = {
+					.position = pos,
 					.predicted_position = pos,
 					.inverse_mass = {}, // Set later.
 				},
@@ -190,7 +190,7 @@ namespace pmk
 
 		{
 			ZoneScopedN("Generate mesh");
-			renderer_->CmdGenerateDynamicParticleMesh(ro_target, (const std::byte*)particles.data(), (uint32_t)particles.size(), offsetof(XPBDParticle, position), sizeof(XPBDParticle), mat_ranges);
+			renderer_->CmdGenerateDynamicParticleMesh(ro_target, (const std::byte*)particles.data(), (uint32_t)particles.size(), offsetof(XPBDParticle, s.position), sizeof(XPBDParticle), mat_ranges);
 		}
 
 #ifdef EDITOR_ENABLED
@@ -226,7 +226,9 @@ namespace pmk
 			}
 
 			XPBDParticle particle{
-				.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk_.IndexToCoordinate(i)),
+				.s = {
+					.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk_.IndexToCoordinate(i)),
+				},
 			};
 			dynamic_particles.push_back(particle);
 		}

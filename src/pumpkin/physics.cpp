@@ -24,6 +24,8 @@ namespace jsonkey
 	// Begin granular constraint.
 	const std::string GRANULAR_CONSTRAINT{ "granular_collision" };
 	const std::string GRANULAR_COMPLIANCE{ "granular_compliance" };
+	const std::string GRANULAR_STATIC_FRICTION{ "granular_static_friction" };
+	const std::string GRANULAR_DYNAMIC_FRICTION{ "granular_dynamic_friction" };
 	// End collision constraint.
 	// Begin rigid body constraint.
 	const std::string RIGID_BODY_CONSTRAINT{ "rigid_body" };
@@ -252,6 +254,8 @@ namespace pmk
 				nlohmann::json json_constraint{
 					{ jsonkey::CONSTRAINT_TYPE, jsonkey::GRANULAR_CONSTRAINT },
 					{ jsonkey::GRANULAR_COMPLIANCE, granular_constraint->compliance_ },
+					{ jsonkey::GRANULAR_STATIC_FRICTION, granular_constraint->static_friction_ },
+					{ jsonkey::GRANULAR_DYNAMIC_FRICTION, granular_constraint->dynamic_friction_ },
 				};
 
 				j[jsonkey::CONSTRAINTS] += json_constraint;
@@ -305,6 +309,8 @@ namespace pmk
 				SetConstraintType<GranularConstraint>(constraint_idx);
 				GranularConstraint* granular_constraint{ (GranularConstraint*)jacobi_constraints_.back() };
 				granular_constraint->compliance_ = json_constraint[jsonkey::GRANULAR_COMPLIANCE];
+				granular_constraint->static_friction_ = json_constraint[jsonkey::GRANULAR_STATIC_FRICTION];
+				granular_constraint->dynamic_friction_ = json_constraint[jsonkey::GRANULAR_DYNAMIC_FRICTION];
 			}
 			else if (constraint_type == jsonkey::RIGID_BODY_CONSTRAINT) {
 				SetConstraintType<RigidBodyConstraint>(constraint_idx);

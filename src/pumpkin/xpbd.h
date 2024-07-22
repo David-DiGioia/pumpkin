@@ -14,8 +14,9 @@
 namespace pmk
 {
 	// Bare essential members of particle needed for Solve() function. Stripped down to stay hot in the cache.
-	struct alignas(16) XPBDParticleStripped
+	struct alignas(32) XPBDParticleStripped
 	{
+		glm::vec3 position;           // Meters.
 		glm::vec3 predicted_position; // Meters.
 		float inverse_mass;           // Reciprocal kilograms.
 	};
@@ -24,13 +25,13 @@ namespace pmk
 	struct XPBDParticle
 	{
 		uint64_t key;       // Sort the particles optimally for lookup and for the cache.
-		glm::vec3 position; // Meters.
 		glm::vec3 velocity; // Meters per second.
 		uint8_t physics_material_index;
 
 		// XPBDParticle members to copy to XPBDParticle after sort.
 		struct
 		{
+			glm::vec3 position; // Meters.
 			glm::vec3 predicted_position; // Meters.
 			float inverse_mass;           // Reciprocal kilograms.
 		} s;
@@ -345,6 +346,8 @@ namespace pmk
 		friend class PhysicsContext;
 
 		float compliance_{ 0.0f };
+		float static_friction_{0.6f};
+		float dynamic_friction_{0.5f};
 	};
 
 }
