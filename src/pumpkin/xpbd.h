@@ -31,7 +31,7 @@ namespace pmk
 		// XPBDParticle members to copy to XPBDParticle after sort.
 		struct
 		{
-			glm::vec3 position; // Meters.
+			glm::vec3 position;           // Meters.
 			glm::vec3 predicted_position; // Meters.
 			float inverse_mass;           // Reciprocal kilograms.
 		} s;
