@@ -518,10 +518,8 @@ namespace pmk
 		ZoneScoped;
 		for (uint32_t i{ 0 }; i < (uint32_t)particles_.size(); ++i)
 		{
-			particles_stripped_[i].position = particles_[i].s.position;
 			particles_stripped_[i].predicted_position = particles_[i].s.predicted_position;
 #if GAUSS_SEIDEL_WITHIN_CHUNK
-			particles_scratch_[i].position = particles_[i].s.position;
 			particles_scratch_[i].predicted_position = particles_[i].s.predicted_position;
 #endif
 		}
@@ -750,21 +748,63 @@ namespace pmk
 
 				if (distance2 < PARTICLE_WIDTH_SQUARED)
 				{
+					// Collision.
 					float distance{ std::sqrtf(distance2) };
 					float c{ distance - PARTICLE_WIDTH };
-
 					glm::vec3 delta_c1{ diff / distance };
 
 					float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
 					float d{ lambda * p1.inverse_mass };
 					p1_delta_x += d * delta_c1;
-					glm::vec3 p2_delta_x{ -d * delta_c1 };
+				}
+			}
+		}
 
+		// tmp:
+		for (uint32_t range_start : start_of_ranges)
+		{
+			if (range_start == NULL_INDEX) {
+				continue;
+			}
+
+			uint64_t current_key{ particle_keys[range_start] };
+			for (uint32_t p2_idx{ range_start }; p2_idx < (uint32_t)particle_keys.size() && particle_keys[p2_idx] == current_key; ++p2_idx)
+			{
+				if (p2_idx == particle_idx) {
+					continue;
+				}
+
+#if GAUSS_SEIDEL_WITHIN_CHUNK
+				bool p2_in_chunk{ (p2_idx >= chunk_begin && p2_idx < chunk_end) };
+				const XPBDParticleStripped& p2{ p2_in_chunk ? particles_scratch[p2_idx] : particles_stripped[p2_idx] }; // Guass-seidel if in chunk, Jacobi if not.
+#else
+				const XPBDParticleStripped& p2{ particles_stripped[p2_idx] };
+#endif
+				glm::vec3 diff{ p1.predicted_position - p2.predicted_position };
+				float distance2{ glm::length2(diff) };
+
+				if (distance2 == 0.0f)
+				{
+					diff = glm::vec3{ 0.0f, 0.0001f, 0.0f };
+					distance2 = glm::length2(diff);
+				}
+
+				if (distance2 < PARTICLE_WIDTH_SQUARED)
+				{
+					// Collision.
+					float distance{ std::sqrtf(distance2) };
+					float c{ distance - PARTICLE_WIDTH };
+					glm::vec3 delta_c1{ diff / distance };
+
+					float lambda{ -c / (p1.inverse_mass + p2.inverse_mass + compliance_term) }; // Magnitude of gradients are 1.0, so they're not written here.
+					float d{ lambda * p1.inverse_mass };
+
+					// Friction.
+					glm::vec3 p2_delta_x{ -d * delta_c1 };
 					glm::vec3 p1_pred_position{ p1.predicted_position + p1_delta_x };
 					glm::vec3 p2_pred_position{ p2.predicted_position + p2_delta_x };
 					glm::vec3 delta_x_perp{ (p1_pred_position - p1.position) - (p2_pred_position - p2.position) };
 
-					//glm::vec3 perp_direction{0.0f, 1.0f, 0.0f};
 					glm::vec3 perp_direction{ delta_c1 };
 					delta_x_perp = delta_x_perp - glm::dot(delta_x_perp, perp_direction) * perp_direction; // Subtract component in delta_c1 direction to get perpendicular vector.
 
@@ -775,10 +815,11 @@ namespace pmk
 						friction_delta_x = delta_x_perp * std::min((dynamic_friction_ * d) / delta_x_perp_len, 1.0f);
 					}
 
-					p1_delta_x -= (p1.inverse_mass / (p1.inverse_mass + p2.inverse_mass)) * friction_delta_x;
+					p1_delta_x -= (p1.inverse_mass / (p1.inverse_mass + p2.inverse_mass + compliance_term)) * friction_delta_x;
 				}
 			}
 		}
+
 
 		// TODO: Don't iterate over all rigid bodies.
 		// Detect rigid body collisions.
