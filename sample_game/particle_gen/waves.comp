@@ -1,0 +1,47 @@
+#version 450
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_EXT_scalar_block_layout : enable
+
+/* Do not modify this UBO. These are built in descriptors from the engine. */
+layout (set = 0, binding = 0) uniform BuiltInUBO
+{
+    ivec3 chunk_coordinate;
+} built_in_ubo;
+
+/* Modify this UBO to be able to set parameters through the UI. */
+layout (set = 0, binding = 1, scalar) uniform CustomUBO
+{
+    float size;
+    float height;
+} ubo;
+
+struct StaticParticle
+{
+    uint8_t type;
+};
+
+layout(set = 0, binding = 2) writeonly buffer ParticleBufferOut {
+   StaticParticle particles_out[];
+};
+
+layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+const uint8_t PARTICLE_TYPE_EMPTY = uint8_t(0xFF);
+const uint8_t PARTICLE_TYPE_SAND = uint8_t(0);
+
+uint IndexFromCoordinate(uvec3 coord)
+{
+    uint global_x_size = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+    uint global_y_size = gl_NumWorkGroups.y * gl_WorkGroupSize.y;
+    return coord.x + coord.y * global_x_size + coord.z * global_x_size * global_y_size;
+}
+
+void main() 
+{
+    uvec3 coord = gl_GlobalInvocationID.xyz;
+    uint index = IndexFromCoordinate(coord);
+
+    float f = (sin(float(coord.x) / ubo.size) + 1.0) * ubo.height;
+
+    particles_out[index].type = (float(coord.y) < f) ? PARTICLE_TYPE_SAND : PARTICLE_TYPE_EMPTY;
+}

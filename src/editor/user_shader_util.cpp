@@ -270,6 +270,7 @@ bool UniformBuffer::DrawGui(float alignment)
 	{
 		void* ptr{ &uniform_buffer_[member.offset] };
 
+		ImGui::PushID(member.offset);
 		ImGui::Text(member.name.c_str());
 		ImGui::SameLine(alignment);
 
@@ -306,6 +307,7 @@ bool UniformBuffer::DrawGui(float alignment)
 		case MemberType::MAT4:
 			break;
 		}
+		ImGui::PopID();
 	}
 
 	ImGui::PopID();
