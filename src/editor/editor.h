@@ -286,10 +286,6 @@ public:
 	// path: The path relative to the assets folder.
 	void ImportGLTF(const std::filesystem::path& path);
 
-	// Will create node and material if necessary, and invokes arbitrary particle generation function.
-	// Returns number of voxels generated.
-	uint32_t GenerateVoxels(std::function<uint32_t()> particle_gen_func);
-
 	// Returns number of voxels generated.
 	uint32_t GenerateVoxels();
 

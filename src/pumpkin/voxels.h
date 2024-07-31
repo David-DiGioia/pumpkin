@@ -8,6 +8,7 @@
 #include "pipeline.h"
 #include "xpbd.h"
 #include "vulkan_renderer.h"
+#include "terrain.h"
 
 namespace pmk
 {
@@ -18,6 +19,7 @@ namespace pmk
 	{
 	public:
 		void Initialize(
+			Node* xpbd_node,
 			renderer::VulkanRenderer* renderer,
 			const std::vector<XPBDConstraint*>* jacobi_constraints,
 			const std::vector<PhysicsMaterial*>* physics_materials);
@@ -30,23 +32,17 @@ namespace pmk
 
 		void DisablePhysicsUpdate();
 
-		void ResetParticles();
-
 		bool GetPhysicsUpdateEnabled() const;
 
 		bool GetParticlesEmpty() const;
 
-		uint32_t GenerateVoxelsOnNode(Node* node);
-
-		void TransferStaticParticlesToXPBD();
+		void GenerateVoxels();
 
 		XPBDParticleContext* GetXPBDContext();
 
 		renderer::VoxelChunk& GetVoxelChunk();
 
 		void UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials);
-
-		void DestroyVoxelRenderObject();
 
 		void GenerateDynamicMesh();
 
@@ -72,7 +68,8 @@ namespace pmk
 		uint32_t generated_voxel_count_{}; // The current number of non-empty voxels generated.
 		XPBDParticleContext xpbd_context_{};
 		renderer::VulkanRenderer* renderer_{};
-		Node* particle_node_{};
+		Node* xpbd_node_{};
+		Terrain* terrain_{};
 		const std::vector<PhysicsMaterial*>* physics_materials_;
 		const std::vector<XPBDConstraint*>* jacobi_constraints_;
 	};

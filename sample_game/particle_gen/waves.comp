@@ -13,6 +13,7 @@ layout (set = 0, binding = 1, scalar) uniform CustomUBO
 {
     float size;
     float height;
+    float height_offset;
 } ubo;
 
 struct StaticParticle
@@ -41,7 +42,7 @@ void main()
     uvec3 coord = gl_GlobalInvocationID.xyz;
     uint index = IndexFromCoordinate(coord);
 
-    float f = (sin(float(coord.x) / ubo.size) + 1.0) * ubo.height;
+    float f = (sin(float(coord.x) / ubo.size) + 1.0) * ubo.height + ubo.height_offset;
 
     particles_out[index].type = (float(coord.y) < f) ? PARTICLE_TYPE_SAND : PARTICLE_TYPE_EMPTY;
 }

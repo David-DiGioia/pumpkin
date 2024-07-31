@@ -8,13 +8,17 @@
 namespace pmk
 {
 	void VoxelContext::Initialize(
+		Node* xpbd_node,
 		renderer::VulkanRenderer* renderer,
 		const std::vector<XPBDConstraint*>* jacobi_constraints,
 		const std::vector<PhysicsMaterial*>* physics_materials)
 	{
+		xpbd_node_ = xpbd_node;
 		renderer_ = renderer;
-		physics_materials_ = physics_materials;
 		jacobi_constraints_ = jacobi_constraints;
+		physics_materials_ = physics_materials;
+
+		xpbd_context_.Initialize(CHUNK_WIDTH, jacobi_constraints_, physics_materials_);
 	}
 
 	void VoxelContext::CleanUp()
@@ -32,24 +36,13 @@ namespace pmk
 
 	void VoxelContext::EnablePhysicsUpdate()
 	{
-		if (!has_played_)
-		{
-			has_played_ = true;
-			TransferStaticParticlesToXPBD();
-		}
+		has_played_ = true;
 		update_physics_ = true;
 	}
 
 	void VoxelContext::DisablePhysicsUpdate()
 	{
 		update_physics_ = false;
-	}
-
-	void VoxelContext::ResetParticles()
-	{
-		has_played_ = false;
-		DisablePhysicsUpdate();
-		GenerateStaticParticleMesh(particle_node_->render_object);
 	}
 
 	bool VoxelContext::GetPhysicsUpdateEnabled() const
@@ -62,68 +55,13 @@ namespace pmk
 		return (generated_voxel_count_ == 0) && xpbd_context_.GetParticles().empty();
 	}
 
-	uint32_t VoxelContext::GenerateVoxelsOnNode(Node* node)
+	void VoxelContext::GenerateVoxels()
 	{
 		if (renderer_->GetMaterials().empty()) {
 			renderer_->CreateDefaultMaterial();
 		}
 
-		particle_node_ = node;
-		renderer_->InvokeParticleGenShader(node->render_object, &voxel_chunk_.GetVoxels(), &voxel_chunk_.GetSideFlags());
-		ResetParticles();
-		renderer_->UpdateMaterials();
-
-		generated_voxel_count_ = 0;
-		for (uint32_t i{ 0 }; i < voxel_chunk_.VoxelCount(); ++i)
-		{
-			if (!voxel_chunk_.IsEmpty(i)) {
-				++generated_voxel_count_;
-			}
-		}
-		return generated_voxel_count_;
-	}
-
-	void VoxelContext::TransferStaticParticlesToXPBD()
-	{
-		uint32_t particle_count{ 0 };
-		for (uint32_t i{ 0 }; i < voxel_chunk_.VoxelCount(); ++i)
-		{
-			if (voxel_chunk_.IsEmpty(i)) {
-				continue;
-			}
-
-			++particle_count;
-		}
-
-		std::vector<XPBDParticle> xpbd_particles{};
-		xpbd_particles.reserve(particle_count);
-
-		uint32_t position_idx{ 0 };
-		for (uint32_t i{ 0 }; i < voxel_chunk_.VoxelCount(); ++i)
-		{
-			if (voxel_chunk_.IsEmpty(i)) {
-				continue;
-			}
-
-			glm::uvec3 coord{ voxel_chunk_.IndexToCoordinate(i) };
-			glm::vec3 pos{ PARTICLE_WIDTH * glm::vec3{ coord } };;
-
-			XPBDParticle xpbd_particle{
-				.key = {}, // Set later.
-				.velocity = glm::vec3{0.0f, 0.0f, 0.0f},
-				.physics_material_index = voxel_chunk_.Index(i).physics_material_index,
-				.s = {
-					.position = pos,
-					.predicted_position = pos,
-					.inverse_mass = {}, // Set later.
-				},
-				.debug_color = {}, // Set later.
-			};
-
-			xpbd_particles.push_back(xpbd_particle);
-		}
-
-		xpbd_context_.Initialize(std::move(xpbd_particles), CHUNK_WIDTH, jacobi_constraints_, physics_materials_);
+		terrain_->GenerateVoxels();
 	}
 
 	XPBDParticleContext* VoxelContext::GetXPBDContext()
@@ -144,18 +82,9 @@ namespace pmk
 		}
 	}
 
-	void VoxelContext::DestroyVoxelRenderObject()
-	{
-		if (particle_node_)
-		{
-			renderer_->QueueDestroyRenderObject(particle_node_->render_object);
-			particle_node_->render_object = renderer::NULL_HANDLE;
-		}
-	}
-
 	void VoxelContext::GenerateDynamicMesh()
 	{
-		GenerateDynamicParticleMesh(particle_node_->render_object, xpbd_context_.GetParticles());
+		GenerateDynamicParticleMesh(xpbd_node_->render_object, xpbd_context_.GetParticles());
 	}
 
 #ifdef EDITOR_ENABLED

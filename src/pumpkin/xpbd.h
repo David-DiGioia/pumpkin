@@ -54,172 +54,14 @@ namespace pmk
 	class XPBDParticleContext
 	{
 	public:
-		/*
-		* An iterator to reproduce the following behavior to iterate through nearby particles.
-		*
-		*	uint32_t particle_range_count{};
-		*	auto start_of_ranges{ context->GetParticleRangesWithinKernel(p->position, &particle_range_count) };
-		*	for (uint32_t i{ 0 }; i < particle_range_count; ++i)
-		*	{
-		*		uint32_t range_start{ start_of_ranges[i] };
-		*		uint32_t current_key{ particle_indices_[range_start].key };
-		*		for (uint32_t j{ range_start }; j < (uint32_t)particle_indices_.size() && particle_indices_[j].key == current_key; ++j)
-		*		{
-		*			const XPBDParticle& p{ particles_[particle_indices_[j].index] };
-		*			// Code using p here.
-		*		}
-		*	}
-		*/
-		template<typename DataType, typename DereferenceType>
-		class ParticleProximityIterator
-		{
-		public:
-			using difference_type = std::ptrdiff_t;
-			using value_type = DataType;
-
-			// Construct begin iterator.
-			ParticleProximityIterator(const XPBDParticleContext* context, const glm::vec3& position)
-				: context_{ context }
-				, particle_range_count_{}
-				, start_of_ranges_{ context->GetParticleRangesWithinKernel(position, &particle_range_count_) }
-				, i_{}
-				, current_key_{}
-				, j_{}
-			{
-				if (i_ < particle_range_count_)
-				{
-					uint32_t range_start = start_of_ranges_[i_];
-					current_key_ = context_->particles_[range_start].key;
-
-					j_ = range_start;
-					if (!ParticleInSameBlock()) {
-						j_ = NULL_INDEX;
-					}
-				}
-				else {
-					j_ = NULL_INDEX;
-				}
-			}
-
-			// Construct end iterator.
-			ParticleProximityIterator()
-				: context_{}
-				, particle_range_count_{}
-				, start_of_ranges_{}
-				, i_{}
-				, current_key_{}
-				, j_{ NULL_INDEX }
-			{
-			}
-
-			template <typename T = DereferenceType>
-			typename std::enable_if<std::is_same<T, uint32_t>::value, T>::type operator*() const
-			{
-				return j_;
-			}
-
-			template <typename T = DereferenceType>
-			typename std::enable_if<!std::is_same<T, uint32_t>::value, T&>::type operator*() const
-			{
-				return context_->particles_[j_];
-			}
-
-			ParticleProximityIterator& operator++()
-			{
-				++j_;
-				if (!ParticleInSameBlock())
-				{
-					++i_;
-					if (i_ >= particle_range_count_) {
-						j_ = NULL_INDEX;
-					}
-					else
-					{
-						uint32_t range_start = start_of_ranges_[i_];
-						current_key_ = context_->particles_[range_start].key;
-						j_ = range_start;
-					}
-				}
-				return *this;
-			}
-
-			ParticleProximityIterator operator++(int)
-			{
-				auto tmp = *this;
-				++*this;
-				return tmp;
-			}
-
-			bool operator==(const ParticleProximityIterator& other) const
-			{
-				return j_ == other.j_;
-			}
-
-			inline bool ParticleInSameBlock()
-			{
-				return j_ < context_->particles_.size() && context_->particles_[j_].key == current_key_;
-			}
-
-		protected:
-			const XPBDParticleContext* context_{};
-
-			uint32_t particle_range_count_{};
-			std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> start_of_ranges_{};
-			uint32_t i_{};
-			uint32_t current_key_{};
-			uint32_t j_{};
-		};
-
-		template <typename Context, typename DereferenceType>
-		class ParticleProximityContainer
-		{
-		public:
-			typedef ParticleProximityIterator<XPBDParticle, DereferenceType> iterator;
-			typedef ParticleProximityIterator<const XPBDParticle, DereferenceType> const_iterator;
-
-			ParticleProximityContainer(Context* context, const glm::vec3& position)
-				: context_{ context }
-				, position_{ position }
-			{
-			}
-
-			iterator begin() const
-			{
-				return iterator(context_, position_);
-			}
-
-			iterator end() const
-			{
-				return iterator();
-			}
-
-			const_iterator cbegin() const
-			{
-				return const_iterator(context_, position_);
-			}
-
-			const_iterator cend() const
-			{
-				return const_iterator();
-			}
-
-		public:
-			Context* context_{};
-			glm::vec3 position_{};
-		};
-
-		typedef ParticleProximityContainer<XPBDParticleContext, XPBDParticle> ProximityContainer;
-		typedef ParticleProximityContainer<const XPBDParticleContext, const XPBDParticle> ConstProximityContainer;
-		typedef ParticleProximityContainer<XPBDParticleContext, uint32_t> IndexProximityContainer;
-		typedef ParticleProximityContainer<const XPBDParticleContext, uint32_t> ConstIndexProximityContainer;
-
 		void Initialize(
-			std::vector<XPBDParticle>&& particles,
 			float chunk_width,
 			const std::vector<XPBDConstraint*>* jacobi_constraints,
 			const std::vector<PhysicsMaterial*>* physics_materials);
 
 		void CleanUp();
+
+		void AddParticles(std::vector<XPBDParticle>&& particles);
 
 		void SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context);
 
@@ -239,14 +81,6 @@ namespace pmk
 
 		RigidBodyParticleCollisionInfo& GetRigidBodyCollision(uint32_t particle_idx);
 
-		ProximityContainer GetParticlesByProximity(const glm::vec3& position);
-
-		ConstProximityContainer GetParticlesByProximity(const glm::vec3& position) const;
-
-		IndexProximityContainer GetParticleIndicesByProximity(const glm::vec3& position);
-
-		ConstIndexProximityContainer GetParticleIndicesByProximity(const glm::vec3& position) const;
-
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> GetParticleRangesWithinKernelSIMD(const glm::vec3& position) const;
 
 		std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> GetParticleRangesWithinKernel(const glm::vec3& position, uint32_t* out_block_count) const;
@@ -254,11 +88,6 @@ namespace pmk
 		const std::vector<std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL>>& GetCachedParticleRanges() const;
 
 	private:
-		friend ParticleProximityIterator<XPBDParticle, XPBDParticle>;
-		friend ParticleProximityIterator<XPBDParticle, uint32_t>;
-		friend ParticleProximityIterator<const XPBDParticle, const XPBDParticle>;
-		friend ParticleProximityIterator<const XPBDParticle, uint32_t>;
-
 		void ApplyForces(float delta_time);
 
 		void PrecomputeParticleRanges();

@@ -12,6 +12,8 @@
     "${CMAKE_CURRENT_SOURCE_DIR}/physics.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/physics.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/constraint.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/terrain.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/terrain.h"
 )
 
 add_library(Pumpkin "${SOURCES}")

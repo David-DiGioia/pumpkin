@@ -5,6 +5,7 @@
 #include <execution>
 #include <ranges>
 #include <thread>
+#include <iterator>
 #include <immintrin.h>  // header file for AVX2 intrinsics.
 #include "tracy/Tracy.hpp"
 #include "glm/gtx/norm.hpp"
@@ -20,6 +21,7 @@ namespace pmk
 	constexpr float GRID_SPACING{ PARTICLE_WIDTH };
 	constexpr float SPH_KERNEL_RADIUS{ GRID_SPACING };
 	constexpr float SPH_KERNEL_RADIUS_SQUARED{ SPH_KERNEL_RADIUS * SPH_KERNEL_RADIUS };
+	constexpr uint32_t MAX_PARTICLE_COUNT{ 65536 };
 
 #ifdef EDITOR_ENABLED
 	static glm::vec3 Heatmap(float val, float lower, float upper)
@@ -164,46 +166,51 @@ namespace pmk
 	}
 
 	void XPBDParticleContext::Initialize(
-		std::vector<XPBDParticle>&& particles,
 		float chunk_width,
 		const std::vector<XPBDConstraint*>* jacobi_constraints,
 		const std::vector<PhysicsMaterial*>* physics_materials)
 	{
-		particles_ = std::move(particles);
-		jacobi_constraints_ = jacobi_constraints;
-		physics_materials_ = physics_materials;
-		rb_collisions_.clear();
-		rb_collisions_.resize(particles_.size());
-		particle_keys_.clear();
-		particle_keys_.resize(particles_.size());
-		particle_ranges_.clear();
-		particle_ranges_.resize(particles_.size());
-		hash_table_.clear();
+		particles_.reserve(MAX_PARTICLE_COUNT);
+		rb_collisions_.reserve(MAX_PARTICLE_COUNT);
+		particle_keys_.reserve(MAX_PARTICLE_COUNT);
+		particle_ranges_.reserve(MAX_PARTICLE_COUNT);
 		hash_table_.resize(HASH_TABLE_SIZE, NULL_INDEX);
 
+		jacobi_constraints_ = jacobi_constraints;
+		physics_materials_ = physics_materials;
+
 		// Create cache optimal particles.
-		particles_stripped_ = static_cast<XPBDParticleStripped*>(::operator new[](particles_.size() * sizeof(XPBDParticleStripped), std::align_val_t{ CL_SIZE }));
+		particles_stripped_ = static_cast<XPBDParticleStripped*>(::operator new[](MAX_PARTICLE_COUNT * sizeof(XPBDParticleStripped), std::align_val_t{ CL_SIZE }));
 #if GAUSS_SEIDEL_WITHIN_CHUNK
-		particles_scratch_ = static_cast<XPBDParticleStripped*>(::operator new[](particles_.size() * sizeof(XPBDParticleStripped), std::align_val_t{ CL_SIZE }));
+		particles_scratch_ = static_cast<XPBDParticleStripped*>(::operator new[](MAX_PARTICLE_COUNT * sizeof(XPBDParticleStripped), std::align_val_t{ CL_SIZE }));
 #endif
 
 		float particle_width = chunk_width / CHUNK_ROW_VOXEL_COUNT;
 		particle_radius_ = 0.5f * particle_width;
 		particle_initial_volume_ = particle_width * particle_width * particle_width;
-
-		// Initialize particle mass and index buffer.
-		for (XPBDParticle& p : particles_)
-		{
-			p.s.inverse_mass = 1.0f / (GetPhysicsMaterial(p)->density * particle_initial_volume_);
-			p.key = HashPosition(p.s.position);
-		}
-
-		UpdateIndexBuffers();
 	}
 
 	void XPBDParticleContext::CleanUp()
 	{
 		::operator delete[](particles_stripped_, std::align_val_t{ CL_SIZE });
+	}
+
+	void XPBDParticleContext::AddParticles(std::vector<XPBDParticle>&& particles)
+	{
+		if (particles.size() + particles_.size() > MAX_PARTICLE_COUNT) {
+			logger::Error("Too many active particles.\n");
+		}
+
+		// Initialize particle mass and index buffer.
+		for (XPBDParticle& p : particles)
+		{
+			p.s.inverse_mass = 1.0f / (GetPhysicsMaterial(p)->density * particle_initial_volume_);
+			p.key = HashPosition(p.s.position);
+		}
+
+		particles_.insert(particles_.end(), std::make_move_iterator(particles.begin()), std::make_move_iterator(particles.end()));
+
+		UpdateIndexBuffers();
 	}
 
 	void XPBDParticleContext::SimulateStep(float delta_time, const XPBDRigidBodyContext* rb_context)
@@ -348,26 +355,6 @@ namespace pmk
 
 				// In the future, internal forces like drag and vorticity will be applied here.
 			});
-	}
-
-	XPBDParticleContext::ProximityContainer XPBDParticleContext::GetParticlesByProximity(const glm::vec3& position)
-	{
-		return ProximityContainer(this, position);
-	}
-
-	XPBDParticleContext::ConstProximityContainer XPBDParticleContext::GetParticlesByProximity(const glm::vec3& position) const
-	{
-		return ConstProximityContainer(this, position);
-	}
-
-	XPBDParticleContext::IndexProximityContainer XPBDParticleContext::GetParticleIndicesByProximity(const glm::vec3& position)
-	{
-		return IndexProximityContainer(this, position);
-	}
-
-	XPBDParticleContext::ConstIndexProximityContainer XPBDParticleContext::GetParticleIndicesByProximity(const glm::vec3& position) const
-	{
-		return ConstIndexProximityContainer(this, position);
 	}
 
 	std::array<uint32_t, MAXIMUM_BLOCKS_IN_KERNEL> XPBDParticleContext::GetParticleRangesWithinKernelSIMD(const glm::vec3& position) const

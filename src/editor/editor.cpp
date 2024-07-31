@@ -624,7 +624,7 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 	}
 }
 
-uint32_t Editor::GenerateVoxels(std::function<uint32_t()> particle_gen_func)
+uint32_t Editor::GenerateVoxels()
 {
 	if (!particle_node_) {
 		particle_node_ = CreateNode("voxel_node");
@@ -636,7 +636,7 @@ uint32_t Editor::GenerateVoxels(std::function<uint32_t()> particle_gen_func)
 
 	// If there are no materials yet, renderer will generate one for the particles.
 	bool created_new_material{ materials_.empty() };
-	uint32_t particle_count{ particle_gen_func() };
+	uint32_t particle_count{ pumpkin_->GetScene().GenerateVoxelsOnNode(particle_node_->node) };
 	if (created_new_material)
 	{
 		renderer::Material* mat{ pumpkin_->GetMaterials().back() };
@@ -644,13 +644,6 @@ uint32_t Editor::GenerateVoxels(std::function<uint32_t()> particle_gen_func)
 	}
 
 	return particle_count;
-}
-
-uint32_t Editor::GenerateVoxels()
-{
-	return GenerateVoxels([&]() {
-		return pumpkin_->GetScene().GenerateVoxelsOnNode(particle_node_->node);
-		});
 }
 
 void Editor::PlayPhysicsSimulation()
