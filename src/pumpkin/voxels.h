@@ -19,7 +19,7 @@ namespace pmk
 	{
 	public:
 		void Initialize(
-			Node* xpbd_node,
+			Scene* scene,
 			renderer::VulkanRenderer* renderer,
 			const std::vector<XPBDConstraint*>* jacobi_constraints,
 			const std::vector<PhysicsMaterial*>* physics_materials);
@@ -34,13 +34,11 @@ namespace pmk
 
 		bool GetPhysicsUpdateEnabled() const;
 
-		bool GetParticlesEmpty() const;
-
 		void GenerateVoxels();
 
 		XPBDParticleContext* GetXPBDContext();
 
-		renderer::VoxelChunk& GetVoxelChunk();
+		Node* GetXPBDNode();
 
 		void UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials);
 
@@ -55,21 +53,17 @@ namespace pmk
 
 		void GenerateDynamicParticleMesh(renderer::RenderObjectHandle ro_target, std::vector<XPBDParticle>& particles) const;
 
-		void GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target);
-
 		void GenerateDynamicDebugMPMParticleInstances() const;
 
-		renderer::VoxelChunk voxel_chunk_{ CHUNK_ROW_VOXEL_COUNT, CHUNK_ROW_VOXEL_COUNT, CHUNK_ROW_VOXEL_COUNT };
 		bool has_played_{}; // True if the particle simulation has been played yet.
 		bool update_physics_{};
 #ifdef EDITOR_ENABLED
 		bool generate_mpm_particle_instances_{};
 #endif
-		uint32_t generated_voxel_count_{}; // The current number of non-empty voxels generated.
 		XPBDParticleContext xpbd_context_{};
 		renderer::VulkanRenderer* renderer_{};
 		Node* xpbd_node_{};
-		Terrain* terrain_{};
+		Terrain terrain_{};
 		const std::vector<PhysicsMaterial*>* physics_materials_;
 		const std::vector<XPBDConstraint*>* jacobi_constraints_;
 	};

@@ -23,8 +23,7 @@ namespace pmk
 
 		void PhysicsUpdate(float delta_time);
 
-		// Returns list of node indices/IDs created (eg from rigid bodies).
-		std::vector<uint32_t> EnablePhysicsUpdate();
+		void EnablePhysicsUpdate();
 
 		void DisablePhysicsUpdate();
 
@@ -32,11 +31,9 @@ namespace pmk
 
 		bool GetPhysicsUpdateEnabled() const;
 
-		bool GetParticlesEmpty() const;
+		void GenerateVoxels();
 
-		uint32_t GenerateVoxelsOnNode(Node* node);
-
-		void TransferStaticParticlesToMPM();
+		Node* GetXPBDNode();
 
 		PhysicsMaterial* NewPhysicsMaterial();
 

@@ -406,7 +406,7 @@ void Editor::SaveProject() const
 
 	// Dump shader path and parameters.
 	j[jsonkey::PARTICLE_GEN_SHADER_INDEX] = particle_gen_shader_idx_;
-	j[jsonkey::PARTICLE_NODE_ID] = particle_node_ ? particle_node_->node->node_id : NULL_INDEX;
+	j[jsonkey::PARTICLE_NODE_ID] = voxel_node_ ? voxel_node_->node->node_id : NULL_INDEX;
 
 	for (EditorShader* shader : shaders_) {
 		j[jsonkey::SHADERS] += shader->ToJson();
@@ -497,7 +497,7 @@ ProjectLoadGuiInfo Editor::LoadProject(const std::filesystem::path& proj_dir)
 	// Load user shaders (eg particle gen shader).
 	uint32_t particle_node_id{ j[jsonkey::PARTICLE_NODE_ID] };
 	if (particle_node_id != NULL_INDEX) {
-		particle_node_ = node_map_[particle_node_id];
+		voxel_node_ = node_map_[particle_node_id];
 	}
 
 	for (auto& json_shader : j[jsonkey::SHADERS])
@@ -626,35 +626,36 @@ void Editor::ImportGLTF(const std::filesystem::path& path)
 
 uint32_t Editor::GenerateVoxels()
 {
-	if (!particle_node_) {
-		particle_node_ = CreateNode("voxel_node");
-	}
-
 	if (physics_materials_.empty()) {
 		NewPhysicsMaterial();
 	}
 
 	// If there are no materials yet, renderer will generate one for the particles.
 	bool created_new_material{ materials_.empty() };
-	uint32_t particle_count{ pumpkin_->GetScene().GenerateVoxelsOnNode(particle_node_->node) };
+	pumpkin_->GetScene().GenerateVoxels();
+
+	if (!voxel_node_) {
+		CreateNode(pumpkin_->GetScene().GetXPBDNode(), "xpbd_particles");
+	}
+
 	if (created_new_material)
 	{
 		renderer::Material* mat{ pumpkin_->GetMaterials().back() };
 		materials_.push_back(new EditorMaterial{ mat, "Voxels" });
 	}
 
-	return particle_count;
+	return 0;
 }
 
 void Editor::PlayPhysicsSimulation()
 {
-	std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
-	std::vector<uint32_t> nodes_created{ pumpkin_->GetScene().PlayPhysicsSimulation() };
+	pumpkin_->GetScene().PlayPhysicsSimulation();
 
 	// Rigid bodies get created when play is clicked.
-	for (uint32_t id : nodes_created) {
-		CreateNode(nodes[id], "rigid_body");
-	}
+	//std::vector<pmk::Node*>& nodes{ pumpkin_->GetScene().GetNodes() };
+	//for (uint32_t id : nodes_created) {
+	//	CreateNode(nodes[id], "rigid_body");
+	//}
 }
 
 void Editor::PausePhysicsSimulation()
@@ -680,7 +681,8 @@ bool Editor::GetPhysicsSimulationEnabled() const
 
 bool Editor::GetParticleSimulationEmpty() const
 {
-	return pumpkin_->GetScene().GetParticleSimulationEmpty();
+	//return pumpkin_->GetScene().GetParticleSimulationEmpty();
+	return false; // TODO. Fix this.
 }
 
 void Editor::SetMultiselect(bool multiselect)
@@ -1253,7 +1255,7 @@ void Editor::UpdateSelectionOutlines()
 
 void Editor::UpdateParticleOverlayRenderObject()
 {
-	if (active_selection_node_ == particle_node_)
+	if (active_selection_node_ == voxel_node_)
 	{
 		renderer::RenderObjectHandle render_object{ active_selection_node_->node->render_object };
 		pumpkin_->SetParticleOverlay(render_object);
@@ -1262,22 +1264,22 @@ void Editor::UpdateParticleOverlayRenderObject()
 
 void Editor::UpdateParticleOverlayEnabled()
 {
-	if (particle_node_ && particle_node_->node->render_object == renderer::NULL_HANDLE) {
+	if (voxel_node_ && voxel_node_->node->render_object == renderer::NULL_HANDLE) {
 		return;
 	}
 
-	if (active_selection_node_ && active_selection_node_ == particle_node_)
+	if (active_selection_node_ && active_selection_node_ == voxel_node_)
 	{
 		bool show_particle_colors{ particle_color_mode_ != ParticleColorMode::FINAL_SHADING };
 		bool particles_hidden{ particle_color_mode_ == ParticleColorMode::HIDDEN };
 		bool need_particle_depth{ (show_particle_grid_ || show_particle_colors) && use_particle_depth_ };
 		pumpkin_->SetParticleOverlayEnabled(show_particle_grid_, (need_particle_depth || show_particle_colors) && !particles_hidden, use_particle_depth_);
-		pumpkin_->SetRenderObjectVisible(particle_node_->node->render_object, particle_color_mode_ != ParticleColorMode::HIDDEN);
+		pumpkin_->SetRenderObjectVisible(voxel_node_->node->render_object, particle_color_mode_ != ParticleColorMode::HIDDEN);
 	}
 	else {
 		pumpkin_->SetParticleOverlayEnabled(false, false, false);
-		if (particle_node_) {
-			pumpkin_->SetRenderObjectVisible(particle_node_->node->render_object, true);
+		if (voxel_node_) {
+			pumpkin_->SetRenderObjectVisible(voxel_node_->node->render_object, true);
 		}
 	}
 }

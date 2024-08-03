@@ -242,18 +242,14 @@ namespace pmk
 		renderer_->UpdateMaterials();
 	}
 
-	uint32_t Scene::GenerateVoxelsOnNode(Node* node)
+	void Scene::GenerateVoxels()
 	{
-		if (node->render_object == renderer::NULL_HANDLE) {
-			AddRenderObjectToNode(node, renderer_->CreateBlankRenderObject());
-		}
-
-		return physics_context_.GenerateVoxelsOnNode(node);
+		physics_context_.GenerateVoxels();
 	}
 
-	std::vector<uint32_t> Scene::PlayPhysicsSimulation()
+	void Scene::PlayPhysicsSimulation()
 	{
-		return physics_context_.EnablePhysicsUpdate();
+		physics_context_.EnablePhysicsUpdate();
 	}
 
 	void Scene::PausePhysicsSimulation()
@@ -271,11 +267,6 @@ namespace pmk
 		return physics_context_.GetPhysicsUpdateEnabled();
 	}
 
-	bool Scene::GetParticleSimulationEmpty() const
-	{
-		return physics_context_.GetParticlesEmpty();
-	}
-
 	void Scene::SetParticleOverlayEnabled(bool rasterize_particles)
 	{
 		physics_context_.SetMPMDebugParticleGenEnabled(rasterize_particles);
@@ -284,6 +275,11 @@ namespace pmk
 	void Scene::SetRigidBodyOverlayEnabled(bool enabled)
 	{
 		physics_context_.SetRigidBodyOverlayEnabled(enabled);
+	}
+
+	Node* Scene::GetXPBDNode()
+	{
+		return physics_context_.GetXPBDNode();
 	}
 
 	void Scene::UploadRenderObjectsRec(Node* root, const glm::mat4& parent_transform)

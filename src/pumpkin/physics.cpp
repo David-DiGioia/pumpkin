@@ -1,5 +1,7 @@
 #include "physics.h"
 
+#include "scene.h"
+
 namespace jsonkey
 {
 	const std::string PHYSICS_MATERIALS{ "physics_materials" };
@@ -39,7 +41,8 @@ namespace pmk
 	{
 		scene_ = scene;
 		renderer_ = renderer;
-		voxel_context_.Initialize(renderer, &jacobi_constraints_, &physics_materials_);
+
+		voxel_context_.Initialize(scene_, renderer, &jacobi_constraints_, &physics_materials_);
 		rigid_body_context_.Initialize(renderer, scene, &physics_materials_);
 	}
 
@@ -71,20 +74,9 @@ namespace pmk
 		}
 	}
 
-	std::vector<uint32_t> PhysicsContext::EnablePhysicsUpdate()
+	void PhysicsContext::EnablePhysicsUpdate()
 	{
-		bool voxel_chunk_empty{};
-		std::vector<uint32_t> node_ids{ rigid_body_context_.CreateRigidBodiesByConnectedness(voxel_context_.GetVoxelChunk(), &voxel_chunk_empty) };
-		rigid_body_context_.EnablePhysicsUpdate();
-
-		if (voxel_chunk_empty) {
-			voxel_context_.DestroyVoxelRenderObject();
-		}
-		else {
-			voxel_context_.EnablePhysicsUpdate();
-		}
-		UpdatePhysicsRenderMaterials();
-		return node_ids;
+		voxel_context_.EnablePhysicsUpdate();
 	}
 
 	void PhysicsContext::DisablePhysicsUpdate()
@@ -96,7 +88,7 @@ namespace pmk
 	void PhysicsContext::Reset()
 	{
 		rigid_body_context_.ResetRigidBodies();
-		voxel_context_.ResetParticles();
+		//voxel_context_.ResetParticles();
 	}
 
 	bool PhysicsContext::GetPhysicsUpdateEnabled() const
@@ -104,19 +96,14 @@ namespace pmk
 		return voxel_context_.GetPhysicsUpdateEnabled() || rigid_body_context_.GetPhysicsUpdateEnabled();
 	}
 
-	bool PhysicsContext::GetParticlesEmpty() const
+	void PhysicsContext::GenerateVoxels()
 	{
-		return voxel_context_.GetParticlesEmpty();
+		voxel_context_.GenerateVoxels();
 	}
 
-	uint32_t PhysicsContext::GenerateVoxelsOnNode(Node* node)
+	Node* PhysicsContext::GetXPBDNode()
 	{
-		return voxel_context_.GenerateVoxelsOnNode(node);
-	}
-
-	void PhysicsContext::TransferStaticParticlesToMPM()
-	{
-		voxel_context_.TransferStaticParticlesToXPBD();
+		return voxel_context_.GetXPBDNode();
 	}
 
 	PhysicsMaterial* PhysicsContext::NewPhysicsMaterial()

@@ -8,17 +8,18 @@
 namespace pmk
 {
 	void VoxelContext::Initialize(
-		Node* xpbd_node,
+		Scene* scene,
 		renderer::VulkanRenderer* renderer,
 		const std::vector<XPBDConstraint*>* jacobi_constraints,
 		const std::vector<PhysicsMaterial*>* physics_materials)
 	{
-		xpbd_node_ = xpbd_node;
+		xpbd_node_ = scene->CreateNode();
 		renderer_ = renderer;
 		jacobi_constraints_ = jacobi_constraints;
 		physics_materials_ = physics_materials;
 
 		xpbd_context_.Initialize(CHUNK_WIDTH, jacobi_constraints_, physics_materials_);
+		terrain_.Initialize(scene, renderer, &xpbd_context_);
 	}
 
 	void VoxelContext::CleanUp()
@@ -50,10 +51,10 @@ namespace pmk
 		return update_physics_;
 	}
 
-	bool VoxelContext::GetParticlesEmpty() const
-	{
-		return (generated_voxel_count_ == 0) && xpbd_context_.GetParticles().empty();
-	}
+	//bool VoxelContext::GetParticlesEmpty() const
+	//{
+	//	return (generated_voxel_count_ == 0) && xpbd_context_.GetParticles().empty();
+	//}
 
 	void VoxelContext::GenerateVoxels()
 	{
@@ -61,7 +62,7 @@ namespace pmk
 			renderer_->CreateDefaultMaterial();
 		}
 
-		terrain_->GenerateVoxels();
+		terrain_.GenerateVoxels();
 	}
 
 	XPBDParticleContext* VoxelContext::GetXPBDContext()
@@ -69,17 +70,14 @@ namespace pmk
 		return &xpbd_context_;
 	}
 
-	renderer::VoxelChunk& VoxelContext::GetVoxelChunk()
+	Node* VoxelContext::GetXPBDNode()
 	{
-		return voxel_chunk_;
+		return xpbd_node_;
 	}
 
 	void VoxelContext::UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials)
 	{
-		renderer_->SetPhysicsToRenderMaterialMap(std::move(all_physics_render_materials));
-		if (particle_node_ && particle_node_->render_object != renderer::NULL_HANDLE) {
-			renderer_->UpdatePhysicsRenderMaterials(particle_node_->render_object);
-		}
+		terrain_.UpdatePhysicsRenderMaterials(std::move(all_physics_render_materials));
 	}
 
 	void VoxelContext::GenerateDynamicMesh()
@@ -129,17 +127,6 @@ namespace pmk
 #endif
 	}
 
-	void VoxelContext::GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target)
-	{
-		renderer_->GenerateStaticParticleMesh(ro_target, voxel_chunk_);
-
-#ifdef EDITOR_ENABLED
-		if (generate_mpm_particle_instances_) {
-			GenerateDynamicDebugMPMParticleInstances();
-		}
-#endif
-	}
-
 	std::vector<XPBDParticle> VoxelContext::VoxelsToParticles(const renderer::VoxelChunk& voxel_chunk) const
 	{
 		if (voxel_chunk.VoxelCount() == 0) {
@@ -156,7 +143,7 @@ namespace pmk
 
 			XPBDParticle particle{
 				.s = {
-					.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk_.IndexToCoordinate(i)),
+					.position = PARTICLE_WIDTH * glm::vec3(voxel_chunk.IndexToCoordinate(i)),
 				},
 			};
 			dynamic_particles.push_back(particle);
@@ -166,21 +153,23 @@ namespace pmk
 
 	void VoxelContext::GenerateDynamicDebugMPMParticleInstances() const
 	{
-		const std::vector<XPBDParticle>& particles{ has_played_ ? xpbd_context_.GetParticles() : VoxelsToParticles(voxel_chunk_) };
-		if (particles.empty()) {
-			return;
-		}
+		// TODO.
 
-		std::vector<renderer::XPBDDebugParticleInstance> xpbd_particle_instances(particles.size());
-
-		for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
-		{
-			xpbd_particle_instances[p].position = particles[p].s.predicted_position;
-			xpbd_particle_instances[p].velocity = particles[p].velocity;
-			xpbd_particle_instances[p].debug_color = particles[p].debug_color;
-			xpbd_particle_instances[p].inverse_mass = particles[p].s.inverse_mass;
-		}
-
-		renderer_->SetXPBDDebugParticleInstances(xpbd_particle_instances);
+		//const std::vector<XPBDParticle>& particles{ has_played_ ? xpbd_context_.GetParticles() : VoxelsToParticles(voxel_chunk_) };
+		//if (particles.empty()) {
+		//	return;
+		//}
+		//
+		//std::vector<renderer::XPBDDebugParticleInstance> xpbd_particle_instances(particles.size());
+		//
+		//for (uint32_t p{ 0 }; p < (uint32_t)particles.size(); ++p)
+		//{
+		//	xpbd_particle_instances[p].position = particles[p].s.predicted_position;
+		//	xpbd_particle_instances[p].velocity = particles[p].velocity;
+		//	xpbd_particle_instances[p].debug_color = particles[p].debug_color;
+		//	xpbd_particle_instances[p].inverse_mass = particles[p].s.inverse_mass;
+		//}
+		//
+		//renderer_->SetXPBDDebugParticleInstances(xpbd_particle_instances);
 	}
 }

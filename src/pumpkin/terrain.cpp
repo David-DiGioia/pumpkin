@@ -35,6 +35,11 @@ namespace pmk
 		}
 	}
 
+	Node* Chunk::GetNode()
+	{
+		return node_;
+	}
+
 	void Chunk::GenerateStaticParticleMesh(renderer::RenderObjectHandle ro_target)
 	{
 		renderer_->GenerateStaticParticleMesh(ro_target, rb_.voxel_chunk);
@@ -112,6 +117,20 @@ namespace pmk
 	{
 		for (Chunk& chunk : chunks_) {
 			chunk.GenerateVoxels();
+		}
+	}
+
+	void Terrain::UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials)
+	{
+		renderer_->SetPhysicsToRenderMaterialMap(std::move(all_physics_render_materials));
+
+		for (Chunk& chunk : chunks_)
+		{
+			Node* node{ chunk.GetNode() };
+
+			if (node && node->render_object != renderer::NULL_HANDLE) {
+				renderer_->UpdatePhysicsRenderMaterials(node->render_object);
+			}
 		}
 	}
 

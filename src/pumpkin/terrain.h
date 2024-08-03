@@ -1,12 +1,12 @@
 #pragma once
 
 #include "vulkan_renderer.h"
+#include "rigid_body.h"
 
 namespace pmk
 {
 	class Scene;
 	class Node;
-	class RigidBody;
 	class XPBDParticleContext;
 
 	class Chunk
@@ -17,6 +17,8 @@ namespace pmk
 		void CleanUp();
 
 		void GenerateVoxels();
+
+		Node* GetNode();
 
 	private:
 
@@ -41,6 +43,8 @@ namespace pmk
 		void CleanUp();
 
 		void GenerateVoxels();
+
+		void UpdatePhysicsRenderMaterials(std::vector<int>&& all_physics_render_materials);
 
 	private:
 		void CreateChunks();

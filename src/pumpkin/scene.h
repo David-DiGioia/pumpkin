@@ -94,12 +94,9 @@ namespace pmk
 		// out_names writes the names of the imported nodes in order, or is ignored if null.
 		void ImportGLTF(const std::filesystem::path& path, std::vector<std::string>* out_node_names, std::vector<std::string>* out_material_names);
 
-		// Generate particles and attach render object to specified node.
-		// Returns number of particles generated.
-		uint32_t GenerateVoxelsOnNode(Node* node);
+		void GenerateVoxels();
 
-		// Returns list of indices/IDs of nodes created (eg from rigid bodies).
-		std::vector<uint32_t> PlayPhysicsSimulation();
+		void PlayPhysicsSimulation();
 
 		void PausePhysicsSimulation();
 
@@ -107,11 +104,11 @@ namespace pmk
 
 		bool GetPhysicsSimulationEnabled() const;
 
-		bool GetParticleSimulationEmpty() const;
-
 		void SetParticleOverlayEnabled(bool rasterize_particles);
 
 		void SetRigidBodyOverlayEnabled(bool enabled);
+
+		Node* GetXPBDNode();
 
 		// Update all render objects transforms to reflect their containing node.
 		void UploadRenderObjects();
