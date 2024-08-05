@@ -522,6 +522,12 @@ ProjectLoadGuiInfo Editor::LoadProject(const std::filesystem::path& proj_dir)
 	return gui_info;
 }
 
+//todo:
+//
+//[] __root__ node when loading empty project
+//
+//[] Each chunk has rb size of 1x1x1
+
 void Editor::LoadNodeData(const nlohmann::json& j)
 {
 	// Load basic node data.

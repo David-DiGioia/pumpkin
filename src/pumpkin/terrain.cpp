@@ -136,7 +136,7 @@ namespace pmk
 
 	void Terrain::CreateChunks()
 	{
-		chunks_.resize(CHUNK_COUNT);
+		chunks_.reserve(CHUNK_COUNT);
 
 		for (uint32_t x{ 0 }; x < CHUNK_X_COUNT; ++x)
 		{
